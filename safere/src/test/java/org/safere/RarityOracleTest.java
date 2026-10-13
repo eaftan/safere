@@ -230,4 +230,35 @@ class RarityOracleTest {
     assertThat(pair.low2()).isEqualTo((byte) Ascii.toLowerCase(c2));
     assertThat(pair.high2()).isEqualTo((byte) Ascii.toUpperCase(c2));
   }
+
+  @Test
+  void charClassFrequencyScoreScoresByAsciiMembersOnly() {
+    CharClass asciiBracket = new CharClassBuilder().addRune('[').build();
+    CharClass mixedBracket = new CharClassBuilder().addRune('[').addRune(0xFF3B).build();
+    CharClass dot = new CharClassBuilder().addRune('.').build();
+    CharClass digits = new CharClassBuilder().addRange('0', '9').build();
+    CharClass purelyNonAscii = new CharClassBuilder().addRune(0xFF3B).addRune(0xFF3D).build();
+
+    assertThat(RarityOracle.charClassFrequencyScore(mixedBracket))
+        .isEqualTo(RarityOracle.charClassFrequencyScore(asciiBracket))
+        .isLessThan(RarityOracle.charClassFrequencyScore(dot))
+        .isLessThan(RarityOracle.charClassFrequencyScore(digits));
+    assertThat(RarityOracle.charClassFrequencyScore(purelyNonAscii)).isZero();
+    assertThat(
+            RarityOracle.charClassFrequencyScore(CharClassScanInfo.fromCharClass(purelyNonAscii)))
+        .isZero();
+
+    // Two non-ASCII members are ignored; a third, or a large range, makes the class unscorable.
+    CharClass twoNonAscii =
+        new CharClassBuilder().addRune('[').addRune(0xFF3B).addRune(0xFF3D).build();
+    CharClass threeNonAscii =
+        new CharClassBuilder().addRune('[').addRune(0xFF3B).addRune(0xFF3D).addRune(0x3010).build();
+    CharClass cjkRange = new CharClassBuilder().addRune('-').addRange(0x4E00, 0x9FFF).build();
+    assertThat(RarityOracle.charClassFrequencyScore(twoNonAscii))
+        .isEqualTo(RarityOracle.charClassFrequencyScore(asciiBracket));
+    assertThat(RarityOracle.charClassFrequencyScore(threeNonAscii)).isZero();
+    assertThat(RarityOracle.charClassFrequencyScore(cjkRange)).isZero();
+    assertThat(RarityOracle.charClassFrequencyScore(CharClassScanInfo.fromCharClass(cjkRange)))
+        .isZero();
+  }
 }

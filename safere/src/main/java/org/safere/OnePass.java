@@ -301,20 +301,17 @@ final class OnePass {
             }
           }
           case CHAR_CLASS -> {
-            // For each range in the character class, set transitions for overlapping classes.
+            // Ranges are sorted and disjoint, and buildBoundaries includes every range start
+            // and end + 1. Walk both ordered lists once: no equivalence class straddles a range
+            // endpoint, so its lower bound determines membership.
+            int cls = 0;
             for (int ri = 0; ri < ip.ranges.length; ri += 2) {
               int rLo = ip.ranges[ri];
               int rHi = ip.ranges[ri + 1];
-              for (int cls = 0; cls < numClasses; cls++) {
-                int classLo = boundaries[cls];
-                int classHi =
-                    (cls + 1 < boundaries.length)
-                        ? boundaries[cls + 1] - 1
-                        : Character.MAX_CODE_POINT;
-                if (rLo > classHi || rHi < classLo) {
-                  continue;
-                }
-
+              while (cls < numClasses && boundaries[cls] < rLo) {
+                cls++;
+              }
+              for (; cls < numClasses && boundaries[cls] <= rHi; cls++) {
                 int nextState = nodeMap[ip.out];
                 if (nextState == -1) {
                   if (tables.stateCount() >= maxStates) {

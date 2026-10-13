@@ -11,8 +11,10 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import java.util.Locale;
+import org.safere.Matcher;
 import org.safere.Pattern;
 import org.safere.Utf8Input;
+import org.safere.Utf8Matcher;
 
 public final class MatchFuzzer {
   private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -103,6 +105,7 @@ public final class MatchFuzzer {
     }
     // Append new consumers so existing corpus inputs retain their original interpretation.
     assertNullableFindInsideSurrogatePairMatchesJdk(data);
+    assertUnicodeIPrefixFindsMatchJdk(data);
   }
 
   private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
@@ -135,6 +138,34 @@ public final class MatchFuzzer {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
     if (pattern != null) {
       pattern.matcher(input).find(prefix.length() + 1);
+    }
+  }
+
+  private static void assertUnicodeIPrefixFindsMatchJdk(FuzzedDataProvider data) {
+    // Append this axis so existing corpus inputs keep their original consumer order. I/i sources
+    // match every member below on the JDK and under SafeRE's approved Unicode closure (#866).
+    String prefix = data.pickValue(List.of("A", "é", "Ж", ""));
+    String source = data.pickValue(List.of("I", "i"));
+    String target = data.pickValue(List.of("ı", "İ", "I", "i"));
+    String suffix = data.pickValue(List.of("", "B", "終"));
+    String literal = prefix + source + suffix;
+    String regex = data.consumeBoolean() ? "(" + literal + ")" : literal;
+    String input = "!" + prefix + target + suffix + "!";
+    int flags = data.consumeBoolean() ? CI_UCC : CI_U;
+    if (!java.util.regex.Pattern.compile(regex, flags).matcher(input).find()) {
+      throw new AssertionError("Unexpected JDK Unicode I prefix result for /" + regex + "/");
+    }
+    Pattern pattern = Pattern.compile(regex, flags);
+    Matcher stringMatcher = pattern.matcher(input);
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(bytes));
+    if (!stringMatcher.find()
+        || stringMatcher.start() != 1
+        || stringMatcher.end() != input.length() - 1
+        || !utf8Matcher.find()
+        || utf8Matcher.start() != 1
+        || utf8Matcher.end() != bytes.length - 1) {
+      throw new AssertionError("Unicode I prefix find divergence for /" + regex + "/ on " + input);
     }
   }
 

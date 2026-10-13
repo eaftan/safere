@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -668,7 +669,7 @@ public final class GraphemeClusterDivergenceSweep {
         case '"' -> result.append("\\\"");
         default -> {
           if (Character.isISOControl(c) || Character.isSurrogate(c)) {
-            result.append(String.format("\\u%04X", (int) c));
+            result.append(String.format(Locale.ROOT, "\\u%04X", (int) c));
           } else {
             result.append(c);
           }

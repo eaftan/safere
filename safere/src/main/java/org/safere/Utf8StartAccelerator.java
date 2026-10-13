@@ -73,8 +73,13 @@ sealed interface Utf8StartAccelerator {
       }
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
         Utf8StartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
-        // This wrapper does not retain the folded filter's per-search scan cursor.
-        if (inner instanceof UnicodeCaseInsensitiveLiteral) {
+        // This wrapper does not retain the folded filter's per-search scan cursor, and an optional
+        // single-character leading class before a non-ASCII inner class is faster in the UTF-8
+        // byte DFA than running an un-memoized scalar UTF-8 code-point scan plus inner DFA check.
+        if (inner instanceof UnicodeCaseInsensitiveLiteral
+            || (le.maxRepetition() == 1
+                && inner instanceof CharClass cc
+                && !cc.scanInfo().isAscii())) {
           yield null;
         }
         yield inner != null
@@ -545,7 +550,27 @@ sealed interface Utf8StartAccelerator {
     }
   }
 
-  record CharClass(CharClassScanInfo scanInfo) implements Utf8StartAccelerator {
+  // nonAsciiUtf8 is an internal precomputed UTF-8 byte sequence, never mutated or exposed.
+  @SuppressWarnings("ArrayRecordComponent")
+  record CharClass(CharClassScanInfo scanInfo, byte[] nonAsciiUtf8)
+      implements Utf8StartAccelerator {
+
+    CharClass(CharClassScanInfo scanInfo) {
+      this(scanInfo, nonAsciiUtf8(scanInfo));
+    }
+
+    private static byte[] nonAsciiUtf8(CharClassScanInfo scanInfo) {
+      if (scanInfo instanceof CharClassScanInfo.UnicodeSmallSet smallSet) {
+        char[] chars = smallSet.chars();
+        if (chars.length == 1) {
+          return String.valueOf(chars[0]).getBytes(StandardCharsets.UTF_8);
+        }
+        if (chars.length == 2 && chars[0] < 0x80 && chars[1] >= 0x80) {
+          return String.valueOf(chars[1]).getBytes(StandardCharsets.UTF_8);
+        }
+      }
+      return null;
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -557,6 +582,19 @@ sealed interface Utf8StartAccelerator {
         return fromIndex;
       }
       return switch (scanInfo) {
+        case CharClassScanInfo.UnicodeSmallSet smallSet when nonAsciiUtf8 != null -> {
+          char[] chars = smallSet.chars();
+          int length = scanner.length();
+          if (chars.length == 1) {
+            yield scanner.indexOfUtf8Sequence(nonAsciiUtf8, fromIndex, length);
+          }
+          int ascii = chars[0];
+          int first = scanner.indexOfAsciiOrNonAscii(ascii, fromIndex, length);
+          if (first < 0 || scanner.asciiAt(first) == ascii) {
+            yield first;
+          }
+          yield scanner.indexOfMixedPair(ascii, nonAsciiUtf8, first, length);
+        }
         case CharClassScanInfo.AsciiSmallSet smallSet -> {
           char[] chars = smallSet.chars();
           yield switch (chars.length) {

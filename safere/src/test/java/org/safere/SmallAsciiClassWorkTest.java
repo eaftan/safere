@@ -75,6 +75,47 @@ class SmallAsciiClassWorkTest {
     }
   }
 
+  @Test
+  void nonAsciiMembersKeepTheSameBound() {
+    // Mixed and all-non-ASCII pairs; the second member is absent or appears only at the end.
+    for (String members : new String[] {"[\uFF3B", "\u3010\uFF3B"}) {
+      CharClassScanInfo info = unicodeSmallSet(members);
+      assertThat(info).isInstanceOf(CharClassScanInfo.UnicodeSmallSet.class);
+      char present = members.charAt(1);
+      char other = members.charAt(0);
+      for (String noise : new String[] {"a", "\u00e9", "\u4e2d"}) {
+        for (int gap : new int[] {17, 65, 200, 5_000}) {
+          for (String suffix : new String[] {"", String.valueOf(other)}) {
+            int matches = 128;
+            String text = (noise.repeat(gap - 1) + present).repeat(matches) + suffix;
+            InputScanner scanner = new StringInputScanner(text);
+            long work =
+                WorkCounter.countForTesting(
+                    () -> {
+                      int from = 0;
+                      for (int i = 0; i < matches; i++) {
+                        int found = scanner.indexOfCharClass(info, from);
+                        assertThat(found).isEqualTo((i + 1) * gap - 1);
+                        from = found + 1;
+                      }
+                      assertThat(scanner.indexOfCharClass(info, from))
+                          .isEqualTo(suffix.isEmpty() ? -1 : text.length() - 1);
+                    });
+            assertThat(work)
+                .as("%s noise %s gap %s suffix '%s'", members, noise, gap, suffix)
+                .isLessThanOrEqualTo(2L * (2L * text.length() + 64L * (matches + 1)));
+          }
+        }
+      }
+    }
+  }
+
+  private static CharClassScanInfo unicodeSmallSet(String members) {
+    CharClassBuilder builder = new CharClassBuilder();
+    members.chars().forEach(builder::addRune);
+    return CharClassScanInfo.fromCharClass(builder.build());
+  }
+
   private static CharClassScanInfo smallSet(String members) {
     AsciiBitmap.Builder builder = new AsciiBitmap.Builder();
     for (int i = 0; i < members.length(); i++) {

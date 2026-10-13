@@ -11,7 +11,8 @@ import java.util.List;
 
 public final class EscapeSyntaxFuzzer {
 
-  private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "[", "[^"};
+  // "[\\t-" makes each escape the end of a class range.
+  private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "[", "[^", "[\\t-"};
   private static final String[] ESCAPES = {
     "\\0",
     "\\00",
@@ -51,7 +52,22 @@ public final class EscapeSyntaxFuzzer {
     "\\Qab\\E"
   };
   private static final String[] SUFFIXES = {
-    "", "$", "]", "*", "+", "?", "2*", "22*", "a", "-", "-z", "&&[a]"
+    "",
+    "$",
+    "]",
+    "*",
+    "+",
+    "?",
+    "2*",
+    "22*",
+    "a",
+    "-",
+    "-z",
+    "&&[a]",
+    "\\Q\\E-z",
+    " -z",
+    "- z",
+    "\\-z"
   };
   private static final List<String> INPUTS =
       List.of(
@@ -88,7 +104,14 @@ public final class EscapeSyntaxFuzzer {
     "\\c😀",
     "(?x)\\c\ta",
     "(?x)\\c#\na",
-    "[^\\c\uD800]"
+    "[^\\c\uD800]",
+    "[\\v-z]",
+    "[\\t-\\v]",
+    "[\\v\\Q\\E-z]",
+    "(?x)[\\v -z]",
+    "(?x)[\\v- z]",
+    "[\\v\\-z]",
+    "[\\t\\-\\v]"
   };
 
   @FuzzTest(maxDuration = "30s")

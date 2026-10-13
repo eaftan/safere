@@ -10,7 +10,16 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -32,6 +41,133 @@ class PatternInternalTest {
     assertThat(p2.canOnePassPrimary()).isTrue();
     assertThat(p2.canOnePassFind()).isFalse();
     assertThat(p2.canOnePassSubmatch()).isTrue();
+  }
+
+  @ParameterizedTest
+  @CsvSource({"[a-z]+ing, x running y, running", "(a?)+b, xxaab, aab"})
+  void concurrentFirstUseSharesReverseDfaProgram(String regex, String input, String match)
+      throws Exception {
+    Pattern pattern = Pattern.compile(regex);
+
+    int workers = 32;
+    CyclicBarrier start = new CyclicBarrier(workers);
+    var futures = new ArrayList<Future<List<Object>>>();
+    try (var executor = Executors.newFixedThreadPool(workers)) {
+      for (int worker = 0; worker < workers; worker++) {
+        futures.add(
+            executor.submit(
+                () -> {
+                  start.await();
+                  Prog reverseDfaProg = pattern.flatReverseDfaProg();
+                  Matcher matcher = pattern.matcher(input);
+                  assertThat(matcher.find()).isTrue();
+                  assertThat(matcher.group()).isEqualTo(match);
+                  return List.of(pattern.reverseProg(), reverseDfaProg, pattern.reverseDfaSetup());
+                }));
+      }
+      List<Object> shared = futures.getFirst().get();
+      for (Future<List<Object>> future : futures) {
+        List<Object> artifacts = future.get();
+        for (int i = 0; i < shared.size(); i++) {
+          assertThat(artifacts.get(i)).isSameAs(shared.get(i));
+        }
+      }
+    }
+  }
+
+  @Test
+  @Timeout(10)
+  void reverseDfaPreparationWaitsForInitializationLock() throws Exception {
+    Pattern pattern = Pattern.compile("((a?)+){2}b");
+    Regexp ast = pattern.ast();
+    List<Regexp> children = ast.subs;
+    AtomicInteger sourceReads = new AtomicInteger();
+    // Observe source-tree traversal without retaining or exposing Compiler.Prepared.
+    ast.subs =
+        new AbstractList<>() {
+          @Override
+          public Regexp get(int index) {
+            sourceReads.incrementAndGet();
+            return children.get(index);
+          }
+
+          @Override
+          public int size() {
+            return children.size();
+          }
+        };
+
+    FutureTask<Prog> result = new FutureTask<>(pattern::flatReverseDfaProg);
+    Thread worker = new Thread(result);
+    try {
+      synchronized (pattern) {
+        worker.start();
+        while (worker.isAlive() && worker.getState() != Thread.State.BLOCKED) {
+          Thread.sleep(1);
+        }
+        assertThat(worker.getState()).isEqualTo(Thread.State.BLOCKED);
+        assertThat(sourceReads.get()).isZero();
+      }
+      assertThat(result.get()).isNotNull();
+      assertThat(sourceReads.get()).isPositive();
+    } finally {
+      worker.join();
+    }
+  }
+
+  @Test
+  void onePassIsBuiltOnFirstUseWhenOnlyMatchesCanUseIt() {
+    Pattern pattern = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+
+    assertThat(pattern.matcher("on 2026-10-06").find()).isTrue();
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+
+    assertThat(pattern.matcher("2026-10-06").matches()).isTrue();
+    assertThat(pattern.onePassAnalyzed()).isTrue();
+    assertThat(pattern.canOnePassPrimary()).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"^[a-z]+@[a-z]+\\.com", "([a-z]+)@([a-z]+)\\.com"})
+  void onePassIsBuiltEagerlyWhenFindCanUseIt(String regex) {
+    assertThat(Pattern.compile(regex).onePassAnalyzed()).isTrue();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "\\d{4}-\\d{2}-\\d{2}, 2026-10-08",
+    "\\p{L}+\\s+\\p{Lu}\\p{Ll}*, john Smith",
+    "apple|banana|cherry, banana"
+  })
+  void concurrentFirstUseSharesOnePass(String regex, String input) throws Exception {
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+
+    int workers = 32;
+    CyclicBarrier start = new CyclicBarrier(workers);
+    var futures = new ArrayList<Future<OnePass>>();
+    try (var executor = Executors.newFixedThreadPool(workers)) {
+      for (int worker = 0; worker < workers; worker++) {
+        futures.add(
+            executor.submit(
+                () -> {
+                  start.await();
+                  OnePass onePass = pattern.onePass();
+                  assertThat(pattern.matcher(input).matches()).isTrue();
+                  assertThat(pattern.matcher(input + " tail").lookingAt()).isTrue();
+                  assertThat(pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8))).matches())
+                      .isTrue();
+                  return onePass;
+                }));
+      }
+      OnePass shared = futures.getFirst().get();
+      assertThat(shared).isNotNull();
+      for (Future<OnePass> future : futures) {
+        assertThat(future.get()).isSameAs(shared);
+      }
+      assertThat(pattern.onePass()).isSameAs(shared);
+    }
   }
 
   @Test
@@ -709,5 +845,27 @@ class PatternInternalTest {
     Pattern pattern = Pattern.compile(".*(" + spaces + ").*?(ee).*");
 
     assertThat(requiredLiteral(pattern)).isEqualTo(spaces);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "(?:[a&&b]\\X)|a+",
+        "(?:[a&&b]\\b{g})|a+",
+        "a+|(?:[a&&b]\\X)",
+        "a+|(?:[a&&b]\\b{g})"
+      })
+  void forwardDfaSupportsProgramsAfterUnreachableGraphemeInstructionsAreRemoved(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.prog().hasGraphemeSemantics()).isTrue();
+    assertThat(pattern.flatDfaProg().hasGraphemeSemantics()).isFalse();
+    assertThat(pattern.forwardDfaSupported()).isTrue();
+    assertThat(pattern.matcher("a".repeat(5_000)).matches()).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\\X|a+", "\\b{g}a+", "a+\\X"})
+  void forwardDfaRejectsLiveGraphemeInstructions(String regex) {
+    assertThat(Pattern.compile(regex).forwardDfaSupported()).isFalse();
   }
 }

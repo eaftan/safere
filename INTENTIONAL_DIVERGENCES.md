@@ -151,7 +151,8 @@ subset of patterns.
 Possessive modifiers over statically zero-width operands are not intentional
 divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
-`()*+`.
+`()*+`. The same holds for a counted repetition with no operand of its own, as in
+`{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
 
 ## Canonical Equivalence
 
@@ -247,6 +248,28 @@ boundary: characters <= 0xFF leak from `BitClass` into the outer match set (caus
 leak (so `[\u0100&&[a]&]` fails to match `\u0100`). SafeRE treats all Unicode code
 points uniformly according to boolean set algebra rather than reproducing JDK parser
 bugs and implementation accidents.
+
+## `\v` next to a Range Hyphen in Character Classes
+
+The JDK `Pattern` documentation defines `\v` as the vertical-whitespace class
+`[\n\x0B\f\r\x85\u2028\u2029]`. Inside a character class, though, the JDK
+reads `\v` as the single character U+000B (VERTICAL TAB) when the next character
+is `-` (after empty `\Q\E` quotes are removed), whether or not a range follows,
+and when `\v` ends a range. So `[\v-z]` means `[\x0B-z]`, `[\v-]` means
+`[\x0B-]`, and `[\t-\v]` means `[\t-\x0B]`. This rule is not in the Javadoc. It
+was kept for backward compatibility when `\v` became the vertical-whitespace
+class in JDK 8 ([JDK-7014640][jdk-7014640],
+[review thread][jdk-7014640-review]).
+
+[jdk-7014640]: https://bugs.openjdk.org/browse/JDK-7014640
+[jdk-7014640-review]: https://mail.openjdk.org/pipermail/core-libs-dev/2012-April/009986.html
+
+SafeRE rejects these spellings with `PatternSyntaxException` instead of copying
+the undocumented rule or silently treating `\v` as the class in a position where
+the JDK means something else. Use `\x0B` for U+000B, or escape the hyphen
+(`[\v\-z]`, `[\t\-\v]`) to keep `\v` as vertical whitespace. `\v` everywhere else,
+including `[\v]`, `[a\v]` and `(?x)[\v -z]` (whitespace before `-`), keeps its
+documented meaning and matches like the JDK.
 
 ## Quoting Constructs inside Comments
 
@@ -398,7 +421,9 @@ while OpenJDK 26.0.1 produces two, at `[0, 4)` and `[4, 6)`.
 The [JDK 26 Pattern specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
 defines `\X` and `\b{g}` in terms of Unicode extended grapheme clusters.
 SafeRE intentionally follows that specification rather than the observed JDK
-behavior, consistently with the unassigned-code-point policy above. This is
+behavior, consistently with the unassigned-code-point policy above.
+[JDK-8393247](https://bugs.openjdk.org/browse/JDK-8393247) fixes the JDK's GB11
+handling in JDK 28, so this difference applies to JDK 27 and earlier. This is
 not a limitation imposed by linear-time matching: the cached GB11 prefix is
 computed in one linear pass, with constant-time queries afterward.
 
@@ -406,7 +431,9 @@ computed in one linear pass, with constant-time queries afterward.
 pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
 `EmojiZwjGraphemeFuzzer` generates arbitrary sequences over a small grapheme-property
 alphabet and checks an independent rule-based reference instead of treating
-the JDK implementation as the oracle. This is scoped coverage, not a full
+the JDK implementation as the oracle. On JDK 28 and later,
+`EmojiZwjGraphemeJdkCompatibilityTest` also checks that SafeRE and the JDK agree
+on these cases. This is scoped coverage, not a full
 UAX #29 audit; the broader assessment is tracked in
 [#954](https://github.com/eaftan/safere/issues/954).
 

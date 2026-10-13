@@ -116,8 +116,11 @@ class EnginePathEquivalenceTest {
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
-    assertEquivalent(
-        "abc", "zzabcabc", EnginePathOptions.builder().literalFastPaths(false).build());
+    for (String regex : List.of("abc", "", "\\Qabc\\E", "(?:abc)")) {
+      for (String input : List.of("", "abc", "ab", "zzabcabc", "éabc😀")) {
+        assertEquivalent(regex, input, EnginePathOptions.builder().literalFastPaths(false).build());
+      }
+    }
   }
 
   @Test

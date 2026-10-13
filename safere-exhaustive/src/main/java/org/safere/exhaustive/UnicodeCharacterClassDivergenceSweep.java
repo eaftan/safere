@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 /** Offline differential sweep for Unicode predefined and POSIX character classes. */
 public final class UnicodeCharacterClassDivergenceSweep {
@@ -199,7 +200,7 @@ public final class UnicodeCharacterClassDivergenceSweep {
       object.addProperty("bucket", "regex=" + spec.regexCase().label());
       object.addProperty("regex", spec.regexCase().regex());
       object.addProperty("input", new String(Character.toChars(spec.codePoint())));
-      object.addProperty("codePoint", String.format("U+%04X", spec.codePoint()));
+      object.addProperty("codePoint", String.format(Locale.ROOT, "U+%04X", spec.codePoint()));
       object.addProperty("characterType", Character.getType(spec.codePoint()));
       object.addProperty("alphabetic", Character.isAlphabetic(spec.codePoint()));
       object.addProperty("jdkMatches", jdkMatches);

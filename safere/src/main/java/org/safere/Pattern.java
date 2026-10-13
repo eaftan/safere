@@ -110,8 +110,19 @@ public final class Pattern implements Serializable {
   private final String pattern;
   private final int flags;
   private final transient Prog prog;
-  private final transient Prog flatProg;
-  private final transient Prog flatDfaProg;
+
+  /**
+   * Flattened copies of {@link #prog} for the DFA. Built in the constructor unless the default
+   * {@code find()} runner never uses the forward DFA; then built on first use. Patterns with loop
+   * registers always build them eagerly, since that requires a separate compilation.
+   */
+  private transient volatile Prog flatProg;
+
+  private transient volatile Prog flatDfaProg;
+
+  /** Whether the forward DFA supports {@link #flatDfaProg()}, known without building it. */
+  private final transient boolean forwardDfaSupported;
+
   private final transient Regexp ast;
   private final transient AstAnalysis astAnalysis;
   private final transient String prefix;
@@ -147,9 +158,9 @@ public final class Pattern implements Serializable {
   private final transient RejectPrefilter rejectPrefilter;
 
   /**
-   * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
-   * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
-   * paying the OnePass BFS cost at compile time.
+   * OnePass analysis results, computed during construction when eligible analysis can support
+   * {@code find()} or capture extraction, otherwise on first request. Holds the OnePass automaton
+   * and derived flags ({@code canOnePassFind}, {@code canOnePassSubmatch}).
    */
   private transient volatile OnePassAnalysis onePassAnalysis;
 
@@ -161,22 +172,23 @@ public final class Pattern implements Serializable {
   private transient volatile boolean innerCapturesObserved;
 
   /**
-   * Lazily computed DFA equivalence-class setup for the forward program. Shared across all Matcher
-   * instances. Computed on first access to avoid paying the boundary-scan cost at compile time.
+   * DFA equivalence-class setup for the forward program, shared across all Matcher instances. Built
+   * during construction unless the default {@code find()} runner is a literal runner; then built on
+   * first request.
    */
   private transient volatile Dfa.Setup forwardDfaSetup;
 
   /**
-   * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
-   * paying the compilation cost for patterns that never need it (e.g., anchored patterns, patterns
-   * used only with {@code matches()} or {@code lookingAt()}).
+   * Reverse-compiled program for backward DFA matching. Computed on first use: only unanchored
+   * {@code find()} operations whose forward DFA search finds a match, and end-anchored searches
+   * over long inputs, need it.
    */
   private transient volatile Prog reverseProg;
 
   private transient volatile Prog flatReverseProg;
   private transient volatile Prog flatReverseDfaProg;
 
-  /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
+  /** DFA setup built once alongside the final {@link #flatReverseDfaProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /**
@@ -213,7 +225,7 @@ public final class Pattern implements Serializable {
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
 
-  /** Holder for lazily computed OnePass analysis results. */
+  /** Holder for OnePass analysis results. */
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {
     static final OnePassAnalysis DISABLED = new OnePassAnalysis(null, false, false, false);
@@ -223,6 +235,7 @@ public final class Pattern implements Serializable {
       String pattern,
       int flags,
       Prog prog,
+      Compiler.Prepared prepared,
       Regexp ast,
       AstAnalysis astAnalysis,
       MatchDescriptor matchDescriptor,
@@ -234,25 +247,10 @@ public final class Pattern implements Serializable {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
-    if (enginePathOptions.dfa()) {
-      this.flatProg = new Prog(prog);
-      this.flatProg.flatten();
-      this.flatProg.freeze();
-      if (prog.numLoopRegs() > 0) {
-        Prog dfaProg = Compiler.compileForDfa(ast);
-        if (dfaProg != null) {
-          this.flatDfaProg = new Prog(dfaProg);
-          this.flatDfaProg.flatten();
-          this.flatDfaProg.freeze();
-        } else {
-          this.flatDfaProg = this.flatProg;
-        }
-      } else {
-        this.flatDfaProg = this.flatProg;
-      }
-    } else {
-      this.flatProg = null;
-      this.flatDfaProg = null;
+    if (enginePathOptions.dfa() && prog.numLoopRegs() > 0) {
+      this.flatProg = prog.flattenedCopy();
+      Prog dfaProg = Compiler.compileForDfa(prepared, false);
+      this.flatDfaProg = dfaProg != null ? dfaProg.flattenedCopy() : this.flatProg;
     }
 
     this.ast = ast;
@@ -301,17 +299,24 @@ public final class Pattern implements Serializable {
             ? LiteralAlternation.compile(
                 ast, rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
             : null;
-    this.defaultPreparedMatchRunner = createPreparedRunner(false);
-    this.regionPreparedMatchRunner = createPreparedRunner(true);
-
-    // Eagerly compute analysis and setup to avoid latency spikes on first use.
+    // Eagerly prepare the artifacts that find() and group() may need, to avoid latency spikes on
+    // first use. Artifacts that only specific operations can use are built on first use instead.
     if (shouldEagerlyBuildOnePass()) {
       onePassAnalysis();
     }
-    forwardDfaSetup();
-    if (canUseReverseDfa()) {
-      flatReverseDfaProg();
+    this.defaultPreparedMatchRunner = createPreparedRunner(false);
+    this.regionPreparedMatchRunner = createPreparedRunner(true);
+    // Literal runners answer String find() without the forward DFA, so its program and setup
+    // are built on first use by another operation.
+    if (!(defaultPreparedMatchRunner instanceof Matcher.LiteralPreparedRunner
+        || defaultPreparedMatchRunner instanceof Matcher.LiteralAlternationPreparedRunner)) {
+      forwardDfaSetup();
     }
+    // Flattening removes unreachable instructions, so eager paths must inspect their actual
+    // prepared program. Only literal runners defer this work; their source has no grapheme or
+    // loop-register instructions, and therefore already establishes support.
+    Prog forwardProgram = flatDfaProg != null ? flatDfaProg : flatProg != null ? flatProg : prog;
+    this.forwardDfaSupported = enginePathOptions.dfa() && supportsForwardDfa(forwardProgram);
 
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
@@ -319,8 +324,17 @@ public final class Pattern implements Serializable {
     }
   }
 
+  private static boolean canUseLiteralPreparedRunner(
+      String literal, int numCaptures, EnginePathOptions enginePathOptions) {
+    return enginePathOptions.literalFastPaths() && literal != null && numCaptures == 1;
+  }
+
   private static MatchDescriptor extractMatchDescriptor(
-      Regexp metadataAst, Regexp sourceAst, int flags, Prog prog) {
+      Regexp metadataAst,
+      Regexp sourceAst,
+      int flags,
+      Prog prog,
+      EnginePathOptions enginePathOptions) {
     LiteralResult literalMatchResult = extractLiteralMatch(metadataAst);
     String literalMatch = literalMatchResult.literal();
     boolean literalFoldCase = literalMatchResult.foldCase();
@@ -328,7 +342,13 @@ public final class Pattern implements Serializable {
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     int minMatchLength = extractMinMatchLength(sourceAst);
-    ShiftDfa shiftDfa = ShiftDfa.compile(prog);
+    // A case-sensitive literal runner handles both String and UTF-8 without a ShiftDfa fallback.
+    // Folded literals can still use ShiftDfa through createLiteralFallbackRunner for UTF-8.
+    boolean literalSupersedesShiftDfa =
+        canUseLiteralPreparedRunner(literalMatch, prog.numCaptures(), enginePathOptions)
+            && !literalFoldCase;
+    ShiftDfa shiftDfa =
+        enginePathOptions.shiftDfa() && !literalSupersedesShiftDfa ? ShiftDfa.compile(prog) : null;
     if (literalMatch == null
         && singleCharClass == null
         && keywordAlternation == null
@@ -417,7 +437,8 @@ public final class Pattern implements Serializable {
     int effectiveFlags = effectiveFlags(flags);
     int parseFlags = toParseFlags(effectiveFlags);
     Regexp re = Parser.parse(regex, parseFlags);
-    Prog compiled = Compiler.compile(re);
+    Compiler.Prepared prepared = Compiler.prepare(re);
+    Prog compiled = Compiler.compile(prepared, false);
     if (compiled == null) {
       throw new PatternSyntaxException("compiled program too large", regex, -1);
     }
@@ -425,20 +446,23 @@ public final class Pattern implements Serializable {
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
     // simplification deliberately lowers away.
-    Regexp metadataAst = Simplifier.simplify(re);
+    Regexp metadataAst =
+        prepared.simplifiedSource() != null ? prepared.simplifiedSource() : Simplifier.simplify(re);
     if (metadataAst == null) {
       throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
     }
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
-    MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, re, flags, compiled);
+    MatchDescriptor matchDescriptor =
+        extractMatchDescriptor(metadataAst, re, flags, compiled, enginePathOptions);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
-    // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
+    // The constructor eagerly prepares the applicable engine analysis and setup.
     return new Pattern(
         regex,
         effectiveFlags,
         compiled,
+        prepared,
         re,
         astAnalysis,
         matchDescriptor,
@@ -531,12 +555,28 @@ public final class Pattern implements Serializable {
    */
   public boolean find(Utf8Input input) {
     ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
+    if (!canFindUtf8Directly()) {
+      return new Utf8Matcher(this, arrayInput).find();
+    }
     Utf8InputScanner scanner = arrayInput.scanner();
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
       return findWithDiagnostics(scanner);
     }
     return findWithoutDiagnostics(scanner);
+  }
+
+  /**
+   * Returns whether the matcher-free {@link #find(Utf8Input)} path can answer for this pattern.
+   *
+   * <p>That path is a short sequence of cheap checks followed by the forward first-match DFA, with
+   * the NFA only as the fallback when the DFA exceeds its budget. Patterns that DFA cannot answer
+   * (end anchors, grapheme semantics, loop registers) use the matcher instead, so they get its full
+   * strategy sequence, such as the reverse-first search for end-anchored patterns, rather than an
+   * NFA scan over the whole input.
+   */
+  private boolean canFindUtf8Directly() {
+    return !prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
   boolean findWithDiagnostics(Utf8InputScanner scanner) {
@@ -606,13 +646,11 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        return result.matched();
-      }
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      return result.matched();
     }
     return Nfa.search(
             prog,
@@ -684,19 +722,17 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      diagnostics.incrementForwardDfaSearchCount();
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        diagnostics.boundary(MatchStrategy.DFA);
-        return result.matched();
-      }
-      diagnostics.decision(
-          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+    diagnostics.incrementForwardDfaSearchCount();
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      diagnostics.boundary(MatchStrategy.DFA);
+      return result.matched();
     }
+    diagnostics.decision(
+        MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
     boolean matched =
         Nfa.search(
                 prog,
@@ -964,7 +1000,7 @@ public final class Pattern implements Serializable {
 
   private Matcher.PreparedMatchRunner createBasePreparedRunner(boolean regionActive) {
     String literal = matchDescriptor.literalMatch();
-    if (enginePathOptions.literalFastPaths() && literal != null && numGroups() == 0) {
+    if (canUseLiteralPreparedRunner(literal, prog.numCaptures(), enginePathOptions)) {
       return new Matcher.LiteralPreparedRunner(
           literal,
           matchDescriptor.literalFoldCase(),
@@ -1001,7 +1037,7 @@ public final class Pattern implements Serializable {
       return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
     }
 
-    if (enginePathOptions.onePass() && (canOnePassFind() || canOnePassPrimary())) {
+    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
       return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
     }
 
@@ -1031,7 +1067,7 @@ public final class Pattern implements Serializable {
       return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
     }
 
-    if (enginePathOptions.onePass() && (canOnePassFind() || canOnePassPrimary())) {
+    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
       return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
     }
 
@@ -1081,11 +1117,36 @@ public final class Pattern implements Serializable {
    * from warm DFA transitions.
    */
   Prog flatProg() {
-    return flatProg;
+    Prog p = flatProg;
+    if (p == null && enginePathOptions.dfa()) {
+      synchronized (this) {
+        p = flatProg;
+        if (p == null) {
+          p = prog.flattenedCopy();
+          flatProg = p;
+        }
+      }
+    }
+    return p;
   }
 
   Prog flatDfaProg() {
-    return flatDfaProg;
+    Prog p = flatDfaProg;
+    if (p == null && enginePathOptions.dfa()) {
+      // Only reached without loop registers, where the DFA program is the flattened program.
+      p = flatProg();
+      flatDfaProg = p;
+    }
+    return p;
+  }
+
+  /** Returns whether DFA paths implement every instruction in {@link #flatDfaProg()}. */
+  boolean forwardDfaSupported() {
+    return forwardDfaSupported;
+  }
+
+  private static boolean supportsForwardDfa(Prog p) {
+    return p != null && !p.hasGraphemeSemantics() && p.numLoopRegs() == 0;
   }
 
   Dfa forwardFirstMatchDfa() {
@@ -1093,7 +1154,7 @@ public final class Pattern implements Serializable {
     if (dfa == null) {
       dfa =
           new Dfa(
-              flatDfaProg,
+              flatDfaProg(),
               MAX_DFA_STATES,
               forwardDfaSetup(),
               false,
@@ -1109,7 +1170,7 @@ public final class Pattern implements Serializable {
     if (dfa == null) {
       dfa =
           new Dfa(
-              flatDfaProg,
+              flatDfaProg(),
               MAX_DFA_STATES,
               forwardDfaSetup(),
               true,
@@ -1137,37 +1198,40 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data
-   * race at worst computes twice, but the result is the same since all inputs are immutable.
+   * Returns the lazily computed OnePass analysis results. The volatile fast path serves initialized
+   * readers; the synchronized slow path prepares the analysis once under concurrent first use.
    */
   private OnePassAnalysis onePassAnalysis() {
     OnePassAnalysis analysis = onePassAnalysis;
     if (analysis == null) {
-      // Lazy quantifiers are excluded because OnePass returns leftmost-longest capture group
-      // boundaries, which differs from leftmost-first semantics for lazy groups. When hasLazy is
-      // true, neither canPrimary nor canSubmatch can use OnePass, so we can skip building OnePass.
-      if (astAnalysis.hasLazy() || prog.numCaptures() > OnePass.MAX_CAPTURE_GROUPS) {
-        analysis = OnePassAnalysis.DISABLED;
-      } else {
-        OnePass op = OnePass.build(prog);
-        // OnePass can be used as the primary matching engine (bypassing DFA entirely) when the
-        // pattern is non-nullable and has no lazy quantifiers. Nullable patterns (e.g., a*|c.)
-        // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
-        // with JDK's leftmost-first (biased) semantics for nullable alternations.
-        boolean canPrimary =
-            op != null
-                && op.search("", false, 0) == null
-                && !astAnalysis.hasNullableAlt()
-                && !prog.hasGraphemeSemantics();
-        // canFind is canPrimary restricted to anchored patterns (legacy flag).
-        boolean canFind = canPrimary && prog.anchorStart();
-        // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
-        // when captures need to be extracted from a known match range. Nullable patterns are safe
-        // here because match bounds are already known.
-        boolean canSubmatch = op != null;
-        analysis = new OnePassAnalysis(op, canPrimary, canFind, canSubmatch);
+      synchronized (this) {
+        analysis = onePassAnalysis;
+        if (analysis == null) {
+          // Skip OnePass for lazy quantifiers: its longest capture boundaries differ from their
+          // leftmost-first semantics. It also has a fixed limit on capture registers.
+          if (astAnalysis.hasLazy() || prog.numCaptures() > OnePass.MAX_CAPTURE_GROUPS) {
+            analysis = OnePassAnalysis.DISABLED;
+          } else {
+            OnePass op = OnePass.build(prog);
+            // OnePass can be used as the primary matching engine (bypassing DFA entirely) when the
+            // pattern is non-nullable and has no lazy quantifiers. Nullable patterns (e.g., a*|c.)
+            // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
+            // with JDK's leftmost-first (biased) semantics for nullable alternations.
+            boolean canPrimary =
+                op != null
+                    && op.search("", false, 0) == null
+                    && !astAnalysis.hasNullableAlt()
+                    && !prog.hasGraphemeSemantics();
+            // canFind is canPrimary restricted to anchored patterns (legacy flag).
+            boolean canFind = canPrimary && prog.anchorStart();
+            // Submatch extraction is anchored to known bounds (endMatch=true); nullable patterns
+            // are safe because those bounds are already known.
+            boolean canSubmatch = op != null;
+            analysis = new OnePassAnalysis(op, canPrimary, canFind, canSubmatch);
+          }
+          onePassAnalysis = analysis;
+        }
       }
-      onePassAnalysis = analysis;
     }
     return analysis;
   }
@@ -1193,7 +1257,28 @@ public final class Pattern implements Serializable {
    * {@link #canOnePassPrimary()} restricted to patterns anchored at the start.
    */
   boolean canOnePassFind() {
-    return onePassAnalysis().canFind();
+    return prog.anchorStart() && onePassAnalysis().canFind();
+  }
+
+  /**
+   * Returns whether {@link #canOnePassPrimary()} might be true. If OnePass has not been built, this
+   * uses only properties known without building it, so that choosing a prepared runner does not
+   * build OnePass; the runner checks {@link #canOnePassPrimary()} before using it.
+   */
+  private boolean mayOnePassPrimary() {
+    OnePassAnalysis analysis = onePassAnalysis;
+    if (analysis != null) {
+      return analysis.canPrimary();
+    }
+    return !astAnalysis.hasLazy()
+        && prog.numCaptures() <= OnePass.MAX_CAPTURE_GROUPS
+        && !astAnalysis.hasNullableAlt()
+        && !prog.hasGraphemeSemantics();
+  }
+
+  /** Returns whether the OnePass analysis has been computed. For tests. */
+  boolean onePassAnalyzed() {
+    return onePassAnalysis != null;
   }
 
   /**
@@ -1233,8 +1318,16 @@ public final class Pattern implements Serializable {
     return !prog.anchorStart() && !matchDescriptor.hasFindFastPath();
   }
 
+  /**
+   * Returns whether to build OnePass in the constructor. OnePass is built eagerly when {@code
+   * find()} can use it: directly for start-anchored patterns, and for capture extraction in {@code
+   * group()} when the pattern has capturing groups. For other patterns only {@code matches()} and
+   * {@code lookingAt()} can use it, so it is built on first use.
+   */
   private boolean shouldEagerlyBuildOnePass() {
-    return !astAnalysis.hasLazy() && !matchDescriptor.hasFindFastPath();
+    return !astAnalysis.hasLazy()
+        && !matchDescriptor.hasFindFastPath()
+        && (prog.anchorStart() || numGroups() > 0);
   }
 
   /**
@@ -1310,18 +1403,21 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the reverse-compiled program for backward DFA matching. The reverse program is compiled
-   * lazily on first access, since many patterns never need it (anchored patterns, patterns used
-   * only with {@code matches()} or {@code lookingAt()}, single-find workloads).
+   * Returns the reverse-compiled program for backward DFA matching, compiling it on first access.
    *
-   * <p>Thread-safe via volatile: benign data race at worst compiles twice, but {@link Prog} is
-   * effectively immutable once constructed.
+   * <p>Like the other lazily built artifacts, the volatile fast path serves initialized readers and
+   * the synchronized slow path builds the program once under concurrent first use.
    */
   Prog reverseProg() {
     Prog rp = reverseProg;
     if (rp == null) {
-      rp = Compiler.compile(ast, true);
-      reverseProg = rp;
+      synchronized (this) {
+        rp = reverseProg;
+        if (rp == null) {
+          rp = Compiler.compile(ast, true);
+          reverseProg = rp;
+        }
+      }
     }
     return rp;
   }
@@ -1329,13 +1425,15 @@ public final class Pattern implements Serializable {
   Prog flatReverseProg() {
     Prog frp = flatReverseProg;
     if (frp == null) {
-      Prog rp = reverseProg();
-      if (rp != null) {
-        frp = new Prog(rp);
-        frp.flatten();
-        frp.freeze();
-        reverseDfaSetup = Dfa.buildSetup(frp);
-        flatReverseProg = frp;
+      synchronized (this) {
+        frp = flatReverseProg;
+        if (frp == null) {
+          Prog rp = reverseProg();
+          if (rp != null) {
+            frp = rp.flattenedCopy();
+            flatReverseProg = frp;
+          }
+        }
       }
     }
     return frp;
@@ -1344,22 +1442,32 @@ public final class Pattern implements Serializable {
   Prog flatReverseDfaProg() {
     Prog frp = flatReverseDfaProg;
     if (frp == null) {
-      Prog rp = reverseProg();
-      if (rp != null) {
-        if (rp.numLoopRegs() > 0) {
-          Prog dfaRp = Compiler.compileForDfa(ast, true);
-          if (dfaRp != null) {
-            frp = new Prog(dfaRp);
-            frp.flatten();
-            frp.freeze();
-          } else {
-            frp = flatReverseProg();
+      // Build once, so that reverseDfaSetup always describes the published flatReverseDfaProg.
+      synchronized (this) {
+        frp = flatReverseDfaProg;
+        if (frp == null) {
+          // Prepare once under the lock rather than retaining the tree after construction.
+          Compiler.Prepared prepared = Compiler.prepare(ast);
+          Prog rp = reverseProg;
+          if (rp == null) {
+            rp = Compiler.compile(prepared, true);
+            reverseProg = rp;
           }
-        } else {
-          frp = flatReverseProg();
+          if (rp != null) {
+            if (rp.numLoopRegs() > 0) {
+              Prog dfaRp = Compiler.compileForDfa(prepared, true);
+              if (dfaRp != null) {
+                frp = dfaRp.flattenedCopy();
+              } else {
+                frp = flatReverseProg();
+              }
+            } else {
+              frp = flatReverseProg();
+            }
+            reverseDfaSetup = Dfa.buildSetup(frp);
+            flatReverseDfaProg = frp;
+          }
         }
-        reverseDfaSetup = Dfa.buildSetup(frp);
-        flatReverseDfaProg = frp;
       }
     }
     return frp;
@@ -1368,8 +1476,14 @@ public final class Pattern implements Serializable {
   Dfa.Setup forwardDfaSetup() {
     Dfa.Setup setup = forwardDfaSetup;
     if (setup == null) {
-      setup = Dfa.buildSetup(flatProg != null ? flatProg : prog);
-      forwardDfaSetup = setup;
+      synchronized (this) {
+        setup = forwardDfaSetup;
+        if (setup == null) {
+          Prog flat = flatProg();
+          setup = Dfa.buildSetup(flat != null ? flat : prog);
+          forwardDfaSetup = setup;
+        }
+      }
     }
     return setup;
   }
@@ -1541,7 +1655,7 @@ public final class Pattern implements Serializable {
     if (canOnePassSubmatch()) {
       capabilities.add(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
     }
-    if (flatDfaProg != null && !prog.hasGraphemeSemantics()) {
+    if (enginePathOptions.dfa() && !prog.hasGraphemeSemantics()) {
       if (prog.numLoopRegs() == 0) {
         capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
       } else {
