@@ -331,6 +331,25 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void absentRequiredLiteralRejectsBeforeUnboundedReverseWalk() {
+    Pattern.setDiagnostics(diagnostics);
+    Utf8Input input = input("x".repeat(20_000));
+    for (String regex : List.of("needle.*$", "needle[a-z]*\\z")) {
+      for (boolean existenceOnly : List.of(false, true)) {
+        Pattern pattern = Pattern.compile(regex);
+        assertThat(existenceOnly ? pattern.find(input) : pattern.matcher(input).find()).isFalse();
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                  assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                });
+      }
+    }
+  }
+
+  @Test
   void endAnchoredBooleanFindReportsReverseNarrowingAndExactVerification() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("終点😀$");

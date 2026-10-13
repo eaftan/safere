@@ -782,6 +782,61 @@ class DfaTest {
   }
 
   @Test
+  void reverseProbeReportsLiveFrontierAsInconclusive() {
+    String text = "x".repeat(10_000) + "abc";
+    for (InputScanner scanner :
+        List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+      Dfa reverse = Pattern.compile("(?s:.*)abc$").reverseDfa();
+      for (int pass = 0; pass < 2; pass++) {
+        Dfa.SearchResult probe =
+            reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, 64);
+        assertThat(probe).isNotNull();
+        assertThat(probe.scanLimitReached()).isTrue();
+        assertThat(reverse.lastSearchBailed()).isFalse();
+
+        Dfa.SearchResult full = reverse.doSearchReverse(scanner, scanner.length(), 0, true, true);
+        assertThat(full).isNotNull();
+        assertThat(full.scanLimitReached()).isFalse();
+        assertThat(full.matched()).isTrue();
+        assertThat(full.pos()).isZero();
+
+        Dfa.SearchResult existence =
+            reverse.doSearchReverse(scanner, scanner.length(), 0, true, false, 64);
+        assertThat(existence).isNotNull();
+        assertThat(existence.scanLimitReached()).isFalse();
+        assertThat(existence.matched()).isTrue();
+        assertThat(existence.pos()).isEqualTo(scanner.length() - 3);
+      }
+    }
+  }
+
+  @Test
+  void reverseProbeRetainsAssertionContextAndCodePointBoundaries() {
+    for (String prefix : List.of("x".repeat(1_024), "é😀".repeat(400), "x".repeat(1_024) + " ")) {
+      for (String tail : List.of("abc", "終点😀")) {
+        String text = prefix + tail;
+        for (InputScanner scanner :
+            List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+          for (String regex : List.of("\\b" + tail + "$", "\\B" + tail + "$", tail + "$")) {
+            Dfa reverse = Pattern.compile(regex).reverseDfa();
+            Dfa.SearchResult full =
+                reverse.doSearchReverse(scanner, scanner.length(), 0, true, true);
+            for (int limit = 0; limit <= 16; limit++) {
+              Dfa.SearchResult probe =
+                  reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, limit);
+              assertThat(probe).as("/%s/ limit %s", regex, limit).isNotNull();
+              assertThat(reverse.lastSearchBailed()).isFalse();
+              if (!probe.scanLimitReached()) {
+                assertThat(probe).as("/%s/ limit %s", regex, limit).isEqualTo(full);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void reverseDfaPreservesContextAtStartLimit() {
     for (String prefix : List.of("xy", "é", "€", "😀", "\n")) {
       String text = prefix + "a";

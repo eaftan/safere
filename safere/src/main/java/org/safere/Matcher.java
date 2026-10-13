@@ -1710,6 +1710,15 @@ public final class Matcher implements MatchResult {
     return applyFullMatchResult(result);
   }
 
+  private boolean verifyEndAnchoredStart(InputScanner scanner, int start) {
+    Prog prog = parentPattern.prog();
+    int[] exact =
+        searchWithBitStateOrNfa(
+            prog, scanner, start, start, scanner.length(), true, false, false, 1);
+    return exact != null
+        && applyDeferredMatchResult(start, exact[1], prog.numCaptures(), true, false);
+  }
+
   /**
    * Core find logic. When {@code regionActive} is true, the DFA sandwich with deferred captures is
    * disabled because resolveCaptures() would run on the full text with different empty-width
@@ -1745,30 +1754,18 @@ public final class Matcher implements MatchResult {
       }
     }
 
+    boolean endAnchoredDeferred = false;
     // End-anchored searches can identify candidate starts from the terminal endpoints. Do this
     // before prefix acceleration, which would otherwise scan an unrelated prefix on success.
     if (!regionActive) {
       int endAnchoredStart =
           parentPattern.endAnchoredSearchStart(scanner, searchFrom, true, diagnosticsAccumulator());
+      endAnchoredDeferred = endAnchoredStart == Pattern.END_ANCHORED_SEARCH_DEFERRED;
       if (endAnchoredStart == -1) {
         return applyFailedMatchResult();
       }
-      if (endAnchoredStart >= 0) {
-        int[] exact =
-            searchWithBitStateOrNfa(
-                prog,
-                scanner,
-                endAnchoredStart,
-                endAnchoredStart,
-                scanner.length(),
-                true,
-                false,
-                false,
-                1);
-        if (exact != null) {
-          return applyDeferredMatchResult(
-              endAnchoredStart, exact[1], prog.numCaptures(), true, false);
-        }
+      if (endAnchoredStart >= 0 && verifyEndAnchoredStart(scanner, endAnchoredStart)) {
+        return true;
       }
     }
 
@@ -1881,6 +1878,19 @@ public final class Matcher implements MatchResult {
             startPositionPreselected = true;
           }
         }
+      }
+    }
+
+    // Retry a deferred reverse probe only after rejection and start acceleration narrow its work.
+    if (endAnchoredDeferred) {
+      int endAnchoredStart =
+          parentPattern.endAnchoredSearchStart(
+              scanner, effectiveStart, true, diagnosticsAccumulator(), false);
+      if (endAnchoredStart == -1) {
+        return applyFailedMatchResult();
+      }
+      if (endAnchoredStart >= 0 && verifyEndAnchoredStart(scanner, endAnchoredStart)) {
+        return true;
       }
     }
 

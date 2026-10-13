@@ -84,6 +84,53 @@ class EndAnchoredSearchTest {
     }
   }
 
+  @Test
+  void unboundedEndAnchoredSearchPreservesResultsAcrossProbeBoundaries() {
+    for (String regex :
+        List.of(
+            "needle.*$",
+            "(needle)([a-z]*)\\z",
+            "(?:needle.*|x+)$",
+            "(?:needle|need).*?$",
+            "\\bneedle[a-z]*$",
+            "\\Bneedle[a-z]*$",
+            "(?m:^needle)[a-z]*\\z",
+            "(?s:.*)needle$")) {
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().reverseDfa(false).build(),
+              EnginePathOptions.builder().literalFastPaths(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (int gap : List.of(0, 1, 7, 63, 64, 65, 127, 511, 1_023)) {
+          for (String prefix : List.of("x".repeat(1_024), "é😀".repeat(400))) {
+            for (String body :
+                List.of(
+                    "x".repeat(gap),
+                    "needle" + "x".repeat(gap),
+                    "needle" + "x".repeat(gap) + "needle",
+                    "\nneedle" + "x".repeat(gap))) {
+              for (String terminator : List.of("", "\n", "\r\n")) {
+                String input = prefix + body + terminator;
+                byte[] bytes = input.getBytes(UTF_8);
+                byte[] storage = new byte[bytes.length + 7];
+                System.arraycopy(bytes, 0, storage, 3, bytes.length);
+                Utf8Input utf8 = Utf8Input.trusted(storage, 3, bytes.length);
+                assertThat(pattern.find(utf8))
+                    .as(
+                        "existence /%s/ with gap %s and prefix length %s",
+                        regex, gap, prefix.length())
+                    .isEqualTo(jdkPattern.matcher(input).find());
+                assertFindSequence(pattern, jdkPattern, input, utf8);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   private static void assertFindSequence(
       Pattern pattern, java.util.regex.Pattern jdkPattern, String input, Utf8Input utf8) {
     Matcher matcher = pattern.matcher(input);

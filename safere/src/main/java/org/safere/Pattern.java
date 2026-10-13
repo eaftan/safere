@@ -50,6 +50,8 @@ public final class Pattern implements Serializable {
 
   private static final long serialVersionUID = 1L;
   private static final int END_ANCHORED_SEARCH_FALLBACK = -2;
+  static final int END_ANCHORED_SEARCH_DEFERRED = -3;
+  private static final int MIN_END_ANCHORED_PROBE_UNITS = 64;
   // Short inputs retain the forward path to avoid reverse-search setup overhead.
   private static final int MIN_REVERSE_FIRST_LEN = 1024;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
@@ -654,6 +656,15 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
+    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, null, false);
+      if (endAnchoredStart == -1) {
+        return false;
+      }
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+        return true;
+      }
+    }
     if (!prog.anchorEnd()) {
       Dfa.SearchResult result =
           forwardFirstMatchDfa()
@@ -740,6 +751,16 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
+    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, diagnostics, false);
+      if (endAnchoredStart == -1) {
+        return false;
+      }
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+        diagnostics.boundary(MatchStrategy.NFA);
+        return true;
+      }
+    }
     if (!prog.anchorEnd()) {
       diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       diagnostics.incrementForwardDfaSearchCount();
@@ -773,15 +794,27 @@ public final class Pattern implements Serializable {
   /**
    * Proposes a start of an end-anchored search before any forward prefix scan. With {@code
    * leftmostStart}, scans for the leftmost start needed for spans; otherwise stops at the first
-   * accepted candidate for existence-only matching. Returns {@code -1} for a proven rejection or
-   * {@link #END_ANCHORED_SEARCH_FALLBACK} when ordinary search is required. A proposed start still
-   * requires exact matching; failure to verify it must fall back to ordinary search.
+   * accepted candidate for existence-only matching. Returns {@code -1} for a proven rejection,
+   * {@link #END_ANCHORED_SEARCH_DEFERRED} when the probe needs rejection and start acceleration
+   * before one full retry, or {@link #END_ANCHORED_SEARCH_FALLBACK} when ordinary search is
+   * required. A proposed start still requires exact matching; failure to verify it must fall back
+   * to ordinary search.
    */
   int endAnchoredSearchStart(
       InputScanner scanner,
       int searchFrom,
       boolean leftmostStart,
       DiagnosticAccumulator diagnostics) {
+    return endAnchoredSearchStart(scanner, searchFrom, leftmostStart, diagnostics, true);
+  }
+
+  /** A deferred probe may retry once after ordinary rejection and start acceleration. */
+  int endAnchoredSearchStart(
+      InputScanner scanner,
+      int searchFrom,
+      boolean leftmostStart,
+      DiagnosticAccumulator diagnostics,
+      boolean speculative) {
     if (!prog.anchorEnd()
         || scanner.length() < MIN_REVERSE_FIRST_LEN
         || !enginePathOptions.dfa()
@@ -810,16 +843,40 @@ public final class Pattern implements Serializable {
     if (reverse == null) {
       return END_ANCHORED_SEARCH_FALLBACK;
     }
+    // A literal run needs at most four UTF-8 units per consuming instruction. Leave a small
+    // minimum for short loops; exceeding the probe defers to ordinary start acceleration.
+    int probeUnits =
+        (int)
+            Math.min(
+                Integer.MAX_VALUE,
+                Math.max(MIN_END_ANCHORED_PROBE_UNITS, 4L * reverseProgram.size()));
+    return searchEndAnchoredStart(
+        reverse,
+        scanner,
+        searchFrom,
+        leftmostStart,
+        diagnostics,
+        speculative ? probeUnits : Integer.MAX_VALUE);
+  }
+
+  private int searchEndAnchoredStart(
+      Dfa reverse,
+      InputScanner scanner,
+      int searchFrom,
+      boolean leftmostStart,
+      DiagnosticAccumulator diagnostics,
+      int maxInputUnits) {
     if (diagnostics != null) {
       diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       diagnostics.incrementReverseDfaSearchCount();
     }
     int length = scanner.length();
     Dfa.SearchResult result =
-        reverse.doSearchReverse(scanner, length, searchFrom, true, leftmostStart);
+        reverse.doSearchReverse(scanner, length, searchFrom, true, leftmostStart, maxInputUnits);
     int start = -1;
     boolean ambiguous = false;
     boolean budgetExceeded = result == null;
+    boolean windowExceeded = result != null && result.scanLimitReached();
     if (result != null && result.matched() && result.pos() >= searchFrom) {
       start = result.pos();
       ambiguous = result.ambiguous();
@@ -833,8 +890,10 @@ public final class Pattern implements Serializable {
           diagnostics.incrementReverseDfaSearchCount();
         }
         Dfa.SearchResult alternative =
-            reverse.doSearchReverse(scanner, trailingStart, searchFrom, true, leftmostStart);
+            reverse.doSearchReverse(
+                scanner, trailingStart, searchFrom, true, leftmostStart, maxInputUnits);
         budgetExceeded = alternative == null;
+        windowExceeded |= alternative != null && alternative.scanLimitReached();
         if (alternative != null
             && alternative.matched()
             && alternative.pos() >= searchFrom
@@ -854,6 +913,13 @@ public final class Pattern implements Serializable {
                 : StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
       }
       return END_ANCHORED_SEARCH_FALLBACK;
+    }
+    if (windowExceeded && (leftmostStart || start < 0)) {
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.WORK_BUDGET_EXCEEDED);
+      }
+      return END_ANCHORED_SEARCH_DEFERRED;
     }
     if (start < 0 && diagnostics != null) {
       diagnostics.boundary(MatchStrategy.DFA);
