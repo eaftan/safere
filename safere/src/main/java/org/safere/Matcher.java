@@ -771,7 +771,12 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean literalRegionMatches(String literal, int offset, int length) {
-    if (parentPattern.literalFoldCase() || parentPattern.prefixFoldCase()) {
+    return literalRegionMatches(parentPattern, text, literal, offset, length);
+  }
+
+  private static boolean literalRegionMatches(
+      Pattern pattern, String text, String literal, int offset, int length) {
+    if (pattern.literalFoldCase() || pattern.prefixFoldCase()) {
       return Ascii.regionMatchesIgnoreCase(text, offset, literal, length);
     }
     return text.regionMatches(false, offset, literal, 0, length);
@@ -1085,21 +1090,26 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean anchoredPrefixOrCharClassCannotMatch(int searchFrom) {
-    if (parentPattern.anchoredPrefix() != null) {
+    return anchoredPrefixOrCharClassCannotMatch(parentPattern, textScanner, text, searchFrom);
+  }
+
+  static boolean anchoredPrefixOrCharClassCannotMatch(
+      Pattern pattern, InputScanner scanner, String text, int searchFrom) {
+    if (pattern.anchoredPrefix() != null) {
       if (text != null) {
-        if (!text.startsWith(parentPattern.anchoredPrefix(), searchFrom)) {
+        if (!text.startsWith(pattern.anchoredPrefix(), searchFrom)) {
           if (WorkCounterConfig.ENABLED) {
-            WorkCounter.record(parentPattern.anchoredPrefix().length());
+            WorkCounter.record(pattern.anchoredPrefix().length());
           }
           return true;
         }
-      } else if (textScanner instanceof Utf8InputScanner utf8Scanner) {
-        if (!utf8Scanner.startsWith(parentPattern.anchoredPrefixUtf8(), searchFrom)) {
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        if (!utf8Scanner.startsWith(pattern.anchoredPrefixUtf8(), searchFrom)) {
           return true;
         }
       }
-    } else if (parentPattern.anchoredCharClassPrefix() != null) {
-      CharClassScanInfo cc = parentPattern.anchoredCharClassPrefix();
+    } else if (pattern.anchoredCharClassPrefix() != null) {
+      CharClassScanInfo cc = pattern.anchoredCharClassPrefix();
       if (text != null) {
         if (searchFrom >= text.length()) {
           return true;
@@ -1111,7 +1121,7 @@ public final class Matcher implements MatchResult {
           }
           return true;
         }
-      } else if (textScanner instanceof Utf8InputScanner utf8Scanner) {
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
         if (searchFrom >= utf8Scanner.length()) {
           return true;
         }
@@ -1444,14 +1454,22 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean canUseForwardDfa() {
-    return enginePathOptions().dfa() && parentPattern.forwardDfaSupported();
+    return canUseForwardDfa(parentPattern, enginePathOptions());
+  }
+
+  private static boolean canUseForwardDfa(Pattern pattern, EnginePathOptions options) {
+    return options.dfa() && pattern.forwardDfaSupported();
   }
 
   private boolean canUseReverseDfa() {
-    return enginePathOptions().dfa()
-        && enginePathOptions().reverseDfa()
-        && parentPattern.canUseReverseDfa()
-        && dfaSupportsProgram(parentPattern.flatReverseDfaProg());
+    return canUseReverseDfa(parentPattern, enginePathOptions());
+  }
+
+  private static boolean canUseReverseDfa(Pattern pattern, EnginePathOptions options) {
+    return options.dfa()
+        && options.reverseDfa()
+        && pattern.canUseReverseDfa()
+        && dfaSupportsProgram(pattern.flatReverseDfaProg());
   }
 
   /**
@@ -2227,6 +2245,412 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private static boolean reverseFirstApplies(
+      Pattern pattern, Prog prog, InputScanner scanner, EnginePathOptions options) {
+    return prog.anchorEnd()
+        && scanner.length() >= MIN_REVERSE_FIRST_LEN
+        && canUseReverseDfa(pattern, options);
+  }
+
+  /**
+   * Stateless boolean-demand find core shared by {@link Pattern#find(Utf8Input)} and {@link
+   * Pattern#asPredicate()}. Executes the same prefilter, start-acceleration, reverse-first,
+   * forward-DFA, and BitState/NFA fallback sequence as {@link #doFindCore}, without allocating a
+   * {@link Matcher} or computing group bounds.
+   */
+  static boolean doContainsCore(
+      Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+    Prog prog = pattern.prog();
+    EnginePathOptions options = pattern.enginePathOptions();
+
+    RejectPrefilter rejectPrefilter = pattern.rejectPrefilter();
+    if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
+      MatchStrategy rejectionStrategy =
+          rejectPrefilter.rejectionStrategy(scanner, text, 0, options);
+      if (rejectionStrategy != null) {
+        if (diagnostics != null) {
+          diagnostics.participate(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
+          diagnostics.boundary(rejectionStrategy);
+        }
+        return false;
+      }
+    }
+
+    InputScanner activeScanner = scanner != null ? scanner : new StringInputScanner(text);
+    int effectiveStart = 0;
+    boolean startPositionPreselected = false;
+    if (options.startAcceleration() && !prog.anchorStart()) {
+      if (activeScanner instanceof Utf8InputScanner utf8Scanner) {
+        Utf8StartAccelerator accelerator = pattern.utf8StartAccelerator();
+        if (accelerator != null) {
+          MatchStrategy strategy = accelerator.policy().strategy();
+          if (diagnostics != null && strategy != null) {
+            diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
+          }
+          if (accelerator instanceof Utf8StartAccelerator.LeadingExpansion le
+              && le.canVerifyAtInner()
+              && canUseForwardDfa(pattern, options)
+              && !reverseFirstApplies(pattern, prog, activeScanner, options)) {
+            int innerMatch = le.findInnerCandidate(utf8Scanner, 0);
+            if (innerMatch < 0) {
+              if (diagnostics != null && strategy != null) {
+                diagnostics.boundary(strategy);
+              }
+              return false;
+            }
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartScan(innerMatch);
+            }
+            if (diagnostics != null) {
+              diagnostics.participate(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+              diagnostics.incrementForwardDfaSearchCount();
+            }
+            Dfa.SearchResult fwdResult =
+                pattern
+                    .forwardFirstMatchDfa()
+                    .doSearch(utf8Scanner, innerMatch, false, false, true);
+            if (fwdResult != null) {
+              if (!fwdResult.matched()) {
+                if (diagnostics != null) {
+                  diagnostics.boundary(MatchStrategy.DFA);
+                }
+                return false;
+              }
+              if (diagnostics != null) {
+                diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+              }
+              if (prog.numLoopRegs() == 0) {
+                if (diagnostics != null) {
+                  diagnostics.boundary(MatchStrategy.DFA);
+                }
+                return true;
+              }
+              if (diagnostics != null) {
+                diagnostics.decision(
+                    MatchStrategy.DFA,
+                    StrategyDisposition.BYPASSED,
+                    StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
+              }
+            } else if (diagnostics != null) {
+              diagnostics.decision(
+                  MatchStrategy.DFA,
+                  StrategyDisposition.FALLBACK,
+                  StrategyReason.DFA_BUDGET_EXCEEDED);
+            }
+            effectiveStart = le.expandBackward(utf8Scanner, innerMatch, 0);
+            startPositionPreselected = true;
+          } else {
+            int idx = Utf8StartAccelerator.findNextCandidate(accelerator, utf8Scanner, 0);
+            if (idx < 0) {
+              if (diagnostics != null && strategy != null) {
+                diagnostics.boundary(strategy);
+              }
+              return false;
+            }
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartScan(idx);
+            }
+            effectiveStart = idx;
+            startPositionPreselected = true;
+          }
+        }
+      } else if (text != null) {
+        StringStartAccelerator accelerator = pattern.stringStartAccelerator();
+        if (accelerator != null) {
+          MatchStrategy strategy = accelerator.policy().strategy();
+          if (diagnostics != null && strategy != null) {
+            diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
+          }
+          if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
+              && le.canVerifyAtInner()
+              && canUseForwardDfa(pattern, options)
+              && !reverseFirstApplies(pattern, prog, activeScanner, options)) {
+            int innerMatch = le.findInnerCandidate(text, 0, prog.lineStartUnixLines());
+            if (innerMatch < 0) {
+              if (diagnostics != null && strategy != null) {
+                diagnostics.boundary(strategy);
+              }
+              return false;
+            }
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartScan(innerMatch);
+            }
+            if (diagnostics != null) {
+              diagnostics.participate(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+              diagnostics.incrementForwardDfaSearchCount();
+            }
+            Dfa.SearchResult fwdResult =
+                pattern
+                    .forwardFirstMatchDfa()
+                    .doSearch(activeScanner, innerMatch, false, false, true);
+            if (fwdResult != null) {
+              if (!fwdResult.matched()) {
+                if (diagnostics != null) {
+                  diagnostics.boundary(MatchStrategy.DFA);
+                }
+                return false;
+              }
+              if (diagnostics != null) {
+                diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+              }
+              if (prog.numLoopRegs() == 0) {
+                if (diagnostics != null) {
+                  diagnostics.boundary(MatchStrategy.DFA);
+                }
+                return true;
+              }
+              if (diagnostics != null) {
+                diagnostics.decision(
+                    MatchStrategy.DFA,
+                    StrategyDisposition.BYPASSED,
+                    StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
+              }
+            } else if (diagnostics != null) {
+              diagnostics.decision(
+                  MatchStrategy.DFA,
+                  StrategyDisposition.FALLBACK,
+                  StrategyReason.DFA_BUDGET_EXCEEDED);
+            }
+            effectiveStart = le.expandBackward(text, innerMatch, 0);
+            startPositionPreselected = true;
+          } else {
+            int idx =
+                StringStartAccelerator.findNextCandidate(
+                    accelerator, text, 0, prog.lineStartUnixLines());
+            if (idx < 0) {
+              if (diagnostics != null && strategy != null) {
+                diagnostics.boundary(strategy);
+              }
+              return false;
+            }
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartScan(idx);
+            }
+            effectiveStart = idx;
+            startPositionPreselected = true;
+          }
+        }
+      }
+    }
+
+    if (reverseFirstApplies(pattern, prog, activeScanner, options)) {
+      Dfa revDfa = pattern.reverseDfa();
+      if (revDfa != null) {
+        if (diagnostics != null) {
+          diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+        }
+        int textLen = activeScanner.length();
+        boolean budgetExceeded = false;
+
+        Dfa.SearchResult revResult =
+            revDfa.doSearchReverse(activeScanner, textLen, effectiveStart, true, true);
+        if (diagnostics != null) {
+          diagnostics.incrementReverseDfaSearchCount();
+          if (revResult == null) {
+            diagnostics.decision(
+                MatchStrategy.DFA,
+                StrategyDisposition.FALLBACK,
+                StrategyReason.DFA_BUDGET_EXCEEDED);
+          }
+        }
+        int matchStart;
+        boolean matchStartAmbiguous;
+        if (revResult == null) {
+          budgetExceeded = true;
+          matchStart = -1;
+          matchStartAmbiguous = false;
+        } else {
+          matchStart =
+              revResult.matched() && revResult.pos() >= effectiveStart ? revResult.pos() : -1;
+          matchStartAmbiguous = matchStart >= 0 && revResult.ambiguous();
+        }
+
+        if (!budgetExceeded && prog.dollarAnchorEnd()) {
+          int trailingStart =
+              activeScanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), textLen);
+          if (trailingStart >= effectiveStart) {
+            Dfa.SearchResult altRev =
+                revDfa.doSearchReverse(activeScanner, trailingStart, effectiveStart, true, true);
+            if (diagnostics != null) {
+              diagnostics.incrementReverseDfaSearchCount();
+              if (altRev == null) {
+                diagnostics.decision(
+                    MatchStrategy.DFA,
+                    StrategyDisposition.FALLBACK,
+                    StrategyReason.DFA_BUDGET_EXCEEDED);
+              }
+            }
+            if (altRev == null) {
+              budgetExceeded = true;
+            } else if (altRev.matched()
+                && altRev.pos() >= effectiveStart
+                && (matchStart < 0 || altRev.pos() < matchStart)) {
+              matchStart = altRev.pos();
+              matchStartAmbiguous = altRev.ambiguous();
+            }
+          }
+        }
+
+        if (!budgetExceeded) {
+          if (matchStart < 0) {
+            if (diagnostics != null) {
+              diagnostics.boundary(MatchStrategy.DFA);
+            }
+            return false;
+          }
+          if (matchStartAmbiguous) {
+            if (diagnostics != null) {
+              diagnostics.decision(
+                  MatchStrategy.DFA,
+                  StrategyDisposition.BYPASSED,
+                  StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
+            }
+          } else if (containsWithBitStateOrNfa(
+              pattern, prog, activeScanner, matchStart, matchStart, textLen, true, diagnostics)) {
+            return true;
+          }
+        } else if (diagnostics != null) {
+          diagnostics.decision(
+              MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+        }
+      }
+    }
+
+    if (canUseForwardDfa(pattern, options)) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+        diagnostics.incrementForwardDfaSearchCount();
+      }
+      Dfa.SearchResult fwdResult =
+          pattern
+              .forwardFirstMatchDfa()
+              .doSearch(
+                  activeScanner,
+                  effectiveStart,
+                  prog.anchorStart(),
+                  false,
+                  startPositionPreselected);
+      if (fwdResult != null) {
+        if (!fwdResult.matched() || prog.numLoopRegs() == 0) {
+          if (diagnostics != null) {
+            diagnostics.boundary(MatchStrategy.DFA);
+          }
+          return fwdResult.matched();
+        }
+        if (diagnostics != null) {
+          diagnostics.decision(
+              MatchStrategy.DFA,
+              StrategyDisposition.BYPASSED,
+              StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
+        }
+      } else if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+      }
+    }
+
+    return containsWithBitStateOrNfa(
+        pattern,
+        prog,
+        activeScanner,
+        effectiveStart,
+        activeScanner.length(),
+        activeScanner.length(),
+        false,
+        diagnostics);
+  }
+
+  private static boolean containsWithBitStateOrNfa(
+      Pattern pattern,
+      Prog prog,
+      InputScanner scanner,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      boolean anchored,
+      DiagnosticAccumulator diagnostics) {
+    EnginePathOptions options = pattern.enginePathOptions();
+    int maxBitStateLen = BitState.maxTextSize(prog);
+    boolean canUseBitState = options.bitState() && !prog.hasGraphemeSemantics();
+    int searchRange = endPos - startPos;
+    boolean windowEligible =
+        canUseBitState
+            && maxBitStateLen >= BitState.SPECULATIVE_WINDOW_SIZE
+            && searchRange > maxBitStateLen
+            && prog.numLoopRegs() > 0
+            && !prog.anchorEnd()
+            && endPos == scanner.length();
+    if (canUseBitState
+        && maxBitStateLen >= 0
+        && (searchRange <= maxBitStateLen || windowEligible)) {
+      boolean anchoredEffective = anchored || prog.anchorStart();
+      boolean endMatchEffective = prog.anchorEnd();
+      BitState bs = pattern.borrowBitState();
+      int bitStateEnd = windowEligible ? startPos + BitState.SPECULATIVE_WINDOW_SIZE : endPos;
+      bs =
+          BitState.getOrCreate(
+              bs, prog, scanner, startPos, bitStateEnd, 2, false, endMatchEffective);
+      int[] destBuf = new int[2];
+      int[] result =
+          windowEligible
+              ? bs.doSearchWindow(startPos, searchLimit, anchoredEffective, destBuf)
+              : bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
+      pattern.returnBitState(bs);
+      if (!bs.budgetExceeded() && (!windowEligible || result != null)) {
+        if (diagnostics != null) {
+          diagnostics.boundary(MatchStrategy.BIT_STATE);
+        }
+        return result != null;
+      }
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.BIT_STATE,
+            StrategyDisposition.FALLBACK,
+            bs.budgetExceeded()
+                ? StrategyReason.WORK_BUDGET_EXCEEDED
+                : bs.windowExceeded()
+                    ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
+                    : StrategyReason.INPUT_TOO_LARGE);
+      }
+    } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.BIT_STATE, StrategyDisposition.BYPASSED, StrategyReason.INPUT_TOO_LARGE);
+      }
+    }
+
+    if (diagnostics != null) {
+      diagnostics.boundary(MatchStrategy.NFA);
+    }
+    if (prog.start() == 0) {
+      return false;
+    }
+    boolean anchoredNfa = anchored || prog.anchorStart();
+    boolean endmatch = prog.anchorEnd();
+    GraphemeSupport.Context graphemeContext =
+        GraphemeSupport.Context.create(scanner, prog.hasGraphemeSemantics());
+    EngineContext context =
+        EngineContext.create(
+            prog,
+            scanner,
+            startPos,
+            searchLimit,
+            endPos,
+            endPos,
+            0,
+            0,
+            scanner.length(),
+            endPos,
+            0,
+            endPos,
+            graphemeContext);
+    Nfa nfa = pattern.borrowNfa();
+    nfa = Nfa.getOrCreate(nfa, prog, context, 2, false, endmatch);
+    int[] result = nfa.runSearch(anchoredNfa, Nfa.MatchKind.FIRST_MATCH, 1, endPos, null);
+    pattern.returnNfa(nfa);
+    return result != null;
+  }
+
   private boolean matchUtf8KeywordAlternationAt(
       Pattern.KeywordAlternation keywordAlternation, int pos, int ncap) {
     InputScanner scanner = activeScanner();
@@ -2376,7 +2800,81 @@ public final class Matcher implements MatchResult {
     return applyFailedMatchResult();
   }
 
+  private static boolean containsKeywordAlternationAt(
+      Pattern.KeywordAlternation keywordAlternation, String text, int pos) {
+    if (pos >= text.length()) {
+      return false;
+    }
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
+    }
+    char ch = text.charAt(pos);
+    if (ch < 128
+        && keywordAlternation.firstAsciiTable[Ascii.toLowerCase(ch)]
+        && isWordBoundaryAt(text, pos, keywordAlternation.unicodeWordBoundary)) {
+      for (String keyword : keywordAlternation.keywords) {
+        int end = pos + keyword.length();
+        if (end <= text.length()
+            && Ascii.regionMatchesIgnoreCase(text, pos, keyword, keyword.length())
+            && isWordBoundaryAt(text, end, keywordAlternation.unicodeWordBoundary)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsKeywordAlternation(
+      Pattern.KeywordAlternation keywordAlternation, String text) {
+    if (keywordAlternation.greedyWholeInput) {
+      for (int i = text.length() - 1; i >= 0; i--) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        char ch = text.charAt(i);
+        if (ch < 128
+            && keywordAlternation.firstAsciiTable[Ascii.toLowerCase(ch)]
+            && isWordBoundaryAt(text, i, keywordAlternation.unicodeWordBoundary)) {
+          for (String keyword : keywordAlternation.keywords) {
+            int end = i + keyword.length();
+            if (end <= text.length()
+                && Ascii.regionMatchesIgnoreCase(text, i, keyword, keyword.length())
+                && isWordBoundaryAt(text, end, keywordAlternation.unicodeWordBoundary)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+    for (int i = 0; i < text.length(); i++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      char ch = text.charAt(i);
+      if (ch < 128
+          && keywordAlternation.firstAsciiTable[Ascii.toLowerCase(ch)]
+          && isWordBoundaryAt(text, i, keywordAlternation.unicodeWordBoundary)) {
+        for (String keyword : keywordAlternation.keywords) {
+          int end = i + keyword.length();
+          if (end <= text.length()
+              && Ascii.regionMatchesIgnoreCase(text, i, keyword, keyword.length())
+              && isWordBoundaryAt(text, end, keywordAlternation.unicodeWordBoundary)) {
+            return true;
+          }
+        }
+      }
+      int cp = text.codePointAt(i);
+      i += Character.charCount(cp) - 1;
+    }
+    return false;
+  }
+
   private boolean isWordBoundaryAt(int pos, boolean unicodeWordBoundary) {
+    return isWordBoundaryAt(text, pos, unicodeWordBoundary);
+  }
+
+  private static boolean isWordBoundaryAt(String text, int pos, boolean unicodeWordBoundary) {
     boolean prevWord =
         pos > 0 && isBoundaryWordChar(text.codePointBefore(pos), unicodeWordBoundary);
     boolean nextWord =
@@ -4978,6 +5476,9 @@ public final class Matcher implements MatchResult {
           FallbackPreparedRunner {
     boolean find(Matcher matcher, boolean regionActive);
 
+    boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics);
+
     boolean matches(Matcher matcher);
 
     boolean lookingAt(Matcher matcher);
@@ -5005,6 +5506,22 @@ public final class Matcher implements MatchResult {
       return result == LiteralAlternation.NO_MATCH
           ? matcher.applyFailedMatchResult()
           : matcher.applyGroupZeroMatchResult((int) (result >>> 32), (int) result);
+    }
+
+    @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      if (text == null) {
+        return fallback.contains(pattern, scanner, null, diagnostics);
+      }
+      long result = alternation.find(text, 0);
+      if (result == LiteralAlternation.FALLBACK) {
+        return fallback.contains(pattern, scanner, text, diagnostics);
+      }
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.LITERAL_ALTERNATION);
+      }
+      return result != LiteralAlternation.NO_MATCH;
     }
 
     @Override
@@ -5145,6 +5662,59 @@ public final class Matcher implements MatchResult {
     }
 
     @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      if (foldCase && text == null) {
+        return fallback.contains(pattern, scanner, null, diagnostics);
+      }
+      if (isStartAnchored) {
+        if (text != null) {
+          if (diagnostics != null) {
+            diagnostics.boundary(MatchStrategy.LITERAL);
+          }
+          if (foldCase) {
+            return text.length() >= matchLengthChars
+                && literalRegionMatches(pattern, text, literal, 0, matchLengthChars);
+          }
+          return text.startsWith(literal);
+        }
+        if (scanner instanceof Utf8InputScanner utf8Scanner) {
+          if (diagnostics != null) {
+            diagnostics.boundary(MatchStrategy.LITERAL);
+          }
+          if (literalUtf8 != null) {
+            return utf8Scanner.length() >= matchLengthBytes
+                && utf8Scanner.startsWith(literalUtf8, 0);
+          }
+          return literal.isEmpty();
+        }
+        return doContainsCore(pattern, scanner, null, diagnostics);
+      }
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.LITERAL);
+      }
+      if (foldCase) {
+        return indexOfIgnoreCase(
+                text, literal, anchorOffset, anchorLow, anchorHigh, classHashChain, 0)
+            >= 0;
+      }
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        int idx =
+            rareByteOffset >= 0
+                ? utf8Scanner.indexOf(literalUtf8, failure, shifts, 0, rareByteOffset)
+                : utf8Scanner.indexOf(literalUtf8, failure, shifts, 0);
+        return idx >= 0;
+      }
+      if (text != null) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(text.length());
+        }
+        return text.indexOf(literal) >= 0;
+      }
+      return doContainsCore(pattern, scanner, null, diagnostics);
+    }
+
+    @Override
     public boolean matches(Matcher matcher) {
       return matchLiteral(matcher, true);
     }
@@ -5230,6 +5800,39 @@ public final class Matcher implements MatchResult {
       }
       matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return matcher.singleCharClassFindFastPath(singleCharClass, matcher.searchFrom);
+    }
+
+    @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      if (singleCharClass == null) {
+        return doContainsCore(pattern, scanner, text, diagnostics);
+      }
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.CHARACTER_CLASS);
+      }
+      if (isStartAnchored) {
+        if (text != null) {
+          return !text.isEmpty() && singleCharClass.contains(text.codePointAt(0));
+        }
+        if (scanner instanceof Utf8InputScanner utf8Scanner) {
+          int len = utf8Scanner.length();
+          return len > 0
+              && singleCharClass.contains(InputScanner.codePoint(utf8Scanner.decodeForward(0)));
+        }
+        return doContainsCore(pattern, scanner, null, diagnostics);
+      }
+      InputScanner activeScanner = scanner != null ? scanner : new StringInputScanner(text);
+      int pos =
+          singleCharClass.isAscii()
+              ? activeScanner.indexOfCharClass(singleCharClass, 0)
+              : activeScanner.indexOfCodePointClass(
+                  singleCharClass.ranges(),
+                  singleCharClass.bitmap0(),
+                  singleCharClass.bitmap1(),
+                  0,
+                  activeScanner.length());
+      return pos >= 0;
     }
 
     @Override
@@ -5320,6 +5923,22 @@ public final class Matcher implements MatchResult {
     }
 
     @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.KEYWORD);
+      }
+      if (isStartAnchored) {
+        return text != null
+            ? containsKeywordAlternationAt(keywordAlternation, text, 0)
+            : (scanner.length() > 0 && keywordAlternation.matchAt(scanner, 0) >= 0);
+      }
+      return text != null
+          ? containsKeywordAlternation(keywordAlternation, text)
+          : keywordAlternation.find(scanner, 0) >= 0;
+    }
+
+    @Override
     public boolean matches(Matcher matcher) {
       return matcher.matchesCore();
     }
@@ -5340,6 +5959,12 @@ public final class Matcher implements MatchResult {
     @Override
     public boolean find(Matcher matcher, boolean regionActive) {
       return matcher.doFindCore(regionActive);
+    }
+
+    @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      return doContainsCore(pattern, scanner, text, diagnostics);
     }
 
     @Override
@@ -5409,6 +6034,19 @@ public final class Matcher implements MatchResult {
     }
 
     @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      int len = text != null ? text.length() : scanner.length();
+      if (!pattern.canOnePassFind() || len > onePassTextLimit(pattern.numGroups() > 0)) {
+        return doContainsCore(pattern, scanner, text, diagnostics);
+      }
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.ONE_PASS);
+      }
+      return pattern.onePass().contains(scanner, text, 0, len, false);
+    }
+
+    @Override
     public boolean matches(Matcher matcher) {
       if (matcher.activeScanner().length() > matcher.onePassTextLimit()) {
         return matcher.matchesCore();
@@ -5463,6 +6101,12 @@ public final class Matcher implements MatchResult {
     @Override
     public boolean find(Matcher matcher, boolean regionActive) {
       return matcher.doFindCore(regionActive);
+    }
+
+    @Override
+    public boolean contains(
+        Pattern pattern, InputScanner scanner, String text, DiagnosticAccumulator diagnostics) {
+      return doContainsCore(pattern, scanner, text, diagnostics);
     }
 
     @Override

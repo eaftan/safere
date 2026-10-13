@@ -208,13 +208,24 @@ class StrategyParityTest {
     boolean utf8Matched = pattern.matcher(utf8).find();
     OperationDiagnostics utf8Diag = diagnostics.operations.getLast();
 
+    diagnostics.operations.clear();
+    boolean predicateMatched = pattern.asPredicate().test(input);
+    OperationDiagnostics predicateDiag = diagnostics.operations.getLast();
+
     assertThat(utf8Matched).as("%s match result", name).isEqualTo(stringMatched);
+    assertThat(predicateMatched).as("%s asPredicate result", name).isEqualTo(stringMatched);
     assertThat(stringDiag.boundaryStrategy())
         .as("%s string boundary", name)
         .isEqualTo(expectedBoundary);
     assertThat(utf8Diag.boundaryStrategy())
         .as("%s utf8 boundary", name)
         .isEqualTo(expectedBoundary);
+    assertThat(predicateDiag.boundaryStrategy())
+        .as("%s asPredicate boundary", name)
+        .isEqualTo(expectedBoundary);
+    assertThat(predicateDiag.captureMode())
+        .as("%s asPredicate captureMode", name)
+        .isEqualTo(CaptureMode.NONE);
     assertThat(utf8Diag.captureStrategy())
         .as("%s captureStrategy", name)
         .isEqualTo(stringDiag.captureStrategy());
@@ -224,6 +235,18 @@ class StrategyParityTest {
     assertThat(utf8Diag.strategyDecisions())
         .as("%s strategyDecisions", name)
         .isEqualTo(stringDiag.strategyDecisions());
+
+    List<StrategyParticipation> stringNonVerifyAux =
+        stringDiag.auxiliaryStrategies().stream()
+            .filter(p -> p.role() != StrategyRole.CANDIDATE_VERIFICATION)
+            .toList();
+    List<StrategyParticipation> predicateNonVerifyAux =
+        predicateDiag.auxiliaryStrategies().stream()
+            .filter(p -> p.role() != StrategyRole.CANDIDATE_VERIFICATION)
+            .toList();
+    assertThat(predicateNonVerifyAux)
+        .as("%s asPredicate non-verification auxiliaryStrategies", name)
+        .isEqualTo(stringNonVerifyAux);
   }
 
   static Stream<Arguments> stringAndUtf8MatchesAndLookingAtParityScenarios() {
@@ -347,98 +370,14 @@ class StrategyParityTest {
   }
 
   static Stream<Arguments> utf8MatcherAndPatternBooleanFindParityScenarios() {
-    return Stream.of(
-        Arguments.of("literal-ascii-hit", "hello", "xxhelloyy", MatchStrategy.LITERAL),
-        Arguments.of("literal-ascii-miss", "hello", "xxworldyy", MatchStrategy.LITERAL),
-        Arguments.of("literal-utf8-hit", "café", "xxcaféyy", MatchStrategy.LITERAL),
-        Arguments.of("literal-utf8-miss", "café", "xxworldyy", MatchStrategy.LITERAL),
-        Arguments.of("start-anchored-literal-hit", "^hello", "helloyy", MatchStrategy.LITERAL),
-        Arguments.of("end-anchored-literal-hit", "hello$", "xxhello", MatchStrategy.DFA),
-        Arguments.of("end-anchored-literal-miss", "hello$", "xxhelloyy", MatchStrategy.LITERAL),
-        Arguments.of("both-anchored-literal-hit", "^hello$", "hello", MatchStrategy.ONE_PASS),
-        Arguments.of("both-anchored-literal-miss", "^hello$", "helloyy", MatchStrategy.ONE_PASS),
-        Arguments.of("quant-cc-hit", "[0-9]+", "abc123def", MatchStrategy.DFA),
-        Arguments.of("quant-cc-miss", "[0-9]+", "abcdef", MatchStrategy.DFA),
-        Arguments.of("start-anchored-cc-hit", "^[0-9]+ items", "42 items left", MatchStrategy.DFA),
-        Arguments.of(
-            "start-anchored-cc-miss-first",
-            "^[0-9]+ items",
-            "no items left",
-            MatchStrategy.CHARACTER_CLASS),
-        Arguments.of(
-            "start-anchored-cc-miss-tail", "^[0-9]+ items", "42 things left", MatchStrategy.DFA),
-        Arguments.of(
-            "keyword-alt-hit", "(?i)\\b(?:foo|bar|baz)\\b", "xx Bar yy", MatchStrategy.KEYWORD),
-        Arguments.of(
-            "keyword-alt-miss", "(?i)\\b(?:foo|bar|baz)\\b", "xx Barred yy", MatchStrategy.KEYWORD),
-        Arguments.of("start-prefix-reject-hit", "^foo[0-9]+", "foo123bar", MatchStrategy.DFA),
-        Arguments.of(
-            "start-prefix-reject-miss-prefix", "^foo[0-9]+", "bar123", MatchStrategy.LITERAL),
-        Arguments.of("start-prefix-reject-miss-body", "^foo[0-9]+", "foobar", MatchStrategy.DFA),
-        Arguments.of(
-            "composite-prefilter-miss-end-cc",
-            "foo.*bar.*[0-9]$",
-            "foo only no bar",
-            MatchStrategy.CHARACTER_CLASS),
-        Arguments.of(
-            "composite-prefilter-miss-literal",
-            "foo.*bar.*[0-9]$",
-            "foo only no 7",
-            MatchStrategy.LITERAL),
-        Arguments.of(
-            "composite-prefilter-hit", "foo.*bar.*[0-9]$", "foo and bar 7", MatchStrategy.DFA),
-        Arguments.of("cc-prefilter-miss", "[xy]q?", "abcdefg", MatchStrategy.CHARACTER_CLASS),
-        Arguments.of("cc-prefilter-hit", "[xy]q?", "abcxdef", MatchStrategy.DFA),
-        Arguments.of("end-suffix-reject-miss", "[a-z]+foo$", PAD_80 + "bar", MatchStrategy.LITERAL),
-        Arguments.of("end-suffix-reject-hit", "[a-z]+foo$", PAD_80 + "abcfoo", MatchStrategy.DFA),
-        Arguments.of(
-            "end-reverse-first-miss",
-            "(?:foo|fax)$",
-            PAD_80 + "boo",
-            MatchStrategy.CHARACTER_CLASS),
-        Arguments.of("end-reverse-first-hit", "(?:foo|fax)$", PAD_80 + "foo", MatchStrategy.DFA),
-        Arguments.of(
-            "end-leading-exp-miss-rev-dfa",
-            "(?i)\\s*(?:foo|fax)$",
-            "   foo" + PAD_80 + "   box",
-            MatchStrategy.DFA),
-        Arguments.of(
-            "end-leading-exp-hit", "(?i)\\s*(?:foo|fax)$", PAD_80 + "   foo", MatchStrategy.DFA),
-        Arguments.of("start-accel-literal-hit", "é[ab]+c", "zzzzéabczz", MatchStrategy.DFA),
-        Arguments.of("start-accel-literal-miss-cand", "é[ab]+c", "zzzzzzzz", MatchStrategy.LITERAL),
-        Arguments.of(
-            "start-accel-literal-false-cand", "é[ab]+c", "zzzzézzzéabczz", MatchStrategy.DFA),
-        Arguments.of(
-            "start-accel-fixed-offset-hit",
-            "[a-z]{3}foo[0-9]+",
-            "123abcfoo42zz",
-            MatchStrategy.DFA),
-        Arguments.of(
-            "start-accel-fixed-offset-miss",
-            "[a-z]{3}foo[0-9]+",
-            "1234567890",
-            MatchStrategy.LITERAL),
-        Arguments.of(
-            "start-accel-multilit-hit",
-            "(?:alpha|bravo)_[0-9]+",
-            "zzzbravo_99zz",
-            MatchStrategy.DFA),
-        Arguments.of("start-accel-cc-hit", "[xy][ab]+c", "zzzzxabczz", MatchStrategy.DFA),
-        Arguments.of(
-            "start-accel-cc-miss-cand", "[xy][ab]+c", "zzzzzzzz", MatchStrategy.CHARACTER_CLASS),
-        Arguments.of(
-            "start-accel-leading-exp-hit", "\\s*# noqa", "code   # noqa", MatchStrategy.DFA),
-        Arguments.of(
-            "start-accel-leading-exp-miss",
-            "\\s*# noqa",
-            "code # without pragma",
-            MatchStrategy.LITERAL),
-        Arguments.of("dfa-sandwich-hit", "a*[bc]d", "zzzzbdzz", MatchStrategy.DFA),
-        Arguments.of("dfa-sandwich-miss", "a*[bc]d", "zzzzbzzz", MatchStrategy.CHARACTER_CLASS),
-        Arguments.of("grapheme-hit", "\\Xz", "a\u0301z", MatchStrategy.NFA),
-        Arguments.of("grapheme-miss", "\\Xz", "a\u0301y", MatchStrategy.CHARACTER_CLASS),
-        Arguments.of("loop-reg-hit", "(a?)*b", "aaab", MatchStrategy.BIT_STATE),
-        Arguments.of("loop-reg-miss", "(a?)*b", "aaac", MatchStrategy.CHARACTER_CLASS));
+    return Stream.concat(
+        stringAndUtf8FindParityScenarios(),
+        Stream.of(
+            Arguments.of(
+                "end-reverse-first-miss",
+                "(?:foo|fax)$",
+                PAD_80 + "boo",
+                MatchStrategy.CHARACTER_CLASS)));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -464,6 +403,9 @@ class StrategyParityTest {
     assertThat(booleanDiag.boundaryStrategy())
         .as("%s boolean find boundary", name)
         .isEqualTo(expectedBoundary);
+    assertThat(booleanDiag.captureMode())
+        .as("%s boolean find captureMode", name)
+        .isEqualTo(CaptureMode.NONE);
 
     // Filter out CANDIDATE_VERIFICATION when comparing auxiliary participations: Pattern.find(utf8)
     // only demands a boolean answer and intentionally skips bounds-finding verification/reverse-DFA
@@ -655,6 +597,7 @@ class StrategyParityTest {
       assertThat(runFind(noDfa, input).boundaryStrategy()).isEqualTo(expected);
       assertThat(runUtf8Find(noDfa, input).boundaryStrategy()).isEqualTo(expected);
       assertThat(runPatternBooleanFind(noDfa, input).boundaryStrategy()).isEqualTo(expected);
+      assertThat(runPredicate(noDfa, input).boundaryStrategy()).isEqualTo(expected);
       assertThat(runReplaceFirst(noDfa, input).boundaryStrategy()).isEqualTo(expected);
       assertThat(runReplaceAll(noDfa, input).boundaryStrategy()).isEqualTo(expected);
     }
@@ -717,39 +660,46 @@ class StrategyParityTest {
   }
 
   /**
-   * Codifies current strategy divergences between {@link Utf8Matcher#find()} and {@link
-   * Pattern#find(Utf8Input)}.
+   * Verifies that {@link Pattern#find(Utf8Input)} and {@link Pattern#asPredicate()} dispatch
+   * through {@code PreparedMatchRunner.contains} with {@link CaptureMode#NONE}, using {@code
+   * SingleCharClassPreparedRunner}, {@code OnePassAnchoredPreparedRunner}, and start-anchored
+   * prefix rejection directly without allocating a matcher or running the forward DFA.
    */
   @Test
-  void currentUtf8MatcherVsPatternBooleanFindDivergences() {
+  void booleanContainsSelectsPreparedRunnersAndPrefilterRoles() {
     Pattern.setDiagnostics(diagnostics);
 
-    // 1. SingleCharClassPreparedRunner ([0-9], \p{L}): Utf8Matcher.find() uses CHARACTER_CLASS;
-    // Pattern.find(Utf8Input) runs the forward DFA.
+    // 1. SingleCharClassPreparedRunner ([0-9], \p{L}): uses CHARACTER_CLASS without DFA.
     Pattern singleCc = Pattern.compile("[0-9]");
-    OperationDiagnostics utf8Cc = runUtf8Find(singleCc, "abc5def");
-    OperationDiagnostics boolCc = runPatternBooleanFind(singleCc, "abc5def");
-    assertThat(utf8Cc.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
-    assertThat(utf8Cc.forwardDfaSearchCount()).isZero();
-    assertThat(boolCc.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
-    assertThat(boolCc.forwardDfaSearchCount()).isEqualTo(1);
+    for (OperationDiagnostics diag :
+        List.of(runPatternBooleanFind(singleCc, "abc5def"), runPredicate(singleCc, "abc5def"))) {
+      assertThat(diag.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+      assertThat(diag.forwardDfaSearchCount()).isZero();
+      assertThat(diag.captureMode()).isEqualTo(CaptureMode.NONE);
+    }
 
-    // 2. Start-anchored OnePass (^GET ([^ ]+)): Utf8Matcher.find() uses ONE_PASS;
-    // Pattern.find(Utf8Input) runs the forward DFA.
+    // 2. Start-anchored OnePass (^GET ([^ ]+)): uses ONE_PASS with CaptureMode.NONE.
     Pattern onePass = Pattern.compile("^GET ([^ ]+)");
-    assertThat(runUtf8Find(onePass, "GET /index.html").boundaryStrategy())
-        .isEqualTo(MatchStrategy.ONE_PASS);
-    assertThat(runPatternBooleanFind(onePass, "GET /index.html").boundaryStrategy())
-        .isEqualTo(MatchStrategy.DFA);
+    for (OperationDiagnostics diag :
+        List.of(
+            runPatternBooleanFind(onePass, "GET /index.html"),
+            runPredicate(onePass, "GET /index.html"))) {
+      assertThat(diag.boundaryStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+      assertThat(diag.forwardDfaSearchCount()).isZero();
+      assertThat(diag.captureMode()).isEqualTo(CaptureMode.NONE);
+      assertThat(diag.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+    }
 
-    // 3. Start-anchored literal reject (^hello on "xxhelloyy"): Utf8Matcher.find() records
-    // REJECT_PREFILTER=LITERAL; Pattern.find(Utf8Input) reports LITERAL with no auxiliary role.
+    // 3. Start-anchored literal reject (^hello on "xxhelloyy"): records REJECT_PREFILTER=LITERAL.
     Pattern startAnchoredLit = Pattern.compile("^hello");
-    OperationDiagnostics utf8StartLit = runUtf8Find(startAnchoredLit, "xxhelloyy");
-    OperationDiagnostics boolStartLit = runPatternBooleanFind(startAnchoredLit, "xxhelloyy");
-    assertThat(rolesFor(utf8StartLit, StrategyRole.REJECT_PREFILTER))
-        .contains(MatchStrategy.LITERAL);
-    assertThat(boolStartLit.auxiliaryStrategies()).isEmpty();
+    for (OperationDiagnostics diag :
+        List.of(
+            runPatternBooleanFind(startAnchoredLit, "xxhelloyy"),
+            runPredicate(startAnchoredLit, "xxhelloyy"))) {
+      assertThat(diag.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+      assertThat(rolesFor(diag, StrategyRole.REJECT_PREFILTER)).contains(MatchStrategy.LITERAL);
+      assertThat(diag.captureMode()).isEqualTo(CaptureMode.NONE);
+    }
   }
 
   /**
@@ -798,6 +748,14 @@ class StrategyParityTest {
     diagnostics.operations.clear();
     pattern.find(Utf8Input.validated(input.getBytes(UTF_8)));
     return diagnostics.operations.getLast();
+  }
+
+  private OperationDiagnostics runPredicate(Pattern pattern, String input) {
+    diagnostics.operations.clear();
+    boolean matched = pattern.asPredicate().test(input);
+    OperationDiagnostics diag = diagnostics.operations.getLast();
+    assertThat(diag.outcome()).isEqualTo(matched ? MatchOutcome.MATCH : MatchOutcome.NO_MATCH);
+    return diag;
   }
 
   private OperationDiagnostics runMatches(Pattern pattern, String input) {

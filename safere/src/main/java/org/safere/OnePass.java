@@ -554,6 +554,143 @@ final class OnePass {
         text, startPos, endPos, endMatch, nsubmatch, reuseGroups, scratchCap, graphemeContext);
   }
 
+  boolean contains(
+      InputScanner scanner, String stringText, int startPos, int endPos, boolean endMatch) {
+    int stateOffset = 0;
+    int bestEnd = -1;
+
+    long[] fa = flatActions;
+    long[] ma = matchAction;
+    int[] ascMap = asciiClassMap;
+    if (stringText == null && scanner instanceof StringInputScanner stringScanner) {
+      stringText = stringScanner.text();
+    }
+    InputScanner activeScanner = scanner;
+    GraphemeSupport.Context graphemeContext = null;
+
+    int pos = startPos;
+    while (pos < endPos) {
+      if (!endMatch && !(anchorEnd && !dollarAnchorEnd)) {
+        long matchAct = ma[stateOffset];
+        if (matchAct != NO_ACTION) {
+          int reqEmpty = (int) (matchAct & EMPTY_MASK);
+          if (reqEmpty == 0) {
+            if (!anchorEnd) {
+              return true;
+            }
+            bestEnd = pos;
+          } else {
+            if (activeScanner == null) {
+              activeScanner = new StringInputScanner(stringText);
+            }
+            if (hasGraphemeSemantics && graphemeContext == null) {
+              graphemeContext = GraphemeSupport.Context.create(activeScanner, true);
+            }
+            if ((reqEmpty
+                    & ~Nfa.emptyFlags(activeScanner, pos, hasGraphemeSemantics, graphemeContext))
+                == 0) {
+              if (!anchorEnd) {
+                return true;
+              }
+              bestEnd = pos;
+            }
+          }
+        }
+      }
+
+      int nextPos;
+      int cls;
+      if (stringText != null) {
+        char ch = stringText.charAt(pos);
+        if (ch < 128) {
+          nextPos = pos + 1;
+          cls = ascMap[ch];
+        } else if (Character.isHighSurrogate(ch)
+            && pos + 1 < endPos
+            && Character.isLowSurrogate(stringText.charAt(pos + 1))) {
+          nextPos = pos + 2;
+          cls = classOf(Character.toCodePoint(ch, stringText.charAt(pos + 1)));
+        } else {
+          nextPos = pos + 1;
+          cls = classOf(ch);
+        }
+      } else {
+        int c = activeScanner.asciiAt(pos);
+        if (c >= 0) {
+          nextPos = pos + 1;
+          cls = ascMap[c];
+        } else {
+          long decoded = activeScanner.decodeForward(pos);
+          int cp = InputScanner.codePoint(decoded);
+          nextPos = InputScanner.position(decoded);
+          cls = classOf(cp);
+        }
+      }
+
+      long action = fa[stateOffset + cls];
+      if (action == NO_ACTION) {
+        break;
+      }
+
+      int reqEmpty = (int) (action & EMPTY_MASK);
+      if (reqEmpty != 0) {
+        if (activeScanner == null) {
+          activeScanner = new StringInputScanner(stringText);
+        }
+        if (hasGraphemeSemantics && graphemeContext == null) {
+          graphemeContext = GraphemeSupport.Context.create(activeScanner, true);
+        }
+        int curEmpty = Nfa.emptyFlags(activeScanner, pos, hasGraphemeSemantics, graphemeContext);
+        if ((reqEmpty & ~curEmpty) != 0) {
+          break;
+        }
+      }
+      stateOffset = (int) (action >>> INDEX_SHIFT);
+      pos = nextPos;
+    }
+
+    if (pos == endPos) {
+      long matchAct = ma[stateOffset];
+      if (matchAct != NO_ACTION) {
+        int reqEmpty = (int) (matchAct & EMPTY_MASK);
+        if (reqEmpty == 0) {
+          bestEnd = pos;
+        } else {
+          if (activeScanner == null) {
+            activeScanner = new StringInputScanner(stringText);
+          }
+          if (hasGraphemeSemantics && graphemeContext == null) {
+            graphemeContext = GraphemeSupport.Context.create(activeScanner, true);
+          }
+          if ((reqEmpty
+                  & ~Nfa.emptyFlags(activeScanner, pos, hasGraphemeSemantics, graphemeContext))
+              == 0) {
+            bestEnd = pos;
+          }
+        }
+      }
+    }
+
+    if (bestEnd < 0) {
+      return false;
+    }
+    if (endMatch && bestEnd != endPos) {
+      return false;
+    }
+    if (anchorEnd && bestEnd != endPos) {
+      if (!dollarAnchorEnd) {
+        return false;
+      }
+      if (activeScanner == null) {
+        activeScanner = new StringInputScanner(stringText);
+      }
+      if (!Nfa.isAtTrailingLineTerminator(activeScanner, bestEnd, dollarAnchorUnixLines)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private int[] search(
       InputScanner text,
       int startPos,

@@ -225,8 +225,6 @@ class Utf8DiagnosticsTest {
 
   @Test
   void endAnchoredBooleanFindWithCapturesReportsOneMatcherEvent() {
-    // End-anchored patterns answer Pattern.find(Utf8Input) through a Utf8Matcher, so the event is
-    // the matcher's, including its capture mode.
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("(foo|fax)$");
 
@@ -239,7 +237,7 @@ class Utf8DiagnosticsTest {
               assertThat(event.operation()).isEqualTo(MatchOperation.FIND);
               assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
               assertThat(event.matchCount()).isEqualTo(1);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
             });
   }
 
