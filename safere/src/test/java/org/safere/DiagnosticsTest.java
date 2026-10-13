@@ -9,6 +9,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +37,45 @@ class DiagnosticsTest {
   @AfterEach
   void disableDiagnostics() {
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+  }
+
+  @Test
+  void patternIdentityIsStableAndDistinctWithoutDiagnostics() {
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    Pattern first = Pattern.compile("abc");
+    Pattern second = Pattern.compile("abc");
+
+    long firstId = first.patternId();
+    assertThat(firstId).isPositive();
+    assertThat(second.patternId()).isPositive().isNotEqualTo(firstId);
+    assertThat(first.matcher("abc").matches()).isTrue();
+    assertThat(first.patternId()).isEqualTo(firstId);
+  }
+
+  @Test
+  void deserializedPatternHasANewDiagnosticsIdentity() throws Exception {
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    Pattern original = Pattern.compile("(a+)b", Pattern.CASE_INSENSITIVE);
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+      output.writeObject(original);
+    }
+
+    Pattern restored;
+    try (ObjectInputStream input =
+        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+      restored = (Pattern) input.readObject();
+    }
+
+    assertThat(restored.patternId()).isPositive().isNotEqualTo(original.patternId());
+    assertThat(restored.pattern()).isEqualTo(original.pattern());
+    assertThat(restored.flags()).isEqualTo(original.flags());
+    Pattern.setDiagnostics(diagnostics);
+    assertThat(restored.matcher("AAB").matches()).isTrue();
+    assertThat(diagnostics.operations)
+        .singleElement()
+        .satisfies(
+            event -> assertThat(event.pattern().patternId()).isEqualTo(restored.patternId()));
   }
 
   @Test
@@ -64,7 +107,9 @@ class DiagnosticsTest {
 
   @Test
   void listenerInstalledAfterCompilationStillReceivesPatternAnalysis() {
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     Pattern pattern = Pattern.compile("abc");
+    long patternId = pattern.patternId();
     Pattern.setDiagnostics(diagnostics);
 
     assertThat(pattern.matcher("abc").matches()).isTrue();
@@ -74,11 +119,14 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.pattern().analysis()).isSameAs(pattern.analysis());
-              assertThat(event.pattern().patternId()).isPositive();
+              assertThat(event.pattern().patternId()).isEqualTo(patternId);
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
               assertThat(event.forwardDfaSearchCount()).isZero();
               assertThat(event.reverseDfaSearchCount()).isZero();
             });
+    assertThat(diagnostics.compilations).isEmpty();
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    assertThat(pattern.patternId()).isEqualTo(patternId);
   }
 
   @Test
@@ -105,7 +153,7 @@ class DiagnosticsTest {
 
     PatternCompiledEvent compilation =
         diagnostics.compilations.stream()
-            .filter(event -> event.pattern().patternId() == pattern.descriptor().patternId())
+            .filter(event -> event.pattern().patternId() == pattern.patternId())
             .findFirst()
             .orElseThrow();
     assertThat(operationsFor(pattern))
@@ -947,7 +995,7 @@ class DiagnosticsTest {
   }
 
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
-    long patternId = pattern.descriptor().patternId();
+    long patternId = pattern.patternId();
     return diagnostics.operations.stream()
         .filter(event -> event.pattern().patternId() == patternId)
         .toList();

@@ -1557,6 +1557,23 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Returns this compiled pattern's opaque, positive diagnostics identity.
+   *
+   * <p>This is the same value reported by {@link PatternDescriptor#patternId()} in diagnostics
+   * events. It is assigned even when diagnostics are disabled and remains stable for this instance.
+   * Reading it does not compute static analysis.
+   *
+   * <p>Identities are unique among patterns created by the same loaded {@code Pattern} class.
+   * Separately compiling the same expression produces different identities. They are process-local,
+   * not persistent identifiers; deserialization recompiles the pattern with a new identity.
+   *
+   * @return this pattern's diagnostics identity
+   */
+  public long patternId() {
+    return patternId;
+  }
+
+  /**
    * Returns immutable static diagnostics for this pattern.
    *
    * <p>Capabilities describe strategies that can participate for at least one supported operation

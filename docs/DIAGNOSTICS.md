@@ -129,6 +129,30 @@ sharing a process should coordinate listener ownership rather than independently
 The descriptor intentionally contains no pattern text. Use `patternId` to join compilation metadata
 to later operation events without exposing a regex or using it as a high-cardinality metric label.
 
+Call `Pattern.patternId()` to get the same identity directly from a pattern you hold, including one
+obtained from a cache or compiled while diagnostics were disabled. The accessor reads the existing
+identity without computing static analysis. For a bounded set of patterns, callers can register
+their own text mapping before matching and use operation event identities to look it up:
+
+```java
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.safere.Pattern;
+
+Map<Long, String> regexById = new ConcurrentHashMap<>();
+Pattern pattern = Pattern.compile("(a+)b");
+regexById.putIfAbsent(pattern.patternId(), pattern.pattern());
+// Register before matching; the compilation callback has already run if enabled.
+pattern.matcher("xxaaab").find();
+// In onOperationCompleted: regexById.get(event.pattern().patternId())
+```
+
+The identity belongs to the compiled instance: it remains stable when the instance is shared or
+listeners change, but separate compilations of the same expression have different identities.
+Identities are unique within the same loaded `Pattern` class; separate class loaders can assign
+overlapping values. They are not persistent identifiers, and deserialization recompiles the pattern
+with a new identity.
+
 A listener installed after a pattern was compiled does not receive a historical compilation event.
 Operation events still carry the pattern descriptor and analysis, so late listeners do not depend
 on replay.
