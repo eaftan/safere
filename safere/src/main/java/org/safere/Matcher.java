@@ -2999,14 +2999,19 @@ public final class Matcher implements MatchResult {
       // As in doFindCore, the end-anchored search runs before the whole-input reject prefilter: it
       // can reject from the end of the input, and when it proposes a start a match is likely, so
       // scanning the whole input for required literals would be wasted.
-      int endAnchoredStart =
-          parentPattern.endAnchoredSearchStart(
-              activeScanner(), searchFrom, true, diagnosticsAccumulator());
-      if (endAnchoredStart == -1) {
-        return text;
+      boolean hasEndAnchoredCandidate = false;
+      // Keep non-end-anchored literal replacements on their scanner-free path.
+      if (parentPattern.prog().anchorEnd()) {
+        int endAnchoredStart =
+            parentPattern.endAnchoredSearchStart(
+                activeScanner(), searchFrom, true, diagnosticsAccumulator());
+        if (endAnchoredStart == -1) {
+          return text;
+        }
+        hasEndAnchoredCandidate = endAnchoredStart >= 0;
       }
       RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
-      if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
+      if (!hasEndAnchoredCandidate && rejectPrefilter != null && text != null) {
         InputScanner scanner = activeScanner();
         EnginePathOptions options = enginePathOptions();
         MatchStrategy rejectionStrategy =

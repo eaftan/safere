@@ -8,6 +8,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -79,6 +80,28 @@ class ReplaceNoMatchOverheadTest {
         assertThat(resultFirst)
             .as("replaceFirst on %s with %s", patternStr, rep)
             .isSameAs(noMatchInput);
+      }
+    }
+  }
+
+  @Test
+  void literalReplacementDoesNotMaterializeInputScanner() throws ReflectiveOperationException {
+    Field scanner = Matcher.class.getDeclaredField("textScanner");
+    scanner.setAccessible(true);
+    for (String regex : List.of("hello", "é😀", "a\\.b", "(?i)hello")) {
+      Pattern pattern = Pattern.compile(regex);
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (String input : List.of("", "absent", "hello hello", "é😀 é😀", "a.b a.b", "HELLO")) {
+        for (String replacement : List.of("X", "")) {
+          Matcher all = pattern.matcher(input);
+          assertThat(all.replaceAll(replacement))
+              .isEqualTo(jdk.matcher(input).replaceAll(replacement));
+          assertThat(scanner.get(all)).as("replaceAll scanner for /%s/", regex).isNull();
+          Matcher first = pattern.matcher(input);
+          assertThat(first.replaceFirst(replacement))
+              .isEqualTo(jdk.matcher(input).replaceFirst(replacement));
+          assertThat(scanner.get(first)).as("replaceFirst scanner for /%s/", regex).isNull();
+        }
       }
     }
   }
