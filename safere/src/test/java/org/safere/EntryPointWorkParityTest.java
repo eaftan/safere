@@ -104,10 +104,6 @@ class EntryPointWorkParityTest {
         splitHasNoEndAnchoredSearch,
         "/\\s*(?:foo|fax)\\z/ + ' foo' split",
         splitHasNoEndAnchoredSearch,
-        "/\\s*(?:foo|fax)\\z/ + ' foo' replaceFirst",
-        "replaceDfaOptimized does not step aside for \\z-anchored patterns",
-        "/\\s*(?:foo|fax)\\z/ + ' foo' replaceAll",
-        "replaceDfaOptimized does not step aside for \\z-anchored patterns",
         "/(?i)\\b(?:foo|bar|baz)\\b/ + ' bar' split",
         "findNextMatchPacked has no KeywordAlternation fast path");
   }
