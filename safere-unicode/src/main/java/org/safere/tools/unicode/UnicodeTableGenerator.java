@@ -197,12 +197,13 @@ public final class UnicodeTableGenerator {
     predicates.put("Titlecase", Character::isTitleCase);
     predicates.put("Punctuation", UnicodeTableGenerator::isPunctuation);
     predicates.put("Control", cp -> Character.getType(cp) == Character.CONTROL);
-    // Unicode White_Space consists of Zs/Zl/Zp, HT through CR, and NEL (PropList.txt).
-    // Character.isWhitespace instead includes U+001C..U+001F and excludes NEL.
+    // Use Unicode data rather than Java's differing whitespace definition.
     predicates.put(
-        "White_Space", cp -> Character.isSpaceChar(cp) || (cp >= 0x09 && cp <= 0x0D) || cp == 0x85);
+        "White_Space", CharacterProperties.getBinaryPropertySet(UProperty.WHITE_SPACE)::contains);
     predicates.put("Digit", Character::isDigit);
-    predicates.put("Hex_Digit", UnicodeTableGenerator::isHexDigit);
+    // JDK regex also accepts other decimal digits; preserve Unicode Hex_Digit.
+    predicates.put(
+        "Hex_Digit", CharacterProperties.getBinaryPropertySet(UProperty.HEX_DIGIT)::contains);
     predicates.put("Join_Control", cp -> cp == 0x200C || cp == 0x200D);
     predicates.put("Noncharacter_Code_Point", UnicodeTableGenerator::isNoncharacterCodePoint);
     predicates.put("Assigned", Character::isDefined);
@@ -424,16 +425,6 @@ public final class UnicodeTableGenerator {
         || type == Character.OTHER_PUNCTUATION
         || type == Character.INITIAL_QUOTE_PUNCTUATION
         || type == Character.FINAL_QUOTE_PUNCTUATION;
-  }
-
-  private static boolean isHexDigit(int cp) {
-    // Preserve Unicode Hex_Digit, rather than JDK regex's inclusion of every decimal digit.
-    return (cp >= '0' && cp <= '9')
-        || (cp >= 'A' && cp <= 'F')
-        || (cp >= 'a' && cp <= 'f')
-        || (cp >= 0xFF10 && cp <= 0xFF19)
-        || (cp >= 0xFF21 && cp <= 0xFF26)
-        || (cp >= 0xFF41 && cp <= 0xFF46);
   }
 
   private static boolean isNoncharacterCodePoint(int cp) {
