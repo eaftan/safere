@@ -6,11 +6,12 @@
 package org.safere;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Enabled-only, bounded primitive diagnostics state for one public operation. */
+/** Enabled-only, bounded diagnostics state for one public operation. */
 final class DiagnosticAccumulator {
   private static final MatchStrategy[] STRATEGIES = {
     MatchStrategy.NONE,
@@ -60,6 +61,22 @@ final class DiagnosticAccumulator {
   private int forwardDfaSearchCount;
   private int reverseDfaSearchCount;
   private int matchCount;
+  private EnumSet<IntentionalDivergence> intentionalDivergences;
+
+  void intentionalDivergence(IntentionalDivergence divergence) {
+    if (intentionalDivergences == null) {
+      intentionalDivergences = EnumSet.noneOf(IntentionalDivergence.class);
+    }
+    intentionalDivergences.add(divergence);
+  }
+
+  void reportIntentionalDivergences(SafeReMatchDiagnostics listener) {
+    if (intentionalDivergences != null) {
+      for (IntentionalDivergence divergence : intentionalDivergences) {
+        listener.onIntentionalDivergence(divergence);
+      }
+    }
+  }
 
   private static int wordCount(int bits) {
     return (bits + Long.SIZE - 1) / Long.SIZE;

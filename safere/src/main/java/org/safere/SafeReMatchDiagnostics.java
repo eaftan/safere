@@ -9,8 +9,8 @@ package org.safere;
  * Receives synchronous, low-cardinality diagnostics about pattern compilation and matching.
  *
  * <p>Callbacks run on the compiling or matching thread. Implementations are responsible for their
- * own thread safety, aggregation, storage, and cardinality policy. Callback exceptions propagate to
- * the caller; operation callbacks run only after matcher state has been finalized.
+ * own thread safety, aggregation, storage, and cardinality policy. Public callback exceptions
+ * propagate to the caller; operation callbacks run only after matcher state has been finalized.
  *
  * <p>When {@link #NONE} is installed, matching allocates no diagnostics objects. Enabled listeners
  * receive one bounded event per supported public operation, irrespective of internal engine passes
@@ -53,4 +53,17 @@ public class SafeReMatchDiagnostics {
    * @param event immutable operation summary
    */
   public void onOperationCompleted(OperationDiagnostics event) {}
+
+  /**
+   * Called when an explicitly instrumented intentional-divergence path is exercised.
+   *
+   * <p>This is evidence about execution, not proof that a JDK mismatch is intentional. Not all
+   * documented divergences have a distinct runtime branch; absence is not proof of agreement.
+   * Callbacks run synchronously after parsing or matcher state finalization. Matching signals are
+   * coalesced per public operation. If parsing fails, notification failures are suppressed on the
+   * original syntax exception; otherwise callback exceptions propagate to the caller.
+   *
+   * @param divergence the path exercised
+   */
+  void onIntentionalDivergence(IntentionalDivergence divergence) {}
 }

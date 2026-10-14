@@ -49,6 +49,11 @@ import java.util.stream.StreamSupport;
 public final class Pattern implements Serializable {
 
   private static final long serialVersionUID = 1L;
+  private static final int END_ANCHORED_SEARCH_FALLBACK = -2;
+  static final int END_ANCHORED_SEARCH_DEFERRED = -3;
+  private static final int MIN_END_ANCHORED_PROBE_UNITS = 64;
+  // Short inputs retain the forward path to avoid reverse-search setup overhead.
+  private static final int MIN_REVERSE_FIRST_LEN = 1024;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
   private static final MethodType DIAGNOSTICS_TYPE =
       MethodType.methodType(SafeReMatchDiagnostics.class);
@@ -569,14 +574,12 @@ public final class Pattern implements Serializable {
   /**
    * Returns whether the matcher-free {@link #find(Utf8Input)} path can answer for this pattern.
    *
-   * <p>That path is a short sequence of cheap checks followed by the forward first-match DFA, with
-   * the NFA only as the fallback when the DFA exceeds its budget. Patterns that DFA cannot answer
-   * (end anchors, grapheme semantics, loop registers) use the matcher instead, so they get its full
-   * strategy sequence, such as the reverse-first search for end-anchored patterns, rather than an
-   * NFA scan over the whole input.
+   * <p>That path uses cheap checks followed by the forward first-match DFA or an end-anchored
+   * reverse search, with exact NFA verification and fallback. Patterns with grapheme semantics or
+   * loop registers use the matcher instead, so they get its full strategy sequence.
    */
   private boolean canFindUtf8Directly() {
-    return !prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
   boolean findWithDiagnostics(Utf8InputScanner scanner) {
@@ -632,6 +635,13 @@ public final class Pattern implements Serializable {
         }
       }
     }
+    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, null);
+    if (endAnchoredStart == -1) {
+      return false;
+    }
+    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+      return true;
+    }
     if (rejectPrefilter != null && rejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
       return false;
     }
@@ -646,11 +656,22 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-    if (result != null) {
-      return result.matched();
+    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, null, false);
+      if (endAnchoredStart == -1) {
+        return false;
+      }
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+        return true;
+      }
+    }
+    if (!prog.anchorEnd()) {
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa()
+              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+      if (result != null) {
+        return result.matched();
+      }
     }
     return Nfa.search(
             prog,
@@ -700,6 +721,14 @@ public final class Pattern implements Serializable {
         }
       }
     }
+    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, diagnostics);
+    if (endAnchoredStart == -1) {
+      return false;
+    }
+    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+      diagnostics.boundary(MatchStrategy.NFA);
+      return true;
+    }
     if (rejectPrefilter != null
         && rejectPrefilter.canRejectWithDiagnostics(scanner, 0, enginePathOptions, diagnostics)) {
       return false;
@@ -722,17 +751,29 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-    diagnostics.incrementForwardDfaSearchCount();
-    Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-    if (result != null) {
-      diagnostics.boundary(MatchStrategy.DFA);
-      return result.matched();
+    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, diagnostics, false);
+      if (endAnchoredStart == -1) {
+        return false;
+      }
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+        diagnostics.boundary(MatchStrategy.NFA);
+        return true;
+      }
     }
-    diagnostics.decision(
-        MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    if (!prog.anchorEnd()) {
+      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+      diagnostics.incrementForwardDfaSearchCount();
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa()
+              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+      if (result != null) {
+        diagnostics.boundary(MatchStrategy.DFA);
+        return result.matched();
+      }
+      diagnostics.decision(
+          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    }
     boolean matched =
         Nfa.search(
                 prog,
@@ -748,6 +789,157 @@ public final class Pattern implements Serializable {
             != null;
     diagnostics.boundary(MatchStrategy.NFA);
     return matched;
+  }
+
+  /**
+   * Proposes a start of an end-anchored search before any forward prefix scan. With {@code
+   * leftmostStart}, scans for the leftmost start needed for spans; otherwise stops at the first
+   * accepted candidate for existence-only matching. Returns {@code -1} for a proven rejection,
+   * {@link #END_ANCHORED_SEARCH_DEFERRED} when the probe needs rejection and start acceleration
+   * before one full retry, or {@link #END_ANCHORED_SEARCH_FALLBACK} when ordinary search is
+   * required. A proposed start still requires exact matching; failure to verify it must fall back
+   * to ordinary search.
+   */
+  int endAnchoredSearchStart(
+      InputScanner scanner,
+      int searchFrom,
+      boolean leftmostStart,
+      DiagnosticAccumulator diagnostics) {
+    return endAnchoredSearchStart(scanner, searchFrom, leftmostStart, diagnostics, true);
+  }
+
+  /** A deferred probe may retry once after ordinary rejection and start acceleration. */
+  int endAnchoredSearchStart(
+      InputScanner scanner,
+      int searchFrom,
+      boolean leftmostStart,
+      DiagnosticAccumulator diagnostics,
+      boolean speculative) {
+    if (!prog.anchorEnd()
+        || scanner.length() < MIN_REVERSE_FIRST_LEN
+        || !enginePathOptions.dfa()
+        || !enginePathOptions.reverseDfa()
+        || !canUseReverseDfa()) {
+      return END_ANCHORED_SEARCH_FALLBACK;
+    }
+    if (rejectPrefilter != null) {
+      MatchStrategy rejection =
+          rejectPrefilter.endAnchoredRejectionStrategy(scanner, searchFrom, enginePathOptions);
+      if (rejection != null) {
+        if (diagnostics != null) {
+          diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+          diagnostics.boundary(rejection);
+        }
+        return -1;
+      }
+    }
+    Prog reverseProgram = flatReverseDfaProg();
+    if (reverseProgram == null
+        || reverseProgram.hasGraphemeSemantics()
+        || reverseProgram.numLoopRegs() != 0) {
+      return END_ANCHORED_SEARCH_FALLBACK;
+    }
+    Dfa reverse = reverseDfa();
+    if (reverse == null) {
+      return END_ANCHORED_SEARCH_FALLBACK;
+    }
+    // A literal run needs at most four UTF-8 units per consuming instruction. Leave a small
+    // minimum for short loops; exceeding the probe defers to ordinary start acceleration.
+    int probeUnits =
+        (int)
+            Math.min(
+                Integer.MAX_VALUE,
+                Math.max(MIN_END_ANCHORED_PROBE_UNITS, 4L * reverseProgram.size()));
+    return searchEndAnchoredStart(
+        reverse,
+        scanner,
+        searchFrom,
+        leftmostStart,
+        diagnostics,
+        speculative ? probeUnits : Integer.MAX_VALUE);
+  }
+
+  private int searchEndAnchoredStart(
+      Dfa reverse,
+      InputScanner scanner,
+      int searchFrom,
+      boolean leftmostStart,
+      DiagnosticAccumulator diagnostics,
+      int maxInputUnits) {
+    if (diagnostics != null) {
+      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+      diagnostics.incrementReverseDfaSearchCount();
+    }
+    int length = scanner.length();
+    Dfa.SearchResult result =
+        reverse.doSearchReverse(scanner, length, searchFrom, true, leftmostStart, maxInputUnits);
+    int start = -1;
+    boolean ambiguous = false;
+    boolean budgetExceeded = result == null;
+    boolean windowExceeded = result != null && result.scanLimitReached();
+    if (result != null && result.matched() && result.pos() >= searchFrom) {
+      start = result.pos();
+      ambiguous = result.ambiguous();
+    }
+    // Non-multiline $ also accepts the position before a final line terminator. Span searches
+    // compare both endpoints for the leftmost start; exact matching decides the prioritized end.
+    if (!budgetExceeded && prog.dollarAnchorEnd()) {
+      int trailingStart = scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), length);
+      if (trailingStart >= searchFrom) {
+        if (diagnostics != null) {
+          diagnostics.incrementReverseDfaSearchCount();
+        }
+        Dfa.SearchResult alternative =
+            reverse.doSearchReverse(
+                scanner, trailingStart, searchFrom, true, leftmostStart, maxInputUnits);
+        budgetExceeded = alternative == null;
+        windowExceeded |= alternative != null && alternative.scanLimitReached();
+        if (alternative != null
+            && alternative.matched()
+            && alternative.pos() >= searchFrom
+            && (start < 0 || alternative.pos() < start)) {
+          start = alternative.pos();
+          ambiguous = alternative.ambiguous();
+        }
+      }
+    }
+    if (budgetExceeded || (leftmostStart && ambiguous)) {
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.DFA,
+            budgetExceeded ? StrategyDisposition.FALLBACK : StrategyDisposition.BYPASSED,
+            budgetExceeded
+                ? StrategyReason.DFA_BUDGET_EXCEEDED
+                : StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
+      }
+      return END_ANCHORED_SEARCH_FALLBACK;
+    }
+    if (windowExceeded && (leftmostStart || start < 0)) {
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.WORK_BUDGET_EXCEEDED);
+      }
+      return END_ANCHORED_SEARCH_DEFERRED;
+    }
+    if (start < 0 && diagnostics != null) {
+      diagnostics.boundary(MatchStrategy.DFA);
+    }
+    return start;
+  }
+
+  private boolean findAt(Utf8InputScanner scanner, int start) {
+    return Nfa.search(
+            prog,
+            scanner,
+            start,
+            scanner.length(),
+            scanner.length(),
+            0,
+            Nfa.Anchor.ANCHORED,
+            Nfa.MatchKind.FIRST_MATCH,
+            0,
+            null)
+        != null;
   }
 
   static int[] literalFailure(byte[] literal) {
@@ -1554,6 +1746,23 @@ public final class Pattern implements Serializable {
 
   AstAnalysis astAnalysis() {
     return astAnalysis;
+  }
+
+  /**
+   * Returns this compiled pattern's opaque, positive diagnostics identity.
+   *
+   * <p>This is the same value reported by {@link PatternDescriptor#patternId()} in diagnostics
+   * events. It is assigned even when diagnostics are disabled and remains stable for this instance.
+   * Reading it does not compute static analysis.
+   *
+   * <p>Identities are unique among patterns created by the same loaded {@code Pattern} class.
+   * Separately compiling the same expression produces different identities. They are process-local,
+   * not persistent identifiers; deserialization recompiles the pattern with a new identity.
+   *
+   * @return this pattern's diagnostics identity
+   */
+  public long patternId() {
+    return patternId;
   }
 
   /**

@@ -224,9 +224,8 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
-  void endAnchoredBooleanFindWithCapturesReportsOneMatcherEvent() {
-    // End-anchored patterns answer Pattern.find(Utf8Input) through a Utf8Matcher, so the event is
-    // the matcher's, including its capture mode.
+  void endAnchoredBooleanFindWithCapturesReportsOneCaptureFreeEvent() {
+    // The existence-only end-anchored path verifies without computing captures.
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("(foo|fax)$");
 
@@ -239,7 +238,7 @@ class Utf8DiagnosticsTest {
               assertThat(event.operation()).isEqualTo(MatchOperation.FIND);
               assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
               assertThat(event.matchCount()).isEqualTo(1);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
             });
   }
 
@@ -324,7 +323,51 @@ class Utf8DiagnosticsTest {
         Arguments.of("[一-龥]{3,}", "ordinary ASCII text", false),
         Arguments.of("\\Xz", "a\u0301z", true),
         Arguments.of(".*z$", "abc", false),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀", true),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀\r\n", true),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀x", false),
+        Arguments.of("(?:a+?|[^x]*)$", "x".repeat(1_024) + "a\n", true),
         Arguments.of("(a?)*X", "aaaaX", true));
+  }
+
+  @Test
+  void absentRequiredLiteralRejectsBeforeUnboundedReverseWalk() {
+    Pattern.setDiagnostics(diagnostics);
+    Utf8Input input = input("x".repeat(20_000));
+    for (String regex : List.of("needle.*$", "needle[a-z]*\\z")) {
+      for (boolean existenceOnly : List.of(false, true)) {
+        Pattern pattern = Pattern.compile(regex);
+        assertThat(existenceOnly ? pattern.find(input) : pattern.matcher(input).find()).isFalse();
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                  assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                });
+      }
+    }
+  }
+
+  @Test
+  void endAnchoredBooleanFindReportsReverseNarrowingAndExactVerification() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("終点😀$");
+
+    assertThat(pattern.find(input("é😀".repeat(400) + "終点😀\r\n"))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactly(
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
+            });
   }
 
   @Test

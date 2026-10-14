@@ -890,6 +890,74 @@
       "shared": true
     },
     {
+      "id": "searchScaling.absentLiteral.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "x",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.lateLiteral.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x",
+        "suffix": "needlexxx",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.earlyLiteral.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "needle",
+        "value": "x",
+        "length": "{size}",
+        "delimiterAlphabet": "x",
+        "seed": 42
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.unicodeEnd.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "é😀",
+        "suffix": "終点😀",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "endAnchoredFind.prose.{length}",
       "axes": {
         "length": [
@@ -1709,6 +1777,88 @@
         "value": "2026-09-07 12:00:00 [INFO] worker process event status:200 payload:ok",
         "delimiterAlphabet": "\n",
         "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassEarlySuccess.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": " 2026 words without digits ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseFalseFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "1111x 1x_",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseFalseSuccess.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "1111x 1x_",
+        "suffix": " 2026x",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassUnicodeFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u00e9\ud83d\ude00 words without digits ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassUnicodeSuccess.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "\u00e9\ud83d\ude00 words without digits ",
+        "suffix": " 2026x",
         "length": "{size}"
       },
       "shared": true
@@ -3757,9 +3907,222 @@
         "delimiterAlphabet": "x"
       },
       "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorNoLeadingFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "1234567890",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorRareLeadingFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "1234567890",
+        "suffix": " x",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "1234567890",
+        "suffix": " 2026x",
+        "length": "{size}"
+      },
+      "shared": true
     }
   ],
   "workloads": [
+    {
+      "id": "SearchScalingBenchmark.endAnchoredAbsentLiteralDot.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "searchScaling.absentLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredAbsentLiteralClass.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle[a-z]*\\z"
+      ],
+      "inputs": [
+        "searchScaling.absentLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredLateLiteralDot.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "searchScaling.lateLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredLateLiteralClass.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle[a-z]*\\z"
+      ],
+      "inputs": [
+        "searchScaling.lateLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredEarlyLiteralDot.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "searchScaling.earlyLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredUnicodeSuccess.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "operation": "find",
+      "patterns": ["終点😀$"],
+      "inputs": ["searchScaling.unicodeEnd.{size}"],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": ["prematerializedInput"]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredGreedySuccess.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "operation": "find",
+      "patterns": ["(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"],
+      "inputs": ["searchScaling.success.{size}"],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": ["prematerializedInput"]
+      }
+    },
     {
       "id": "SmallAsciiClassBenchmark.pair.sparse.{size}",
       "operation": "findAllCount",
@@ -5843,6 +6206,131 @@
           "match",
           "noMatch"
         ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassEarlySuccess.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassEarlySuccess.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseFalseFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseFalseFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseFalseSuccess.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseFalseSuccess.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassUnicodeFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassUnicodeFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassUnicodeSuccess.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassUnicodeSuccess.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
         "size": [
           1000,
           10000,
@@ -15178,6 +15666,84 @@
         "timingUnit": "nanoseconds",
         "constraints": [
           "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorNoLeadingFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorNoLeadingFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorRareLeadingFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorRareLeadingFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
         ]
       }
     },

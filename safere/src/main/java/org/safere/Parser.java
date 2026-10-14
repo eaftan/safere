@@ -123,6 +123,7 @@ final class Parser {
   private int ncap;
   private final int runeMax;
   private final Set<String> namedCaptures = new HashSet<>();
+  private boolean commentQuoting;
 
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
@@ -147,7 +148,32 @@ final class Parser {
    */
   public static Regexp parse(String pattern, int flags) {
     Parser p = new Parser(pattern, flags);
-    return p.doParse();
+    Regexp result;
+    try {
+      result = p.doParse();
+    } catch (PatternSyntaxException syntaxFailure) {
+      try {
+        p.reportIntentionalDivergences(
+            syntaxFailure instanceof IntentionalDivergenceSyntaxException);
+      } catch (RuntimeException | Error notificationFailure) {
+        if (!syntaxFailure.equals(notificationFailure)) {
+          syntaxFailure.addSuppressed(notificationFailure);
+        }
+      }
+      throw syntaxFailure;
+    }
+    p.reportIntentionalDivergences(false);
+    return result;
+  }
+
+  private void reportIntentionalDivergences(boolean classSyntaxFailure) {
+    SafeReMatchDiagnostics listener = Pattern.diagnostics();
+    if (commentQuoting) {
+      listener.onIntentionalDivergence(IntentionalDivergence.COMMENT_QUOTING);
+    }
+    if (classSyntaxFailure) {
+      listener.onIntentionalDivergence(IntentionalDivergence.CHARACTER_CLASS_SYNTAX);
+    }
   }
 
   // ---- Comments mode helpers ----
@@ -175,6 +201,11 @@ final class Parser {
           int commentChar = pattern.codePointAt(index);
           if (isCommentTerminator(commentChar)) {
             break;
+          }
+          if (commentChar == '\\'
+              && index + 1 < pattern.length()
+              && (pattern.charAt(index + 1) == 'Q' || pattern.charAt(index + 1) == 'E')) {
+            commentQuoting = true;
           }
           index += Character.charCount(commentChar);
         }

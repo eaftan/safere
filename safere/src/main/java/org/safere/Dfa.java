@@ -34,9 +34,13 @@ import java.util.Map;
 final class Dfa {
 
   /** Result of a DFA search. */
-  record SearchResult(boolean matched, int pos, boolean ambiguous) {
+  record SearchResult(boolean matched, int pos, boolean ambiguous, boolean scanLimitReached) {
     SearchResult(boolean matched, int pos) {
-      this(matched, pos, false);
+      this(matched, pos, false, false);
+    }
+
+    SearchResult(boolean matched, int pos, boolean ambiguous) {
+      this(matched, pos, ambiguous, false);
     }
   }
 
@@ -2206,6 +2210,23 @@ final class Dfa {
 
   SearchResult doSearchReverse(
       InputScanner text, int endPos, int startLimit, boolean anchored, boolean longest) {
+    return doSearchReverse(text, endPos, startLimit, anchored, longest, Integer.MAX_VALUE);
+  }
+
+  /**
+   * Reverse search with a speculative input-unit limit. A live frontier at the cutoff is
+   * inconclusive, even if it contains a match: an earlier start may exist outside the window. The
+   * cutoff never substitutes for {@code startLimit} in assertion context. Decoding may finish one
+   * code point across the cutoff, and assertions retain their normal adjacent context.
+   */
+  SearchResult doSearchReverse(
+      InputScanner text,
+      int endPos,
+      int startLimit,
+      boolean anchored,
+      boolean longest,
+      int maxInputUnits) {
+    int scanLimit = Math.max(startLimit, endPos - maxInputUnits);
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     beginSearch(endPos);
     int pos = endPos;
@@ -2247,11 +2268,15 @@ final class Dfa {
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
     // Fast path: scan backward through ASCII characters
-    while (pos > startLimit) {
+    while (pos > scanLimit) {
       if (pos <= posDepThreshold) {
-        int limit = startLimit;
+        int limit = scanLimit;
         int sId = s.id * numClasses;
         while (pos > limit) {
+          // Probe work includes cached transitions; keep ordinary-search counter behavior stable.
+          if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+            WorkCounter.record();
+          }
           int ch = text.asciiAt(pos - 1);
           if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
             break;
@@ -2299,13 +2324,16 @@ final class Dfa {
         s = offsetToState[sId];
       }
 
-      if (pos <= startLimit) {
+      if (pos <= scanLimit) {
         break;
       }
       if (hasPositionDependentTransitions && pos - 1 >= posDepThreshold) {
         break; // fall back to general loop for position-dependent context
       }
 
+      if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+        WorkCounter.record();
+      }
       int ch = text.asciiAt(pos - 1);
       if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
         break; // fall back
@@ -2355,8 +2383,15 @@ final class Dfa {
       pos--;
     }
 
+    if (s == deadState) {
+      return completeSearch(new SearchResult(matched, matchStart, ambiguous), pos);
+    }
+
     // General reverse loop
     while (pos >= startLimit) {
+      if (pos <= scanLimit && pos > startLimit) {
+        return completeSearch(new SearchResult(matched, matchStart, ambiguous, true), pos);
+      }
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }

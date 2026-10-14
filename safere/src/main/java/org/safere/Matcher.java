@@ -51,13 +51,6 @@ public final class Matcher implements MatchResult {
     FAILED
   }
 
-  /**
-   * Minimum text length for the reverse-first optimization on end-anchored patterns. For shorter
-   * texts, the forward DFA is trivially fast and the one-time cost of lazily compiling the reverse
-   * program and its DFA setup outweighs any scanning savings.
-   */
-  private static final int MIN_REVERSE_FIRST_LEN = 1024;
-
   /** Maximum text length for anchored OnePass when inner captures are not required. */
   static final int ONEPASS_TEXT_LIMIT_NO_CAPTURES = 256;
 
@@ -184,11 +177,19 @@ public final class Matcher implements MatchResult {
             captureMode,
             getTextLength());
     diagnosticOperation = null;
+    accumulator.reportIntentionalDivergences(operation.listener());
     operation.listener().onOperationCompleted(event);
   }
 
   private DiagnosticAccumulator diagnosticsAccumulator() {
     return diagnosticOperation == null ? null : diagnosticOperation.accumulator();
+  }
+
+  private void diagnosticIntentionalDivergence(IntentionalDivergence divergence) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.intentionalDivergence(divergence);
+    }
   }
 
   private void diagnosticBoundary(MatchStrategy strategy) {
@@ -1385,6 +1386,7 @@ public final class Matcher implements MatchResult {
       if (searchFrom >= regionEnd) {
         applyFailedMatchResult();
         findExhaustedAfterTerminalEmptyMatch = true;
+        diagnosticIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
         searchFrom = regionEnd + 1;
         return false;
       }
@@ -1717,18 +1719,13 @@ public final class Matcher implements MatchResult {
     return applyFullMatchResult(result);
   }
 
-  /**
-   * Returns whether {@link #doFindCore} runs the reverse-first search for an end-anchored pattern,
-   * which decides from the end of the input whether any match exists. A leading-expansion start
-   * accelerator must not verify its first candidate with a forward DFA scan in that case: the scan
-   * reads the rest of the input to reach a decision the reverse search makes in time proportional
-   * to the suffix.
-   */
-  private boolean reverseFirstApplies(Prog prog, InputScanner scanner, boolean regionActive) {
-    return !regionActive
-        && prog.anchorEnd()
-        && scanner.length() >= MIN_REVERSE_FIRST_LEN
-        && canUseReverseDfa();
+  private boolean verifyEndAnchoredStart(InputScanner scanner, int start) {
+    Prog prog = parentPattern.prog();
+    int[] exact =
+        searchWithBitStateOrNfa(
+            prog, scanner, start, start, scanner.length(), true, false, false, 1);
+    return exact != null
+        && applyDeferredMatchResult(start, exact[1], prog.numCaptures(), true, false);
   }
 
   /**
@@ -1766,6 +1763,21 @@ public final class Matcher implements MatchResult {
       }
     }
 
+    boolean endAnchoredDeferred = false;
+    // End-anchored searches can identify candidate starts from the terminal endpoints. Do this
+    // before prefix acceleration, which would otherwise scan an unrelated prefix on success.
+    if (!regionActive) {
+      int endAnchoredStart =
+          parentPattern.endAnchoredSearchStart(scanner, searchFrom, true, diagnosticsAccumulator());
+      endAnchoredDeferred = endAnchoredStart == Pattern.END_ANCHORED_SEARCH_DEFERRED;
+      if (endAnchoredStart == -1) {
+        return applyFailedMatchResult();
+      }
+      if (endAnchoredStart >= 0 && verifyEndAnchoredStart(scanner, endAnchoredStart)) {
+        return true;
+      }
+    }
+
     RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
     if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
       MatchStrategy rejectionStrategy =
@@ -1797,8 +1809,7 @@ public final class Matcher implements MatchResult {
           }
           if (accelerator instanceof Utf8StartAccelerator.LeadingExpansion le
               && le.canVerifyAtInner()
-              && canUseForwardDfa()
-              && !reverseFirstApplies(prog, scanner, regionActive)) {
+              && canUseForwardDfa()) {
             int innerMatch = le.findInnerCandidate(utf8Scanner, searchFrom);
             if (innerMatch < 0) {
               if (strategy != null) {
@@ -1841,8 +1852,7 @@ public final class Matcher implements MatchResult {
           }
           if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
               && le.canVerifyAtInner()
-              && canUseForwardDfa()
-              && !reverseFirstApplies(prog, scanner, regionActive)) {
+              && canUseForwardDfa()) {
             int innerMatch = le.findInnerCandidate(text, searchFrom, prog.lineStartUnixLines());
             if (innerMatch < 0) {
               if (strategy != null) {
@@ -1877,6 +1887,19 @@ public final class Matcher implements MatchResult {
             startPositionPreselected = true;
           }
         }
+      }
+    }
+
+    // Retry a deferred reverse probe only after rejection and start acceleration narrow its work.
+    if (endAnchoredDeferred) {
+      int endAnchoredStart =
+          parentPattern.endAnchoredSearchStart(
+              scanner, effectiveStart, true, diagnosticsAccumulator(), false);
+      if (endAnchoredStart == -1) {
+        return applyFailedMatchResult();
+      }
+      if (endAnchoredStart >= 0 && verifyEndAnchoredStart(scanner, endAnchoredStart)) {
+        return true;
       }
     }
 
@@ -1919,96 +1942,6 @@ public final class Matcher implements MatchResult {
       // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
       // path below perform the complete search.
       diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
-    }
-
-    // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
-    // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
-    // If the reverse DFA determines no match is possible at the end, we skip the O(n) forward
-    // scan entirely. This makes end-anchored failing searches O(k) where k depends on the
-    // pattern suffix length, matching C++ RE2's reverse DFA optimization.
-    //
-    // Only applied when text exceeds MIN_REVERSE_FIRST_LEN — for short texts, the forward DFA
-    // is trivially fast and the cost of lazily compiling the reverse program and building its
-    // DFA setup outweighs any scanning savings.
-    //
-    // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
-    // must fall through to the normal forward DFA path rather than returning false.
-    if (reverseFirstApplies(prog, scanner, regionActive)) {
-      Dfa revDfa = reverseDfa();
-      if (revDfa != null) {
-        diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-        int textLen = scanner.length();
-        boolean budgetExceeded = false;
-
-        // Try reverse DFA from end of text (anchored at end position).
-        Dfa.SearchResult revResult =
-            searchReverseDfa(revDfa, scanner, textLen, effectiveStart, true, true);
-        int matchStart;
-        boolean matchStartAmbiguous;
-        if (revResult == null) {
-          budgetExceeded = true;
-          matchStart = -1;
-          matchStartAmbiguous = false;
-        } else {
-          matchStart =
-              revResult.matched() && revResult.pos() >= effectiveStart ? revResult.pos() : -1;
-          matchStartAmbiguous = matchStart >= 0 && revResult.ambiguous();
-        }
-
-        // For $ (dollarAnchorEnd), also try before trailing line terminator. The $ anchor
-        // can match before a trailing \n, \r\n, or other line terminator. The leftmost match
-        // start may correspond to a match ending before the trailing terminator rather than
-        // at textLen.
-        if (!budgetExceeded && prog.dollarAnchorEnd()) {
-          int trailingStart =
-              scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), textLen);
-          if (trailingStart >= effectiveStart) {
-            Dfa.SearchResult altRev =
-                searchReverseDfa(revDfa, scanner, trailingStart, effectiveStart, true, true);
-            if (altRev == null) {
-              budgetExceeded = true;
-            } else if (altRev.matched()
-                && altRev.pos() >= effectiveStart
-                && (matchStart < 0 || altRev.pos() < matchStart)) {
-              matchStart = altRev.pos();
-              matchStartAmbiguous = altRev.ambiguous();
-            }
-          }
-        }
-
-        if (!budgetExceeded) {
-          if (matchStart < 0) {
-            // No match possible at end of text — fail immediately without forward scan.
-            diagnosticBoundary(MatchStrategy.DFA);
-            return applyFailedMatchResult();
-          }
-          if (matchStartAmbiguous) {
-            // The reverse DFA can prove that a suffix match exists, but not which accepted
-            // candidate supplies the leftmost start. Fall through to the normal engine path.
-            diagnosticDecision(
-                MatchStrategy.DFA,
-                StrategyDisposition.BYPASSED,
-                StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
-          } else {
-            // Reverse DFA found a match start. It proposes the left edge only; resolve the public
-            // group(0) end with the exact engine anchored at that start so lazy alternatives and
-            // dollar-before-terminator semantics remain leftmost-first.
-            int[] exact =
-                searchWithBitStateOrNfa(
-                    prog, scanner, matchStart, matchStart, textLen, true, false, false, 1);
-            if (exact != null) {
-              int matchEnd = exact[1];
-              return applyDeferredMatchResult(
-                  matchStart, matchEnd, prog.numCaptures(), true, false);
-            }
-          }
-        }
-        if (budgetExceeded) {
-          diagnosticDecision(
-              MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
-        }
-        // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
-      }
     }
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
@@ -3220,6 +3153,9 @@ public final class Matcher implements MatchResult {
       if (matchStart == matchEnd) {
         searchFrom = matchEnd < regionEnd ? matchEnd + 1 : regionEnd + 1;
         findExhaustedAfterTerminalEmptyMatch = matchEnd >= regionEnd;
+        if (findExhaustedAfterTerminalEmptyMatch) {
+          diagnosticIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
+        }
       } else {
         searchFrom = matchEnd;
       }
@@ -3388,6 +3324,7 @@ public final class Matcher implements MatchResult {
       if (matchStart == matchEnd) {
         if (cursor.pos >= regionEnd) {
           findExhaustedAfterTerminalEmptyMatch = true;
+          diagnosticIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
           break;
         }
         cursor.pos++;
@@ -4008,6 +3945,7 @@ public final class Matcher implements MatchResult {
     searchFrom = regionEnd + 1;
     applyFailedMatchResult();
     findExhaustedAfterTerminalEmptyMatch = true;
+    diagnosticIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
     return result.toString();
   }
 
@@ -4209,6 +4147,7 @@ public final class Matcher implements MatchResult {
       throw new IllegalArgumentException("Pattern cannot be null");
     }
     modCount++;
+    boolean preservedGroupZero = hasMatch;
     if (hasMatch) {
       if (!groupZeroResolved) {
         resolveCaptures();
@@ -4232,6 +4171,9 @@ public final class Matcher implements MatchResult {
     }
     invalidatePatternCaches();
     eagerFallbackCaptures = false;
+    if (preservedGroupZero) {
+      Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.USE_PATTERN_GROUP_ZERO);
+    }
     return this;
   }
 

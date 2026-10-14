@@ -9,8 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -47,26 +47,8 @@ final class FuzzSupport {
 
   private FuzzSupport() {}
 
-  // This is a deliberate fuzzing tradeoff: missing quantified captures can be JDK
-  // failed-path residue, but can also be real SafeRE bugs. Prefer fewer false alarms
-  // for this class, while comparing full matches and all other capture differences.
-  private static boolean isWaivedCaptureDifference(
-      MatchResult safeRe, MatchResult jdk, int group, BitSet quantifiedGroups) {
-    return group > 0
-        && safeRe.group(group) == null
-        && safeRe.start(group) == -1
-        && safeRe.end(group) == -1
-        && jdk.group(group) != null
-        && jdk.start(group) >= 0
-        && jdk.end(group) >= jdk.start(group)
-        && (quantifiedGroups.get(group)
-            || (jdk.start(group) < jdk.start() && jdk.end(group) <= jdk.start()))
-        && safeRe.start() == jdk.start()
-        && safeRe.end() == jdk.end()
-        && Objects.equals(safeRe.group(), jdk.group());
-  }
-
   static CompiledPattern compileCompatibleOrSkip(String regex, int flags) {
+    org.safere.FuzzDivergenceEvidence.begin();
     org.safere.Pattern safeRePattern = null;
     java.util.regex.Pattern jdkPattern = null;
     PatternSyntaxException safeReException = null;
@@ -101,16 +83,7 @@ final class FuzzSupport {
         jdkException == null
             ? "compiled successfully"
             : jdkException.getClass().getSimpleName() + ": " + jdkException.getMessage();
-    throw new AssertionError(
-        "compile divergence"
-            + "\nRegex: "
-            + javaStringLiteral(regex)
-            + "\nFlags: "
-            + flags
-            + "\nSafeRE: "
-            + safeRe
-            + "\nJDK: "
-            + jdk);
+    throw FuzzFinding.failure(regex, flags, "", "compile", "", "", safeRe, jdk);
   }
 
   static void assertFullMatchesJdk(String regex, int flags, List<String> inputs) {
@@ -186,10 +159,6 @@ final class FuzzSupport {
 
     void split(CharSequence input) {
       String inputText = input.toString();
-      if (hasUnassignedGraphemeDivergence(safeRePattern, input)) {
-        safeRePattern.split(input);
-        return;
-      }
       JdkOracleResult<String[]> jdk =
           runJdkOracle("split", () -> jdkPattern.split(interruptible(input)));
       if (!jdk.available()) {
@@ -200,10 +169,6 @@ final class FuzzSupport {
 
     void split(CharSequence input, int limit) {
       String inputText = input.toString();
-      if (hasUnassignedGraphemeDivergence(safeRePattern, input)) {
-        safeRePattern.split(input, limit);
-        return;
-      }
       JdkOracleResult<String[]> jdk =
           runJdkOracle("split(" + limit + ")", () -> jdkPattern.split(interruptible(input), limit));
       if (!jdk.available()) {
@@ -215,10 +180,6 @@ final class FuzzSupport {
 
     void splitWithDelimiters(CharSequence input) {
       String inputText = input.toString();
-      if (hasUnassignedGraphemeDivergence(safeRePattern, input)) {
-        safeRePattern.splitWithDelimiters(input);
-        return;
-      }
       JdkOracleResult<String[]> jdk =
           runJdkOracle(
               "splitWithDelimiters", () -> jdkPattern.splitWithDelimiters(interruptible(input), 0));
@@ -231,10 +192,6 @@ final class FuzzSupport {
 
     void splitWithDelimiters(CharSequence input, int limit) {
       String inputText = input.toString();
-      if (hasUnassignedGraphemeDivergence(safeRePattern, input)) {
-        safeRePattern.splitWithDelimiters(input, limit);
-        return;
-      }
       JdkOracleResult<String[]> jdk =
           runJdkOracle(
               "splitWithDelimiters(" + limit + ")",
@@ -251,19 +208,8 @@ final class FuzzSupport {
 
     private void assertArrayEquals(String operation, String input, String[] safeRe, String[] jdk) {
       if (!Arrays.equals(safeRe, jdk)) {
-        throw new AssertionError(
-            operation
-                + " divergence"
-                + "\nRegex: "
-                + javaStringLiteral(regex)
-                + "\nFlags: "
-                + flags
-                + "\nInput: "
-                + javaStringLiteral(input)
-                + "\nSafeRE: "
-                + describeArray(safeRe)
-                + "\nJDK: "
-                + describeArray(jdk));
+        throw FuzzFinding.failure(
+            regex, flags, input, operation, "", "", describeArray(safeRe), describeArray(jdk));
       }
     }
   }
@@ -275,8 +221,17 @@ final class FuzzSupport {
     private String lastReplacement;
     private final org.safere.Matcher safeReMatcher;
     private final java.util.regex.Matcher jdkMatcher;
-    private final BitSet quantifiedGroups;
     private boolean jdkOracleAvailable = true;
+    private final ArrayDeque<String> history = new ArrayDeque<>();
+    private int omittedEvents;
+
+    private void record(String event) {
+      if (history.size() == 256) {
+        history.removeFirst();
+        omittedEvents++;
+      }
+      history.addLast(event.length() > 4096 ? event.substring(0, 4096) + " [truncated]" : event);
+    }
 
     MatcherPair(
         String regex,
@@ -289,11 +244,7 @@ final class FuzzSupport {
       this.input = input;
       this.safeReMatcher = safeReMatcher;
       this.jdkMatcher = jdkMatcher;
-      this.quantifiedGroups =
-          org.safere.FuzzCaptureStructure.quantifiedGroups(safeReMatcher.pattern());
-      if (hasUnassignedGraphemeDivergence(safeReMatcher.pattern(), input)) {
-        this.jdkOracleAvailable = false;
-      }
+      record("matcher(" + javaStringLiteral(input) + ")");
     }
 
     boolean matches() {
@@ -348,11 +299,11 @@ final class FuzzSupport {
       this.lastReplacement = null;
       // Never re-enable the oracle: JDK configuration calls skipped while it was unavailable would
       // leave the two matchers out of sync.
-      if (hasUnassignedGraphemeDivergence(safeReMatcher.pattern(), input)) {
-        this.jdkOracleAvailable = false;
-      }
       safeReMatcher.reset(input);
-      runJdkOracle("reset(input)", null, () -> jdkMatcher.reset(interruptible(input)));
+      runJdkOracle(
+          "reset(" + javaStringLiteral(this.input) + ")",
+          null,
+          () -> jdkMatcher.reset(interruptible(input)));
       return this;
     }
 
@@ -385,18 +336,14 @@ final class FuzzSupport {
     String group(int group) {
       String safeRe = safeReMatcher.group(group);
       String jdk = runJdkOracle("group(" + group + ")", safeRe, () -> jdkMatcher.group(group));
-      if (!isWaivedCapture(group)) {
-        assertSame("group(" + group + ")", safeRe, jdk);
-      }
+      assertSame("group(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     String group(String name) {
       String safeRe = safeReMatcher.group(name);
       String jdk = runJdkOracle("group(" + name + ")", safeRe, () -> jdkMatcher.group(name));
-      if (!isWaivedCapture(name)) {
-        assertSame("group(" + name + ")", safeRe, jdk);
-      }
+      assertSame("group(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
@@ -410,18 +357,14 @@ final class FuzzSupport {
     int start(int group) {
       int safeRe = safeReMatcher.start(group);
       int jdk = runJdkOracle("start(" + group + ")", safeRe, () -> jdkMatcher.start(group));
-      if (!isWaivedCapture(group)) {
-        assertSame("start(" + group + ")", safeRe, jdk);
-      }
+      assertSame("start(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     int start(String name) {
       int safeRe = safeReMatcher.start(name);
       int jdk = runJdkOracle("start(" + name + ")", safeRe, () -> jdkMatcher.start(name));
-      if (!isWaivedCapture(name)) {
-        assertSame("start(" + name + ")", safeRe, jdk);
-      }
+      assertSame("start(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
@@ -435,34 +378,20 @@ final class FuzzSupport {
     int end(int group) {
       int safeRe = safeReMatcher.end(group);
       int jdk = runJdkOracle("end(" + group + ")", safeRe, () -> jdkMatcher.end(group));
-      if (!isWaivedCapture(group)) {
-        assertSame("end(" + group + ")", safeRe, jdk);
-      }
+      assertSame("end(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     int end(String name) {
       int safeRe = safeReMatcher.end(name);
       int jdk = runJdkOracle("end(" + name + ")", safeRe, () -> jdkMatcher.end(name));
-      if (!isWaivedCapture(name)) {
-        assertSame("end(" + name + ")", safeRe, jdk);
-      }
+      assertSame("end(" + name + ")", safeRe, jdk);
       return safeRe;
-    }
-
-    private boolean isWaivedCapture(int group) {
-      return jdkOracleAvailable
-          && isWaivedCaptureDifference(safeReMatcher, jdkMatcher, group, quantifiedGroups);
-    }
-
-    private boolean isWaivedCapture(String name) {
-      Integer group = safeReMatcher.pattern().namedGroups().get(name);
-      return group != null && isWaivedCapture(group);
     }
 
     MatcherPair region(int start, int end) {
       safeReMatcher.region(start, end);
-      runJdkOracle("region", null, () -> jdkMatcher.region(start, end));
+      runJdkOracle("region(" + start + "," + end + ")", null, () -> jdkMatcher.region(start, end));
       return this;
     }
 
@@ -482,13 +411,17 @@ final class FuzzSupport {
 
     MatcherPair useAnchoringBounds(boolean value) {
       safeReMatcher.useAnchoringBounds(value);
-      runJdkOracle("useAnchoringBounds", null, () -> jdkMatcher.useAnchoringBounds(value));
+      runJdkOracle(
+          "useAnchoringBounds(" + value + ")", null, () -> jdkMatcher.useAnchoringBounds(value));
       return this;
     }
 
     MatcherPair useTransparentBounds(boolean value) {
       safeReMatcher.useTransparentBounds(value);
-      runJdkOracle("useTransparentBounds", null, () -> jdkMatcher.useTransparentBounds(value));
+      runJdkOracle(
+          "useTransparentBounds(" + value + ")",
+          null,
+          () -> jdkMatcher.useTransparentBounds(value));
       return this;
     }
 
@@ -664,9 +597,6 @@ final class FuzzSupport {
       int groupCount = safeRe.groupCount();
       assertSame(operation + ".groupCount", groupCount, jdk.groupCount());
       for (int i = 0; i <= groupCount; i++) {
-        if (isWaivedCaptureDifference(safeRe, jdk, i, quantifiedGroups)) {
-          continue;
-        }
         assertSame(operation + ".group(" + i + ")", safeRe.group(i), jdk.group(i));
         assertSame(operation + ".start(" + i + ")", safeRe.start(i), jdk.start(i));
         assertSame(operation + ".end(" + i + ")", safeRe.end(i), jdk.end(i));
@@ -678,7 +608,6 @@ final class FuzzSupport {
         String replacement,
         StringOperation safeReOperation,
         StringOperation jdkOperation) {
-      boolean waiveOutput = replacementHasWaivedCapture(operation);
       OperationResult<String> safeRe = OperationResult.capture(safeReOperation);
       if (!jdkOracleAvailable) {
         return false;
@@ -688,9 +617,7 @@ final class FuzzSupport {
         return false;
       }
       if (safeRe.throwable() == null && jdk.throwable() == null) {
-        if (!waiveOutput) {
-          assertSame(operation, replacement, safeRe.value(), jdk.value());
-        }
+        assertSame(operation, replacement, safeRe.value(), jdk.value());
         if (operation.equals("replaceAll") || operation.equals("replaceAll(function)")) {
           assertExhaustedReplacementState();
         }
@@ -723,20 +650,9 @@ final class FuzzSupport {
     }
 
     private boolean hasJdkExhaustedEmptyMatchState() {
-      if (!jdkMatcher.hasMatch()
-          || jdkMatcher.start() != jdkMatcher.regionEnd()
-          || jdkMatcher.end() != jdkMatcher.regionEnd()
-          || jdkMatcher.group() != null) {
-        return false;
-      }
-      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
-        if (jdkMatcher.start(group) != -1
-            || jdkMatcher.end(group) != -1
-            || jdkMatcher.group(group) != null) {
-          return false;
-        }
-      }
-      return true;
+      boolean defect = OracleDefects.exhaustedEmptyMatch(jdkMatcher);
+      if (defect) OracleDefects.record();
+      return defect;
     }
 
     private void assertExhaustedReplacementState() {
@@ -752,67 +668,26 @@ final class FuzzSupport {
       }
     }
 
-    private boolean hasWaivedCapture() {
-      for (int group = 1; group <= safeReMatcher.groupCount(); group++) {
-        if (isWaivedCapture(group)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    private boolean replacementHasWaivedCapture(String operation) {
-      if (!jdkOracleAvailable) {
-        return false;
-      }
-      if (operation.equals("appendReplacement")) {
-        if (!safeReMatcher.hasMatch() || !jdkMatcher.hasMatch()) {
-          return false;
-        }
-        assertMatchState("appendReplacement captures");
-        return hasWaivedCapture();
-      }
-      // replaceAll/replaceFirst reset to the full input, retaining bounds settings.
-      // Check their match sequence on independent matchers before executing the actual
-      // replacement APIs. Do not invoke a functional replacer during this check.
-      MatcherPair probe =
-          new MatcherPair(
-              regex,
-              flags,
-              input,
-              safeReMatcher.pattern().matcher(input),
-              jdkMatcher.pattern().matcher(interruptible(input)));
-      probe.safeReMatcher.useAnchoringBounds(safeReMatcher.hasAnchoringBounds());
-      probe.safeReMatcher.useTransparentBounds(safeReMatcher.hasTransparentBounds());
-      probe.jdkMatcher.useAnchoringBounds(jdkMatcher.hasAnchoringBounds());
-      probe.jdkMatcher.useTransparentBounds(jdkMatcher.hasTransparentBounds());
-      boolean waived = false;
-      while (probe.find()) {
-        waived |= probe.hasWaivedCapture();
-        if (operation.equals("replaceFirst")) {
-          break;
-        }
-      }
-      // An incomplete oracle trace is not evidence for waiving output comparison.
-      return probe.jdkOracleAvailable && waived;
-    }
-
     private AssertionError divergence(
         String operation, String replacement, Object safeRe, Object jdk) {
-      return new AssertionError(
-          operation
-              + " divergence"
-              + "\nRegex: "
-              + javaStringLiteral(regex)
-              + "\nFlags: "
-              + flags
-              + "\nInput: "
-              + javaStringLiteral(input)
-              + (replacement == null ? "" : "\nReplacement: " + javaStringLiteral(replacement))
-              + "\nSafeRE: "
-              + safeRe
-              + "\nJDK: "
-              + jdk);
+      return FuzzFinding.failure(
+          regex,
+          flags,
+          input,
+          operation,
+          "region="
+              + safeReMatcher.regionStart()
+              + ":"
+              + safeReMatcher.regionEnd()
+              + " anchoring="
+              + safeReMatcher.hasAnchoringBounds()
+              + " transparent="
+              + safeReMatcher.hasTransparentBounds()
+              + " replacement="
+              + (replacement == null ? "null" : javaStringLiteral(replacement)),
+          "omittedEvents=" + omittedEvents + " " + history,
+          Objects.toString(safeRe),
+          Objects.toString(jdk));
     }
 
     private void assertSame(String operation, Object safeRe, Object jdk) {
@@ -820,12 +695,19 @@ final class FuzzSupport {
     }
 
     private void assertSame(String operation, String replacement, Object safeRe, Object jdk) {
+      record(
+          operation
+              + " SafeRE="
+              + javaStringLiteral(Objects.toString(safeRe))
+              + " JDK="
+              + javaStringLiteral(Objects.toString(jdk)));
       if (!Objects.equals(safeRe, jdk)) {
         throw divergence(operation, replacement, safeRe, jdk);
       }
     }
 
     private <T> T runJdkOracle(String operation, T fallback, JdkOracleOperation<T> jdkOperation) {
+      record(operation);
       if (!jdkOracleAvailable) {
         return fallback;
       }
@@ -962,7 +844,7 @@ final class FuzzSupport {
     return Arrays.stream(values).map(FuzzSupport::javaStringLiteral).toList().toString();
   }
 
-  private static String javaStringLiteral(String value) {
+  static String javaStringLiteral(String value) {
     StringBuilder result = new StringBuilder(value.length() + 2);
     result.append('"');
     for (int i = 0; i < value.length(); i++) {
@@ -995,16 +877,7 @@ final class FuzzSupport {
         || hasPossessiveQuantifier(regex)
         || hasAtomicGroup(regex)
         || hasPreviousMatchAnchor(regex, safeReException)
-        || isOverCompilerBudget(safeReException)
-        || isIntentionalCharacterClassIntersectionForTesting(safeReException);
-  }
-
-  static boolean isIntentionalCharacterClassIntersectionForTesting(
-      PatternSyntaxException exception) {
-    return exception
-        .getClass()
-        .getName()
-        .equals("org.safere.Parser$IntentionalDivergenceSyntaxException");
+        || isOverCompilerBudget(safeReException);
   }
 
   private static boolean isOverCompilerBudget(PatternSyntaxException safeReException) {
@@ -1047,60 +920,6 @@ final class FuzzSupport {
     return regex.contains("\\G")
         || Objects.equals(
             safeReException.getDescription(), "\\G (end of previous match) is not supported");
-  }
-
-  private static final java.util.regex.Pattern JDK_GRAPHEME_BOUNDARY =
-      java.util.regex.Pattern.compile("\\b{g}");
-
-  /**
-   * Returns whether JDK grapheme segmentation is expected to diverge from SafeRE because of the
-   * JDK's handling of unassigned code points (#925, b/564599082, b/568211495).
-   *
-   * <p>OpenJDK's {@code jdk.internal.util.regex.Grapheme.getType} classifies unassigned code points
-   * other than U+0378 as {@code Control}, so it breaks around them under GB4/GB5. UAX #29 gives
-   * unassigned code points that are not default-ignorable {@code Grapheme_Cluster_Break=Other}, so
-   * they join a following {@code Extend}, {@code ZWJ}, or {@code SpacingMark} (GB9, GB9a) and a
-   * preceding {@code Prepend} (GB9b), as SafeRE does.
-   *
-   * <p>Rather than duplicating the Unicode property tables here, this compares SafeRE's boundaries
-   * with the JDK's {@code \b{g}} boundaries directly, and waives only when they differ and every
-   * difference is adjacent to a code point that the JDK considers unassigned. Other grapheme
-   * divergences, such as GB11 (#936) or Ahom (#940), are not waived by this check.
-   *
-   * <p>Eligibility comes from the compiled program, so literal, quoted, escaped, and commented
-   * spellings do not disable comparisons. SafeRE boundary probes share one per-input context.
-   */
-  static boolean hasUnassignedGraphemeDivergence(org.safere.Pattern pattern, CharSequence input) {
-    if (!org.safere.FuzzGraphemeBoundaries.hasGraphemeSemantics(pattern)) {
-      return false;
-    }
-    String text = input.toString();
-    BitSet jdkBoundaries = new BitSet(text.length() + 1);
-    java.util.regex.Matcher jdk = JDK_GRAPHEME_BOUNDARY.matcher(text);
-    while (jdk.find()) {
-      jdkBoundaries.set(jdk.start());
-    }
-    BitSet safeReBoundaries = org.safere.FuzzGraphemeBoundaries.boundaries(text);
-    boolean differs = false;
-    for (int pos = 1; pos < text.length(); pos++) {
-      if (Character.isHighSurrogate(text.charAt(pos - 1))
-          && Character.isLowSurrogate(text.charAt(pos))) {
-        continue;
-      }
-      if (safeReBoundaries.get(pos) == jdkBoundaries.get(pos)) {
-        continue;
-      }
-      if (!isJdkUnassignedGraphemeControl(Character.codePointBefore(text, pos))
-          && !isJdkUnassignedGraphemeControl(Character.codePointAt(text, pos))) {
-        return false;
-      }
-      differs = true;
-    }
-    return differs;
-  }
-
-  private static boolean isJdkUnassignedGraphemeControl(int codePoint) {
-    return codePoint != 0x0378 && Character.getType(codePoint) == Character.UNASSIGNED;
   }
 
   static int consumeIndex(FuzzedDataProvider data, String input) {
