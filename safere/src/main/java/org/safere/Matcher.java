@@ -2996,8 +2996,17 @@ public final class Matcher implements MatchResult {
     Objects.requireNonNull(replacement, "replacement");
     reset();
     if (!parentPattern.prog().anchorStart()) {
+      // As in doFindCore, the end-anchored search runs before the whole-input reject prefilter: it
+      // can reject from the end of the input, and when it proposes a start a match is likely, so
+      // scanning the whole input for required literals would be wasted.
+      int endAnchoredStart =
+          parentPattern.endAnchoredSearchStart(
+              activeScanner(), searchFrom, true, diagnosticsAccumulator());
+      if (endAnchoredStart == -1) {
+        return text;
+      }
       RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
-      if (rejectPrefilter != null && text != null) {
+      if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
         InputScanner scanner = activeScanner();
         EnginePathOptions options = enginePathOptions();
         MatchStrategy rejectionStrategy =
@@ -4651,8 +4660,13 @@ public final class Matcher implements MatchResult {
 
   int findSplitPositions(int limit, SplitBuffer buffer) {
     if (!parentPattern.prog().anchorStart()) {
+      // As in replaceImpl, try the end-anchored search before the whole-input reject prefilter.
+      int endAnchoredStart = parentPattern.endAnchoredSearchStart(activeScanner(), 0, true, null);
+      if (endAnchoredStart == -1) {
+        return 0;
+      }
       RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
-      if (rejectPrefilter != null && text != null) {
+      if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
         if (rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())) {
           return 0;
         }

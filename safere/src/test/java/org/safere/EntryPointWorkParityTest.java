@@ -9,7 +9,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -98,28 +97,19 @@ class EntryPointWorkParityTest {
   private static final Map<String, String> KNOWN_GAPS = knownGaps();
 
   private static Map<String, String> knownGaps() {
-    String rejectFirst =
-        "replaceImpl and findSplitPositions run the whole-input reject prefilter before the"
-            + " end-anchored search, which find() has run first since #969";
-    Map<String, String> gaps = new HashMap<>();
-    for (String scenario :
-        List.of(
-            "/(?:foo|fax)$/ no match",
-            "/(?:foo|fax)$/ + ' foo'",
-            "/\\s*(?:foo|fax)\\z/ no match",
-            "/\\s*(?:foo|fax)\\z/ + ' foo'")) {
-      for (String entryPoint : List.of("replaceFirst", "replaceAll", "split")) {
-        gaps.put(scenario + " " + entryPoint, rejectFirst);
-      }
-    }
-    gaps.put(
-        "/(?i)\\s*(?:foo|fax)$/ no match split",
-        "findNextMatchPacked verifies leading-expansion candidates with a forward scan and has no"
-            + " end-anchored search");
-    gaps.put(
+    String splitHasNoEndAnchoredSearch =
+        "findNextMatchPacked, which split uses, has no end-anchored search";
+    return Map.of(
+        "/(?:foo|fax)$/ + ' foo' split",
+        splitHasNoEndAnchoredSearch,
+        "/\\s*(?:foo|fax)\\z/ + ' foo' split",
+        splitHasNoEndAnchoredSearch,
+        "/\\s*(?:foo|fax)\\z/ + ' foo' replaceFirst",
+        "replaceDfaOptimized does not step aside for \\z-anchored patterns",
+        "/\\s*(?:foo|fax)\\z/ + ' foo' replaceAll",
+        "replaceDfaOptimized does not step aside for \\z-anchored patterns",
         "/(?i)\\b(?:foo|bar|baz)\\b/ + ' bar' split",
         "findNextMatchPacked has no KeywordAlternation fast path");
-    return gaps;
   }
 
   @Test
