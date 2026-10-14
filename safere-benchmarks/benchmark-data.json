@@ -3976,6 +3976,22 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "endAnchoredReplace.noLiteral.16384",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "the quick brown fox jumps over the lazy dog ",
+        "length": 16384
+      }
+    },
+    {
+      "id": "endAnchoredReplace.noLiteral.16384.foo",
+      "recipe": {
+        "kind": "appendInput",
+        "input": "endAnchoredReplace.noLiteral.16384",
+        "suffix": " foo"
+      }
     }
   ],
   "workloads": [
@@ -15970,6 +15986,102 @@
       },
       "arguments": {
         "replacement": "X"
+      }
+    },
+    {
+      "id": "EndAnchoredReplaceBenchmark.{regex}.noMatch.16384",
+      "axes": {
+        "regex": [
+          {
+            "id": "fooOrFax",
+            "value": "(foo|fax)$"
+          },
+          {
+            "id": "optionalWhitespaceEndOfInput",
+            "value": "\\s*(foo|fax)\\z"
+          }
+        ]
+      },
+      "operation": "replaceAll",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "endAnchoredReplace.noLiteral.16384"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "X"
+      }
+    },
+    {
+      "id": "EndAnchoredReplaceBenchmark.{regex}.match.16384",
+      "axes": {
+        "regex": [
+          {
+            "id": "fooOrFax",
+            "value": "(foo|fax)$"
+          },
+          {
+            "id": "optionalWhitespaceEndOfInput",
+            "value": "\\s*(foo|fax)\\z"
+          }
+        ]
+      },
+      "operation": "replaceAll",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "endAnchoredReplace.noLiteral.16384.foo"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "X"
+      }
+    },
+    {
+      "id": "EndAnchoredSplitBenchmark.{regex}.noMatch.16384",
+      "axes": {
+        "regex": [
+          {
+            "id": "fooOrFax",
+            "value": "(foo|fax)$"
+          },
+          {
+            "id": "optionalWhitespaceEndOfInput",
+            "value": "\\s*(foo|fax)\\z"
+          }
+        ]
+      },
+      "operation": "splitLengthSum",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "endAnchoredReplace.noLiteral.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     }
   ]
