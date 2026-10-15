@@ -152,6 +152,18 @@ class Utf8ReplacementTest {
   }
 
   @Test
+  void outOfRangeNumericGroupReferenceFailsBeforeWriting() {
+    Utf8Matcher matcher = matcher("(a)", "xa");
+    CollectingSink sink = new CollectingSink();
+    assertThat(matcher.find()).isTrue();
+
+    assertThatThrownBy(() -> matcher.appendReplacement(sink, input("$2")))
+        .isInstanceOf(IndexOutOfBoundsException.class);
+    assertThat(sink.toString()).isEmpty();
+    assertThatThrownBy(() -> matcher.appendTail(sink)).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
   void resetRecoversReplacementStateAndAppendPosition() {
     Utf8Matcher matcher = matcher("(a)", "xa");
     assertThat(matcher.find()).isTrue();
@@ -170,7 +182,7 @@ class Utf8ReplacementTest {
   @Test
   void replacementTemplateIsCompiledOnceAcrossRepeatedMatches() {
     Utf8Matcher matcher = matcher("a", "aaa");
-    byte[] expected = "é".getBytes(UTF_8);
+    byte[] expected = "$é".getBytes(UTF_8);
     List<byte[]> literalStorages = new ArrayList<>();
     Utf8Sink sink =
         (bytes, offset, length) -> {
@@ -179,7 +191,7 @@ class Utf8ReplacementTest {
             literalStorages.add(bytes);
           }
         };
-    Utf8Input replacement = input("é");
+    Utf8Input replacement = input("\\$é");
 
     while (matcher.find()) {
       matcher.appendReplacement(sink, replacement);
@@ -190,6 +202,63 @@ class Utf8ReplacementTest {
     for (byte[] literalStorage : literalStorages) {
       assertThat(literalStorage).isSameAs(literalStorages.getFirst());
     }
+  }
+
+  @Test
+  void simpleReplacementUsesOriginalReplacementStorage() {
+    byte[] logical = "é".getBytes(UTF_8);
+    byte[] storage = new byte[logical.length + 6];
+    System.arraycopy(logical, 0, storage, 3, logical.length);
+    Utf8Input replacement = Utf8Input.validated(storage, 3, logical.length);
+    Utf8Matcher matcher = matcher("([a-z]+)-([0-9]+)", "foo-12");
+    List<Range> ranges = new ArrayList<>();
+    Utf8Sink sink = (bytes, offset, length) -> ranges.add(new Range(bytes, offset, length));
+
+    assertThat(matcher.find()).isTrue();
+    matcher.appendReplacement(sink, replacement);
+
+    assertThat(ranges)
+        .filteredOn(range -> range.length() == logical.length)
+        .singleElement()
+        .satisfies(
+            range -> {
+              assertThat(range.bytes()).isSameAs(storage);
+              assertThat(range.offset()).isEqualTo(3);
+              assertThat(range.length()).isEqualTo(logical.length);
+            });
+  }
+
+  @Test
+  void literalAndGroupZeroReplacementsKeepCapturesDeferred() {
+    Pattern literalReplacementPattern = Pattern.compile("(?<word>[a-z]+)-([0-9]+)");
+    Utf8Matcher literalMatcher = literalReplacementPattern.matcher(input("foo-12 bar-34"));
+    CollectingSink literalSink = new CollectingSink();
+    while (literalMatcher.find()) {
+      literalMatcher.appendReplacement(literalSink, input("_"));
+    }
+    literalMatcher.appendTail(literalSink);
+    assertThat(literalSink.toString()).isEqualTo("_ _");
+    assertThat(literalReplacementPattern.innerCapturesObserved()).isFalse();
+
+    Pattern groupZeroPattern = Pattern.compile("(?<word>[a-z]+)-([0-9]+)");
+    Utf8Matcher groupZeroMatcher = groupZeroPattern.matcher(input("foo-12 bar-34"));
+    CollectingSink groupZeroSink = new CollectingSink();
+    while (groupZeroMatcher.find()) {
+      groupZeroMatcher.appendReplacement(groupZeroSink, input("[$0]"));
+    }
+    groupZeroMatcher.appendTail(groupZeroSink);
+    assertThat(groupZeroSink.toString()).isEqualTo("[foo-12] [bar-34]");
+    assertThat(groupZeroPattern.innerCapturesObserved()).isFalse();
+
+    Pattern innerCapturePattern = Pattern.compile("(?<word>[a-z]+)-([0-9]+)");
+    Utf8Matcher innerCaptureMatcher = innerCapturePattern.matcher(input("foo-12 bar-34"));
+    CollectingSink innerCaptureSink = new CollectingSink();
+    while (innerCaptureMatcher.find()) {
+      innerCaptureMatcher.appendReplacement(innerCaptureSink, input("${word}:$2"));
+    }
+    innerCaptureMatcher.appendTail(innerCaptureSink);
+    assertThat(innerCaptureSink.toString()).isEqualTo("foo:12 bar:34");
+    assertThat(innerCapturePattern.innerCapturesObserved()).isTrue();
   }
 
   @Test

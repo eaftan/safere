@@ -5,11 +5,9 @@
 
 package org.safere;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ConcurrentModificationException;
-import java.util.Map;
 
 /**
  * A stateful matcher over UTF-8 input whose reported positions are relative byte offsets.
@@ -25,7 +23,7 @@ public final class Utf8Matcher {
   private int appendPosition;
   private boolean replacementFailed;
   private Utf8Input cachedReplacement;
-  private ReplacementSegment[] cachedTemplate;
+  private Matcher.ReplacementTemplate cachedTemplate;
   private int modCount;
   private boolean appending;
 
@@ -193,23 +191,37 @@ public final class Utf8Matcher {
     beginAppend();
     int expectedModCount = modCount;
     try {
-      ReplacementSegment[] template = replacementTemplate(replacement);
-      int[] bounds = captureBounds();
-      appendRange(sink, appendPosition, bounds[0], expectedModCount);
-      for (ReplacementSegment segment : template) {
-        switch (segment) {
-          case ReplacementSegment.Literal literal -> {
-            byte[] bytes = literal.bytes();
-            sink.append(bytes, 0, bytes.length);
-            checkForConcurrentModification(expectedModCount);
+      delegate.checkMatch();
+      ArrayUtf8Input utf8Replacement = (ArrayUtf8Input) replacement;
+      Matcher.ReplacementTemplate template = replacementTemplate(utf8Replacement);
+      if (template != null && template.needsCaptures()) {
+        delegate.resolveReplacementCaptures();
+      }
+      int matchStart = delegate.start();
+      int matchEnd = delegate.end();
+      appendRange(sink, appendPosition, matchStart, expectedModCount);
+      if (template == null) {
+        utf8Replacement.appendRange(sink, 0, utf8Replacement.length());
+        checkForConcurrentModification(expectedModCount);
+      } else {
+        for (Matcher.ReplacementSegment segment : template.segments()) {
+          switch (segment) {
+            case Matcher.ReplacementSegment.Literal literal -> {
+              byte[] bytes = literal.utf8();
+              sink.append(bytes, 0, bytes.length);
+              checkForConcurrentModification(expectedModCount);
+            }
+            case Matcher.ReplacementSegment.GroupRef(var group) -> {
+              int start = group == 0 ? matchStart : delegate.groupStart(group);
+              if (start >= 0) {
+                int end = group == 0 ? matchEnd : delegate.groupEnd(group);
+                appendRange(sink, start, end, expectedModCount);
+              }
+            }
           }
-          case ReplacementSegment.GroupRef(var group) ->
-              appendGroup(sink, bounds, group, expectedModCount);
-          case ReplacementSegment.NamedGroupRef(var group) ->
-              appendGroup(sink, bounds, group, expectedModCount);
         }
       }
-      appendPosition = bounds[1];
+      appendPosition = matchEnd;
       return this;
     } catch (RuntimeException | Error e) {
       replacementFailed = true;
@@ -244,22 +256,6 @@ public final class Utf8Matcher {
     }
   }
 
-  private void appendGroup(Utf8Sink sink, int[] bounds, int group, int expectedModCount) {
-    int start = bounds[group * 2];
-    if (start >= 0) {
-      appendRange(sink, start, bounds[group * 2 + 1], expectedModCount);
-    }
-  }
-
-  private int[] captureBounds() {
-    int[] bounds = new int[(groupCount() + 1) * 2];
-    for (int group = 0; group <= groupCount(); group++) {
-      bounds[group * 2] = start(group);
-      bounds[group * 2 + 1] = end(group);
-    }
-    return bounds;
-  }
-
   private void appendRange(Utf8Sink sink, int start, int end, int expectedModCount) {
     input.appendRange(sink, start, end);
     checkForConcurrentModification(expectedModCount);
@@ -290,49 +286,15 @@ public final class Utf8Matcher {
     }
   }
 
-  private ReplacementSegment[] replacementTemplate(Utf8Input replacement) {
+  private Matcher.ReplacementTemplate replacementTemplate(ArrayUtf8Input replacement) {
     if (replacement != cachedReplacement) {
-      String text = ((ArrayUtf8Input) replacement).decode();
-      Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount());
-      ReplacementSegment[] compiled = new ReplacementSegment[parsed.length];
-      Map<String, Integer> namedGroups = pattern.namedGroups();
-      for (int index = 0; index < parsed.length; index++) {
-        compiled[index] =
-            switch (parsed[index]) {
-              case Matcher.ReplacementSegment.Literal(var literal) ->
-                  new ReplacementSegment.Literal(literal.getBytes(UTF_8));
-              case Matcher.ReplacementSegment.GroupRef(var group) ->
-                  new ReplacementSegment.GroupRef(group);
-              case Matcher.ReplacementSegment.NamedGroupRef(var name) -> {
-                Integer group = namedGroups.get(name);
-                if (group == null) {
-                  throw new IllegalArgumentException("No group with name <" + name + ">");
-                }
-                yield new ReplacementSegment.NamedGroupRef(group);
-              }
-            };
-      }
-      cachedTemplate = compiled;
+      cachedTemplate =
+          Matcher.isSimpleReplacement(replacement)
+              ? null
+              : Matcher.compileUtf8ReplacementTemplate(
+                  replacement, pattern.numGroups(), pattern.namedGroups());
       cachedReplacement = replacement;
     }
     return cachedTemplate;
-  }
-
-  private sealed interface ReplacementSegment {
-    final class Literal implements ReplacementSegment {
-      private final byte[] bytes;
-
-      Literal(byte[] bytes) {
-        this.bytes = bytes;
-      }
-
-      byte[] bytes() {
-        return bytes;
-      }
-    }
-
-    record GroupRef(int group) implements ReplacementSegment {}
-
-    record NamedGroupRef(int group) implements ReplacementSegment {}
   }
 }

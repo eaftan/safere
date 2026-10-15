@@ -39,6 +39,88 @@ class Utf8AllocationScalingTest {
     while (matcher.find()) {}
   }
 
+  @Test
+  void repeatedAppendReplacementDoesNotAllocatePerMatch() {
+    AllocationTracker tracker = allocationTracker();
+    long threadId = Thread.currentThread().threadId();
+    Pattern literalPattern = Pattern.compile("foo");
+    Pattern capturePattern = Pattern.compile("([a-z]+)-([0-9]+)");
+    Utf8Input small = Utf8Input.trusted("foo-12 ".repeat(100).getBytes(UTF_8));
+    Utf8Input large = Utf8Input.trusted("foo-12 ".repeat(2_000).getBytes(UTF_8));
+    Utf8Input groupZeroReplacement = Utf8Input.trusted("[$0]".getBytes(UTF_8));
+    byte[] simpleReplacementBytes = "#".getBytes(UTF_8);
+
+    measure(tracker, threadId, () -> replaceAll(literalPattern, small, groupZeroReplacement));
+    measure(tracker, threadId, () -> replaceAll(literalPattern, large, groupZeroReplacement));
+    long smallLiteralReplace =
+        measure(tracker, threadId, () -> replaceAll(literalPattern, small, groupZeroReplacement));
+    long largeLiteralReplace =
+        measure(tracker, threadId, () -> replaceAll(literalPattern, large, groupZeroReplacement));
+
+    measure(tracker, threadId, () -> findAll(capturePattern, large));
+    measure(tracker, threadId, () -> replaceAll(capturePattern, large, groupZeroReplacement));
+    long largeCaptureFindOnly = measure(tracker, threadId, () -> findAll(capturePattern, large));
+    long largeCaptureReplaceGroupZero =
+        measure(tracker, threadId, () -> replaceAll(capturePattern, large, groupZeroReplacement));
+
+    measure(
+        tracker,
+        threadId,
+        () -> findOneAcrossMatchers(capturePattern, small, simpleReplacementBytes, 1_000));
+    measure(
+        tracker,
+        threadId,
+        () -> replaceAcrossMatchers(capturePattern, small, simpleReplacementBytes, 1_000));
+    long crossMatcherFindOnly =
+        measure(
+            tracker,
+            threadId,
+            () -> findOneAcrossMatchers(capturePattern, small, simpleReplacementBytes, 1_000));
+    long crossMatcherReplace =
+        measure(
+            tracker,
+            threadId,
+            () -> replaceAcrossMatchers(capturePattern, small, simpleReplacementBytes, 1_000));
+
+    assertThat(largeLiteralReplace - smallLiteralReplace).isLessThan(32_768);
+    assertThat(largeCaptureReplaceGroupZero - largeCaptureFindOnly).isLessThan(32_768);
+    assertThat(crossMatcherReplace - crossMatcherFindOnly).isLessThan(32_768);
+    assertThat(capturePattern.innerCapturesObserved()).isFalse();
+  }
+
+  private static void replaceAll(Pattern pattern, Utf8Input input, Utf8Input replacement) {
+    Utf8Matcher matcher = pattern.matcher(input);
+    Utf8Sink noopSink = (bytes, offset, length) -> {};
+    while (matcher.find()) {
+      matcher.appendReplacement(noopSink, replacement);
+    }
+    matcher.appendTail(noopSink);
+  }
+
+  private static void findOneAcrossMatchers(
+      Pattern pattern, Utf8Input input, byte[] replacementBytes, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+      Utf8Matcher matcher = pattern.matcher(input);
+      Utf8Input replacement = Utf8Input.trusted(replacementBytes);
+      if (matcher.find() && replacement.length() < 0) {
+        throw new AssertionError();
+      }
+    }
+  }
+
+  private static void replaceAcrossMatchers(
+      Pattern pattern, Utf8Input input, byte[] replacementBytes, int iterations) {
+    Utf8Sink noopSink = (bytes, offset, length) -> {};
+    for (int i = 0; i < iterations; i++) {
+      Utf8Matcher matcher = pattern.matcher(input);
+      Utf8Input replacement = Utf8Input.trusted(replacementBytes);
+      if (matcher.find()) {
+        matcher.appendReplacement(noopSink, replacement);
+      }
+      matcher.appendTail(noopSink);
+    }
+  }
+
   private static long measure(AllocationTracker tracker, long threadId, Runnable operation) {
     long before = tracker.allocatedBytes(threadId);
     operation.run();
