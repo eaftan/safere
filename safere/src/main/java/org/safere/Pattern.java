@@ -236,6 +236,17 @@ public final class Pattern implements Serializable {
     static final OnePassAnalysis DISABLED = new OnePassAnalysis(null, false, false, false);
   }
 
+  /**
+   * ShiftDfa analysis result, computed on first {@code matches()} request for eligible group-0
+   * patterns.
+   */
+  private transient volatile ShiftDfaAnalysis shiftDfaAnalysis;
+
+  /** Holder for ShiftDfa analysis results. */
+  private record ShiftDfaAnalysis(ShiftDfa shiftDfa) {
+    static final ShiftDfaAnalysis DISABLED = new ShiftDfaAnalysis(null);
+  }
+
   private Pattern(
       String pattern,
       int flags,
@@ -335,31 +346,20 @@ public final class Pattern implements Serializable {
   }
 
   private static MatchDescriptor extractMatchDescriptor(
-      Regexp metadataAst,
-      Regexp sourceAst,
-      int flags,
-      Prog prog,
-      EnginePathOptions enginePathOptions) {
+      Regexp metadataAst, AstAnalysis astAnalysis, int flags) {
     LiteralResult literalMatchResult = extractLiteralMatch(metadataAst);
     String literalMatch = literalMatchResult.literal();
     boolean literalFoldCase = literalMatchResult.foldCase();
-    CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
+    boolean hasUserCaptures = astAnalysis.hasUserCaptures();
+    CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst, hasUserCaptures);
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
-    CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
-    int minMatchLength = extractMinMatchLength(sourceAst);
-    // A case-sensitive literal runner handles both String and UTF-8 without a ShiftDfa fallback.
-    // Folded literals can still use ShiftDfa through createLiteralFallbackRunner for UTF-8.
-    boolean literalSupersedesShiftDfa =
-        canUseLiteralPreparedRunner(literalMatch, prog.numCaptures(), enginePathOptions)
-            && !literalFoldCase;
-    ShiftDfa shiftDfa =
-        enginePathOptions.shiftDfa() && !literalSupersedesShiftDfa ? ShiftDfa.compile(prog) : null;
+    CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst, hasUserCaptures);
+    int minMatchLength = astAnalysis.minMatchLength();
     if (literalMatch == null
         && singleCharClass == null
         && keywordAlternation == null
         && ccMatch == null
-        && minMatchLength <= 0
-        && shiftDfa == null) {
+        && minMatchLength <= 0) {
       return MatchDescriptor.NONE;
     }
     return new MatchDescriptor(
@@ -368,8 +368,7 @@ public final class Pattern implements Serializable {
         singleCharClass,
         keywordAlternation,
         ccMatch,
-        minMatchLength,
-        shiftDfa);
+        minMatchLength);
   }
 
   private static long nextPatternId() {
@@ -458,10 +457,11 @@ public final class Pattern implements Serializable {
     }
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
-    MatchDescriptor matchDescriptor =
-        extractMatchDescriptor(metadataAst, re, flags, compiled, enginePathOptions);
-    boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
-    boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
+    MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, astAnalysis, flags);
+    boolean startsWithGcb =
+        compiled.hasGraphemeSemantics() && startsWithGraphemeClusterBoundary(metadataAst);
+    boolean hasInternalGcb =
+        compiled.hasGraphemeSemantics() && hasInternalExplicitGraphemeBoundary(re);
     // The constructor eagerly prepares the applicable engine analysis and setup.
     return new Pattern(
         regex,
@@ -1207,33 +1207,7 @@ public final class Pattern implements Serializable {
           matchDescriptor.classHashChain());
     }
 
-    CharClassScanInfo singleCharClass = matchDescriptor.singleCharClass();
-    Pattern.CharClassMatchInfo charClassMatch = matchDescriptor.charClassMatch();
-    if (enginePathOptions.charClassMatchFastPaths()
-        && (singleCharClass != null || charClassMatch != null)) {
-      return new Matcher.SingleCharClassPreparedRunner(
-          singleCharClass, charClassMatch, prog.anchorStart());
-    }
-
-    if (regionActive) {
-      return Matcher.FallbackPreparedRunner.INSTANCE;
-    }
-
-    Pattern.KeywordAlternation keywordAlternation = matchDescriptor.keywordAlternation();
-    if (enginePathOptions.keywordAlternationFastPath() && keywordAlternation != null) {
-      return new Matcher.KeywordAlternationPreparedRunner(
-          keywordAlternation, prog.numCaptures(), prog.anchorStart());
-    }
-
-    if (enginePathOptions.shiftDfa() && matchDescriptor.shiftDfa() != null && numGroups() == 0) {
-      return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
-    }
-
-    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
-      return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
-    }
-
-    return Matcher.FallbackPreparedRunner.INSTANCE;
+    return createLiteralFallbackRunner(regionActive);
   }
 
   private Matcher.PreparedMatchRunner createLiteralFallbackRunner(boolean regionActive) {
@@ -1255,15 +1229,15 @@ public final class Pattern implements Serializable {
           keywordAlternation, prog.numCaptures(), prog.anchorStart());
     }
 
-    if (enginePathOptions.shiftDfa() && matchDescriptor.shiftDfa() != null && numGroups() == 0) {
-      return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
+    Matcher.PreparedMatchRunner fallback =
+        enginePathOptions.onePass() && mayOnePassPrimary()
+            ? new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures())
+            : Matcher.FallbackPreparedRunner.INSTANCE;
+    if (mayUseShiftDfa()) {
+      return new Matcher.ShiftDfaPreparedRunner(this, fallback);
     }
 
-    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
-      return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
-    }
-
-    return Matcher.FallbackPreparedRunner.INSTANCE;
+    return fallback;
   }
 
   boolean innerCapturesObserved() {
@@ -1471,6 +1445,56 @@ public final class Pattern implements Serializable {
   /** Returns whether the OnePass analysis has been computed. For tests. */
   boolean onePassAnalyzed() {
     return onePassAnalysis != null;
+  }
+
+  /**
+   * Cheap conservative upper bound on {@code shiftDfa() != null}. Uses only properties known
+   * without running {@link ShiftDfa#compile(Prog)} so that choosing a prepared runner does not
+   * build {@link ShiftDfa}; {@link Matcher.ShiftDfaPreparedRunner} compiles {@link ShiftDfa} lazily
+   * on the first {@code matches()} call.
+   */
+  private boolean mayUseShiftDfa() {
+    ShiftDfaAnalysis analysis = shiftDfaAnalysis;
+    if (analysis != null) {
+      return analysis.shiftDfa() != null;
+    }
+    boolean literalSupersedesShiftDfa =
+        canUseLiteralPreparedRunner(
+                matchDescriptor.literalMatch(), prog.numCaptures(), enginePathOptions)
+            && !matchDescriptor.literalFoldCase();
+    return enginePathOptions.shiftDfa()
+        && !literalSupersedesShiftDfa
+        && prog.numCaptures() == 1
+        && astAnalysis.minMatchLength() < ShiftDfa.MAX_STATES
+        && !prog.hasGraphemeSemantics()
+        && !prog.hasWordBoundary()
+        && !prog.anchorEnd()
+        && !prog.dollarAnchorEnd()
+        && prog.start() != 0;
+  }
+
+  private ShiftDfaAnalysis shiftDfaAnalysis() {
+    ShiftDfaAnalysis analysis = shiftDfaAnalysis;
+    if (analysis == null) {
+      synchronized (this) {
+        analysis = shiftDfaAnalysis;
+        if (analysis == null) {
+          ShiftDfa compiled = mayUseShiftDfa() ? ShiftDfa.compile(prog) : null;
+          analysis = compiled != null ? new ShiftDfaAnalysis(compiled) : ShiftDfaAnalysis.DISABLED;
+          shiftDfaAnalysis = analysis;
+        }
+      }
+    }
+    return analysis;
+  }
+
+  ShiftDfa shiftDfa() {
+    return shiftDfaAnalysis().shiftDfa();
+  }
+
+  /** Returns whether the ShiftDfa analysis has been computed. For tests. */
+  boolean shiftDfaAnalyzed() {
+    return shiftDfaAnalysis != null;
   }
 
   /**
@@ -2587,7 +2611,7 @@ public final class Pattern implements Serializable {
    * <p>Sees through the implicit group-0 CAPTURE wrapper. Returns {@code null} if the pattern has
    * any user capture groups (the fast path only produces group 0).
    */
-  private static CharClassMatchInfo extractCharClassMatch(Regexp re) {
+  private static CharClassMatchInfo extractCharClassMatch(Regexp re, boolean hasUserCaptures) {
     Regexp node = re;
 
     // Unwrap implicit group-0 capture.
@@ -2618,7 +2642,7 @@ public final class Pattern implements Serializable {
 
     // Reject if the original pattern has user capture groups — the fast path only produces
     // group 0, so it can't provide group(1) etc.
-    if (hasUserCaptures(re)) {
+    if (hasUserCaptures) {
       return null;
     }
 
@@ -2662,12 +2686,12 @@ public final class Pattern implements Serializable {
    * \p{javaLetter}}. The fast path only produces group 0, so patterns with user capture groups are
    * excluded.
    */
-  private static CharClassScanInfo extractSingleCharClass(Regexp re) {
+  private static CharClassScanInfo extractSingleCharClass(Regexp re, boolean hasUserCaptures) {
     Regexp node = re;
     if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
       node = node.sub();
     }
-    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures(re)) {
+    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures) {
       return null;
     }
     CharClass cc = node.charClass;
@@ -2703,27 +2727,6 @@ public final class Pattern implements Serializable {
       UnicodeCaseFolding.addUnicodeFoldedRange(ccb, cp, cp);
     }
     return ccb.build();
-  }
-
-  /**
-   * Returns {@code true} if the AST contains any CAPTURE node with {@code cap > 0} (user capture
-   * groups, not the implicit group 0).
-   */
-  private static boolean hasUserCaptures(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
   }
 
   private record LiteralResult(String literal, boolean foldCase) {
@@ -2830,70 +2833,6 @@ public final class Pattern implements Serializable {
     }
     return new LiteralResult(
         foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString(), foldCase);
-  }
-
-  private static final class MinMatchLengthWalker extends Walker<Integer> {
-    @Override
-    protected Integer shortVisit(Regexp re, Integer parentArg) {
-      return 0;
-    }
-
-    @Override
-    protected Integer postVisit(
-        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
-      return switch (re.op) {
-        case NO_MATCH -> Integer.MAX_VALUE / 2;
-        case EMPTY_MATCH,
-            BEGIN_LINE,
-            END_LINE,
-            BEGIN_TEXT,
-            END_TEXT,
-            WORD_BOUNDARY,
-            NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY,
-            HAVE_MATCH,
-            QUEST,
-            STAR ->
-            0;
-        case LITERAL -> Character.charCount(re.rune);
-        case LITERAL_STRING -> {
-          int count = 0;
-          if (re.runes != null) {
-            for (int r : re.runes) {
-              count += Character.charCount(r);
-            }
-          }
-          yield count;
-        }
-        case CHAR_CLASS, ANY_CHAR, ANY_BYTE, GRAPHEME_CLUSTER -> 1;
-        case CAPTURE, NON_CAPTURE, PLUS -> childArgs.isEmpty() ? 0 : childArgs.getFirst();
-        case REPEAT -> {
-          int subMin = childArgs.isEmpty() ? 0 : childArgs.getFirst();
-          yield (int) Math.min((long) subMin * Math.max(0, re.min), Integer.MAX_VALUE / 2);
-        }
-        case CONCAT -> {
-          long sum = 0;
-          for (int child : childArgs) {
-            sum += child;
-          }
-          yield (int) Math.min(sum, Integer.MAX_VALUE / 2);
-        }
-        case ALTERNATE -> {
-          int min = Integer.MAX_VALUE / 2;
-          for (int child : childArgs) {
-            min = Math.min(min, child);
-          }
-          yield min == Integer.MAX_VALUE / 2 ? 0 : min;
-        }
-      };
-    }
-  }
-
-  private static int extractMinMatchLength(Regexp re) {
-    if (re == null) {
-      return 0;
-    }
-    return new MinMatchLengthWalker().walk(re, 0);
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */
