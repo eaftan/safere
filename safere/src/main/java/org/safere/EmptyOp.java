@@ -57,7 +57,7 @@ final class EmptyOp {
   /** {@code \b{g}} — Unicode extended grapheme cluster boundary. */
   public static final int GRAPHEME_CLUSTER_BOUNDARY = 1 << 12;
 
-  /** Explicit {@code \b{g}} boundary, including JDK consumed-prefix compatibility. */
+  /** Explicit {@code \b{g}} boundary, including String surrogate-context compatibility. */
   public static final int EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY = 1 << 13;
 
   /** All flags combined. */

@@ -511,8 +511,6 @@ final class GraphemeSupport {
     } else if (!consumedInput
         && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart, graphemeContext)) {
       flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-    } else if (isExplicitGraphemeClusterBoundary(text, pos, matchStart, regionStart)) {
-      flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
     }
     return flags;
   }
@@ -637,29 +635,6 @@ final class GraphemeSupport {
   private static boolean isGraphemeBoundaryContextEdge(
       int pos, int boundaryStart, int boundaryEnd) {
     return pos == boundaryStart || pos == boundaryEnd;
-  }
-
-  private static boolean isExplicitGraphemeClusterBoundary(
-      String text, int pos, int matchStart, int regionStart) {
-    if (matchStart <= 0 || pos <= matchStart || pos <= 1 || pos >= text.length()) {
-      return false;
-    }
-    char prevChar = text.charAt(pos - 1);
-    char nextChar = text.charAt(pos);
-    if (Character.isLowSurrogate(prevChar) && Character.isHighSurrogate(nextChar)) {
-      return !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart);
-    }
-    if (prevChar == '\r' && nextChar == '\n') {
-      return true;
-    }
-    if (isGraphemeExtend(nextChar)
-        && Character.isLowSurrogate(prevChar)
-        && hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
-      return false;
-    }
-    int prev = text.codePointBefore(pos);
-    int next = text.codePointAt(pos);
-    return isGraphemeExtend(next) || isGraphemePrepend(prev);
   }
 
   private static boolean isLowHighSurrogateBoundary(String text, int pos) {

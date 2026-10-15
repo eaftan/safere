@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.Consumer;
@@ -74,6 +75,71 @@ class GraphemeLinearTimeTest {
         "\uD83C\uDDE6".repeat(20_000),
         "\uD83C\uDDE6".repeat(80_000),
         text -> assertThat(pattern.matcher(text).find()).isFalse());
+  }
+
+  @Test
+  void mixedRuleInteractionsAndExplicitBoundariesStayLinear() {
+    String unit =
+        String.join(
+            "",
+            "\u0600",
+            "👩\u0300\u200D👩",
+            "\u0915\u094D\u200D\u0915",
+            "🇦🇧",
+            "\u1100\u1160\u11A8",
+            "\r",
+            "\n");
+    for (String regex : new String[] {"\\X", "(?s).\\b{g}", "\\b{g}\\X\\b{g}"}) {
+      Pattern pattern = Pattern.compile(regex);
+      for (boolean utf8 : new boolean[] {false, true}) {
+        assertFourXInputStaysNearLinear(
+            "mixed Unicode rules " + regex + ", UTF-8=" + utf8,
+            unit.repeat(500),
+            unit.repeat(2_000),
+            text -> {
+              if (utf8) {
+                Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+                while (matcher.find()) {
+                  assertThat(matcher.end()).isGreaterThan(matcher.start());
+                }
+              } else {
+                Matcher matcher = pattern.matcher(text);
+                while (matcher.find()) {
+                  assertThat(matcher.end()).isGreaterThan(matcher.start());
+                }
+              }
+            });
+      }
+    }
+  }
+
+  @Test
+  void cachedContextQueriesWithChangingVisibleStartsStayLinear() {
+    for (String unit : new String[] {"🇦", "\u094D", "\u0300"}) {
+      assertFourXInputStaysNearLinear(
+          "cached context for " + unit,
+          unit.repeat(2_000),
+          unit.repeat(8_000),
+          middle -> {
+            String text = "👩\u0915" + middle + "\u200D\u0915";
+            for (InputScanner scanner :
+                new InputScanner[] {
+                  new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8))
+                }) {
+              GraphemeSupport.Context context = GraphemeSupport.Context.create(scanner, true);
+              int pos = InputScanner.position(scanner.decodeBackward(scanner.length()));
+              // Each query changes the clipping threshold, but the caches are built once.
+              for (int start = 0;
+                  start < pos;
+                  start = InputScanner.position(scanner.decodeForward(start))) {
+                context.hasEvenRegionalIndicatorsBefore(pos, start);
+                context.hasExtendedPictographicBefore(pos, start);
+                context.hasIndicConjunctLinkerBefore(pos, start);
+                context.hasIndicConjunctSequenceBefore(pos, start);
+              }
+            }
+          });
+    }
   }
 
   private static void assertFourXInputStaysNearLinear(

@@ -84,6 +84,9 @@ synthetic expansion of the other.
 
 ## Verification
 
+The [Unicode 17 grapheme audit](GRAPHEME_AUDIT.md) records rule coverage,
+independent property provenance, reference-based checks, and complexity findings.
+
 Exercise split surrogate pairs, base-plus-mark sequences, Hangul, regional
 indicators, pictographic/ZWJ sequences, and Indic conjuncts. Vary region ends,
 opaque/transparent bounds, full/prefix/search operations, captures, and repeated

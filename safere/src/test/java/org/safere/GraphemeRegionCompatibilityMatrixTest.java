@@ -255,7 +255,7 @@ class GraphemeRegionCompatibilityMatrixTest {
             3,
             false,
             true,
-            List.of("\\r\\b{g}\\n", "\\X", "\\X\\b{g}")),
+            List.of("\\X", "\\X\\b{g}")),
         new Scenario(
             "control characters remain standalone before extenders",
             "Control characters force grapheme boundaries before following combining marks.",

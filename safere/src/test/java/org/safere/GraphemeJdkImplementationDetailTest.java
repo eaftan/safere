@@ -26,6 +26,13 @@ import org.junit.jupiter.api.Test;
 class GraphemeJdkImplementationDetailTest {
 
   @Test
+  @DisplayName("consumed prefixes expose JDK boundaries inside Unicode clusters")
+  void consumedPrefixesExposeJdkBoundariesInsideUnicodeClusters() {
+    assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n\r\n$", 1, 5);
+    assertTransparentTraceSameAsJdk("\\b{g}a\\u0300\\b{g}", "aa\u0300\u0300", 1, 3);
+  }
+
+  @Test
   @DisplayName("boundary-starting grapheme alternatives advance repeated find like JDK")
   void boundaryStartingGraphemeAlternativesAdvanceRepeatedFindLikeJdk() {
     assertTraceSameAsJdk("\\b{g}\\X|b", "abc", 0, 3);
