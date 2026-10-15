@@ -497,7 +497,9 @@ boundary inside CRLF. With transparent bounds, it also accepts
 remaining visible extender. SafeRE rejects both compositions under the existing
 Unicode boundary-predicate policy. `GraphemeRuleInteractionTest` and
 `LinebreakGraphemeTest` pin the Unicode expectations; the JDK observations are
-retained in `GraphemeJdkImplementationDetailTest`.
+retained in `GraphemeJdkImplementationDetailTest`. `BoundaryMatcherTest` also checks
+opaque region compositions with consumed bases, while `PatternTest` and the split
+fuzzer verify that a delimiter requiring a boundary inside CRLF cannot split it.
 
 ## Grapheme Boundary Alternatives and find Cursor State
 
