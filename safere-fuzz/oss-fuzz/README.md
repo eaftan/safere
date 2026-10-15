@@ -1,17 +1,17 @@
 # OSS-Fuzz build adapter
 
 The [target manifest](../targets.json) owns enrollment. The OSS-Fuzz project
-build script should delegate to this adapter:
+build script delegates to this adapter:
 
 ```bash
 #!/bin/bash -eu
 cd "$SRC/safere"
-bash safere-fuzz/oss-fuzz/build.sh
+exec bash safere-fuzz/oss-fuzz/build.sh
 ```
 
 The [OSS-Fuzz integration](https://github.com/google/oss-fuzz/blob/master/projects/safere/build.sh)
-uses this adapter when it is present and retains an explicit target allowlist for
-older SafeRE checkouts.
+always invokes this adapter. SafeRE's `targets.json` controls target enrollment,
+and a missing adapter fails the build.
 
 Keep the container's JDK setup in OSS-Fuzz. The container also needs Python 3,
 Maven, rsync, and the Jazzer JVM tooling already used by the integration.
