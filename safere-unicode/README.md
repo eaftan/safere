@@ -49,6 +49,13 @@ remaining properties, regenerate, and review and
 commit the output together. Run the generator and conformance tests; JDK
 crosschecks supplement the Unicode fixture where versions agree.
 
-The grapheme audit in `safere-fuzz` uses that same ICU version for direct property
-checks and its separate character `BreakIterator`. See the
-[Unicode grapheme audit](../docs/GRAPHEME_AUDIT.md) for rule coverage and limits.
+The grapheme conformance tests in `safere-fuzz` use that same ICU version for
+property checks and character segmentation via `BreakIterator`. After regeneration,
+run:
+
+```bash
+mvn -pl safere-fuzz -am -Dtest=GraphemeConformanceTest,EmojiZwjGraphemeFuzzer \
+  -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+See [graphemes and regions](../docs/GRAPHEME_REGIONS.md#verification) for coverage and limits.

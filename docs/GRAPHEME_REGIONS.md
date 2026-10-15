@@ -84,8 +84,40 @@ synthetic expansion of the other.
 
 ## Verification
 
-The [Unicode 17 grapheme audit](GRAPHEME_AUDIT.md) records rule coverage,
-independent property provenance, reference-based checks, and complexity findings.
+`GraphemeConformanceTest` in `safere-fuzz` compares checked-in grapheme properties
+with ICU4J's public property APIs and verifies the pinned Unicode version. Its
+region and cached-boundary checks use ICU4J's root-locale character `BreakIterator`
+as the segmentation oracle. `EmojiZwjGraphemeFuzzer` uses the same oracle for
+exhaustive short sequences and generated longer sequences over representatives of
+every GCB/InCB/Extended_Pictographic property combination. Both encodings exercise
+`\X`, explicit boundaries, repeated searches, composition, and captures.
+
+The production implementation remains in
+[GraphemeSupport](../safere/src/main/java/org/safere/GraphemeSupport.java), using
+[ICU4J-generated property tables](../safere-unicode/README.md) without an ICU4J
+runtime dependency. The boundary rules are implemented as follows:
+
+| UAX #29 rules | Production decision |
+| --- | --- |
+| GB1, GB2 | Text edges in `isGraphemeClusterBoundary`; active context edges in `boundaryFlags` |
+| GB3–GB5 | CRLF before `isGraphemeControl`; controls break before attachment rules |
+| GB6–GB8 | `isHangulGraphemeContinuation` |
+| GB9, GB9a, GB9b | `isGraphemeExtend` (Extend, ZWJ, SpacingMark) and `isGraphemePrepend` |
+| GB9c | InCB properties and `Context.hasIndicConjunctLinkerBefore` |
+| GB11 | Extended_Pictographic, Extend, ZWJ, and `Context.hasExtendedPictographicBefore` |
+| GB12, GB13 | `Context.hasEvenRegionalIndicatorsBefore` |
+| GB999 | Break when no joining rule applies |
+
+The Hangul and attachment checks can be reordered because their applicable
+property values are disjoint. The contextual rules use iterative cache construction
+and constant-time queries; `GraphemeLinearTimeTest` checks work scaling.
+
+ICU4J supplies both production property data and test segmentation, so these
+comparisons do not independently validate ICU's data. The existing official
+`GraphemeBreakTest.txt` fixture provides additional conformance coverage and checks
+the ICU oracle. Generated sequences contain Unicode scalars; lone surrogates and
+regions splitting a pair follow the String contract above and retain separate
+coverage in `LinebreakGraphemeTest` and the region tests.
 
 Exercise split surrogate pairs, base-plus-mark sequences, Hangul, regional
 indicators, pictographic/ZWJ sequences, and Indic conjuncts. Vary region ends,

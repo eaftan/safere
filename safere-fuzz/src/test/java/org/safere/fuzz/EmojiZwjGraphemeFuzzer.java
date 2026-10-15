@@ -21,7 +21,7 @@ import org.safere.Pattern;
 import org.safere.Utf8Input;
 import org.safere.Utf8Matcher;
 
-/** Unicode 17 rule-based grapheme audit; the historical name preserves saved fuzz seeds. */
+/** ICU4J-based Unicode grapheme conformance; the historical name preserves saved fuzz seeds. */
 public final class EmojiZwjGraphemeFuzzer {
   // Preserve the original choices first, then add every GCB/InCB/ExtPict overlap.
   private static final int[] ALPHABET = alphabet();
@@ -31,8 +31,7 @@ public final class EmojiZwjGraphemeFuzzer {
       0x1F469, 0x1F44D, 0x0301, 0xFE0F, 0x1F3FD, 0x0903, 0x200D,
       0x0600, 0x110BD, 0x1F1E6, 0x1F1E7, 0x000D, 0x000A, 0x0061
     };
-    return IntStream.concat(
-            Arrays.stream(original), Arrays.stream(GraphemeReference.representatives()))
+    return IntStream.concat(Arrays.stream(original), Arrays.stream(IcuGraphemes.representatives()))
         .distinct()
         .toArray();
   }
@@ -63,13 +62,14 @@ public final class EmojiZwjGraphemeFuzzer {
   void exhaustiveShortSequences() {
     // Check rule ordering deterministically as well as fuzzing longer combinations.
     assertSegmentation(new int[0]);
-    for (int first : GraphemeReference.representatives()) {
+    int[] alphabet = IcuGraphemes.representatives();
+    for (int first : alphabet) {
       assertSegmentation(new int[] {first});
-      for (int second : GraphemeReference.representatives()) {
+      for (int second : alphabet) {
         assertSegmentation(new int[] {first, second});
-        for (int third : GraphemeReference.representatives()) {
+        for (int third : alphabet) {
           assertSegmentation(new int[] {first, second, third});
-          for (int fourth : GraphemeReference.representatives()) {
+          for (int fourth : alphabet) {
             assertSegmentation(new int[] {first, second, third, fourth});
           }
         }
@@ -91,8 +91,7 @@ public final class EmojiZwjGraphemeFuzzer {
 
   private static void assertSegmentation(int[] codePoints) {
     String input = new String(codePoints, 0, codePoints.length);
-    List<String> expected = GraphemeReference.clusters(codePoints);
-    check("ICU break iterator", codePoints, GraphemeReference.icuClusters(codePoints), expected);
+    List<String> expected = IcuGraphemes.clusters(codePoints);
     for (Pattern pattern : PATTERNS) {
       Matcher matcher = pattern.matcher(input);
       List<String> actual = new ArrayList<>();

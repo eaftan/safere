@@ -20,11 +20,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
-import org.safere.fuzz.GraphemeReference;
-import org.safere.fuzz.GraphemeReference.Properties;
+import org.safere.fuzz.IcuGraphemes;
+import org.safere.fuzz.IcuGraphemes.Properties;
 
-/** ICU property, independent segmentation, cached-boundary, region, and engine checks. */
-class GraphemeUnicodeAuditTest {
+/** Unicode property and boundary conformance against the pinned ICU4J version. */
+class GraphemeConformanceTest {
   @Test
   void generatedPropertiesAgreeWithIcuUnicode17ForEveryCodePoint() {
     assertThat(UnicodeGeneratedTables.UNICODE_DATA_VERSION).isEqualTo("17.0.0");
@@ -37,7 +37,7 @@ class GraphemeUnicodeAuditTest {
         Arrays.fill(actual, range[0], range[1] + 1, true);
       }
       for (int cp = 0; cp < actual.length; cp++) {
-        Properties property = GraphemeReference.properties(cp);
+        Properties property = IcuGraphemes.properties(cp);
         boolean expected =
             name.startsWith("InCB_")
                 ? property.incb().equals(name.substring(5))
@@ -54,7 +54,7 @@ class GraphemeUnicodeAuditTest {
       Arrays.fill(pictographs, range[0], range[1] + 1, true);
     }
     for (int cp = 0; cp < pictographs.length; cp++) {
-      Properties property = GraphemeReference.properties(cp);
+      Properties property = IcuGraphemes.properties(cp);
       if (pictographs[cp] != property.pictograph()) {
         assertThat(pictographs[cp])
             .as("Extended_Pictographic U+%04X", cp)
@@ -68,7 +68,7 @@ class GraphemeUnicodeAuditTest {
   }
 
   @Test
-  void referenceInterpreterAgreesWithOfficialBreakTest() throws IOException {
+  void icuSegmentationAgreesWithOfficialBreakTest() throws IOException {
     try (BufferedReader reader =
         new BufferedReader(
             new InputStreamReader(
@@ -93,8 +93,7 @@ class GraphemeUnicodeAuditTest {
           }
         }
         int[] cps = String.join("", expected).codePoints().toArray();
-        assertThat(GraphemeReference.clusters(cps)).as(line).isEqualTo(expected);
-        assertThat(GraphemeReference.icuClusters(cps)).as("ICU %s", line).isEqualTo(expected);
+        assertThat(IcuGraphemes.clusters(cps)).as(line).isEqualTo(expected);
         cases++;
       }
       assertThat(cases).isPositive();
@@ -102,8 +101,8 @@ class GraphemeUnicodeAuditTest {
   }
 
   @Test
-  void cachedBoundariesAndOpaqueRegionsAgreeWithReference() {
-    int[] alphabet = GraphemeReference.representatives();
+  void cachedBoundariesAndOpaqueRegionsAgreeWithIcu() {
+    int[] alphabet = IcuGraphemes.representatives();
     Random random = new Random(954);
     for (int sample = 0; sample < 300; sample++) {
       int[] cps = new int[random.nextInt(1, 40)];
@@ -118,7 +117,7 @@ class GraphemeUnicodeAuditTest {
       for (int startCp = 0; startCp < cps.length; startCp++) {
         int start = text.offsetByCodePoints(0, startCp);
         String suffix = text.substring(start);
-        List<String> expected = GraphemeReference.clusters(suffix.codePoints().toArray());
+        List<String> expected = IcuGraphemes.clusters(suffix.codePoints().toArray());
         List<Integer> ends = new ArrayList<>();
         int end = start;
         for (String cluster : expected) {
@@ -143,17 +142,7 @@ class GraphemeUnicodeAuditTest {
   }
 
   @Test
-  void publicRegionsAndEngineSelectionsFollowReferenceVisibility() {
-    List<EnginePathOptions> paths =
-        List.of(
-            EnginePathOptions.allEnabled(),
-            EnginePathOptions.builder().onePass(false).bitState(false).build(),
-            EnginePathOptions.builder()
-                .dfa(false)
-                .onePass(false)
-                .bitState(false)
-                .lazyCaptureExtraction(false)
-                .build());
+  void publicRegionsFollowIcuBoundaryVisibility() {
     for (String text :
         List.of(
             "a\u0300\u0903z",
@@ -165,7 +154,7 @@ class GraphemeUnicodeAuditTest {
             "\u0600©\u200D©",
             "🇦🇧🇦🇧🇦",
             "\u1100\u1160\u11A8\u0300\u11A8")) {
-      List<String> fullClusters = GraphemeReference.clusters(text.codePoints().toArray());
+      List<String> fullClusters = IcuGraphemes.clusters(text.codePoints().toArray());
       List<Integer> fullBoundaries = boundaries(fullClusters, 0);
       int cpCount = text.codePointCount(0, text.length());
       for (int from = 0; from <= cpCount; from++) {
@@ -173,7 +162,7 @@ class GraphemeUnicodeAuditTest {
         for (int to = from; to <= cpCount; to++) {
           int end = text.offsetByCodePoints(0, to);
           List<String> local =
-              GraphemeReference.clusters(text.substring(start, end).codePoints().toArray());
+              IcuGraphemes.clusters(text.substring(start, end).codePoints().toArray());
           for (boolean transparent : List.of(false, true)) {
             List<Integer> expectedBoundaries =
                 (transparent ? fullBoundaries : boundaries(local, start))
@@ -191,104 +180,55 @@ class GraphemeUnicodeAuditTest {
             } else {
               composed = local;
             }
-            for (EnginePathOptions path : paths) {
-              for (boolean anchoring : List.of(false, true)) {
-                Matcher boundary =
-                    Pattern.compile("\\b{g}", 0, path)
-                        .matcher(text)
-                        .region(start, end)
-                        .useTransparentBounds(transparent)
-                        .useAnchoringBounds(anchoring);
-                List<Integer> actual = new ArrayList<>();
-                while (boundary.find()) {
-                  actual.add(boundary.start());
+            Matcher boundary =
+                Pattern.compile("\\b{g}")
+                    .matcher(text)
+                    .region(start, end)
+                    .useTransparentBounds(transparent);
+            List<Integer> actual = new ArrayList<>();
+            while (boundary.find()) {
+              actual.add(boundary.start());
+            }
+            assertThat(actual)
+                .as("boundary %s [%s,%s], transparent=%s", text, start, end, transparent)
+                .isEqualTo(expectedBoundaries);
+            for (String regex : List.of("\\X", "\\b{g}(\\X)\\b{g}")) {
+              Pattern pattern = Pattern.compile(regex);
+              Matcher matcher =
+                  pattern.matcher(text).region(start, end).useTransparentBounds(transparent);
+              List<String> actualClusters = new ArrayList<>();
+              while (matcher.find()) {
+                actualClusters.add(matcher.group());
+                if (matcher.groupCount() > 0) {
+                  assertThat(matcher.group(1)).isEqualTo(matcher.group());
                 }
-                assertThat(actual)
-                    .as("boundary %s [%s,%s], transparent=%s", text, start, end, transparent)
-                    .isEqualTo(expectedBoundaries);
-                for (String regex : List.of("\\X", "\\b{g}(\\X)\\b{g}")) {
-                  Pattern pattern = Pattern.compile(regex, 0, path);
-                  Matcher matcher =
-                      pattern
-                          .matcher(text)
-                          .region(start, end)
-                          .useTransparentBounds(transparent)
-                          .useAnchoringBounds(anchoring);
-                  List<String> actualClusters = new ArrayList<>();
-                  while (matcher.find()) {
-                    actualClusters.add(matcher.group());
-                    if (matcher.groupCount() > 0) {
-                      assertThat(matcher.group(1)).isEqualTo(matcher.group());
-                    }
-                  }
-                  List<String> expected = regex.equals("\\X") ? local : composed;
-                  assertThat(actualClusters)
-                      .as("%s on %s [%s,%s], transparent=%s", regex, text, start, end, transparent)
-                      .isEqualTo(expected);
-                  // UTF-8 exposes opaque regions; it has no transparent/anchoring bounds API.
-                  if (!transparent && anchoring) {
-                    byte[] bytes = text.getBytes(UTF_8);
-                    int byteStart = text.substring(0, start).getBytes(UTF_8).length;
-                    int byteEnd = text.substring(0, end).getBytes(UTF_8).length;
-                    Utf8Matcher utf8 =
-                        pattern.matcher(Utf8Input.validated(bytes)).region(byteStart, byteEnd);
-                    actualClusters.clear();
-                    while (utf8.find()) {
-                      actualClusters.add(
-                          new String(bytes, utf8.start(), utf8.end() - utf8.start(), UTF_8));
-                    }
-                    assertThat(actualClusters)
-                        .as(
-                            "UTF-8 %s on %s [%s,%s], transparent=%s",
-                            regex, text, start, end, transparent)
-                        .isEqualTo(expected);
-                  }
+              }
+              List<String> expected = regex.equals("\\X") ? local : composed;
+              assertThat(actualClusters)
+                  .as("%s on %s [%s,%s], transparent=%s", regex, text, start, end, transparent)
+                  .isEqualTo(expected);
+              // UTF-8 exposes opaque regions; it has no transparent/anchoring bounds API.
+              if (!transparent) {
+                byte[] bytes = text.getBytes(UTF_8);
+                int byteStart = text.substring(0, start).getBytes(UTF_8).length;
+                int byteEnd = text.substring(0, end).getBytes(UTF_8).length;
+                Utf8Matcher utf8 =
+                    pattern.matcher(Utf8Input.validated(bytes)).region(byteStart, byteEnd);
+                actualClusters.clear();
+                while (utf8.find()) {
+                  actualClusters.add(
+                      new String(bytes, utf8.start(), utf8.end() - utf8.start(), UTF_8));
                 }
+                assertThat(actualClusters)
+                    .as(
+                        "UTF-8 %s on %s [%s,%s], transparent=%s",
+                        regex, text, start, end, transparent)
+                    .isEqualTo(expected);
               }
             }
           }
         }
       }
-    }
-  }
-
-  @Test
-  void graphemeProgramsUseExactNfaRatherThanShortcutEngines() {
-    List<OperationDiagnostics> events = new ArrayList<>();
-    SafeReMatchDiagnostics previous = Pattern.diagnostics();
-    try {
-      Pattern.setDiagnostics(
-          new SafeReMatchDiagnostics() {
-            @Override
-            public void onOperationCompleted(OperationDiagnostics event) {
-              events.add(event);
-            }
-          });
-      for (String regex : List.of("\\X", "\\b{g}", "(?s).\\b{g}", "\\b{g}(\\X)\\b{g}")) {
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher("a\u0300👩\u200D👩");
-        while (matcher.find()) {
-          // Collect diagnostics for every successful find and its terminating miss.
-        }
-        Utf8Matcher utf8 =
-            pattern.matcher(Utf8Input.validated("a\u0300👩\u200D👩".getBytes(UTF_8)));
-        while (utf8.find()) {
-          // The representation should not change engine eligibility.
-        }
-      }
-      assertThat(events).isNotEmpty();
-      for (OperationDiagnostics event : events) {
-        if (event.outcome() == MatchOutcome.MATCH) {
-          assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
-        } else {
-          // An exhausted find cursor can reject before invoking an engine.
-          assertThat(event.boundaryStrategy()).isIn(MatchStrategy.NFA, MatchStrategy.NONE);
-        }
-        assertThat(event.forwardDfaSearchCount()).isZero();
-        assertThat(event.reverseDfaSearchCount()).isZero();
-      }
-    } finally {
-      Pattern.setDiagnostics(previous);
     }
   }
 

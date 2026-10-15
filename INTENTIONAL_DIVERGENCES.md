@@ -460,13 +460,11 @@ computed in one linear pass, with constant-time queries afterward.
 `EmojiZwjGraphemeTest` covers interruptions, valid Extend prefixes, renewed
 pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
 `EmojiZwjGraphemeFuzzer` generates arbitrary sequences over representatives of
-every Unicode 17 grapheme-property combination and checks an independent
-rule-based reference instead of treating the JDK implementation as the oracle.
+every Unicode 17 grapheme-property combination and compares segmentation directly
+with ICU4J's root-locale character break iterator.
 On JDK 28 and later,
 `EmojiZwjGraphemeJdkCompatibilityTest` also checks that SafeRE and the JDK agree
-on these cases. The [Unicode grapheme audit](docs/GRAPHEME_AUDIT.md) maps all
-extended grapheme rules to production code, verifies property provenance, and
-records the reference checks and their limits.
+on these cases.
 
 ## Grapheme Cluster Composition
 
@@ -490,9 +488,9 @@ the documented meanings of `\X`, `\b{g}`, and repeated `find()`. Skipping a late
 complete cluster appears to expose matcher implementation state rather than a
 stable grapheme rule.
 
-The Unicode audit in [#954](https://github.com/eaftan/safere/issues/954) also
-removed a consumed-prefix fallback that could make an explicit boundary true
-inside an otherwise indivisible cluster. For example, OpenJDK 26.0.2 accepts
+An explicit boundary must remain false inside an indivisible cluster even after
+consuming input or beginning a search at a nonzero position. For example,
+OpenJDK 26.0.2 accepts
 `\r\b{g}\n` in region `[1, 3)` of `"#\r\n$"`, although GB3 forbids a
 boundary inside CRLF. With transparent bounds, it also accepts
 `\b{g}a\u0300\b{g}` in region `[1, 3)` of `"aa\u0300\u0300"`, ignoring the

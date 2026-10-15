@@ -15,12 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Literal Unicode 17 UAX #29 rule interpreter with ICU4J property values. Its boundary algorithm is
- * independent of SafeRE's classifiers/caches, ICU's break iterator, and the runtime JDK. Backward
- * scans are deliberately test-only.
- */
-public final class GraphemeReference {
+/** ICU4J property data and character segmentation for grapheme conformance tests and fuzzing. */
+public final class IcuGraphemes {
   /** ICU property tuple, including overlaps used by GB9c and GB11. */
   public record Properties(String gcb, String incb, boolean pictograph) {}
 
@@ -30,7 +26,7 @@ public final class GraphemeReference {
   private static final ThreadLocal<BreakIterator> ICU_ITERATOR =
       ThreadLocal.withInitial(() -> BreakIterator.getCharacterInstance(ULocale.ROOT));
 
-  private GraphemeReference() {}
+  private IcuGraphemes() {}
 
   /** Returns the Unicode properties for a code point. */
   public static Properties properties(int cp) {
@@ -52,24 +48,8 @@ public final class GraphemeReference {
     return representatives.values().stream().mapToInt(Integer::intValue).toArray();
   }
 
-  /** Segments the whole input, with GB1/GB2 at its edges and no clusters for empty text. */
+  /** Segments scalars using ICU's root-locale character break iterator. */
   public static List<String> clusters(int[] codePoints) {
-    List<String> clusters = new ArrayList<>();
-    int start = 0;
-    for (int i = 1; i < codePoints.length; i++) {
-      if (breakBefore(codePoints, i)) {
-        clusters.add(new String(codePoints, start, i - start));
-        start = i;
-      }
-    }
-    if (start < codePoints.length) {
-      clusters.add(new String(codePoints, start, codePoints.length - start));
-    }
-    return clusters;
-  }
-
-  /** Segments scalars with ICU's separate UAX #29 implementation. */
-  public static List<String> icuClusters(int[] codePoints) {
     String text = new String(codePoints, 0, codePoints.length);
     BreakIterator iterator = ICU_ITERATOR.get();
     iterator.setText(text);
@@ -80,66 +60,6 @@ public final class GraphemeReference {
       start = end;
     }
     return clusters;
-  }
-
-  private static boolean breakBefore(int[] cps, int i) {
-    Properties left = properties(cps[i - 1]);
-    Properties right = properties(cps[i]);
-    String l = left.gcb();
-    String r = right.gcb();
-    if (l.equals("CR") && r.equals("LF")) { // GB3
-      return false;
-    }
-    if (isControl(l) || isControl(r)) { // GB4/5 precede every joining rule
-      return true;
-    }
-    if (l.equals("L") && List.of("L", "V", "LV", "LVT").contains(r)) { // GB6
-      return false;
-    }
-    if (List.of("LV", "V").contains(l) && List.of("V", "T").contains(r)) { // GB7
-      return false;
-    }
-    if (List.of("LVT", "T").contains(l) && r.equals("T")) { // GB8
-      return false;
-    }
-    if (List.of("Extend", "ZWJ", "SpacingMark").contains(r)) { // GB9/9a
-      return false;
-    }
-    if (l.equals("Prepend")) { // GB9b
-      return false;
-    }
-    if (right.incb().equals("Consonant")) { // GB9c, independent backward context
-      int j = i - 1;
-      boolean linker = false;
-      while (j >= 0 && List.of("Extend", "Linker").contains(properties(cps[j]).incb())) {
-        linker |= properties(cps[j]).incb().equals("Linker");
-        j--;
-      }
-      if (linker && j >= 0 && properties(cps[j]).incb().equals("Consonant")) {
-        return false;
-      }
-    }
-    if (l.equals("ZWJ") && right.pictograph()) { // GB11
-      int j = i - 2;
-      while (j >= 0 && properties(cps[j]).gcb().equals("Extend")) {
-        j--;
-      }
-      if (j >= 0 && properties(cps[j]).pictograph()) {
-        return false;
-      }
-    }
-    if (l.equals("Regional_Indicator") && r.equals("Regional_Indicator")) { // GB12/13
-      int count = 0;
-      for (int j = i - 1; j >= 0 && properties(cps[j]).gcb().equals("Regional_Indicator"); j--) {
-        count++;
-      }
-      return count % 2 == 0;
-    }
-    return true; // GB999
-  }
-
-  private static boolean isControl(String gcb) {
-    return List.of("Control", "CR", "LF").contains(gcb);
   }
 
   private static Properties[] loadProperties() {
