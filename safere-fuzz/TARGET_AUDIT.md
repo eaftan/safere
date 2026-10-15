@@ -99,8 +99,8 @@ missing sequence observations. Oracle unavailability is tested separately.
 ## Current-main reconciliation
 
 The refreshed inventory also includes `EmojiZwjGraphemeFuzzer` (an independent
-Unicode 17 UAX model with exhaustive short sequences, independent UCD
-properties, and region/engine audit checks; not automatically enrolled) and `SplitFuzzer#unassignedControlSplits`
+Unicode 17 UAX model with exhaustive short sequences, ICU property and
+break-iterator checks, and region/engine audit checks; not automatically enrolled) and `SplitFuzzer#unassignedControlSplits`
 (default-ignorable grapheme controls). Upstream #930 supplies surrogate-interior
 reverse-DFA correctness; #933 supplies exhausted-state assertions. The latter's
 observed-state oracle exception remains, with dedicated canaries. The #959

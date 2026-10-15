@@ -5,28 +5,30 @@
 
 package org.safere.fuzz;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.lang.UProperty;
+import com.ibm.icu.text.BreakIterator;
+import com.ibm.icu.util.ULocale;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
- * Literal Unicode 17 UAX #29 rule interpreter. Uses official UCD text independently of ICU,
- * SafeRE's classifiers/caches, and the runtime JDK. Backward scans are deliberately test-only.
+ * Literal Unicode 17 UAX #29 rule interpreter with ICU4J property values. Its boundary algorithm is
+ * independent of SafeRE's classifiers/caches, ICU's break iterator, and the runtime JDK. Backward
+ * scans are deliberately test-only.
  */
 public final class GraphemeReference {
-  /** Independent property tuple, including overlaps used by GB9c and GB11. */
+  /** ICU property tuple, including overlaps used by GB9c and GB11. */
   public record Properties(String gcb, String incb, boolean pictograph) {}
 
   private static final Properties[] PROPERTIES = loadProperties();
   private static final int[] REPRESENTATIVES = buildRepresentatives();
+  // ICU iterators are mutable; each test/fuzz worker owns its iterator.
+  private static final ThreadLocal<BreakIterator> ICU_ITERATOR =
+      ThreadLocal.withInitial(() -> BreakIterator.getCharacterInstance(ULocale.ROOT));
 
   private GraphemeReference() {}
 
@@ -62,6 +64,20 @@ public final class GraphemeReference {
     }
     if (start < codePoints.length) {
       clusters.add(new String(codePoints, start, codePoints.length - start));
+    }
+    return clusters;
+  }
+
+  /** Segments scalars with ICU's separate UAX #29 implementation. */
+  public static List<String> icuClusters(int[] codePoints) {
+    String text = new String(codePoints, 0, codePoints.length);
+    BreakIterator iterator = ICU_ITERATOR.get();
+    iterator.setText(text);
+    List<String> clusters = new ArrayList<>();
+    int start = iterator.first();
+    for (int end = iterator.next(); end != BreakIterator.DONE; end = iterator.next()) {
+      clusters.add(text.substring(start, end));
+      start = end;
     }
     return clusters;
   }
@@ -127,38 +143,28 @@ public final class GraphemeReference {
   }
 
   private static Properties[] loadProperties() {
+    Map<Integer, String> gcbNames = new HashMap<>();
+    Map<Integer, String> incbNames = new HashMap<>();
+    Map<Properties, Properties> tuples = new HashMap<>();
     Properties[] properties = new Properties[Character.MAX_CODE_POINT + 1];
-    try (BufferedReader reader =
-        new BufferedReader(
-            new InputStreamReader(
-                Objects.requireNonNull(
-                    GraphemeReference.class.getResourceAsStream("grapheme-properties-17.0.0.txt")),
-                UTF_8))) {
-      int next = 0;
-      String line;
-      while ((line = reader.readLine()) != null) {
-        if (line.startsWith("#")) {
-          continue;
-        }
-        String[] fields = line.split(";");
-        String[] range = fields[0].split("\\.\\.");
-        int start = Integer.parseInt(range[0], 16);
-        int end = Integer.parseInt(range[1], 16);
-        if (start != next || end < start) {
-          throw new IllegalStateException("Noncontiguous Unicode fixture: " + line);
-        }
-        Arrays.fill(
-            properties,
-            start,
-            end + 1,
-            new Properties(fields[1], fields[2], fields[3].equals("Y")));
-        next = end + 1;
-      }
-      if (next != properties.length) {
-        throw new IllegalStateException("Incomplete Unicode fixture");
-      }
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
+    for (int cp = 0; cp < properties.length; cp++) {
+      int gcb = UCharacter.getIntPropertyValue(cp, UProperty.GRAPHEME_CLUSTER_BREAK);
+      int incb = UCharacter.getIntPropertyValue(cp, UProperty.INDIC_CONJUNCT_BREAK);
+      boolean pictograph = UCharacter.hasBinaryProperty(cp, UProperty.EXTENDED_PICTOGRAPHIC);
+      String gcbName =
+          gcbNames.computeIfAbsent(
+              gcb,
+              value ->
+                  UCharacter.getPropertyValueName(
+                      UProperty.GRAPHEME_CLUSTER_BREAK, value, UProperty.NameChoice.LONG));
+      String incbName =
+          incbNames.computeIfAbsent(
+              incb,
+              value ->
+                  UCharacter.getPropertyValueName(
+                      UProperty.INDIC_CONJUNCT_BREAK, value, UProperty.NameChoice.LONG));
+      Properties tuple = new Properties(gcbName, incbName, pictograph);
+      properties[cp] = tuples.computeIfAbsent(tuple, key -> key);
     }
     return properties;
   }

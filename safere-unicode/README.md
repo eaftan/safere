@@ -43,8 +43,12 @@ The generator records `UCharacter.getUnicodeVersion()` as
 Unicode license notice, also included in the library JAR as
 `META-INF/LICENSE-Unicode.txt`.
 
-To upgrade Unicode, update the `com.ibm.icu:icu4j` version in
-`safere-unicode/pom.xml` and `GraphemeBreakTest.txt`, select a JDK with the
-same Unicode version for the remaining properties, regenerate, and review and
+To upgrade Unicode, update `icu4j.version` in the parent `pom.xml` and
+`GraphemeBreakTest.txt`, select a JDK with the same Unicode version for the
+remaining properties, regenerate, and review and
 commit the output together. Run the generator and conformance tests; JDK
 crosschecks supplement the Unicode fixture where versions agree.
+
+The grapheme audit in `safere-fuzz` uses that same ICU version for direct property
+checks and its separate character `BreakIterator`. See the
+[Unicode grapheme audit](../docs/GRAPHEME_AUDIT.md) for rule coverage and limits.

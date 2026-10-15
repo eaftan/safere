@@ -92,6 +92,7 @@ public final class EmojiZwjGraphemeFuzzer {
   private static void assertSegmentation(int[] codePoints) {
     String input = new String(codePoints, 0, codePoints.length);
     List<String> expected = GraphemeReference.clusters(codePoints);
+    check("ICU break iterator", codePoints, GraphemeReference.icuClusters(codePoints), expected);
     for (Pattern pattern : PATTERNS) {
       Matcher matcher = pattern.matcher(input);
       List<String> actual = new ArrayList<>();

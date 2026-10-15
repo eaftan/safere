@@ -8,6 +8,8 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.util.VersionInfo;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -21,11 +23,13 @@ import org.junit.jupiter.api.Test;
 import org.safere.fuzz.GraphemeReference;
 import org.safere.fuzz.GraphemeReference.Properties;
 
-/** Independent Unicode data, cached-boundary, region, and engine checks for issue #954. */
+/** ICU property, independent segmentation, cached-boundary, region, and engine checks. */
 class GraphemeUnicodeAuditTest {
   @Test
-  void generatedPropertiesAgreeWithOfficialUnicode17ForEveryCodePoint() {
+  void generatedPropertiesAgreeWithIcuUnicode17ForEveryCodePoint() {
     assertThat(UnicodeGeneratedTables.UNICODE_DATA_VERSION).isEqualTo("17.0.0");
+    assertThat(UCharacter.getUnicodeVersion())
+        .isEqualTo(VersionInfo.getInstance(UnicodeGeneratedTables.UNICODE_DATA_VERSION));
     for (Map.Entry<String, int[][]> entry : UnicodeGeneratedTables.GRAPHEME_PROPERTIES.entrySet()) {
       String name = entry.getKey();
       boolean[] actual = new boolean[Character.MAX_CODE_POINT + 1];
@@ -90,6 +94,7 @@ class GraphemeUnicodeAuditTest {
         }
         int[] cps = String.join("", expected).codePoints().toArray();
         assertThat(GraphemeReference.clusters(cps)).as(line).isEqualTo(expected);
+        assertThat(GraphemeReference.icuClusters(cps)).as("ICU %s", line).isEqualTo(expected);
         cases++;
       }
       assertThat(cases).isPositive();

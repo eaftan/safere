@@ -38,8 +38,8 @@ The existing targets below remain available for exploratory differential work:
 - `DeferredRegionCaptureFuzzer` forces deferred NFA captures across region bounds and matcher reuse.
 - `UnicodeFuzzer` biases input strings toward Unicode boundary cases.
 - `EmojiZwjGraphemeFuzzer` checks every Unicode 17 grapheme-property combination against an independent
-  UAX #29 reference, including Hangul, Indic conjuncts, GB11, and scalar/boundary
-  composition. See the [grapheme audit](../docs/GRAPHEME_AUDIT.md) for reproduction and limits.
+  UAX #29 rule interpreter and ICU4J character break iterator, including Hangul,
+  Indic conjuncts, GB11, and scalar/boundary composition. See the [grapheme audit](../docs/GRAPHEME_AUDIT.md) for reproduction and limits.
 - `Utf8InputFuzzer` mixes focused JDK comparisons, representation checks, and byte-window robustness.
 
 ## Regression Mode

@@ -16,8 +16,10 @@ Production segmentation is in
 Both scalar encodings use the same generated property tables and cached state.
 The reference interpreter in
 [GraphemeReference](../safere-fuzz/src/test/java/org/safere/fuzz/GraphemeReference.java)
-uses official UCD data and literal, ordered boundary rules, with backward scans
-instead of production caches. It does not call SafeRE classification or JDK regex.
+reads properties through ICU4J's public APIs and applies literal, ordered boundary
+rules, with backward scans instead of production caches. It does not call SafeRE
+classification or JDK regex. ICU4J's root-locale character `BreakIterator` supplies
+a separate segmentation implementation for the same generated inputs.
 
 | Rule | Production classification and decision | Independent coverage |
 | --- | --- | --- |
@@ -48,21 +50,26 @@ GCB, InCB, and Extended_Pictographic all come from that same ICU Unicode
 version, independently of the generator JDK's other character properties.
 See the [generator guide](../safere-unicode/README.md).
 
-The audit independently extracts these properties from the official Unicode 17
-[GraphemeBreakProperty.txt](https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakProperty.txt),
-[DerivedCoreProperties.txt](https://www.unicode.org/Public/17.0.0/ucd/DerivedCoreProperties.txt), and
-[emoji-data.txt](https://www.unicode.org/Public/17.0.0/ucd/emoji/emoji-data.txt).
-The compact checked-in fixture covers the entire code point range, including
-default Other/None values and unassigned pictographic reservations. Source
-SHA-256 hashes are pinned in the extraction script and fixture. The Unicode
-license accompanies the fixture.
+The audit reads GCB and InCB with `UCharacter.getIntPropertyValue` and
+Extended_Pictographic with `UCharacter.hasBinaryProperty`. The generator and
+audit share the parent POM's `icu4j.version`; ICU is a test-only dependency of
+`safere-fuzz`, with no library runtime dependency. A version assertion requires
+ICU's Unicode version to match the checked-in tables' recorded version.
 
 `GraphemeUnicodeAuditTest` compares every code point of every generated grapheme
-table and Extended_Pictographic against this independent fixture, and verifies
-the dedicated ZWJ/RI scalar predicates. The reference interpreter is separately
-calibrated against the existing official `GraphemeBreakTest.txt` fixture.
-Thus a shared ICU classification error cannot silently validate itself through
-both the production segmenter and the reference interpreter.
+table and Extended_Pictographic against the ICU property APIs, and verifies the
+dedicated ZWJ/RI scalar predicates. This checks table generation, property mapping,
+and version consistency. The handwritten reference interpreter and ICU's
+root-locale character `BreakIterator` are separately calibrated against the
+existing official `GraphemeBreakTest.txt` fixture. Every exhaustive, generated,
+and fuzzed scalar sequence also compares the handwritten rules with ICU's
+segmentation before checking SafeRE results.
+
+The algorithms are independent, but property provenance is shared with the
+production generator: these checks cannot independently detect an error in ICU's
+Unicode property data. The existing Unicode conformance fixture supplements
+that shared source. The audit uses the already pinned ICU dependency without
+an additional data download, property fixture, or extraction script.
 
 ## Findings and compatibility boundaries
 
@@ -79,8 +86,8 @@ Unicode boundary-predicate policy; the examples are recorded in
 [intentional divergences](../INTENTIONAL_DIVERGENCES.md#grapheme-cluster-composition). The removed helper also duplicated an existing
 split-surrogate branch.
 
-The full property comparison and scalar reference checks found no additional
-data or segmentation-rule discrepancies in the tested domain. Existing JDK
+The generated tables agree with ICU, and the scalar reference checks found no
+additional segmentation-rule discrepancies in the tested domain. Existing JDK
 exceptions are classified as follows:
 
 - Unassigned Other code points, Ahom vowel signs, and GB11 interruptions/Prepend
@@ -124,7 +131,7 @@ included in the reference alphabet.
 Run from the repository root:
 
 ```bash
-# Independent property verification, reference calibration, region/engine checks,
+# ICU property consistency, reference calibration, region/engine checks,
 # exhaustive short sequences, deterministic longer sequences, and saved fuzz seeds.
 mvn -pl safere-fuzz -am \
   -Dtest=GraphemeUnicodeAuditTest,EmojiZwjGraphemeFuzzer \
@@ -137,18 +144,12 @@ mvn -pl safere -Dtest='*Grapheme*Test' test
 mvn -pl safere -Pwork-counters -Dtest=GraphemeLinearTimeTest test
 ```
 
-To regenerate the independent property fixture, download the three linked UCD
-files into one directory and run:
-
-```bash
-python3 safere-fuzz/scripts/generate-grapheme-reference.py /path/to/ucd-files
-```
-
 `EmojiZwjGraphemeFuzzer` exhaustively enumerates sequences through length four
 over one scalar representative of every distinct GCB/InCB/Extended_Pictographic
 tuple, including overlaps. Longer sequences use a fixed random seed and the
-same expanded property alphabet, including additional supplementary examples.
+same expanded ICU property alphabet, including additional supplementary examples.
 The Jazzer entry point generates variable-length sequences over that alphabet.
+The reference rules and ICU break iterator must agree on each sequence.
 Checks exercise repeated `\X` finds, captures, leading/trailing `\b{g}`,
 scalar/boundary composition, quantified and consecutive cluster captures,
 standalone boundary traces, and splitting in both
@@ -159,9 +160,10 @@ API; `Utf8Matcher` does not expose transparent or anchoring bounds setters.
 
 Grapheme programs are guarded away from DFA, OnePass, and BitState execution;
 engine-selection checks verify equivalent results with shortcuts enabled and
-disabled, and diagnostics confirm that the exact NFA actually runs. They do not claim independent segmentation implementations in those
-engines. Scalar property equivalence and bounded sequence enumeration are strong
-checks of rule interaction, not a proof for arbitrary inputs or arbitrary regex
+disabled, and diagnostics confirm that the exact NFA actually runs. They do not
+claim independent segmentation implementations in those engines. Scalar property
+equivalence and bounded sequence enumeration are strong checks of rule interaction,
+not a proof for arbitrary inputs or arbitrary regex
 syntax. No timing-based or JDK-majority oracle is used.
 
 ## Work and stack assessment
