@@ -11,14 +11,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Canary tests for SafeRE Unicode tables and the running JDK's {@link Character} implementation.
  * SafeRE-owned Unicode property tables are allowed to be ahead of the runtime JDK, but the runtime
- * JDK's known category/script names should still be present. The case-fold and White_Space checks
- * detect table drift that may need an intentional Unicode data update.
+ * JDK's known category/script names should still be present. The case-fold and binary property
+ * checks detect table drift that may need an intentional Unicode data update.
  *
  * <p>See <a href="https://github.com/eaftan/safere/issues/107">#107</a>.
  */
@@ -200,11 +205,51 @@ class UnicodeJdkConsistencyTest {
     assertThat(inJdkNotSafere)
         .as(
             "Code points in JDK White_Space but not SafeRE unicodeSpace. "
-                + "If this fails, the static unicodeSpace() table needs updating.")
+                + "If this fails, the generated White_Space table needs updating.")
         .isEmpty();
   }
 
+  // --- Generated binary property canaries ---
+
+  @ParameterizedTest(name = "Binary property {0} matches its JDK or Unicode oracle")
+  @MethodSource("binaryPropertyNames")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void binaryPropertiesMatchJdkExceptUnicodeHexDigit(String name) {
+    // The checked-in tables use Unicode 17; older JDKs have older Unicode data.
+    int[][] ranges = UnicodeGeneratedTables.BINARY_PROPERTIES.get(name);
+    java.util.regex.Matcher jdk =
+        java.util.regex.Pattern.compile("\\p{Is" + name + "}").matcher("");
+    List<String> differences = new ArrayList<>();
+    List<String> jdkHexDifferences = new ArrayList<>();
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      boolean jdkMatches = jdk.reset(Character.toString(cp)).matches();
+      boolean expected = jdkMatches;
+      if (name.equals("Hex_Digit")) {
+        // Approved spec-based divergence: Unicode Hex_Digit excludes other decimal digits.
+        expected =
+            (cp >= '0' && cp <= '9')
+                || (cp >= 'A' && cp <= 'F')
+                || (cp >= 'a' && cp <= 'f')
+                || (cp >= 0xFF10 && cp <= 0xFF19)
+                || (cp >= 0xFF21 && cp <= 0xFF26)
+                || (cp >= 0xFF41 && cp <= 0xFF46);
+        if (jdkMatches != (expected || Character.isDigit(cp)) && jdkHexDifferences.size() < 10) {
+          jdkHexDifferences.add(String.format("U+%04X", cp));
+        }
+      }
+      if (containsCodePoint(ranges, cp) != expected && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    assertThat(differences).as("%s table membership differences", name).isEmpty();
+    assertThat(jdkHexDifferences).as("JDK Hex_Digit implementation changed").isEmpty();
+  }
+
   // --- Helpers ---
+
+  private static Stream<String> binaryPropertyNames() {
+    return UnicodeGeneratedTables.BINARY_PROPERTIES.keySet().stream().sorted();
+  }
 
   /** Checks whether {@code target} is reachable from {@code start} via simpleFold orbits. */
   private static boolean inFoldOrbit(int start, int target) {

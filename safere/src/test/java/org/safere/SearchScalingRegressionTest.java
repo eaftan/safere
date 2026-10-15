@@ -20,6 +20,204 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void nestedNullableLoopEntryResetsKeepFindWorkLinear() {
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.builder().onePass(false).bitState(false).build(),
+          EnginePathOptions.builder().dfa(false).onePass(false).build(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      Pattern pattern = Pattern.compile("(?:(?:x|)+?)*", 0, options);
+      assertFindAllWorkIsLinear(size -> pattern.matcher("x".repeat(size))::find, "String loops");
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.trusted("x".repeat(size).getBytes(UTF_8)))::find,
+          "UTF-8 loops");
+    }
+  }
+
+  @Test
+  void alternatingNestedNullableLoopWorkIsPolynomialInDepth() {
+    // Alternating lazy and greedy nullable loops do not simplify away. Each fresh entry must be
+    // expanded at most once per position, or every enclosing iteration re-expands the inner loops
+    // and per-position work grows exponentially with the nesting depth.
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    String input = "x".repeat(64);
+    long[] work = new long[13];
+    for (int depth = 4; depth <= 12; depth += 4) {
+      Pattern pattern = Pattern.compile(alternatingNullableLoops(depth), 0, nfaOnly);
+      work[depth] =
+          WorkCounter.countForTesting(
+              () -> {
+                Matcher matcher = pattern.matcher(input);
+                while (matcher.find()) {}
+              });
+    }
+    // Measured at 4,296 / 21,780 / 96,624 units for depths 4 / 8 / 12. Re-expanding each fresh
+    // entry once per enclosing iteration measured 8,768 / 1,220,228 / 1,162,878,680.
+    assertThat(work[12])
+        .as("depth 4/8/12 work %d/%d/%d", work[4], work[8], work[12])
+        .isLessThan(8 * work[8]);
+  }
+
+  private static String alternatingNullableLoops(int depth) {
+    StringBuilder regex = new StringBuilder("(?:x|)");
+    for (int i = 0; i < depth; i++) {
+      regex.insert(0, "(?:").append(')').append(i % 2 == 0 ? "+?" : "*");
+    }
+    return regex.toString();
+  }
+
+  @Test
+  void endAnchoredSearchSkipsUnrelatedPrefix() {
+    for (String regex : new String[] {"abc$", "(ab)c\\z", "[YZ]abc$", "a+b$", "(?i:abc)$"}) {
+      Pattern pattern = Pattern.compile(regex);
+      String tail = regex.startsWith("[YZ]") ? "Yabc" : regex.equals("a+b$") ? "aaab" : "abc";
+      for (String prefix : new String[] {"x", "é😀"}) {
+        String small = prefix.repeat(2_000) + tail;
+        String large = prefix.repeat(20_000) + tail;
+        Utf8Input smallUtf8 = Utf8Input.trusted(small.getBytes(UTF_8));
+        Utf8Input largeUtf8 = Utf8Input.trusted(large.getBytes(UTF_8));
+
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.matcher(small).find()).isTrue(),
+            () -> assertThat(pattern.matcher(large).find()).isTrue(),
+            regex + " String");
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.matcher(smallUtf8).find()).isTrue(),
+            () -> assertThat(pattern.matcher(largeUtf8).find()).isTrue(),
+            regex + " UTF-8 matcher");
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.find(smallUtf8)).isTrue(),
+            () -> assertThat(pattern.find(largeUtf8)).isTrue(),
+            regex + " UTF-8 existence");
+      }
+    }
+  }
+
+  private static void assertBoundedEndSearchWork(Runnable small, Runnable large, String label) {
+    long smallWork = WorkCounter.countForTesting(small);
+    long largeWork = WorkCounter.countForTesting(large);
+    assertThat(smallWork).as("%s work must be observed", label).isPositive();
+    assertThat(largeWork)
+        .as("%s should inspect only the matching suffix", label)
+        .isLessThanOrEqualTo(smallWork * 2);
+  }
+
+  @Test
+  void longLiteralSuffixFitsPatternSizedProbe() {
+    for (String suffix : new String[] {"a".repeat(100) + "z", "é😀".repeat(50)}) {
+      Pattern pattern = Pattern.compile(suffix + "$");
+      String small = "x".repeat(2_000) + suffix;
+      String large = "x".repeat(20_000) + suffix;
+      Utf8Input smallUtf8 = Utf8Input.trusted(small.getBytes(UTF_8));
+      Utf8Input largeUtf8 = Utf8Input.trusted(large.getBytes(UTF_8));
+      assertBoundedEndSearchWork(
+          () -> assertThat(pattern.matcher(small).find()).isTrue(),
+          () -> assertThat(pattern.matcher(large).find()).isTrue(),
+          "long literal String suffix");
+      assertBoundedEndSearchWork(
+          () -> assertThat(pattern.find(smallUtf8)).isTrue(),
+          () -> assertThat(pattern.find(largeUtf8)).isTrue(),
+          "long literal UTF-8 suffix");
+    }
+  }
+
+  @Test
+  void reverseProbeWorkStaysBoundedWithCachedAsciiTransitions() {
+    for (int size : new int[] {2_000, 20_000}) {
+      String text = "x".repeat(size);
+      for (InputScanner scanner :
+          new InputScanner[] {
+            new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8))
+          }) {
+        Dfa reverse = Pattern.compile("needle.*$").reverseDfa();
+        for (int pass = 0; pass < 2; pass++) {
+          long work =
+              WorkCounter.countForTesting(
+                  () -> {
+                    Dfa.SearchResult result =
+                        reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, 64);
+                    assertThat(result).isNotNull();
+                    assertThat(result.scanLimitReached()).isTrue();
+                  });
+          assertThat(work).isBetween(64L, 256L);
+        }
+      }
+    }
+  }
+
+  @Test
+  void endAnchoredExistenceSearchStopsAtVerifiedSuffix() {
+    Pattern pattern = Pattern.compile("(?s:.*)abc$");
+    for (String prefix : new String[] {"x", "é😀"}) {
+      for (String terminator : new String[] {"", "\n", "\r\n"}) {
+        Utf8Input small =
+            Utf8Input.trusted((prefix.repeat(2_000) + "abc" + terminator).getBytes(UTF_8));
+        Utf8Input large =
+            Utf8Input.trusted((prefix.repeat(20_000) + "abc" + terminator).getBytes(UTF_8));
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.find(small)).isTrue(),
+            () -> assertThat(pattern.find(large)).isTrue(),
+            "UTF-8 existence with greedy prefix");
+      }
+    }
+  }
+
+  @Test
+  void endAnchoredLeadingExpansionNoMatchWorkIsIndependentOfInputLength() {
+    // A leading expansion (\\s*) gives these patterns a start accelerator. A failing search must
+    // still be decided by the reverse-first search from the end of the input, not by a forward scan
+    // from the first candidate.
+    for (String regex : new String[] {"(?i)\\s*(foo|fax)$", "\\s*(foo|fax)\\z"}) {
+      Pattern pattern = Pattern.compile(regex);
+      IntFunction<String> text = size -> "fine food offer ".repeat(size / 16) + "end";
+      long smallerString =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.matcher(text.apply(2_000)).find()).isFalse());
+      long largerString =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.matcher(text.apply(64_000)).find()).isFalse());
+      long smallerUtf8 =
+          WorkCounter.countForTesting(
+              () ->
+                  assertThat(
+                          pattern
+                              .matcher(Utf8Input.trusted(text.apply(2_000).getBytes(UTF_8)))
+                              .find())
+                      .isFalse());
+      long largerUtf8 =
+          WorkCounter.countForTesting(
+              () ->
+                  assertThat(
+                          pattern
+                              .matcher(Utf8Input.trusted(text.apply(64_000).getBytes(UTF_8)))
+                              .find())
+                      .isFalse());
+
+      assertThat(largerString).as("%s String", regex).isLessThan(smallerString * 2 + 64);
+      assertThat(largerUtf8).as("%s UTF-8", regex).isLessThan(smallerUtf8 * 2 + 64);
+    }
+  }
+
+  @Test
+  void utf8FindEndAnchoredNoMatchWorkIsIndependentOfInputLength() {
+    for (String regex : new String[] {"(foo|fax)$", "(?i)(foo|fax)\\z"}) {
+      Pattern pattern = Pattern.compile(regex);
+      IntFunction<byte[]> text =
+          size -> ("fine food offer ".repeat(size / 16) + "end").getBytes(UTF_8);
+      long smaller =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.find(Utf8Input.trusted(text.apply(2_000)))).isFalse());
+      long larger =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.find(Utf8Input.trusted(text.apply(64_000)))).isFalse());
+
+      assertThat(larger).as(regex).isLessThan(smaller * 2 + 64);
+    }
+  }
+
+  @Test
   void guardedGapRetriesReuseDelimiterScanWork() {
     Pattern pattern = Pattern.compile("AAAA[^;]*RAREBBB");
 
@@ -81,14 +279,86 @@ class SearchScalingRegressionTest {
         "UTF-8");
   }
 
+  /**
+   * Searching a two-character class as one {@code String.indexOf} per member must not rescan the
+   * rest of the input for a member that never occurs, on each {@code find()} or DFA restart.
+   */
+  @Test
+  void smallSetFindAllWorkIsLinearWhenOneMemberIsAbsent() {
+    Pattern ascii = Pattern.compile("[ab][0-9]");
+    assertFindAllWorkIsLinear(size -> ascii.matcher("b1 ".repeat(size))::find, "ASCII pair");
+
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(size))::find, "full-width citation");
+  }
+
+  @Test
+  void smallSetReplaceAllWorkIsLinearWhenOneMemberIsAbsent() {
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(200)).replaceAll(""));
+    long largerWork =
+        WorkCounter.countForTesting(
+            () -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(1_000)).replaceAll(""));
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .as("replaceAll over a two-character leading class should scale linearly")
+        .isLessThan(smallerWork * 6);
+  }
+
+  /**
+   * Like the tests above, but with candidates spaced farther apart than the scalar prologue of
+   * {@code StringInputScanner.indexOfSmallSet}, so every search falls through to the per-member
+   * searches. Unless those are window-bounded, each rescans the rest of the input for a member that
+   * is absent or occurs only at the end.
+   */
+  @Test
+  void smallSetWorkIsLinearWhenCandidatesAreBeyondTheProbe() {
+    String gap = "x".repeat(64);
+
+    Pattern ascii = Pattern.compile("[ab][0-9]");
+    assertFindAllWorkIsLinear(
+        size -> ascii.matcher(("b1" + gap).repeat(size))::find, "ASCII pair, member absent");
+    assertFindAllWorkIsLinear(
+        size -> ascii.matcher(("b1" + gap).repeat(size) + "a")::find, "ASCII pair, member late");
+
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    String fullWidth = "\uFF3B1.2.3\uFF3D" + gap;
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(fullWidth.repeat(size))::find, "full-width citation, '[' absent");
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(fullWidth.repeat(size) + "[")::find,
+        "full-width citation, '[' late");
+    // Full-width brackets with no digits: every candidate is rejected after the bracket.
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(("\uFF3Bx\uFF3D" + gap).repeat(size))::find,
+        "full-width brackets, no match");
+
+    for (String suffix : new String[] {"", "["}) {
+      long smallerWork =
+          WorkCounter.countForTesting(
+              () -> citation.matcher(fullWidth.repeat(200) + suffix).replaceAll(""));
+      long largerWork =
+          WorkCounter.countForTesting(
+              () -> citation.matcher(fullWidth.repeat(1_000) + suffix).replaceAll(""));
+      assertThat(smallerWork).isPositive();
+      assertThat(largerWork)
+          .as("replaceAll with spaced candidates and suffix '%s' should scale linearly", suffix)
+          .isLessThan(smallerWork * 6);
+    }
+  }
+
   private static void assertFindAllWorkIsLinear(
       IntFunction<FindIterator> matcher, String inputKind) {
     long smallerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(200)));
     long largerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(1_000)));
 
-    assertThat(smallerWork).as("%s reluctant-gap work must be observed", inputKind).isPositive();
+    assertThat(smallerWork).as("%s find-all work must be observed", inputKind).isPositive();
     assertThat(largerWork)
-        .as("%s reluctant-gap iteration should scale linearly", inputKind)
+        .as("%s find-all iteration should scale linearly", inputKind)
         .isLessThan(smallerWork * 6);
   }
 

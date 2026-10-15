@@ -11,8 +11,10 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import java.util.Locale;
+import org.safere.Matcher;
 import org.safere.Pattern;
 import org.safere.Utf8Input;
+import org.safere.Utf8Matcher;
 
 public final class MatchFuzzer {
   private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -60,7 +62,7 @@ public final class MatchFuzzer {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
     assertAcceleratedRestartArrayGrowthMatchesJdk(data);
-    assertCaseFamilyClosureSafeRe(data);
+    CaseFamilyChecks.assertCaseFamilyClosureSafeRe(data);
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
     assertUnicodeLineStartAnchorsMatchJdk();
@@ -103,6 +105,46 @@ public final class MatchFuzzer {
     }
     // Append new consumers so existing corpus inputs retain their original interpretation.
     assertNullableFindInsideSurrogatePairMatchesJdk(data);
+    assertUnicodeIPrefixFindsMatchJdk(data);
+    assertNestedNullableLoopEntriesMatchJdk(data);
+  }
+
+  private static void assertNestedNullableLoopEntriesMatchJdk(FuzzedDataProvider data) {
+    for (String regex : List.of("(?:(?:x|)+?)*", "(?:(?:x?)+?){1,}")) {
+      FuzzSupport.CompiledPattern regression = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (regression != null) {
+        FuzzSupport.MatcherPair matcher = regression.matcher("xxx");
+        while (matcher.find()) {}
+        matcher.reset().replaceAll("-");
+      }
+    }
+    // Vary fresh entry into a nullable loop independently of its own back edge (#1005).
+    String atom = data.pickValue(List.of("x", "xx", "é", "😀"));
+    String body = data.consumeBoolean() ? "(?:" + atom + "|)" : "(?:" + atom + "?)";
+    String inner = data.pickValue(List.of("+?", "*?", "+", "*"));
+    String prefix = data.consumeBoolean() ? "a?" : "";
+    String suffix = data.consumeBoolean() ? "b?" : "";
+    String outer = data.pickValue(List.of("*", "+", "{1,}", "{2}", "*?", "+?"));
+    String continuation = data.pickValue(List.of("", "y", "$"));
+    String regex = "(?:" + prefix + body + inner + suffix + ")" + outer + continuation;
+    if (data.consumeBoolean()) {
+      regex = "(" + regex + ")";
+    }
+    String input = atom.repeat(data.consumeInt(0, 16));
+    if (!suffix.isEmpty() && data.consumeBoolean()) {
+      input += "b" + atom.repeat(data.consumeInt(0, 16));
+    }
+    if (continuation.equals("y")) {
+      input += "y";
+    }
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      while (matcher.find()) {}
+      matcher.reset().lookingAt();
+      matcher.reset().matches();
+      matcher.reset().replaceAll("-");
+    }
   }
 
   private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
@@ -135,6 +177,34 @@ public final class MatchFuzzer {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
     if (pattern != null) {
       pattern.matcher(input).find(prefix.length() + 1);
+    }
+  }
+
+  private static void assertUnicodeIPrefixFindsMatchJdk(FuzzedDataProvider data) {
+    // Append this axis so existing corpus inputs keep their original consumer order. I/i sources
+    // match every member below on the JDK and under SafeRE's approved Unicode closure (#866).
+    String prefix = data.pickValue(List.of("A", "é", "Ж", ""));
+    String source = data.pickValue(List.of("I", "i"));
+    String target = data.pickValue(List.of("ı", "İ", "I", "i"));
+    String suffix = data.pickValue(List.of("", "B", "終"));
+    String literal = prefix + source + suffix;
+    String regex = data.consumeBoolean() ? "(" + literal + ")" : literal;
+    String input = "!" + prefix + target + suffix + "!";
+    int flags = data.consumeBoolean() ? CI_UCC : CI_U;
+    if (!java.util.regex.Pattern.compile(regex, flags).matcher(input).find()) {
+      throw new AssertionError("Unexpected JDK Unicode I prefix result for /" + regex + "/");
+    }
+    Pattern pattern = Pattern.compile(regex, flags);
+    Matcher stringMatcher = pattern.matcher(input);
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(bytes));
+    if (!stringMatcher.find()
+        || stringMatcher.start() != 1
+        || stringMatcher.end() != input.length() - 1
+        || !utf8Matcher.find()
+        || utf8Matcher.start() != 1
+        || utf8Matcher.end() != bytes.length - 1) {
+      throw new AssertionError("Unicode I prefix find divergence for /" + regex + "/ on " + input);
     }
   }
 
@@ -432,38 +502,11 @@ public final class MatchFuzzer {
 
   private static void assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(
       FuzzedDataProvider data) {
-    RegressionCase regression =
-        data.pickValue(
-            List.of(
-                new RegressionCase("a+?b?", 0, List.of("aaab", "aab", "ab")),
-                new RegressionCase("(?:a|ab)c?", 0, List.of("abc", "ab", "ac")),
-                new RegressionCase("a??b?", 0, List.of("ab", "a", "b"))));
+    PriorityCases.Case regression = PriorityCases.choose(data);
     FuzzSupport.CompiledPattern pattern =
-        FuzzSupport.compileCompatibleOrSkip(regression.regex(), regression.flags());
+        FuzzSupport.compileCompatibleOrSkip(regression.regex(), 0);
     if (pattern != null) {
       pattern.matcher(data.pickValue(regression.inputs())).lookingAt();
-    }
-  }
-
-  private static void assertCaseFamilyClosureSafeRe(FuzzedDataProvider data) {
-    String family = data.pickValue(List.of("Iiİı", "KkK", "Σσς", "ÅåÅ", "ΩωΩ", "ßẞ", "Θθϑϴ", "ﬅﬆ"));
-    int[] members = family.codePoints().toArray();
-    int source = members[data.consumeInt(0, members.length - 1)];
-    int target = members[data.consumeInt(0, members.length - 1)];
-    String literal = "\\x{" + Integer.toHexString(source) + "}";
-    String regex =
-        switch (data.consumeInt(0, 4)) {
-          case 0 -> literal;
-          case 1 -> "[" + literal + "]";
-          case 2 -> "[" + literal + "-" + literal + "]";
-          case 3 -> "[^" + literal + "]";
-          default -> "[^" + literal + "-" + literal + "]";
-        };
-    boolean actual =
-        Pattern.compile(regex, CI_U).matcher(new String(Character.toChars(target))).matches();
-    if (actual == regex.startsWith("[^")) {
-      throw new AssertionError(
-          "SafeRE case family closure: " + regex + " U+" + Integer.toHexString(target));
     }
   }
 

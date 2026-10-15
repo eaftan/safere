@@ -22,6 +22,12 @@ import org.safere.MultiAnchorDescriptor.StartPlan;
  */
 final class MultiAnchorCompiler {
 
+  // Full case closures in the supported JDK casing data and SafeRE fold table have at most four
+  // code points. A larger closure in future JDK casing data would only lose folded-prefix
+  // acceleration; matching stays correct. MultiAnchorCompilerTest checks every closure and its
+  // eligible folded prefix, catching growth beyond this bound.
+  private static final int MAX_UNICODE_FOLD_CLASS_RUNES = 4;
+
   record PrefixResult(String prefix, boolean foldCase) {
     static final PrefixResult NO_PREFIX = new PrefixResult(null, false);
   }
@@ -56,6 +62,11 @@ final class MultiAnchorCompiler {
     boolean isExact() {
       return minWidth >= 0 && minWidth == maxWidth;
     }
+
+    boolean isExactAscii() {
+      // Non-discrete widths can count Unicode code points rather than ASCII input units.
+      return isExact() && discreteWidths != null;
+    }
   }
 
   @SuppressWarnings("ArrayRecordComponent")
@@ -85,16 +96,27 @@ final class MultiAnchorCompiler {
     static final RejectFacets EMPTY = new RejectFacets(null, 0, null, null, null, null);
   }
 
+  record ClassAnchor(CharClassScanInfo scanInfo, int offset) {}
+
   record NodeAnalysis(
       AsciiWidthRange width,
       StartFacets start,
       RejectFacets reject,
-      CharClass atomicRequiredClass) {
+      CharClass atomicRequiredClass,
+      ClassAnchor classAnchor) {
+
+    NodeAnalysis(
+        AsciiWidthRange width,
+        StartFacets start,
+        RejectFacets reject,
+        CharClass atomicRequiredClass) {
+      this(width, start, reject, atomicRequiredClass, null);
+    }
 
     static final NodeAnalysis EMPTY =
         new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY, null);
     // Cached widths must remain conservative, just as in the standalone width walker.
-    static final NodeAnalysis UNKNOWN_WIDTH =
+    static final NodeAnalysis UNKNOWN =
         new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY, null);
   }
 
@@ -210,6 +232,17 @@ final class MultiAnchorCompiler {
       return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase);
     }
 
+    ClassAnchor classAnchor = analysis.classAnchor();
+    CharClassScanInfo leadingClass = start.charClassPrefix();
+    if (classAnchor != null
+        && classAnchor.offset() > 0
+        && leadingClass != null
+        && leadingClass.isAscii()
+        && !leadingClass.isSelective()) {
+      return new StartPlan.FixedOffsetClass(
+          classAnchor.scanInfo(), classAnchor.offset(), leadingClass);
+    }
+
     String[] altLiterals = start.literalAlternation();
     if (altLiterals != null && altLiterals.length >= 2) {
       return new MultiAnchorDescriptor.StartPlan.MultiLiteral(altLiterals, start.charClassPrefix());
@@ -282,18 +315,14 @@ final class MultiAnchorCompiler {
           requiredMatchClass = CharClassScanInfo.fromCharClass(reqClass);
         } else {
           CharClassScanInfo candidate = CharClassScanInfo.fromCharClass(reqClass);
-          if (candidate != null && candidate.ranges() != null) {
-            int candidateRunes = 0;
-            for (int i = 0; i < candidate.ranges().length; i += 2) {
-              candidateRunes += (candidate.ranges()[i + 1] - candidate.ranges()[i] + 1);
-            }
-            int prefixRunes = 0;
-            for (int i = 0; i < ccPrefix.ranges().length; i += 2) {
-              prefixRunes += (ccPrefix.ranges()[i + 1] - ccPrefix.ranges()[i] + 1);
-            }
-            if (candidateRunes < prefixRunes) {
-              requiredMatchClass = candidate;
-            }
+          if (candidate != null
+              && candidate.ranges() != null
+              && moreSelective(
+                  RarityOracle.charClassFrequencyScore(reqClass),
+                  reqClass.numRunes(),
+                  RarityOracle.charClassFrequencyScore(ccPrefix),
+                  runeCount(ccPrefix.ranges()))) {
+            requiredMatchClass = candidate;
           }
         }
       }
@@ -320,6 +349,38 @@ final class MultiAnchorCompiler {
   }
 
   /**
+   * Returns whether a class with the given frequency score and rune count is a better reject
+   * candidate than the incumbent: rarer by {@link RarityOracle#charClassFrequencyScore} when both
+   * classes can be scored, or with fewer runes when the scores tie or either class scores {@code 0}
+   * (no ASCII members, or too many non-ASCII members to ignore). An empty class also scores {@code
+   * 0} and has no runes, so it wins, which is harmless: it rejects every input, as it should.
+   */
+  private static boolean moreSelective(
+      long candidateScore, int candidateRunes, long incumbentScore, int incumbentRunes) {
+    if (candidateScore == 0 || incumbentScore == 0) {
+      return candidateRunes < incumbentRunes;
+    }
+    return candidateScore < incumbentScore
+        || (candidateScore == incumbentScore && candidateRunes < incumbentRunes);
+  }
+
+  private static boolean moreSelective(CharClass candidate, CharClass incumbent) {
+    return moreSelective(
+        RarityOracle.charClassFrequencyScore(candidate),
+        candidate.numRunes(),
+        RarityOracle.charClassFrequencyScore(incumbent),
+        incumbent.numRunes());
+  }
+
+  private static int runeCount(int[] ranges) {
+    int runes = 0;
+    for (int i = 0; i < ranges.length; i += 2) {
+      runes += ranges[i + 1] - ranges[i] + 1;
+    }
+    return runes;
+  }
+
+  /**
    * Returns the literal the start accelerator will scan for, unwrapping a leading expansion, or
    * {@code null} if the start plan is not literal-driven.
    */
@@ -330,6 +391,7 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.Literal lit -> lit.prefix();
       case StartPlan.FixedOffset fo -> fo.fol().literal();
+      case StartPlan.FixedOffsetClass unusedFc -> null;
       case StartPlan.LeadingExpansion le -> drivingLiteral(le.innerPlan());
       case StartPlan.CharClass unusedCc -> null;
       case StartPlan.MultiLiteral unusedMl -> null;
@@ -341,7 +403,8 @@ final class MultiAnchorCompiler {
   /**
    * Returns the character class the start accelerator will scan for, or {@code null} if the start
    * plan is not class-driven. A required class from reject analysis is only worth scanning for
-   * separately if it is narrower than this one.
+   * separately if it is narrower than this one. See {@link #leadingExpansionDrivingClass} for
+   * leading expansions.
    */
   private static CharClassScanInfo drivingCharClass(StartPlan plan) {
     if (plan == null) {
@@ -350,12 +413,40 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.CharClass cc -> cc.scanInfo();
       case StartPlan.FixedOffset fo -> fo.leadingClass();
+      case StartPlan.FixedOffsetClass fc -> fc.scanInfo();
       case StartPlan.MultiLiteral ml -> ml.fallbackClass();
-      case StartPlan.LeadingExpansion le -> drivingCharClass(le.innerPlan());
+      case StartPlan.LeadingExpansion le -> leadingExpansionDrivingClass(le);
       case StartPlan.Literal unusedLit -> null;
       case StartPlan.LineAnchor unusedLa -> null;
       case StartPlan.None unusedNone -> null;
     };
+  }
+
+  /**
+   * Returns the driving class of a leading expansion for reject-plan selection.
+   *
+   * <p>Usually {@code null}, so the expansion's required class is kept as a reject prefilter even
+   * when it is the class the inner accelerator scans for. The prefilter fails the whole call on
+   * input without the class before any per-call setup, including once up front in {@code
+   * replaceAll}, whereas the leading-expansion accelerator only gets there through its own
+   * candidate loop. On {@code UnicodePrefixBenchmark.cjk.absent}, {@code [\u4E00-\u9FFF]+\d+}
+   * measured 2.8x faster with the {@code [0-9]} prefilter than without it.
+   *
+   * <p>The exception is an ASCII leading class in front of a non-selective inner class, such as
+   * {@code \d} in {@code [A-Za-z]+\d+}. Such a class occurs in almost any input, so the prefilter
+   * rarely rejects, and the accelerator already scans for it with an ASCII kernel; keeping the
+   * prefilter made {@code MatcherApiBenchmark.resetAndFind@safere-utf8} 1.09x slower on aarch64.
+   * Returning the inner class lets {@code extractRejectPlan} drop a required class that is no
+   * narrower. A non-ASCII leading class keeps the prefilter, because there the prefilter's ASCII
+   * scan is what makes non-matching input cheap.
+   */
+  private static CharClassScanInfo leadingExpansionDrivingClass(StartPlan.LeadingExpansion le) {
+    if (le.leadingClass().isAscii()
+        && le.innerPlan() instanceof StartPlan.CharClass inner
+        && !inner.scanInfo().isSelective()) {
+      return inner.scanInfo();
+    }
+    return null;
   }
 
   /** Returns whether the start plan scans for a literal at the match start. */
@@ -365,6 +456,7 @@ final class MultiAnchorCompiler {
     }
     return switch (plan) {
       case StartPlan.FixedOffset unusedFo -> true;
+      case StartPlan.FixedOffsetClass unusedFc -> false;
       case StartPlan.LeadingExpansion le -> hasFixedOffset(le.innerPlan());
       case StartPlan.Literal unusedLit -> false;
       case StartPlan.CharClass unusedCc -> false;
@@ -390,6 +482,7 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.Literal unusedLit -> true;
       case StartPlan.FixedOffset unusedFo -> true;
+      case StartPlan.FixedOffsetClass unusedFc -> true;
       case StartPlan.LeadingExpansion unusedLe -> false;
       case StartPlan.CharClass unusedCc -> false;
       case StartPlan.MultiLiteral unusedMl -> false;
@@ -422,7 +515,7 @@ final class MultiAnchorCompiler {
       NodeAnalysis analysis =
           switch (node.op) {
             case CAPTURE, NON_CAPTURE ->
-                childArgs.isEmpty() ? NodeAnalysis.UNKNOWN_WIDTH : childArgs.getFirst();
+                childArgs.isEmpty() ? NodeAnalysis.UNKNOWN : childArgs.getFirst();
             case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_TEXT, END_TEXT, END_LINE ->
                 NodeAnalysis.EMPTY;
             case BEGIN_LINE ->
@@ -447,7 +540,8 @@ final class MultiAnchorCompiler {
             case STAR -> visitStar();
             case PLUS -> visitPlus(childArgs);
             case REPEAT -> visitRepeat(node, childArgs);
-            default -> NodeAnalysis.UNKNOWN_WIDTH;
+            // Only the explicit zero-width cases above can prove an empty ASCII prefix.
+            default -> NodeAnalysis.UNKNOWN;
           };
       if (node == fullAnalysisRoot) {
         rootChildren = childArgs;
@@ -456,15 +550,86 @@ final class MultiAnchorCompiler {
             && node.op != RegexpOp.LITERAL
             && node.op != RegexpOp.LITERAL_STRING
             && node.op != RegexpOp.CHAR_CLASS) {
-          return withRootCharClassPrefix(node, analysis);
+          analysis = withRootCharClassPrefix(node, analysis);
         }
       }
-      return analysis;
+      return new NodeAnalysis(
+          analysis.width(),
+          analysis.start(),
+          analysis.reject(),
+          analysis.atomicRequiredClass(),
+          classAnchor(node, analysis, childArgs));
+    }
+
+    /**
+     * Carries one required class at an exact ASCII offset through the existing bottom-up walk.
+     * Variable widths stop offset propagation; optional operands never contribute an anchor.
+     */
+    private static ClassAnchor classAnchor(
+        Regexp node, NodeAnalysis analysis, List<NodeAnalysis> children) {
+      return switch (node.op) {
+        case LITERAL, LITERAL_STRING, CHAR_CLASS -> {
+          CharClassScanInfo scanInfo = analysis.start().charClassPrefix();
+          yield usefulClassAnchor(scanInfo) ? new ClassAnchor(scanInfo, 0) : null;
+        }
+        case CAPTURE, NON_CAPTURE, PLUS ->
+            children.isEmpty() ? null : children.getFirst().classAnchor();
+        case REPEAT ->
+            node.min > 0 && !children.isEmpty() ? children.getFirst().classAnchor() : null;
+        case CONCAT -> {
+          ClassAnchor best = null;
+          int offset = 0;
+          for (NodeAnalysis child : children) {
+            ClassAnchor candidate = child.classAnchor();
+            if (candidate != null) {
+              int combinedOffset = addWidth(offset, candidate.offset());
+              if (combinedOffset >= 0
+                  && (best == null
+                      || classSize(candidate.scanInfo()) < classSize(best.scanInfo()))) {
+                best = new ClassAnchor(candidate.scanInfo(), combinedOffset);
+              }
+            }
+            if (!child.width().isExactAscii()) {
+              break;
+            }
+            offset = addWidth(offset, child.width().minWidth);
+            if (offset < 0) {
+              break;
+            }
+          }
+          yield best;
+        }
+        default -> null;
+      };
+    }
+
+    private static int classSize(CharClassScanInfo scanInfo) {
+      return Long.bitCount(scanInfo.bitmap0()) + Long.bitCount(scanInfo.bitmap1());
+    }
+
+    private static boolean usefulClassAnchor(CharClassScanInfo scanInfo) {
+      if (scanInfo == null
+          || !scanInfo.isAscii()
+          || classSize(scanInfo) == 0
+          || classSize(scanInfo) > 16) {
+        return false;
+      }
+      // Keep the filter small and exclude classes containing the most common anchor characters.
+      // Unlike the leading-class policy, this also admits compact ranges such as ASCII digits.
+      int[] ranges = scanInfo.ranges();
+      for (int i = 0; i < ranges.length; i += 2) {
+        for (int ch = ranges[i]; ch <= ranges[i + 1]; ch++) {
+          if (RarityOracle.byteRarity(ch) <= RarityOracle.POISONOUS_ANCHOR_MAX_RARITY) {
+            return false;
+          }
+        }
+      }
+      return true;
     }
 
     @Override
     protected NodeAnalysis shortVisit(Regexp re, NodeAnalysis parentArg) {
-      return NodeAnalysis.UNKNOWN_WIDTH;
+      return NodeAnalysis.UNKNOWN;
     }
 
     private static NodeAnalysis visitLiteral(Regexp node) {
@@ -584,7 +749,7 @@ final class MultiAnchorCompiler {
       for (NodeAnalysis c : children) {
         CharClass childReqClass = c.reject().bestRequiredClass();
         if (childReqClass != null) {
-          if (bestReqClass == null || childReqClass.numRunes() < bestReqClass.numRunes()) {
+          if (bestReqClass == null || moreSelective(childReqClass, bestReqClass)) {
             bestReqClass = childReqClass;
           }
         }
@@ -655,8 +820,7 @@ final class MultiAnchorCompiler {
         }
         CharClass candidateClass = child.reject().bestRequiredClass();
         if (candidateClass != null
-            && (bestRequiredClass == null
-                || candidateClass.numRunes() < bestRequiredClass.numRunes())) {
+            && (bestRequiredClass == null || moreSelective(candidateClass, bestRequiredClass))) {
           bestRequiredClass = candidateClass;
         }
         if (disjointRequiredLiterals == null && child.reject().disjointRequiredLiterals() != null) {
@@ -686,7 +850,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitAlternate(Regexp node, List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.UNKNOWN_WIDTH;
+        return NodeAnalysis.UNKNOWN;
       }
       List<AsciiWidthRange> widths = new ArrayList<>(children.size());
       for (NodeAnalysis c : children) {
@@ -741,7 +905,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitQuest(List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.UNKNOWN_WIDTH;
+        return NodeAnalysis.UNKNOWN;
       }
       AsciiWidthRange width = AsciiWidthRangeWalker.optionalWidth(children.getFirst().width());
       return new NodeAnalysis(width, StartFacets.EMPTY, RejectFacets.EMPTY, null);
@@ -753,7 +917,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitPlus(List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.UNKNOWN_WIDTH;
+        return NodeAnalysis.UNKNOWN;
       }
       NodeAnalysis child = children.getFirst();
       AsciiWidthRange width = AsciiWidthRange.INVALID;
@@ -779,7 +943,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitRepeat(Regexp node, List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.UNKNOWN_WIDTH;
+        return NodeAnalysis.UNKNOWN;
       }
       NodeAnalysis child = children.getFirst();
       AsciiWidthRange width = AsciiWidthRangeWalker.repeatWidth(node, child.width());
@@ -1175,6 +1339,10 @@ final class MultiAnchorCompiler {
       minRepetition = first.min;
       maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
       repeated = unwrapCaptures(first.sub());
+    } else if (first.op == RegexpOp.QUEST) {
+      minRepetition = 0;
+      maxRepetition = 1;
+      repeated = unwrapCaptures(first.sub());
     } else {
       return null;
     }
@@ -1216,7 +1384,19 @@ final class MultiAnchorCompiler {
     MultiAnchorDescriptor.StartPlan inner = extractStartPlan(tail, false);
     if (inner == null
         || inner instanceof MultiAnchorDescriptor.StartPlan.None
+        // Keep class offsets scoped to their exact ASCII prefix, without a backward-expansion
+        // wrapper that can revisit variable-width leading context.
+        || inner instanceof MultiAnchorDescriptor.StartPlan.FixedOffsetClass
         || inner instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion) {
+      return null;
+    }
+    // An optional leading character in front of a class too common to scan for, such as `-?\d+`,
+    // gets no start accelerator, and the expansion would only make extractRejectPlan drop the
+    // inner class's reject prefilter. Leave such patterns with no start plan, as before `?` was
+    // supported, so they keep the reject.
+    if (first.op == RegexpOp.QUEST
+        && inner instanceof MultiAnchorDescriptor.StartPlan.CharClass cc
+        && !cc.scanInfo().isSelective()) {
       return null;
     }
 
@@ -1295,7 +1475,9 @@ final class MultiAnchorCompiler {
   }
 
   private static int simpleFoldClassRepresentative(CharClass charClass) {
-    if (charClass == null || charClass.isEmpty()) {
+    if (charClass == null
+        || charClass.isEmpty()
+        || charClass.numRunes() > MAX_UNICODE_FOLD_CLASS_RUNES) {
       return -1;
     }
     int representative = charClass.lo(0);
@@ -1306,11 +1488,19 @@ final class MultiAnchorCompiler {
     }
     // A folded class must contain the whole simple-fold cycle. Reject ordinary classes before
     // asking for the full Unicode closure, whose index is expensive to initialize.
+    int cycleLength = 1;
     while (folded != representative) {
       if (!charClass.contains(folded) || utf8Width(folded) != utf8Width) {
         return -1;
       }
+      cycleLength++;
       folded = Inst.simpleFold(folded);
+    }
+    // Callers match the representative with simple-fold literal search, so the class must be
+    // exactly the cycle. The Unicode closure of I and i also contains U+0130 and U+0131, which the
+    // simple-fold cycle does not visit.
+    if (charClass.numRunes() != cycleLength) {
+      return -1;
     }
     CharClass expected =
         literalCharClass(representative, ParseFlags.FOLD_CASE | ParseFlags.UNICODE_CASE);

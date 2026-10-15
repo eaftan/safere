@@ -78,6 +78,11 @@ class Utf8EnginePathEquivalenceTest {
             "😀élanélan",
             EnginePathOptions.builder().literalFastPaths(false).build()),
         Arguments.of(
+            "ASCII literal supersedes ShiftDfa unless literal paths are disabled",
+            "hello",
+            "😀hellohello",
+            EnginePathOptions.builder().literalFastPaths(false).build()),
+        Arguments.of(
             "literal prefix acceleration is safely guarded",
             "élan[0-9]+",
             "😀xxélan42 yyélan7",
@@ -149,6 +154,22 @@ class Utf8EnginePathEquivalenceTest {
       Utf8Input utf8Input = Utf8Input.validated(input.getBytes(UTF_8));
 
       assertThat(pattern.find(utf8Input)).as("/%s/ on %s", regex, input).isTrue();
+    }
+  }
+
+  @Test
+  @DisplayName("UTF-8 convenience find works with the DFA disabled")
+  void utf8ConvenienceFindWorksWithDfaDisabled() {
+    EnginePathOptions noDfa = EnginePathOptions.builder().dfa(false).build();
+    for (String regex :
+        List.of("a*[bc]d", "[a-z]+[0-9]", "(?:foo|fax)$", "é[ab]+c", "^[0-9]+ items")) {
+      for (String input : List.of("zzaabdzz", "xyz12", "a fax", "zzéabczz", "42 items", "none")) {
+        boolean expected = Pattern.compile(regex).matcher(input).find();
+        assertThat(
+                Pattern.compile(regex, 0, noDfa).find(Utf8Input.validated(input.getBytes(UTF_8))))
+            .as("/%s/ on %s", regex, input)
+            .isEqualTo(expected);
+      }
     }
   }
 

@@ -175,6 +175,89 @@ class ShiftDfaTest {
   }
 
   @Test
+  void asciiPartitionsPreserveEveryShortInput() {
+    // Exercise overlapping classes, both bitmap words, epsilon cycles, and saved DFA frontiers.
+    for (String regex :
+        List.of(
+            "[\\x00-\\x7f]{0,2}",
+            "[\\x00-\\x3f]*[\\x40-\\x7f]?",
+            "[\\x00\\x3f\\x40\\x7f]+",
+            "(?:[a-f]|[d-j])*[h-m]?",
+            "(?:a?|b?)*c?",
+            "(?:ab|ba|a)*",
+            "(?:[A-Z_][a-z0-9]*|[a-z]+)",
+            "[a-c]*?[b-d]?")) {
+      ShiftDfa dfa = compile(regex);
+      assertThat(dfa).as(regex).isNotNull();
+      java.util.regex.Pattern expected = java.util.regex.Pattern.compile(regex);
+      assertSameMatch(dfa, expected, "");
+      for (int first = 0; first < 128; first++) {
+        assertSameMatch(dfa, expected, Character.toString(first));
+        for (int second = 0; second < 128; second++) {
+          assertSameMatch(dfa, expected, "" + (char) first + (char) second);
+        }
+      }
+      for (String input : List.of("abcabc", "bababa", "Az09", "\u0080", "é", "😀")) {
+        assertSameMatch(dfa, expected, input);
+      }
+    }
+  }
+
+  private static void assertSameMatch(
+      ShiftDfa dfa, java.util.regex.Pattern expected, String input) {
+    boolean matched = expected.matcher(input).matches();
+    assertThat(dfa.matches(input, 0, input.length())).as("String %s", expected).isEqualTo(matched);
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes, 0, bytes.length);
+    assertThat(dfa.matches(scanner, 0, bytes.length)).as("UTF-8 %s", expected).isEqualTo(matched);
+  }
+
+  @Test
+  void stateBudgetIncludesExactlyTenStates() {
+    ShiftDfa dfa = compile("a".repeat(9));
+    assertThat(dfa).isNotNull();
+    assertThat(dfa.numStates()).isEqualTo(ShiftDfa.MAX_STATES);
+    assertThat(dfa.matches("a".repeat(9), 0, 9)).isTrue();
+    assertThat(compile("a".repeat(10))).isNull();
+  }
+
+  @Test
+  void caseSensitiveLiteralSupersedesShiftDfaOnlyWhenEnabled() {
+    Pattern literal = Pattern.compile("hello");
+    assertThat(literal.matchDescriptor().shiftDfa()).isNull();
+    assertThat(literal.preparedMatchRunner(false))
+        .isInstanceOf(Matcher.LiteralPreparedRunner.class);
+    assertThat(literal.preparedMatchRunner(true)).isInstanceOf(Matcher.LiteralPreparedRunner.class);
+
+    Pattern forcedShift =
+        Pattern.compile("hello", 0, EnginePathOptions.builder().literalFastPaths(false).build());
+    assertThat(forcedShift.matchDescriptor().shiftDfa()).isNotNull();
+    assertThat(forcedShift.preparedMatchRunner(false))
+        .isInstanceOf(Matcher.ShiftDfaPreparedRunner.class);
+  }
+
+  @Test
+  void foldedLiteralRetainsUtf8Fallback() {
+    Pattern folded = Pattern.compile("hello", Pattern.CASE_INSENSITIVE);
+    assertThat(folded.matchDescriptor().shiftDfa()).isNotNull();
+    assertThat(folded.matcher(Utf8Input.trusted("HELLO".getBytes(UTF_8))).matches()).isTrue();
+  }
+
+  @Test
+  void disabledShiftDfaIsNotConstructed() {
+    Pattern disabled =
+        Pattern.compile("(?:true|false) ?", 0, EnginePathOptions.builder().shiftDfa(false).build());
+    assertThat(disabled.matchDescriptor().shiftDfa()).isNull();
+  }
+
+  @Test
+  void unsupportedInstructionsStillRejectConstruction() {
+    for (String regex : List.of("a\\b", "a\\p{L}", "\\X", "ab$", "(ab)")) {
+      assertThat(compile(regex)).as(regex).isNull();
+    }
+  }
+
+  @Test
   @DisplayName("full pattern matcher integration")
   void patternMatcherIntegration() {
     Pattern pattern = Pattern.compile("true|false");

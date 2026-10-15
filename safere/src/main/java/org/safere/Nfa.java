@@ -886,6 +886,11 @@ final class Nfa {
         t0[stack.restoreIndex] = stack.restoreValue;
         continue;
       }
+      if (stack.restoreIndex < -1) {
+        // A fresh loop entry's expansion is complete; later entries at this position are skipped.
+        markLoopEntryExpanded(q, -2 - stack.restoreIndex, text, pos);
+        continue;
+      }
       if (stack.id == 0) {
         continue;
       }
@@ -893,14 +898,16 @@ final class Nfa {
       int instructionId = stack.id;
       boolean frameConsumedInput = stack.consumedInput;
       Inst ip = prog.inst(instructionId);
-      // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
-      // via registers. Within one addToThreadq call, it is visited at most twice (once
-      // to save the position, once to detect zero-width and redirect to exit).
+      // Loop instructions are excluded from the visited set: progress registers terminate
+      // zero-width iterations, while fresh entries reset only their own loop's register.
       //
       // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
       // same alternation or capture instruction at the same input position with different capture
       // registers. The later zero-width iteration is JDK-visible and must not be discarded.
-      if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
+      if (ip.op != InstOp.PROGRESS_CHECK
+          && ip.op != InstOp.LOOP_ENTER
+          && ip.op != InstOp.ALT
+          && ip.op != InstOp.CAPTURE) {
         if (q.hasGraphemeSemantics) {
           long visitKey = visitKey(ip, instructionId, text, pos, pos);
           if (!q.visitedGrapheme.add(visitKey)) {
@@ -963,6 +970,25 @@ final class Nfa {
           }
         }
 
+        case LOOP_ENTER -> {
+          // A fresh entry whose earlier expansion at this position has completed can reach only
+          // what that expansion reached, at lower priority: every enclosing loop register is
+          // either an earlier position (the same behavior) or this position (the enclosing body
+          // was already expanded here). An entry nested inside a still-running expansion of the
+          // same loop is higher priority than that expansion's remaining alternatives, so it is
+          // expanded. Without this, alternating lazy/greedy nesting re-expands each inner loop
+          // once per enclosing iteration, exponentially in the nesting depth.
+          if (isLoopEntryExpanded(q, instructionId, text, pos)) {
+            continue;
+          }
+          int regIdx = ncapture + ip.arg;
+          int saved = t0[regIdx];
+          t0[regIdx] = -1;
+          stack.pushRestore(-2 - instructionId, 0);
+          stack.pushRestore(regIdx, saved);
+          stack.pushInstruction(ip.out, frameConsumedInput);
+        }
+
         case PROGRESS_CHECK -> {
           int reg = ip.arg;
           int regIdx = ncapture + reg;
@@ -991,6 +1017,22 @@ final class Nfa {
               allocThread(instructionId, t0, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1);
         }
       }
+    }
+  }
+
+  private boolean isLoopEntryExpanded(QueueState q, int instructionId, InputScanner text, int pos) {
+    if (q.hasGraphemeSemantics) {
+      return q.visitedGrapheme.contains(
+          visitKey(prog.inst(instructionId), instructionId, text, pos, pos));
+    }
+    return q.visitedInst[instructionId] == q.visitedGeneration;
+  }
+
+  private void markLoopEntryExpanded(QueueState q, int instructionId, InputScanner text, int pos) {
+    if (q.hasGraphemeSemantics) {
+      q.visitedGrapheme.add(visitKey(prog.inst(instructionId), instructionId, text, pos, pos));
+    } else {
+      q.visitedInst[instructionId] = q.visitedGeneration;
     }
   }
 

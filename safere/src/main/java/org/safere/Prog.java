@@ -55,8 +55,20 @@ final class Prog {
 
   /** Creates a copy of another program. */
   public Prog(Prog other) {
-    for (Inst inst : other.instructions) {
-      this.instructions.add(new Inst(inst));
+    this(other, /* copyInstructions= */ true);
+  }
+
+  /**
+   * Copies another program's fields. With {@code copyInstructions} false, the copy shares the other
+   * program's {@link Inst} objects, so it must not modify them.
+   */
+  private Prog(Prog other, boolean copyInstructions) {
+    if (copyInstructions) {
+      for (Inst inst : other.instructions) {
+        this.instructions.add(new Inst(inst));
+      }
+    } else {
+      this.instructions.addAll(other.instructions);
     }
     this.didFlatten = other.didFlatten;
     this.start = other.start;
@@ -435,7 +447,7 @@ final class Prog {
           addSuccessor(inst.out, reachable, stack);
           addSuccessor(inst.out1, reachable, stack);
         }
-        case NOP, CAPTURE, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS ->
+        case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS ->
             addSuccessor(inst.out, reachable, stack);
         default -> {
           // MATCH and FAIL terminate.
@@ -476,7 +488,7 @@ final class Prog {
         addEpsilonSuccessor(inst.out, reachable, visited, stack);
         addEpsilonSuccessor(inst.out1, reachable, visited, stack);
       }
-      case NOP, CAPTURE, EMPTY_WIDTH -> {
+      case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH -> {
         addEpsilonSuccessor(inst.out, reachable, visited, stack);
       }
       default -> {
@@ -527,6 +539,18 @@ final class Prog {
       nextEdge[edge] = head[to];
       head[to] = edge;
     }
+  }
+
+  /**
+   * Returns a flattened, frozen copy of this program, leaving this program unchanged. This avoids
+   * copying every instruction first: {@link #flatten()} reads the original instructions and emits
+   * new ones, so the copy can share them until it replaces its instruction list.
+   */
+  Prog flattenedCopy() {
+    Prog copy = new Prog(this, /* copyInstructions= */ false);
+    copy.flatten();
+    copy.freeze();
+    return copy;
   }
 
   public void flatten() {
@@ -644,7 +668,7 @@ final class Prog {
           stack.add(out1);
           nextId = out;
         }
-        case CHAR_RANGE, CHAR_CLASS, CAPTURE, EMPTY_WIDTH, GRAPHEME_CLUSTER -> {
+        case CHAR_RANGE, CHAR_CLASS, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, GRAPHEME_CLUSTER -> {
           int out = inst.out;
           if (rootmap[out] == -1) {
             rootmap[out] = roots.size();
@@ -724,6 +748,7 @@ final class Prog {
         case CHAR_RANGE,
             CHAR_CLASS,
             CAPTURE,
+            LOOP_ENTER,
             EMPTY_WIDTH,
             GRAPHEME_CLUSTER,
             PROGRESS_CHECK,
@@ -812,7 +837,7 @@ final class Prog {
           newInst.out1 = rootmap[inst.out1];
           flat.add(newInst);
         }
-        case CAPTURE, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER -> {
+        case CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER -> {
           Inst newInst = new Inst(inst);
           newInst.out = rootmap[inst.out];
           flat.add(newInst);

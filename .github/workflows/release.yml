@@ -17,7 +17,7 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
-          server-id: central
+          server-id: central-portal
           server-username-env-var: MAVEN_CENTRAL_USERNAME
           server-password-env-var: MAVEN_CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}

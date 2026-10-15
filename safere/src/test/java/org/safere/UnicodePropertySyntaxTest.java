@@ -296,6 +296,68 @@ class UnicodePropertySyntaxTest {
       assertMatchesJdk("\\p{IsWhite_Space}", "\u00A0");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+        ints = {
+          0x08, 0x09, 0x0D, 0x0E, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x84, 0x85, 0x86, 0xA0,
+          0x1680, 0x180E, 0x2000, 0x200A, 0x200B, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0x10000
+        })
+    void unicodeWhiteSpaceFormsAgreeAtPropertyBoundaries(int cp) {
+      String input = Character.toString(cp);
+      boolean expected =
+          java.util.regex.Pattern.compile("\\p{IsWhite_Space}").matcher(input).matches();
+      for (String regex :
+          new String[] {
+            "\\p{IsWhite_Space}",
+            "[\\p{IsWhite_Space}]",
+            "(?U)\\s",
+            "(?U)\\p{Space}",
+            "[\\p{IsWhite_Space}&&[\\p{Cc}\\p{Z}]]"
+          }) {
+        assertThat(Pattern.compile(regex).matcher(input).matches())
+            .as("%s at U+%04X", regex, cp)
+            .isEqualTo(expected);
+      }
+      for (String regex : new String[] {"\\P{IsWhite_Space}", "[^\\p{IsWhite_Space}]", "(?U)\\S"}) {
+        assertThat(Pattern.compile(regex).matcher(input).matches())
+            .as("%s at U+%04X", regex, cp)
+            .isEqualTo(!expected);
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        ints = {
+          0x30, 0x39, 0x41, 0x46, 0x61, 0x66, 0xFF10, 0xFF19, 0xFF21, 0xFF26, 0xFF41, 0xFF46, 0x2F,
+          0x3A, 0x47, 0x67, 0xFF0F, 0xFF1A, 0xFF27, 0xFF47, 0x0660, 0x0966, 0x1D7CE
+        })
+    @DisabledForCrosscheck(
+        "SafeRE follows Unicode Hex_Digit; JDK also matches other decimal digits")
+    void hexDigitUsesUnicodePropertyRatherThanAllDecimalDigits(int cp) {
+      // Issue #985: preserve the Unicode property despite JDK's broader implementation.
+      boolean expected =
+          (cp >= '0' && cp <= '9')
+              || (cp >= 'A' && cp <= 'F')
+              || (cp >= 'a' && cp <= 'f')
+              || (cp >= 0xFF10 && cp <= 0xFF19)
+              || (cp >= 0xFF21 && cp <= 0xFF26)
+              || (cp >= 0xFF41 && cp <= 0xFF46);
+      String input = Character.toString(cp);
+      for (String regex : new String[] {"\\p{IsHex_Digit}", "[\\p{IsHex_Digit}]"}) {
+        assertThat(Pattern.compile(regex).matcher(input).matches())
+            .as("%s at U+%04X", regex, cp)
+            .isEqualTo(expected);
+      }
+      for (String regex : new String[] {"\\P{IsHex_Digit}", "[^\\p{IsHex_Digit}]"}) {
+        assertThat(Pattern.compile(regex).matcher(input).matches())
+            .as("%s at U+%04X", regex, cp)
+            .isEqualTo(!expected);
+      }
+      // Unicode XDigit is deliberately broader: [gc=Nd IsHex_Digit].
+      assertThat(Pattern.compile("(?U)\\p{XDigit}").matcher(input).matches())
+          .isEqualTo(expected || Character.isDigit(cp));
+    }
+
     @Test
     @DisplayName("\\p{IsPunctuation}")
     void isPunctuation() {

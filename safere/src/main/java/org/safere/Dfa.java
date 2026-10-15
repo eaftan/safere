@@ -34,9 +34,13 @@ import java.util.Map;
 final class Dfa {
 
   /** Result of a DFA search. */
-  record SearchResult(boolean matched, int pos, boolean ambiguous) {
+  record SearchResult(boolean matched, int pos, boolean ambiguous, boolean scanLimitReached) {
     SearchResult(boolean matched, int pos) {
-      this(matched, pos, false);
+      this(matched, pos, false, false);
+    }
+
+    SearchResult(boolean matched, int pos, boolean ambiguous) {
+      this(matched, pos, ambiguous, false);
     }
   }
 
@@ -290,6 +294,13 @@ final class Dfa {
    * exhausted. Every null search result sets this; see {@link #lastSearchBailed()}.
    */
   private boolean lastSearchBailed;
+
+  /**
+   * Start-acceleration backoff state (see {@link AdaptiveBackoff}) at the end of the most recent
+   * forward search. Written once per search, never read inside a search; see {@link
+   * #startBackoff()}.
+   */
+  private long lastStartBackoff;
 
   /**
    * Whether the current cache generation has already been penalized for exhausting its state budget
@@ -637,7 +648,7 @@ final class Dfa {
           case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
             // AltMatch and ALT only transition to id + 1 (already pushed above)
           }
-          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE, InstOp.OP_LOOP_ENTER -> {
             stack[stackTop++] = ip.out;
           }
           case InstOp.OP_PROGRESS_CHECK -> {
@@ -668,7 +679,7 @@ final class Dfa {
             stack[stackTop++] = ip.out1;
             stack[stackTop++] = ip.out;
           }
-          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE, InstOp.OP_LOOP_ENTER -> {
             stack[stackTop++] = ip.out;
           }
           case InstOp.OP_PROGRESS_CHECK -> {
@@ -863,6 +874,12 @@ final class Dfa {
   private <T> T completeSearch(T result, int pos) {
     recordSearchProgress(pos);
     return result;
+  }
+
+  /** Completes a forward search, publishing its final start-acceleration backoff state. */
+  private SearchResult completeForwardSearch(SearchResult result, int pos, long startBackoff) {
+    lastStartBackoff = startBackoff;
+    return completeSearch(result, pos);
   }
 
   /**
@@ -1651,7 +1668,33 @@ final class Dfa {
       boolean anchored,
       boolean longest,
       boolean startPositionPreselected) {
-    return doSearchInternal(text, startPos, anchored, longest, startPositionPreselected);
+    return doSearchInternal(
+        text, startPos, anchored, longest, startPositionPreselected, AdaptiveBackoff.NEUTRAL);
+  }
+
+  /**
+   * Like {@link #doSearch(InputScanner, int, boolean, boolean, boolean)}, but starts from the
+   * start-acceleration backoff state {@code startBackoff} left by an earlier search of the same
+   * input. The updated state is available from {@link #startBackoff()} when this returns.
+   */
+  SearchResult doSearch(
+      InputScanner text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean startPositionPreselected,
+      long startBackoff) {
+    return doSearchInternal(
+        text, startPos, anchored, longest, startPositionPreselected, startBackoff);
+  }
+
+  /**
+   * Returns the start-acceleration backoff state at the end of the most recent forward search.
+   *
+   * <p>Searches that cannot use start acceleration return their initial state unchanged.
+   */
+  long startBackoff() {
+    return lastStartBackoff;
   }
 
   /**
@@ -1712,7 +1755,7 @@ final class Dfa {
    *     exceeded its state budget
    */
   SearchResult doSearch(InputScanner text, int startPos, boolean anchored, boolean longest) {
-    return doSearchInternal(text, startPos, anchored, longest, false);
+    return doSearchInternal(text, startPos, anchored, longest, false, AdaptiveBackoff.NEUTRAL);
   }
 
   private SearchResult doSearchInternal(
@@ -1720,7 +1763,8 @@ final class Dfa {
       int startPos,
       boolean anchored,
       boolean longest,
-      boolean startPositionPreselected) {
+      boolean startPositionPreselected,
+      long startBackoff) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     beginSearch(startPos);
     int pos = startPos;
@@ -1743,7 +1787,7 @@ final class Dfa {
 
     State s = startStateOrReset(text, startPos, anchored, false);
     if (s == null) {
-      return completeSearch(null, pos);
+      return completeForwardSearch(null, pos, startBackoff);
     }
 
     boolean matched = false;
@@ -1754,13 +1798,13 @@ final class Dfa {
         matched = true;
         matchEnd = startPos;
         if (!longest && canStopAtFirstMatch(s, text, startPos, needEndMatch)) {
-          return completeSearch(new SearchResult(true, startPos), pos);
+          return completeForwardSearch(new SearchResult(true, startPos), pos, startBackoff);
         }
       }
     }
 
     if (s == deadState) {
-      return completeSearch(new SearchResult(matched, matchEnd), pos);
+      return completeForwardSearch(new SearchResult(matched, matchEnd), pos, startBackoff);
     }
 
     AcceleratorPolicy activePolicy = startAccelerationPolicy(text, s);
@@ -1781,11 +1825,16 @@ final class Dfa {
     // skips in excess of the estimated call cost can repay the deficit and reset quarantine.
     // One strike's allowance is one call's cost: a break-even call cannot erase another call's
     // loss. The deficit stays bounded by the allowance, regardless of the size of the input.
-    // Backoff is local to this search. A later find may use a different input or region, and
-    // relearning starts with a bounded allowance rather than carrying density from that search.
-    int skippedWorkDeficit = 0;
-    int accelerationResumePos = startPos;
-    int quarantineWindow = initialQuarantineWindow;
+    // The caller may carry the backoff state across searches of the same input (see
+    // AdaptiveBackoff), so a sequence of find() calls pays the loss limit once rather than once per
+    // search. It is read here once and written back once when the search completes.
+    long backoff = startBackoff;
+    // The first position at which the loops below may call the accelerator, or MAX_VALUE when
+    // they never may. Folding canAccelerate in keeps the per-step test to one comparison.
+    int accelerationResumePos =
+        canAccelerate ? AdaptiveBackoff.resumePos(backoff) : Integer.MAX_VALUE;
+    // A preselected start position is never re-scanned; -1 when there is none.
+    int preselectedPos = startPositionPreselected ? startPos : -1;
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
@@ -1793,10 +1842,9 @@ final class Dfa {
     int[] asciiClassMap = this.asciiClassMap;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
-      if (canAccelerate
-          && pos >= accelerationResumePos
+      if (pos >= accelerationResumePos
           && s.isStartState
-          && (!startPositionPreselected || pos != startPos)
+          && pos != preselectedPos
           && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor);
         if (WorkCounterConfig.ENABLED) {
@@ -1804,25 +1852,19 @@ final class Dfa {
         }
         if (nextPos == -1) {
           pos = textLen;
-          return completeSearch(new SearchResult(matched, matchEnd), pos);
+          return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);
         }
-        int skipped = nextPos - pos;
-        if (skipped < minSkip) {
-          skippedWorkDeficit += minSkip - skipped;
-          if (skippedWorkDeficit >= lossLimit) {
-            if (WorkCounterConfig.ENABLED) {
-              WorkCounter.recordStartQuarantine(quarantineWindow);
-            }
-            accelerationResumePos = nextPos + Math.min(quarantineWindow, textLen - nextPos);
-            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-            skippedWorkDeficit = lossLimit >>> 1;
-          }
-        } else if (skippedWorkDeficit > 0) {
-          skippedWorkDeficit = Math.max(0, skippedWorkDeficit + minSkip - skipped);
-          if (skippedWorkDeficit == 0) {
-            quarantineWindow = initialQuarantineWindow;
-          }
-        }
+        backoff =
+            AdaptiveBackoff.recordSkip(
+                backoff,
+                nextPos - pos,
+                nextPos,
+                textLen,
+                minSkip,
+                lossLimit,
+                initialQuarantineWindow,
+                maxQuarantineWindow);
+        accelerationResumePos = AdaptiveBackoff.resumePos(backoff);
         if (nextPos > pos) {
           pos = nextPos;
           if (pos >= textLen) {
@@ -1830,7 +1872,7 @@ final class Dfa {
           }
           s = startStateOrReset(text, pos, anchored, false);
           if (s == null) {
-            return completeSearch(null, pos);
+            return completeForwardSearch(null, pos, backoff);
           }
           // Creating a start state, or resetting the cache, can grow or replace the contents of
           // the flat arrays, just like computeNext below.
@@ -1842,12 +1884,12 @@ final class Dfa {
               matched = true;
               matchEnd = pos;
               if (!longest && canStopAtFirstMatch(s, text, pos, needEndMatch)) {
-                return completeSearch(new SearchResult(true, pos), pos);
+                return completeForwardSearch(new SearchResult(true, pos), pos, backoff);
               }
             }
           }
           if (s == deadState) {
-            return completeSearch(new SearchResult(matched, matchEnd), pos);
+            return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);
           }
         }
       }
@@ -1864,8 +1906,7 @@ final class Dfa {
           }
         }
       }
-      boolean breakOnAcceleratedState =
-          (canAccelerate && pos >= accelerationResumePos) || hasStateAccelerators;
+      boolean breakOnAcceleratedState = pos >= accelerationResumePos || hasStateAccelerators;
       boolean hitAcceleratedState = false;
       int limit =
           hasPositionDependentTransitions ? Math.min(textLen, posDepThreshold - 1) : textLen;
@@ -1889,7 +1930,7 @@ final class Dfa {
                   (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
               int endPos = useBefore ? pos : pos + 1;
               if (!longest && ns.isHighestPriorityMatch) {
-                return completeSearch(new SearchResult(true, endPos), pos);
+                return completeForwardSearch(new SearchResult(true, endPos), pos, backoff);
               }
               matched = true;
               matchEnd = endPos;
@@ -1923,7 +1964,7 @@ final class Dfa {
                   (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
               int endPos = useBefore ? pos : pos + 1;
               if (!longest && ns.isHighestPriorityMatch) {
-                return completeSearch(new SearchResult(true, endPos), pos);
+                return completeForwardSearch(new SearchResult(true, endPos), pos, backoff);
               }
               matched = true;
               matchEnd = endPos;
@@ -1955,7 +1996,7 @@ final class Dfa {
         int effectiveNextPos = pos + 1;
         ns = transitionOrReset(s, cls, ch, text, effectiveNextPos, pos);
         if (ns == null) {
-          return completeSearch(null, pos); // budget exceeded
+          return completeForwardSearch(null, pos, backoff); // budget exceeded
         }
         // computeNext can grow the flat arrays and a cache reset replaces their contents. Either
         // way s is no longer usable, but the loop reloads sId from ns on the next iteration.
@@ -1975,7 +2016,7 @@ final class Dfa {
           matched = true;
           matchEnd = endPos;
           if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
-            return completeSearch(new SearchResult(true, matchEnd), pos);
+            return completeForwardSearch(new SearchResult(true, matchEnd), pos, backoff);
           }
         }
       }
@@ -1984,11 +2025,11 @@ final class Dfa {
 
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text
     // sentinel
+    generalLoop:
     while (pos <= textLen) {
-      if (canAccelerate
-          && pos >= accelerationResumePos
+      if (pos >= accelerationResumePos
           && s.isStartState
-          && (!startPositionPreselected || pos != startPos)
+          && pos != preselectedPos
           && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor);
         if (WorkCounterConfig.ENABLED) {
@@ -1996,150 +2037,148 @@ final class Dfa {
         }
         if (nextPos == -1) {
           pos = textLen;
-          return completeSearch(new SearchResult(matched, matchEnd), pos);
+          return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);
         }
-        int skipped = nextPos - pos;
-        if (skipped < minSkip) {
-          skippedWorkDeficit += minSkip - skipped;
-          if (skippedWorkDeficit >= lossLimit) {
-            if (WorkCounterConfig.ENABLED) {
-              WorkCounter.recordStartQuarantine(quarantineWindow);
-            }
-            accelerationResumePos = nextPos + Math.min(quarantineWindow, textLen - nextPos);
-            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-            skippedWorkDeficit = lossLimit >>> 1;
-          }
-        } else if (skippedWorkDeficit > 0) {
-          skippedWorkDeficit = Math.max(0, skippedWorkDeficit + minSkip - skipped);
-          if (skippedWorkDeficit == 0) {
-            quarantineWindow = initialQuarantineWindow;
-          }
-        }
+        backoff =
+            AdaptiveBackoff.recordSkip(
+                backoff,
+                nextPos - pos,
+                nextPos,
+                textLen,
+                minSkip,
+                lossLimit,
+                initialQuarantineWindow,
+                maxQuarantineWindow);
+        accelerationResumePos = AdaptiveBackoff.resumePos(backoff);
         if (nextPos > pos) {
           pos = nextPos;
           if (pos > textLen) {
-            break;
+            break generalLoop;
           }
           s = startStateOrReset(text, pos, anchored, false);
           if (s == null) {
-            return completeSearch(null, pos);
+            return completeForwardSearch(null, pos, backoff);
           }
           if (s.isMatch()) {
             if (isRequiredEndMatch(pos, needEndMatch, textLen, trailingTermStart)) {
               matched = true;
               matchEnd = pos;
               if (!longest && canStopAtFirstMatch(s, text, pos, needEndMatch)) {
-                return completeSearch(new SearchResult(true, pos), pos);
+                return completeForwardSearch(new SearchResult(true, pos), pos, backoff);
               }
             }
           }
           if (s == deadState) {
-            return completeSearch(new SearchResult(matched, matchEnd), pos);
+            return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);
           }
         }
       }
-      if (s.accelerator != null && (textLen - pos >= 16) && (!s.isStartState || anchored)) {
-        int nextPos = StateAccelerator.findNextEscape(s.accelerator, text, pos, textLen);
-        if (nextPos == -1) {
-          pos = textLen;
-        } else if (nextPos > pos) {
-          pos = nextPos;
-          if (pos > textLen) {
-            break;
+      // Step the DFA until it may call the start accelerator again. Making that test the exit of
+      // this inner loop keeps the accelerator path out of the hot per-character loop.
+      do {
+        if (s.accelerator != null && (textLen - pos >= 16) && (!s.isStartState || anchored)) {
+          int nextPos = StateAccelerator.findNextEscape(s.accelerator, text, pos, textLen);
+          if (nextPos == -1) {
+            pos = textLen;
+          } else if (nextPos > pos) {
+            pos = nextPos;
+            if (pos > textLen) {
+              break generalLoop;
+            }
           }
         }
-      }
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      int cp;
-      int nextPos;
-      int cls;
-      if (pos < textLen) {
-        int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
-        if (singleUnitCodePoint >= 0) {
-          cp = singleUnitCodePoint;
-          nextPos = pos + 1;
-          cls =
-              singleUnitCodePoint < asciiClassMap.length
-                  ? asciiClassMap[singleUnitCodePoint]
-                  : classOf(singleUnitCodePoint);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        int cp;
+        int nextPos;
+        int cls;
+        if (pos < textLen) {
+          int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
+          if (singleUnitCodePoint >= 0) {
+            cp = singleUnitCodePoint;
+            nextPos = pos + 1;
+            cls =
+                singleUnitCodePoint < asciiClassMap.length
+                    ? asciiClassMap[singleUnitCodePoint]
+                    : classOf(singleUnitCodePoint);
+          } else {
+            long decoded = text.decodeForward(pos);
+            cp = InputScanner.codePoint(decoded);
+            nextPos = InputScanner.position(decoded);
+            cls = classOf(cp);
+          }
         } else {
-          long decoded = text.decodeForward(pos);
-          cp = InputScanner.codePoint(decoded);
-          nextPos = InputScanner.position(decoded);
-          cls = classOf(cp);
+          cp = -1;
+          nextPos = textLen + 1;
+          cls = numClasses - 1;
         }
-      } else {
-        cp = -1;
-        nextPos = textLen + 1;
-        cls = numClasses - 1;
-      }
 
-      // Compute the next state, using the transition cache when safe.
-      // Transitions where the destination position has text-length-dependent emptyFlags
-      // (END_TEXT, DOLLAR_END) must bypass the cache to preserve the invariant that
-      // cached transitions are position-independent. The end-of-text sentinel (cp < 0)
-      // is always safe to cache because it always means "at text end".
-      int effectiveNextPos = Math.min(nextPos, textLen);
-      State ns;
-      if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
-        ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
-        if (ns == null) {
-          return completeSearch(null, pos); // budget exceeded
-        }
-      } else {
-        ns = s.next[cls];
-        if (ns == null) {
-          ns = transitionOrReset(s, cls, cp, text, effectiveNextPos, pos);
+        // Compute the next state, using the transition cache when safe.
+        // Transitions where the destination position has text-length-dependent emptyFlags
+        // (END_TEXT, DOLLAR_END) must bypass the cache to preserve the invariant that
+        // cached transitions are position-independent. The end-of-text sentinel (cp < 0)
+        // is always safe to cache because it always means "at text end".
+        int effectiveNextPos = Math.min(nextPos, textLen);
+        State ns;
+        if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
+          ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
           if (ns == null) {
-            return completeSearch(null, pos); // budget exceeded
+            return completeForwardSearch(null, pos, backoff); // budget exceeded
           }
-        }
-      }
-
-      s = ns;
-
-      if (s == deadState) {
-        break;
-      }
-
-      if (s.isMatch()) {
-        // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
-        // consuming the current character and reached MATCH. Try the before-consume position
-        // first (it's at an earlier position, preserving leftmost-first semantics).
-        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) {
-          int endPos = pos;
-          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
-            matched = true;
-            matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
-              return completeSearch(new SearchResult(true, matchEnd), pos);
+        } else {
+          ns = s.next[cls];
+          if (ns == null) {
+            ns = transitionOrReset(s, cls, cp, text, effectiveNextPos, pos);
+            if (ns == null) {
+              return completeForwardSearch(null, pos, backoff); // budget exceeded
             }
           }
         }
-        // Try the after-consume position: either no before-consume match exists, or it was
-        // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
-        // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
-          int endPos = Math.min(nextPos, textLen);
-          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
-            matched = true;
-            matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
-              return completeSearch(new SearchResult(true, matchEnd), pos);
+
+        s = ns;
+
+        if (s == deadState) {
+          break generalLoop;
+        }
+
+        if (s.isMatch()) {
+          // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
+          // consuming the current character and reached MATCH. Try the before-consume position
+          // first (it's at an earlier position, preserving leftmost-first semantics).
+          if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) {
+            int endPos = pos;
+            if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+              matched = true;
+              matchEnd = endPos;
+              if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+                return completeForwardSearch(new SearchResult(true, matchEnd), pos, backoff);
+              }
+            }
+          }
+          // Try the after-consume position: either no before-consume match exists, or it was
+          // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
+          // exists (FLAG_MATCH_AFTER_DEFERRED).
+          if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
+            int endPos = Math.min(nextPos, textLen);
+            if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+              matched = true;
+              matchEnd = endPos;
+              if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+                return completeForwardSearch(new SearchResult(true, matchEnd), pos, backoff);
+              }
             }
           }
         }
-      }
 
-      if (pos >= textLen) {
-        break;
-      }
-      pos = nextPos;
+        if (pos >= textLen) {
+          break generalLoop;
+        }
+        pos = nextPos;
+      } while (pos < accelerationResumePos || !s.isStartState);
     }
 
-    return completeSearch(new SearchResult(matched, matchEnd), pos);
+    return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);
   }
 
   // ---------------------------------------------------------------------------
@@ -2171,6 +2210,23 @@ final class Dfa {
 
   SearchResult doSearchReverse(
       InputScanner text, int endPos, int startLimit, boolean anchored, boolean longest) {
+    return doSearchReverse(text, endPos, startLimit, anchored, longest, Integer.MAX_VALUE);
+  }
+
+  /**
+   * Reverse search with a speculative input-unit limit. A live frontier at the cutoff is
+   * inconclusive, even if it contains a match: an earlier start may exist outside the window. The
+   * cutoff never substitutes for {@code startLimit} in assertion context. Decoding may finish one
+   * code point across the cutoff, and assertions retain their normal adjacent context.
+   */
+  SearchResult doSearchReverse(
+      InputScanner text,
+      int endPos,
+      int startLimit,
+      boolean anchored,
+      boolean longest,
+      int maxInputUnits) {
+    int scanLimit = Math.max(startLimit, endPos - maxInputUnits);
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     beginSearch(endPos);
     int pos = endPos;
@@ -2212,11 +2268,15 @@ final class Dfa {
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
     // Fast path: scan backward through ASCII characters
-    while (pos > startLimit) {
+    while (pos > scanLimit) {
       if (pos <= posDepThreshold) {
-        int limit = startLimit;
+        int limit = scanLimit;
         int sId = s.id * numClasses;
         while (pos > limit) {
+          // Probe work includes cached transitions; keep ordinary-search counter behavior stable.
+          if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+            WorkCounter.record();
+          }
           int ch = text.asciiAt(pos - 1);
           if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
             break;
@@ -2264,13 +2324,16 @@ final class Dfa {
         s = offsetToState[sId];
       }
 
-      if (pos <= startLimit) {
+      if (pos <= scanLimit) {
         break;
       }
       if (hasPositionDependentTransitions && pos - 1 >= posDepThreshold) {
         break; // fall back to general loop for position-dependent context
       }
 
+      if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+        WorkCounter.record();
+      }
       int ch = text.asciiAt(pos - 1);
       if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
         break; // fall back
@@ -2320,8 +2383,15 @@ final class Dfa {
       pos--;
     }
 
+    if (s == deadState) {
+      return completeSearch(new SearchResult(matched, matchStart, ambiguous), pos);
+    }
+
     // General reverse loop
     while (pos >= startLimit) {
+      if (pos <= scanLimit && pos > startLimit) {
+        return completeSearch(new SearchResult(matched, matchStart, ambiguous, true), pos);
+      }
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }

@@ -44,6 +44,8 @@ sealed interface Utf8StartAccelerator {
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : new CharClass(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           new FixedOffset(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
+          new FixedOffsetClass(fc.scanInfo(), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml -> {
         if (hasWordBoundary) {
           yield null;
@@ -71,8 +73,13 @@ sealed interface Utf8StartAccelerator {
       }
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
         Utf8StartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
-        // This wrapper does not retain the folded filter's per-search scan cursor.
-        if (inner instanceof UnicodeCaseInsensitiveLiteral) {
+        // This wrapper does not retain the folded filter's per-search scan cursor, and an optional
+        // single-character leading class before a non-ASCII inner class is faster in the UTF-8
+        // byte DFA than running an un-memoized scalar UTF-8 code-point scan plus inner DFA check.
+        if (inner instanceof UnicodeCaseInsensitiveLiteral
+            || (le.maxRepetition() == 1
+                && inner instanceof CharClass cc
+                && !cc.scanInfo().isAscii())) {
           yield null;
         }
         yield inner != null
@@ -104,6 +111,7 @@ sealed interface Utf8StartAccelerator {
       case CaseInsensitiveLiteral cil -> cil.findCandidate(scanner, pos);
       case UnicodeCaseInsensitiveLiteral unicode -> unicode.findCandidate(scanner, pos);
       case FixedOffset fo -> fo.findCandidate(scanner, pos);
+      case FixedOffsetClass fc -> fc.findCandidate(scanner, pos);
       case CharClass cc -> cc.findCandidate(scanner, pos);
       case Teddy t -> t.findCandidate(scanner, pos);
       case MultiLiteral ml -> ml.findCandidate(scanner, pos);
@@ -542,7 +550,27 @@ sealed interface Utf8StartAccelerator {
     }
   }
 
-  record CharClass(CharClassScanInfo scanInfo) implements Utf8StartAccelerator {
+  // nonAsciiUtf8 is an internal precomputed UTF-8 byte sequence, never mutated or exposed.
+  @SuppressWarnings("ArrayRecordComponent")
+  record CharClass(CharClassScanInfo scanInfo, byte[] nonAsciiUtf8)
+      implements Utf8StartAccelerator {
+
+    CharClass(CharClassScanInfo scanInfo) {
+      this(scanInfo, nonAsciiUtf8(scanInfo));
+    }
+
+    private static byte[] nonAsciiUtf8(CharClassScanInfo scanInfo) {
+      if (scanInfo instanceof CharClassScanInfo.UnicodeSmallSet smallSet) {
+        char[] chars = smallSet.chars();
+        if (chars.length == 1) {
+          return String.valueOf(chars[0]).getBytes(StandardCharsets.UTF_8);
+        }
+        if (chars.length == 2 && chars[0] < 0x80 && chars[1] >= 0x80) {
+          return String.valueOf(chars[1]).getBytes(StandardCharsets.UTF_8);
+        }
+      }
+      return null;
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -554,6 +582,19 @@ sealed interface Utf8StartAccelerator {
         return fromIndex;
       }
       return switch (scanInfo) {
+        case CharClassScanInfo.UnicodeSmallSet smallSet when nonAsciiUtf8 != null -> {
+          char[] chars = smallSet.chars();
+          int length = scanner.length();
+          if (chars.length == 1) {
+            yield scanner.indexOfUtf8Sequence(nonAsciiUtf8, fromIndex, length);
+          }
+          int ascii = chars[0];
+          int first = scanner.indexOfAsciiOrNonAscii(ascii, fromIndex, length);
+          if (first < 0 || scanner.asciiAt(first) == ascii) {
+            yield first;
+          }
+          yield scanner.indexOfMixedPair(ascii, nonAsciiUtf8, first, length);
+        }
         case CharClassScanInfo.AsciiSmallSet smallSet -> {
           char[] chars = smallSet.chars();
           yield switch (chars.length) {
@@ -614,6 +655,66 @@ sealed interface Utf8StartAccelerator {
             return i;
           }
         }
+      }
+      return -1;
+    }
+  }
+
+  /**
+   * Scans a required interior class following an exact-width ASCII prefix.
+   *
+   * <p>ASCII offsets are also byte offsets. After a bounded number of cheap leading-check failures,
+   * scans jump to the next leading-class hit before resuming the interior scan. Both scans advance
+   * monotonically, including when interior hits are dense and leading hits are absent. ASCII
+   * leading hits exclude continuation-byte starts.
+   */
+  record FixedOffsetClass(CharClassScanInfo scanInfo, int offset, CharClassScanInfo leadingClass)
+      implements Utf8StartAccelerator {
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.CHAR_CLASS;
+    }
+
+    int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+      int start = Math.max(0, fromIndex);
+      if (offset >= scanner.length() - start) {
+        return -1;
+      }
+      int position = start + offset;
+      int cheapRejections = 0;
+      while (position < scanner.length()) {
+        int hit =
+            scanner.indexOfCodePointClass(
+                scanInfo.ranges(),
+                scanInfo.bitmap0(),
+                scanInfo.bitmap1(),
+                position,
+                scanner.length());
+        if (hit < 0) {
+          return -1;
+        }
+        int candidate = hit - offset;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (leadingClass.contains(scanner.asciiAt(candidate))) {
+          return candidate;
+        }
+        if (cheapRejections < AcceleratorPolicy.FIXED_OFFSET_CLASS_CHEAP_REJECTIONS) {
+          cheapRejections++;
+          position = hit + 1;
+          continue;
+        }
+        int[] leadingRanges = leadingClass.ranges();
+        // A singleton leading class can reuse the dedicated byte scanner.
+        int nextLeading =
+            leadingRanges.length == 2 && leadingRanges[0] == leadingRanges[1]
+                ? scanner.indexOfAscii(leadingRanges[0], candidate + 1, scanner.length())
+                : scanner.indexOfCharClass(leadingClass, candidate + 1);
+        if (nextLeading < 0 || offset >= scanner.length() - nextLeading) {
+          return -1;
+        }
+        position = nextLeading + offset;
       }
       return -1;
     }

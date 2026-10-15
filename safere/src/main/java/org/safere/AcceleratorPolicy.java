@@ -39,6 +39,18 @@ record AcceleratorPolicy(
   // TODO: Conduct systematic empirical micro-benchmarking across diverse CPU architectures (x86
   // AVX-512/AVX2, ARM Neon) to precisely tune minimum profitable skip thresholds.
 
+  AcceleratorPolicy {
+    // DFA start acceleration keeps its deficit, which stays below the loss limit plus one call's
+    // shortfall, in the packed AdaptiveBackoff state.
+    if (minProfitableSkip < 0
+        || strikeBudget < 0
+        || (long) strikeBudget * minProfitableSkip + minProfitableSkip > AdaptiveBackoff.MAX_DEFICIT
+        || initialQuarantineWindow <= 0
+        || maxQuarantineWindow < initialQuarantineWindow) {
+      throw new IllegalArgumentException("invalid accelerator policy");
+    }
+  }
+
   /**
    * Candidate strikes tolerated before quarantining an accelerator.
    *
@@ -47,6 +59,14 @@ record AcceleratorPolicy(
    * do not immediately disable an otherwise useful accelerator.
    */
   private static final int DEFAULT_STRIKE_BUDGET = 16;
+
+  /**
+   * Cheap interior-hit rejections before switching to alternating class scans.
+   *
+   * <p>A small bounded allowance avoids a second scanner on short runs of nearby candidates. Longer
+   * runs use the leading class to skip dense interior hits in bulk.
+   */
+  static final int FIXED_OFFSET_CLASS_CHEAP_REJECTIONS = 4;
 
   /**
    * Candidate stride below which a candidate counts as a strike.
@@ -90,8 +110,18 @@ record AcceleratorPolicy(
   /**
    * Policy for leading-expansion wrappers, which delegate the actual scan to an inner accelerator
    * and carry that accelerator's diagnostic strategy.
+   *
+   * <p>A call costs more than its inner scan: the wrapper expands the optional leading class
+   * backward from each inner candidate, and the DFA restarts there. On dense citations such as
+   * {@code citationScrubberFullWidth} ({@code ?[\[\uFF3B]...} over text where every {@code \uFF3B}
+   * starts a match), skips alternate between about 4 and 29 characters. At a break-even of 16 the
+   * long skips repay the short ones, so the accelerator never quarantined there, and on aarch64 it
+   * cost {@code FullWidth.2048} 1.26x and {@code FullWidth.65536} 1.15x of {@code main} (String).
+   * At 32 those read 1.09x and 1.01x, x86 is neutral, and sparse citations and short inputs still
+   * accelerate. The cost is {@code citationScrubberFullWidthNoMatch.2048} about 7% slower on both
+   * ISAs, still faster than {@code main}.
    */
-  static final AcceleratorPolicy LEADING_EXPANSION = of(16, false, null);
+  static final AcceleratorPolicy LEADING_EXPANSION = of(32, false, null);
 
   /** Default fallback policy for generic or composite accelerators. */
   static final AcceleratorPolicy DEFAULT = of(32, false, null);

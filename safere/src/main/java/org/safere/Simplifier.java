@@ -751,9 +751,14 @@ final class Simplifier {
     }
 
     if (max > min) {
-      Regexp suf = starPlusOrQuest(RegexpOp.QUEST, re, flags);
+      // Each nested suffix is built only from copies of re, so it has a visible capture exactly
+      // when re does. Checking once keeps x{0,n} linear instead of rescanning the growing suffix.
+      boolean reHasVisibleCapture = hasVisibleCapture(re);
+      Regexp suf = starPlusOrQuest(RegexpOp.QUEST, re, flags, reHasVisibleCapture);
       for (int i = min + 1; i < max; i++) {
-        suf = starPlusOrQuest(RegexpOp.QUEST, Regexp.concat(List.of(re, suf), flags), flags);
+        suf =
+            starPlusOrQuest(
+                RegexpOp.QUEST, Regexp.concat(List.of(re, suf), flags), flags, reHasVisibleCapture);
       }
       if (nre == null) {
         nre = suf;
@@ -820,10 +825,19 @@ final class Simplifier {
    *   <li>Different quantifier ops + same flags → return STAR(x)
    * </ul>
    */
+  private static Regexp starPlusOrQuest(RegexpOp op, Regexp sub, int flags) {
+    return starPlusOrQuest(op, sub, flags, hasVisibleCapture(sub));
+  }
+
+  /**
+   * Like {@link #starPlusOrQuest(RegexpOp, Regexp, int)}, with the caller supplying whether {@code
+   * sub} contains a visible capture.
+   */
   // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
   @SuppressWarnings("StatementSwitchToExpressionSwitch")
-  private static Regexp starPlusOrQuest(RegexpOp op, Regexp sub, int flags) {
-    if (hasVisibleCapture(sub)) {
+  private static Regexp starPlusOrQuest(
+      RegexpOp op, Regexp sub, int flags, boolean subHasVisibleCapture) {
+    if (subHasVisibleCapture) {
       return rawQuantifier(op, sub, flags);
     }
     // Squash identical: **, ++, ??

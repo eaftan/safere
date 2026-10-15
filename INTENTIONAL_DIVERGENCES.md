@@ -134,6 +134,14 @@ disabled only in generated JDK crosscheck tests because the difference is
 intentional. This policy concerns the initial search; it does not redefine
 continuation after an earlier successful match.
 
+The same initial-state boundary also appears after failed `find(int)` and
+`lookingAt()` operations for some pattern shapes. For example, on `"ab"`,
+`(?:){0,2}a` fails `find(1)` and then the JDK fails `find()`, whereas resetting
+restores the match at zero. `OracleDefectsTest` pins this JDK observation.
+The strict state fuzz domain resets both matchers after failed initial operations
+before comparing the next search; the independent SafeRE sequence still executes
+without that reset. This limits the oracle domain rather than exempting mismatches.
+
 ## Unsupported Backtracking Features
 
 Sweep names:
@@ -151,7 +159,8 @@ subset of patterns.
 Possessive modifiers over statically zero-width operands are not intentional
 divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
-`()*+`.
+`()*+`. The same holds for a counted repetition with no operand of its own, as in
+`{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
 
 ## Canonical Equivalence
 
@@ -248,6 +257,28 @@ leak (so `[\u0100&&[a]&]` fails to match `\u0100`). SafeRE treats all Unicode co
 points uniformly according to boolean set algebra rather than reproducing JDK parser
 bugs and implementation accidents.
 
+## `\v` next to a Range Hyphen in Character Classes
+
+The JDK `Pattern` documentation defines `\v` as the vertical-whitespace class
+`[\n\x0B\f\r\x85\u2028\u2029]`. Inside a character class, though, the JDK
+reads `\v` as the single character U+000B (VERTICAL TAB) when the next character
+is `-` (after empty `\Q\E` quotes are removed), whether or not a range follows,
+and when `\v` ends a range. So `[\v-z]` means `[\x0B-z]`, `[\v-]` means
+`[\x0B-]`, and `[\t-\v]` means `[\t-\x0B]`. This rule is not in the Javadoc. It
+was kept for backward compatibility when `\v` became the vertical-whitespace
+class in JDK 8 ([JDK-7014640][jdk-7014640],
+[review thread][jdk-7014640-review]).
+
+[jdk-7014640]: https://bugs.openjdk.org/browse/JDK-7014640
+[jdk-7014640-review]: https://mail.openjdk.org/pipermail/core-libs-dev/2012-April/009986.html
+
+SafeRE rejects these spellings with `PatternSyntaxException` instead of copying
+the undocumented rule or silently treating `\v` as the class in a position where
+the JDK means something else. Use `\x0B` for U+000B, or escape the hyphen
+(`[\v\-z]`, `[\t\-\v]`) to keep `\v` as vertical whitespace. `\v` everywhere else,
+including `[\v]`, `[a\v]` and `(?x)[\v -z]` (whitespace before `-`), keeps its
+documented meaning and matches like the JDK.
+
 ## Quoting Constructs inside Comments
 
 Issue reference: #858.
@@ -294,6 +325,28 @@ syntax, consistent with PCRE2's behavior.
 including flags, line endings, captures, character classes, and syntax errors.
 Its expectations run in SafeRE tests and are disabled only in generated JDK
 crosscheck tests with `@DisabledForCrosscheck`.
+
+## Unicode Hexadecimal Digits
+
+Issue reference: [#985](https://github.com/eaftan/safere/issues/985).
+
+SafeRE's `\p{IsHex_Digit}` follows Unicode's `Hex_Digit` binary property:
+ASCII and fullwidth `0`–`9`, `A`–`F`, and `a`–`f`. The
+[JDK 26 `Pattern` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#unicode)
+supports Unicode binary properties, and
+[Unicode's property data](https://www.unicode.org/Public/17.0.0/ucd/PropList.txt)
+defines these ranges. OpenJDK 26 also matches every other decimal digit with
+`\p{IsHex_Digit}`, including U+0660 ARABIC-INDIC DIGIT ZERO and supplementary
+mathematical digits. SafeRE intentionally preserves the specified Unicode
+property rather than copying that broader implementation. This decision was
+approved for #985 and is independent of the linear-time matching constraint.
+
+Negated forms and character-class expressions use the same Unicode set.
+Under `UNICODE_CHARACTER_CLASS`, `\p{XDigit}` still includes all decimal digits,
+as required by its separate specification `[\p{gc=Nd}\p{IsHex_Digit}]`.
+`UnicodePropertySyntaxTest` pins both definitions, and
+`UnicodeJdkConsistencyTest` checks every generated binary property over all
+code points on JDK 26 or newer, using Unicode ranges as the `Hex_Digit` oracle.
 
 ## Unicode Case-Insensitive Range Closure
 
@@ -398,7 +451,9 @@ while OpenJDK 26.0.1 produces two, at `[0, 4)` and `[4, 6)`.
 The [JDK 26 Pattern specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
 defines `\X` and `\b{g}` in terms of Unicode extended grapheme clusters.
 SafeRE intentionally follows that specification rather than the observed JDK
-behavior, consistently with the unassigned-code-point policy above. This is
+behavior, consistently with the unassigned-code-point policy above.
+[JDK-8393247](https://bugs.openjdk.org/browse/JDK-8393247) fixes the JDK's GB11
+handling in JDK 28, so this difference applies to JDK 27 and earlier. This is
 not a limitation imposed by linear-time matching: the cached GB11 prefix is
 computed in one linear pass, with constant-time queries afterward.
 
@@ -406,7 +461,9 @@ computed in one linear pass, with constant-time queries afterward.
 pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
 `EmojiZwjGraphemeFuzzer` generates arbitrary sequences over a small grapheme-property
 alphabet and checks an independent rule-based reference instead of treating
-the JDK implementation as the oracle. This is scoped coverage, not a full
+the JDK implementation as the oracle. On JDK 28 and later,
+`EmojiZwjGraphemeJdkCompatibilityTest` also checks that SafeRE and the JDK agree
+on these cases. This is scoped coverage, not a full
 UAX #29 audit; the broader assessment is tracked in
 [#954](https://github.com/eaftan/safere/issues/954).
 

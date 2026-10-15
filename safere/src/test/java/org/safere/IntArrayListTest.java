@@ -7,6 +7,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
@@ -70,5 +72,24 @@ class IntArrayListTest {
     list.add(5);
 
     assertThat(list.toSortedUniqueArray()).containsExactly(1, 2, 3, 5);
+  }
+
+  @Test
+  void toSortedUniqueArrayMatchesSortForAnyRunStructure() {
+    Random random = new Random(0x5AFE_292L);
+    for (int trial = 0; trial < 500; trial++) {
+      IntArrayList list = new IntArrayList();
+      int runs = 1 + random.nextInt(trial % 2 == 0 ? 8 : 200);
+      for (int run = 0; run < runs; run++) {
+        int value = random.nextInt(1000);
+        int length = random.nextInt(40);
+        for (int i = 0; i < length; i++) {
+          list.add(value);
+          value += random.nextInt(3);
+        }
+      }
+      int[] expected = Arrays.stream(list.toArray()).sorted().distinct().toArray();
+      assertThat(list.toSortedUniqueArray()).containsExactly(expected);
+    }
   }
 }

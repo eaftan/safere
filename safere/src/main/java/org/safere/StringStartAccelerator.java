@@ -42,6 +42,8 @@ sealed interface StringStartAccelerator {
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           FixedOffset.create(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
+          new FixedOffsetClass(CharClass.create(fc.scanInfo()), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
           hasWordBoundary || ml.fallbackClass() == null || !ml.fallbackClass().isSelective()
               ? null
@@ -78,6 +80,7 @@ sealed interface StringStartAccelerator {
       case CaseInsensitiveLiteral cil -> cil.findCandidate(text, fromIndex, unixLines);
       case UnicodeCaseInsensitiveLiteral ucil -> ucil.findCandidate(text, fromIndex, unixLines);
       case FixedOffset fo -> fo.findCandidate(text, fromIndex, unixLines);
+      case FixedOffsetClass fc -> fc.findCandidate(text, fromIndex, unixLines);
       case CharClass cc -> cc.findCandidate(text, fromIndex, unixLines);
       case LineAnchor la -> la.findCandidate(text, fromIndex, unixLines);
       case LeadingExpansion le -> le.findCandidate(text, fromIndex, unixLines);
@@ -356,6 +359,56 @@ sealed interface StringStartAccelerator {
     }
   }
 
+  /**
+   * Scans a required interior class and checks its implied leading ASCII character.
+   *
+   * <p>The prefix's ASCII width is the same in both input representations. After a bounded number
+   * of cheap leading-check failures, scans jump to the next leading-class hit before resuming the
+   * interior scan. Both scans advance monotonically, including when interior hits are dense and
+   * leading hits are absent. Full verification stays in the engine; ASCII leading hits exclude
+   * starts inside surrogate pairs.
+   */
+  record FixedOffsetClass(CharClass inner, int offset, CharClassScanInfo leadingClass)
+      implements StringStartAccelerator {
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.CHAR_CLASS;
+    }
+
+    int findCandidate(String text, int fromIndex, boolean unixLines) {
+      int start = Math.max(0, fromIndex);
+      if (offset >= text.length() - start) {
+        return -1;
+      }
+      int position = start + offset;
+      int cheapRejections = 0;
+      while (position < text.length()) {
+        int hit = inner.findCandidate(text, position, unixLines);
+        if (hit < 0) {
+          return -1;
+        }
+        int candidate = hit - offset;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (leadingClass.contains(text.charAt(candidate))) {
+          return candidate;
+        }
+        if (cheapRejections < AcceleratorPolicy.FIXED_OFFSET_CLASS_CHEAP_REJECTIONS) {
+          cheapRejections++;
+          position = hit + 1;
+          continue;
+        }
+        int nextLeading = StringInputScanner.indexOfCharClass(text, leadingClass, candidate + 1);
+        if (nextLeading < 0 || offset >= text.length() - nextLeading) {
+          return -1;
+        }
+        position = nextLeading + offset;
+      }
+      return -1;
+    }
+  }
+
   // The lookup table is immutable pattern metadata; array identity and value semantics are unused.
   @SuppressWarnings("ArrayRecordComponent")
   record CharClass(CharClassScanInfo scanInfo, boolean[] asciiTable)
@@ -371,6 +424,11 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
+      // Three members cost three intrinsic passes over a gap, which has not been measured against
+      // the table scan below, so only one- and two-member sets take the per-member search.
+      if (scanInfo instanceof CharClassScanInfo.SmallSet smallSet && smallSet.chars().length <= 2) {
+        return StringInputScanner.indexOfSmallSet(text, smallSet.chars(), fromIndex);
+      }
       return indexOfCharClass(text, asciiTable, scanInfo.ranges(), scanInfo.isAscii(), fromIndex);
     }
 

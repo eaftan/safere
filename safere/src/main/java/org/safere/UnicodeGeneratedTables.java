@@ -55,7 +55,7 @@ import java.util.Map;
 
 /** Checked-in Unicode tables generated from public JDK APIs and pinned Unicode data. */
 final class UnicodeGeneratedTables {
-  static final String GENERATOR_JAVA_VERSION = "26.0.2.1+1-7 (Oracle Corporation)";
+  static final String GENERATOR_JAVA_VERSION = "26.0.2+10-55 (Oracle Corporation)";
   static final String UNICODE_DATA_VERSION = "17.0.0";
 
   // Include explicit type arguments to ofEntries to avoid JDK-8221301
@@ -13005,7 +13005,8 @@ final class UnicodeGeneratedTables {
   private static int[][] property_White_Space() {
     return new int[][] {
       {0x9, 0xd},
-      {0x1c, 0x20},
+      {0x20, 0x20},
+      {0x85, 0x85},
       {0xa0, 0xa0},
       {0x1680, 0x1680},
       {0x2000, 0x200a},

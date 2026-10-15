@@ -189,6 +189,63 @@ class CharClassTest {
   }
 
   @Test
+  void randomizedOperationsInAnyOrderMatchBitSetReferenceModel() {
+    int domainSize = 2048;
+    Random random = new Random(0x5AFE_291L);
+
+    for (int trial = 0; trial < 200; trial++) {
+      CharClassBuilder builder = new CharClassBuilder();
+      BitSet expected = new BitSet(domainSize);
+
+      for (int step = 0; step < 60; step++) {
+        int a = random.nextInt(domainSize);
+        int b = random.nextInt(domainSize);
+        int lo = Math.min(a, b);
+        int hi = Math.min(Math.max(a, b), lo + random.nextInt(64));
+        switch (random.nextInt(8)) {
+          case 0, 1, 2 -> {
+            builder.addRange(lo, hi);
+            expected.set(lo, hi + 1);
+          }
+          case 3 -> {
+            builder.removeRange(lo, hi);
+            expected.clear(lo, hi + 1);
+          }
+          case 4 -> {
+            int r = random.nextInt(domainSize);
+            assertThat(builder.contains(r)).isEqualTo(expected.get(r));
+            assertThat(builder.numRunes()).isEqualTo(expected.cardinality());
+          }
+          case 5 -> {
+            CharClassBuilder other = new CharClassBuilder();
+            BitSet otherExpected = new BitSet(domainSize);
+            for (int i = 0; i < 8; i++) {
+              int olo = random.nextInt(domainSize);
+              int ohi = Math.min(domainSize - 1, olo + random.nextInt(256));
+              other.addRange(olo, ohi);
+              otherExpected.set(olo, ohi + 1);
+            }
+            builder.intersect(other);
+            expected.and(otherExpected);
+          }
+          case 6 -> {
+            CharClassBuilder other = new CharClassBuilder().addRange(hi, hi).addRange(lo, lo);
+            builder.addCharClass(other);
+            expected.set(lo);
+            expected.set(hi);
+          }
+          default -> {
+            // Negate twice so the domain stays within the reference model's range.
+            builder.negate().negate();
+          }
+        }
+      }
+
+      assertMatchesReferenceModel(builder.build(), expected, domainSize);
+    }
+  }
+
+  @Test
   void singleRune() {
     CharClass cc = new CharClassBuilder().addRune('X').build();
     assertThat(cc.numRanges()).isEqualTo(1);
@@ -409,6 +466,30 @@ class CharClassTest {
 
     assertThat(smallSet.ranges()).isSameAs(smallSet.ranges());
     assertThat(bitmap.ranges()).isSameAs(bitmap.ranges());
+  }
+
+  @Test
+  void unicodeSmallSetHoldsAtMostTwoNonSurrogateBmpChars() {
+    assertThat(scanInfo('[', 0xFF3B)).isInstanceOf(CharClassScanInfo.UnicodeSmallSet.class);
+    assertThat(((CharClassScanInfo.SmallSet) scanInfo('[', 0xFF3B)).chars())
+        .containsExactly('[', '\uFF3B');
+    assertThat(scanInfo(0xFF3B)).isInstanceOf(CharClassScanInfo.UnicodeSmallSet.class);
+
+    // Three members would need three indexOf passes.
+    assertThat(scanInfo('[', 0xFF3B, 0x3010)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    // A char search for a lone surrogate would also stop inside valid surrogate pairs.
+    assertThat(scanInfo(0xD83D)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    assertThat(scanInfo('[', 0xDC00)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    // Supplementary code points are not single chars.
+    assertThat(scanInfo(0x1F600)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+  }
+
+  private static CharClassScanInfo scanInfo(int... runes) {
+    CharClassBuilder builder = new CharClassBuilder();
+    for (int rune : runes) {
+      builder.addRune(rune);
+    }
+    return CharClassScanInfo.fromCharClass(builder.build());
   }
 
   private static void assertRanges(CharClass cc, int... endpoints) {

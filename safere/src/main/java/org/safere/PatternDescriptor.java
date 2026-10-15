@@ -7,7 +7,11 @@ package org.safere;
 
 import java.util.Objects;
 
-/** Opaque process-local pattern identity paired with its static analysis. */
+/**
+ * Opaque process-local pattern identity paired with its static analysis.
+ *
+ * <p>The identity has the scope and lifetime described by {@link Pattern#patternId()}.
+ */
 public record PatternDescriptor(long patternId, PatternAnalysis analysis) {
   /** Creates a descriptor. */
   public PatternDescriptor {

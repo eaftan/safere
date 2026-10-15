@@ -266,6 +266,43 @@ class JdkSyntaxCompatibilityTest {
           .isEqualTo(jdkPattern.matcher(input).matches());
     }
 
+    static Stream<Arguments> possessiveCountedRepeatsWithoutOperand() {
+      return Stream.of(
+          Arguments.of("{1}+a", 0, "a"),
+          Arguments.of("{0}+a", 0, "a"),
+          Arguments.of("{1,2}+a", 0, "a"),
+          Arguments.of("\\Q\\E{1}+a", 0, "a"),
+          Arguments.of("(?i){1}+a", 0, "A"),
+          Arguments.of("({1}+a)", 0, "a"),
+          Arguments.of("(?:{2,3}+)a", 0, "a"),
+          Arguments.of("x|{1}+a", 0, "a"),
+          Arguments.of("a*{1}+", 0, "aa"),
+          Arguments.of("a*{1}+a", 0, "aa"),
+          Arguments.of("a*?{1}+a", 0, "aa"),
+          Arguments.of("a{2}{1}+", 0, "aa"),
+          Arguments.of("\\Q\\E\\Q\\E{1} #q\n +\\P{Lower}", Pattern.COMMENTS, "A"));
+    }
+
+    @ParameterizedTest(name = "/{0}/ flags={1} matches \"{2}\"")
+    @MethodSource("possessiveCountedRepeatsWithoutOperand")
+    @DisplayName("possessive counted repeats without an operand apply to the empty expression")
+    void possessiveCountedRepeatsWithoutOperandMatchLikeJdk(String regex, int flags, String input) {
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex, flags);
+      Pattern safeRePattern = Pattern.compile(regex, flags);
+
+      assertThat(safeRePattern.matcher(input).matches())
+          .as("SafeRE matches() result for /%s/ flags=%d on \"%s\"", regex, flags, input)
+          .isEqualTo(jdkPattern.matcher(input).matches())
+          .isTrue();
+    }
+
+    @ParameterizedTest(name = "/{0}/")
+    @ValueSource(strings = {"a{1}+", "b\\Q\\E{1}+a", "(a){1,2}+"})
+    @DisplayName("possessive counted repeats over a consuming operand stay rejected")
+    void possessiveCountedRepeatsOverConsumingOperandAreRejected(String regex) {
+      assertRejectedBySafeRe(regex);
+    }
+
     static Stream<Arguments> acceptedSyntaxFamilies() {
       return Stream.of(
           Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),
@@ -1069,6 +1106,56 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\v", "\f");
       assertMatchesSame("\\v", "\r");
       assertMatchesFull("\\v", " "); // should not match
+    }
+
+    @ParameterizedTest(name = "/{0}/")
+    @ValueSource(
+        strings = {
+          "[\\v-z]",
+          "[^\\v-z]",
+          "[\\v-]",
+          "[\\v-[a]]",
+          "[\\v-\\v]",
+          "[\\v-\\x0c]",
+          "[\\t-\\v]",
+          "[\\Q\\E\\v-z]",
+          "[\\v\\Q\\E-z]",
+          "[\\v-\\Q\\Ez]",
+          "(?x)[\\v- z]",
+          "(?x)[\\t- \\v]"
+        })
+    @DisplayName("\\\\v next to a class range hyphen is rejected (intentional divergence)")
+    void verticalTabNextToClassRangeHyphenIsRejected(String regex) {
+      // JDK Pattern reads \v as U+000B, not vertical whitespace, when the next character is '-' or
+      // when \v ends a range. That rule is undocumented, so SafeRE rejects these spellings rather
+      // than silently matching something different. See INTENTIONAL_DIVERGENCES.md.
+      assertThatNoException()
+          .as("JDK should accept: %s", regex)
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .isInstanceOf(PatternSyntaxException.class)
+          .hasMessageContaining("\\x0B")
+          .hasMessageContaining("\\-");
+    }
+
+    @ParameterizedTest(name = "/{0}/")
+    @ValueSource(
+        strings = {
+          "[\\v]",
+          "[a\\v]",
+          "[\\v\\Q-\\Ez]",
+          "(?x)[\\v -z]",
+          "\\v-z",
+          "[\\x0B-z]",
+          // The spellings the error message suggests for keeping \v as vertical whitespace.
+          "[\\v\\-z]",
+          "[\\v\\-]",
+          "[\\t\\-\\v]"
+        })
+    @DisplayName("\\\\v away from a class range hyphen matches like JDK")
+    void verticalTabAwayFromClassRangeHyphenMatchesLikeJdk(String regex) {
+      assertFullMatchesSameForAll(
+          regex, List.of("a", "z", "-", "\t", "\n", "\u000B", "\f", "\u0085", "\u2028", "\n-z"));
     }
 
     @Test

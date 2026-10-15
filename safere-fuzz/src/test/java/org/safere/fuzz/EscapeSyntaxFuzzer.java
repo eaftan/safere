@@ -11,7 +11,8 @@ import java.util.List;
 
 public final class EscapeSyntaxFuzzer {
 
-  private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "[", "[^"};
+  // "[\\t-" makes each escape the end of a class range.
+  private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "[", "[^", "[\\t-"};
   private static final String[] ESCAPES = {
     "\\0",
     "\\00",
@@ -51,12 +52,29 @@ public final class EscapeSyntaxFuzzer {
     "\\Qab\\E"
   };
   private static final String[] SUFFIXES = {
-    "", "$", "]", "*", "+", "?", "2*", "22*", "a", "-", "-z", "&&[a]"
+    "",
+    "$",
+    "]",
+    "*",
+    "+",
+    "?",
+    "2*",
+    "22*",
+    "a",
+    "-",
+    "-z",
+    "&&[a]",
+    "\\Q\\E-z",
+    " -z",
+    "- z",
+    "\\-z"
   };
   private static final List<String> INPUTS =
       List.of(
           "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "🙀", "\u0000",
           "\u0140", "\uD800", "\uD840", "\uf57f");
+  // Reviewed intentional differences belong in the reproduction registry, not fixed agreement
+  // probes. Prefix/escape/suffix generation still explores the ambiguous class-range spellings.
   private static final String[] REGRESSION_REGEXES = {
     "^\\©",
     "[\\©]",
@@ -88,7 +106,10 @@ public final class EscapeSyntaxFuzzer {
     "\\c😀",
     "(?x)\\c\ta",
     "(?x)\\c#\na",
-    "[^\\c\uD800]"
+    "[^\\c\uD800]",
+    "(?x)[\\v -z]",
+    "[\\v\\-z]",
+    "[\\t\\-\\v]"
   };
 
   @FuzzTest(maxDuration = "30s")

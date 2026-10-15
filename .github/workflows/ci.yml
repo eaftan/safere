@@ -269,9 +269,19 @@ jobs:
           -DskipTests
           --batch-mode --no-transfer-progress
 
+      - name: Validate fuzz enrollment and launcher selection
+        run: python3 -m unittest discover -s safere-fuzz/scripts
+
       - name: Run fuzz regression seeds
         run: >
           mvn -pl safere-fuzz test
+          --batch-mode --no-transfer-progress
+
+      - name: Run instrumented fuzz work bounds
+        run: >
+          mvn -pl safere-fuzz -am -Pwork-counters test
+          -Dtest=WorkBoundFuzzer,WorkBoundFuzzerTest -Dsafere.fuzz.workCounters=true
+          -Dsurefire.failIfNoSpecifiedTests=false
           --batch-mode --no-transfer-progress
 
   benchmark-python-tests:
@@ -585,7 +595,7 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
-          server-id: central
+          server-id: central-portal
           server-username-env-var: MAVEN_CENTRAL_USERNAME
           server-password-env-var: MAVEN_CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
