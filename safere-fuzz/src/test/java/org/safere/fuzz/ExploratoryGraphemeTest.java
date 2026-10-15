@@ -18,4 +18,19 @@ final class ExploratoryGraphemeTest {
     var pair = FuzzSupport.compileOrSkip("\\X", 0).matcher(input);
     assertThatThrownBy(pair::find).isInstanceOf(AssertionError.class);
   }
+
+  @Test
+  void intentionalCrLfSplitDifferenceRemainsAVisibleFinding() {
+    String regex = "\\r\\b{g}\\n";
+    String input = "#\r\n\r\n$";
+    assertThat(org.safere.Pattern.compile(regex).split(input)).containsExactly(input);
+    var pattern = FuzzSupport.compileOrSkip(regex, 0);
+    assertThat(pattern).isNotNull();
+    assertThatThrownBy(() -> pattern.split(input))
+        .isInstanceOf(AssertionError.class)
+        .hasMessageContaining("split divergence");
+    assertThatThrownBy(() -> pattern.splitWithDelimiters(input))
+        .isInstanceOf(AssertionError.class)
+        .hasMessageContaining("splitWithDelimiters divergence");
+  }
 }

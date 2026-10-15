@@ -5,9 +5,13 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.safere.Pattern;
 
 public final class SplitFuzzer {
   private static final List<String> GRAPHEME_CRLF_DELIMITERS =
@@ -103,18 +107,24 @@ public final class SplitFuzzer {
       pattern.split(input, largeLimit);
       pattern.splitWithDelimiters(input, largeLimit);
     }
+  }
 
+  @Test
+  void graphemeBoundaryDelimitersCannotSplitCrLf() {
+    // GB3 forbids a boundary inside CRLF. The JDK's consumed-prefix exception is
+    // intentionally not the oracle here; broad differential comparisons remain unchanged.
     for (String delimiter : GRAPHEME_CRLF_DELIMITERS) {
-      FuzzSupport.CompiledPattern graphemePattern = FuzzSupport.compileOrSkip(delimiter, 0);
-      if (graphemePattern == null) {
-        continue;
-      }
-      for (String adjacentCrLfInput : ADJACENT_CRLF_INPUTS) {
-        graphemePattern.split(adjacentCrLfInput);
-        graphemePattern.splitWithDelimiters(adjacentCrLfInput);
-        for (int splitLimit : SPLIT_LIMITS) {
-          graphemePattern.split(adjacentCrLfInput, splitLimit);
-          graphemePattern.splitWithDelimiters(adjacentCrLfInput, splitLimit);
+      Pattern pattern = Pattern.compile(delimiter);
+      for (String input : ADJACENT_CRLF_INPUTS) {
+        assertThat(pattern.split(input)).as("/%s/ on %s", delimiter, input).containsExactly(input);
+        assertThat(pattern.splitWithDelimiters(input)).containsExactly(input);
+        for (int limit : SPLIT_LIMITS) {
+          assertThat(pattern.split(input, limit)).containsExactly(input);
+          assertThat(pattern.splitWithDelimiters(input, limit)).containsExactly(input);
+        }
+        for (int limit : LARGE_POSITIVE_LIMITS) {
+          assertThat(pattern.split(input, limit)).containsExactly(input);
+          assertThat(pattern.splitWithDelimiters(input, limit)).containsExactly(input);
         }
       }
     }

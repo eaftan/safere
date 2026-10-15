@@ -94,6 +94,11 @@ capture/compile skips is used by `StrictDifferential`.
 
 ## Intentional reproductions
 
+`SplitFuzzer` checks its fixed CRLF/interior-boundary matrix against Unicode
+GB3, separately from arbitrary differential inputs. `ExploratoryGraphemeTest`
+confirms that the broad split comparator still reports the intentional JDK
+interior-boundary difference; no mismatch is suppressed.
+
 `ExploratoryCaptureTest` pins SafeRE's failed-path capture model and separately
 asserts that differential comparison still reports the mismatch. It includes
 replacement behavior and a synthetic missing-capture defect that the old waiver
