@@ -181,8 +181,8 @@ public final class ParserCompatibilityFuzzer {
     String regex = data.consumeBoolean() ? "(" + expression + ")" : expression;
     int flags = comments ? Pattern.COMMENTS : 0;
     java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex, flags);
-    // These generated forms all have an implicit empty operand. Assert directly so the broad
-    // unsupported-feature waiver cannot hide their acceptance or matching behavior (#873).
+    // These generated forms all have an implicit empty operand. Compare them directly, including
+    // captures, alongside broad parser generation.
     Pattern safeRe = Pattern.compile(regex, flags);
     for (String input : List.of("", "a", "aa", "A", "ab", "x", "xa", "b")) {
       java.util.regex.Matcher expected = jdk.matcher(input);

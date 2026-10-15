@@ -5,7 +5,6 @@
 
 package org.safere.fuzz;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -54,14 +53,5 @@ final class FuzzSupportOracleTimeoutTest {
           .isInstanceOf(AssertionError.class)
           .hasMessageContaining("compile divergence");
     }
-  }
-
-  @Test
-  @DisplayName("unsupported previous-match anchor and atomic group are excluded")
-  void unsupportedFeaturesAreExcluded() {
-    assertThat(FuzzSupport.compileCompatibleOrSkip("\\G", 0)).isNull();
-    assertThat(FuzzSupport.compileCompatibleOrSkip("\\G\\w+", 0)).isNull();
-    assertThat(FuzzSupport.compileCompatibleOrSkip("a+\\GGGG", 7)).isNull();
-    assertThat(FuzzSupport.compileCompatibleOrSkip("(?>a+)", 0)).isNull();
   }
 }

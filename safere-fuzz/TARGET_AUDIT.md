@@ -32,11 +32,12 @@ comparisons use `FuzzSupport` and inherit its limitations listed below.
 
 ## Shared exploratory comparator boundaries
 
-- Both engines rejecting syntax ends the comparison. SafeRE-only rejection of
-  lexically recognized lookaround, backreferences or possessive syntax, and
-  compiler-size rejection, remains excluded. These encode unsupported features
-  or workload limits, but lexical recognition can overexclude. Strict generators
-  do not use this path; their valid patterns must compile in both engines.
+- Both engines rejecting syntax ends the comparison. SafeRE compiler-size
+  rejection remains excluded as a workload limit. Other one-sided rejections,
+  including unsupported syntax, are findings; no lexical recognizer suppresses
+  lookaround, backreferences, possessive quantifiers, atomic groups or `\G`.
+  Strict generators do not use the compiler-size exclusion; their valid patterns
+  must compile in both engines.
 - The old capture, dependent replacement, and parser-marked intentional class
   rejection waivers are removed. Exact reviewed outcomes are replayed separately;
   arbitrary related failures are still findings.

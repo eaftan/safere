@@ -73,8 +73,9 @@ public final class EscapeSyntaxFuzzer {
       List.of(
           "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "🙀", "\u0000",
           "\u0140", "\uD800", "\uD840", "\uf57f");
-  // Reviewed intentional differences belong in the reproduction registry, not fixed agreement
-  // probes. Prefix/escape/suffix generation still explores the ambiguous class-range spellings.
+  // Reviewed intentional differences have separate expected-outcome tests, not fixed agreement
+  // probes. FuzzSupportTest pins unsupported backreference outcomes. Prefix/escape/suffix
+  // generation still explores those spellings and the ambiguous class-range spellings.
   private static final String[] REGRESSION_REGEXES = {
     "^\\©",
     "[\\©]",
@@ -86,13 +87,6 @@ public final class EscapeSyntaxFuzzer {
     "[\\😀]",
     "\\0",
     "\\08",
-    "\\400",
-    "\\777",
-    "\\123",
-    "\\12*",
-    "\\2222*",
-    "3*\\2222*",
-    "(a)\\12",
     "\\h",
     "\\H",
     "\\v",
