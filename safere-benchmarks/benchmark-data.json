@@ -3992,6 +3992,76 @@
         "input": "endAnchoredReplace.noLiteral.16384",
         "suffix": " foo"
       }
+    },
+    {
+      "id": "denseDelimited.html.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "<p>value</p> ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.quotedClass.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\"field\" \"value\" ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.digits.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "[123] [4567] ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.quotedLazy.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\"field\" \"value\" ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.braces.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "{key=1} {value=2} ",
+        "length": "{size}"
+      }
     }
   ],
   "workloads": [
@@ -16082,6 +16152,101 @@
         "constraints": [
           "prematerializedInput"
         ]
+      }
+    },
+    {
+      "id": "DenseDelimitedBenchmark.findAll.{shape}.{size}",
+      "axes": {
+        "shape": [
+          {
+            "id": "html",
+            "value": "<[^>]*>"
+          },
+          {
+            "id": "quotedClass",
+            "value": "\"([^\"]*)\""
+          },
+          {
+            "id": "digits",
+            "value": "\\[\\d+\\]"
+          },
+          {
+            "id": "quotedLazy",
+            "value": "\"(.*?)\""
+          },
+          {
+            "id": "braces",
+            "value": "\\{([^}]+)\\}"
+          }
+        ],
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "{shape}"
+      ],
+      "inputs": [
+        "denseDelimited.{shape}.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DenseDelimitedBenchmark.replaceAll.{shape}.{size}",
+      "axes": {
+        "shape": [
+          {
+            "id": "html",
+            "value": "<[^>]*>"
+          },
+          {
+            "id": "quotedClass",
+            "value": "\"([^\"]*)\""
+          },
+          {
+            "id": "digits",
+            "value": "\\[\\d+\\]"
+          },
+          {
+            "id": "quotedLazy",
+            "value": "\"(.*?)\""
+          },
+          {
+            "id": "braces",
+            "value": "\\{([^}]+)\\}"
+          }
+        ],
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "operation": "replaceAll",
+      "patterns": [
+        "{shape}"
+      ],
+      "inputs": [
+        "denseDelimited.{shape}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "X"
       }
     }
   ]
