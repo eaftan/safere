@@ -1872,9 +1872,7 @@ public final class Matcher implements MatchResult {
             literalPrefixCandidateStart = policy.isExactMatchCandidate();
             startPositionPreselected = true;
           } else {
-            int idx =
-                StringStartAccelerator.findNextCandidate(
-                    accelerator, text, searchFrom, prog.lineStartUnixLines());
+            int idx = findNextStringStartCandidate(accelerator, searchFrom);
             if (idx < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -2149,6 +2147,24 @@ public final class Matcher implements MatchResult {
     } else {
       return applyDeferredMatchResult(result[0], result[1], prog.numCaptures(), true, false);
     }
+  }
+
+  private int findNextStringStartCandidate(StringStartAccelerator accelerator, int fromIndex) {
+    Prog prog = parentPattern.prog();
+    int candidate =
+        StringStartAccelerator.findNextCandidate(
+            accelerator, text, fromIndex, prog.lineStartUnixLines());
+    if (prog.hasGraphemeSemantics() && !prog.hasGraphemeClusterInstruction()) {
+      // Boundary assertions do not change scalar candidate progression. Literal scans can
+      // nominate a low surrogate inside a pair; only the caller's initial cursor may do that.
+      // Each rejected candidate advances the scan, so filtering remains linear in input length.
+      while (candidate > fromIndex && !activeScanner().isCodePointBoundary(candidate)) {
+        candidate =
+            StringStartAccelerator.findNextCandidate(
+                accelerator, text, candidate + 1, prog.lineStartUnixLines());
+      }
+    }
+    return candidate;
   }
 
   private boolean matchUtf8KeywordAlternationAt(
@@ -4833,9 +4849,7 @@ public final class Matcher implements MatchResult {
           effectiveStart = le.expandBackward(text, innerMatch, fromIndex);
           startPositionPreselected = true;
         } else {
-          int idx =
-              StringStartAccelerator.findNextCandidate(
-                  accelerator, text, fromIndex, prog.lineStartUnixLines());
+          int idx = findNextStringStartCandidate(accelerator, fromIndex);
           if (idx < 0) {
             return -1L;
           }

@@ -15,6 +15,15 @@ import java.util.List;
 
 /** Engine equivalence over a small grammar, Unicode subjects and bounded find sequences. */
 public final class EngineEquivalenceFuzzer {
+  private static final List<EnginePathOptions> PATHS =
+      List.of(
+          EnginePathOptions.allEnabled(),
+          EnginePathOptions.builder().startAcceleration(false).build(),
+          options(true, true, true),
+          options(false, true, false),
+          options(false, false, true),
+          options(false, false, false));
+
   @FuzzTest(maxDuration = "30s")
   void engines(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
@@ -23,29 +32,39 @@ public final class EngineEquivalenceFuzzer {
   /** Shared local and standalone entry point. */
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     String atom = data.pickValue(List.of("a", ".", "[ab]", "[^a]", "é", "😀"));
+    String boundaryAtom =
+        data.pickValue(List.of(atom, "\\p{Cs}", "\\p{So}", "[\\uDC00-\\uDFFF]", "\\uDC4D"));
     String regex =
         data.pickValue(
-            List.of(atom, atom + "|", "(?:" + atom + ")+", "(" + atom + ")?b", "^" + atom + "+$"));
+            List.of(
+                atom,
+                atom + "|",
+                "(?:" + atom + ")+",
+                "(" + atom + ")?b",
+                "^" + atom + "+$",
+                boundaryAtom + "\\b{g}",
+                "(" + boundaryAtom + ")(\\b{g})",
+                "\\b{g}(" + boundaryAtom + ")",
+                "(?:(" + boundaryAtom + ")\\b{g}|(a))"));
     StringBuilder input = new StringBuilder();
     int length = data.consumeInt(0, 32);
     for (int i = 0; i < length; i++) {
-      input.append(data.pickValue(List.of("a", "b", "é", "中", "😀", "\ud800", "\udc00", "\n")));
+      input.append(
+          data.pickValue(
+              List.of(
+                  "a", "b", "é", "中", "😀", "👍", "\ud800", "\udc00", "\uDC4D", "\n", "\u0301")));
     }
     check(regex, input.toString(), data.consumeInt(0, input.length()));
+    int start = data.consumeInt(0, input.length());
+    int end = data.consumeInt(start, input.length());
+    checkRegion(regex, input.toString(), start, end, data.consumeBoolean(), data.consumeBoolean());
   }
 
   static void check(String regex, String input, int start) {
-    List<EnginePathOptions> paths =
-        List.of(
-            EnginePathOptions.allEnabled(),
-            options(true, true, true),
-            options(false, true, false),
-            options(false, false, true),
-            options(false, false, false));
-    List<String> expected = trace(Pattern.compile(regex, 0, paths.getLast()), input, start);
+    List<String> expected = trace(Pattern.compile(regex, 0, PATHS.getLast()), input, start);
     List<String> expectedUtf8 =
-        validScalars(input) ? utf8Trace(Pattern.compile(regex, 0, paths.getLast()), input) : null;
-    for (EnginePathOptions path : paths) {
+        validScalars(input) ? utf8Trace(Pattern.compile(regex, 0, PATHS.getLast()), input) : null;
+    for (EnginePathOptions path : PATHS) {
       Pattern pattern = Pattern.compile(regex, 0, path);
       assertThat(trace(pattern, input, start))
           .as("%s on %s at %s via %s", regex, escaped(input), start, path)
@@ -59,6 +78,22 @@ public final class EngineEquivalenceFuzzer {
         // Fresh matches/lookingAt and the first find start at equivalent positions.
         assertThat(utf8.subList(0, 3)).isEqualTo(trace(pattern, input, 0).subList(0, 3));
       }
+    }
+  }
+
+  static void checkRegion(
+      String regex, String input, int start, int end, boolean transparent, boolean anchoring) {
+    List<String> expected =
+        regionTrace(
+            Pattern.compile(regex, 0, PATHS.getLast()), input, start, end, transparent, anchoring);
+    for (EnginePathOptions path : PATHS) {
+      assertThat(
+              regionTrace(
+                  Pattern.compile(regex, 0, path), input, start, end, transparent, anchoring))
+          .as(
+              "%s on %s region [%s,%s), transparent=%s, anchoring=%s via %s",
+              regex, escaped(input), start, end, transparent, anchoring, path)
+          .isEqualTo(expected);
     }
   }
 
@@ -106,6 +141,26 @@ public final class EngineEquivalenceFuzzer {
             .append(escaped(matcher.group(g)));
       }
     return value.toString();
+  }
+
+  private static List<String> regionTrace(
+      Pattern pattern, String input, int start, int end, boolean transparent, boolean anchoring) {
+    Matcher matcher =
+        pattern.matcher(input).useTransparentBounds(transparent).useAnchoringBounds(anchoring);
+    List<String> result = new ArrayList<>();
+    matcher.region(start, end);
+    result.add(snapshot(matcher.matches(), matcher));
+    matcher.region(start, end);
+    result.add(snapshot(matcher.lookingAt(), matcher));
+    matcher.region(start, end);
+    for (int count = 0; count <= input.length() + 1; count++) {
+      boolean found = matcher.find();
+      result.add(snapshot(found, matcher));
+      if (!found) {
+        return result;
+      }
+    }
+    throw new AssertionError("unbounded region find sequence");
   }
 
   private static List<String> utf8Trace(Pattern pattern, String input) {

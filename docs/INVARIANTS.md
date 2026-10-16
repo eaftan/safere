@@ -71,6 +71,14 @@ bounds, captures, snapshots, replacement output, and later searches.
 the String and UTF-8 engine equivalence tests compare forced paths. Comparisons
 between engines belong in tests, not in production result selection.
 
+String programs containing scalar consumers and `\b{g}` assertions search new
+candidate starts by code point. A boundary assertion does not make the low
+surrogate of an intact pair a new scalar candidate. The initial Java-index cursor
+can still explicitly designate a low surrogate, including at a region start or
+after empty-match progress. Start acceleration must preserve this distinction.
+Programs consuming `\X` retain their UTF-16-position search policy so they can
+find suffix-local grapheme clusters.
+
 ## Matcher operations are state transitions
 
 Treat pattern, input, region, bounds, current result, deferred captures, search

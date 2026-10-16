@@ -289,7 +289,7 @@ final class Nfa {
   }
 
   int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
-    if (prog.hasGraphemeSemantics()) {
+    if (prog.hasGraphemeClusterInstruction()) {
       doSearchEveryCharPosition(anchored);
     } else {
       doSearch(anchored);
@@ -654,12 +654,13 @@ final class Nfa {
   }
 
   /**
-   * Unanchored search variant for grapheme programs.
+   * Unanchored search variant for programs consuming grapheme clusters.
    *
    * <p>Active threads still consume Unicode code points, but new candidate matches are started at
    * every Java character offset. That matches {@link java.util.regex.Matcher}'s character-index
    * search contract for grapheme constructs without changing the code-point stepping used by
-   * ordinary SafeRE programs.
+   * ordinary SafeRE programs. A boundary assertion alone does not introduce new candidate starts;
+   * programs containing only scalar consumers and {@code \b{g}} use {@link #doSearch}.
    */
   private void doSearchEveryCharPosition(boolean anchored) {
     InputScanner text = context.text();
