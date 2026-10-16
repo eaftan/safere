@@ -43,6 +43,7 @@ final class MultiAnchorCompiler {
 
     final int minWidth;
     final int maxWidth;
+    // Sorted and duplicate-free when present.
     final int[] discreteWidths;
 
     AsciiWidthRange(int minWidth, int maxWidth, int[] discreteWidths) {
@@ -1884,6 +1885,9 @@ final class MultiAnchorCompiler {
         return AsciiWidthRange.INVALID;
       }
       if (child.discreteWidths != null && child.isExact() && node.max - node.min <= 8) {
+        if (child.minWidth == 0) {
+          return AsciiWidthRange.ZERO;
+        }
         int[] discrete = new int[node.max - node.min + 1];
         for (int index = 0; index < discrete.length; index++) {
           int width = multiplyWidth(child.minWidth, node.min + index);
@@ -1960,14 +1964,10 @@ final class MultiAnchorCompiler {
     if (!left.isValid() || !right.isValid()) {
       return AsciiWidthRange.INVALID;
     }
-    // A repeated zero-width operand can have duplicate widths. Only reuse singleton or
-    // non-discrete sets here; leave larger sets on the deduplication path.
-    if (left == AsciiWidthRange.ZERO
-        && (right.discreteWidths == null || right.discreteWidths.length == 1)) {
+    if (left == AsciiWidthRange.ZERO) {
       return right;
     }
-    if (right == AsciiWidthRange.ZERO
-        && (left.discreteWidths == null || left.discreteWidths.length == 1)) {
+    if (right == AsciiWidthRange.ZERO) {
       return left;
     }
     int minWidth = addWidth(left.minWidth, right.minWidth);

@@ -281,6 +281,38 @@ class MultiAnchorCompilerTest {
   }
 
   @ParameterizedTest
+  @MethodSource("zeroWidthRepeatBounds")
+  void zeroWidthRepeatsHaveOneDiscreteWidth(int min, int max) {
+    var expected = MultiAnchorCompiler.analyze(Regexp.emptyMatch(0)).width();
+    for (Regexp operand :
+        List.of(
+            Regexp.emptyMatch(0),
+            Regexp.literalString(new int[0], 0),
+            Regexp.capture(Regexp.emptyMatch(0), 0, 1, null),
+            Regexp.rawQuantifier(RegexpOp.QUEST, Regexp.emptyMatch(0), 0))) {
+      Regexp repeat = Regexp.repeat(operand, 0, min, max);
+      assertThat(MultiAnchorCompiler.analyze(repeat).width())
+          .as("cached width for %s{%s,%s}", operand.op, min, max)
+          .usingRecursiveComparison()
+          .isEqualTo(expected);
+      assertThat(MultiAnchorCompiler.computeAsciiWidthRange(repeat))
+          .as("standalone width for %s{%s,%s}", operand.op, min, max)
+          .usingRecursiveComparison()
+          .isEqualTo(expected);
+    }
+  }
+
+  private static Stream<Arguments> zeroWidthRepeatBounds() {
+    return Stream.of(
+        Arguments.of(0, 0),
+        Arguments.of(0, 2),
+        Arguments.of(2, 2),
+        Arguments.of(1, 8),
+        Arguments.of(17, 25),
+        Arguments.of(Integer.MAX_VALUE - 2, Integer.MAX_VALUE));
+  }
+
+  @ParameterizedTest
   @ValueSource(strings = {"[0-9]{2}needle.*tail", "[ab]{0,4}[cd]{0,3}needle.*tail"})
   void rootCaptureWrappersPreserveStartAndRejectPlans(String regex) {
     MultiAnchorDescriptor expected =
