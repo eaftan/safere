@@ -63,6 +63,7 @@ public final class RegionBoundsFuzzer {
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
+    compareLineAnchorPaths(data);
 
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
@@ -88,6 +89,78 @@ public final class RegionBoundsFuzzer {
     matcher.reset();
     matcher.region(region[0], region[1]);
     matcher.lookingAt();
+  }
+
+  private static void compareLineAnchorPaths(FuzzedDataProvider data) {
+    for (String prefix : List.of("", "(.)?", "([\\s\\S])?", "([\\s\\S])")) {
+      for (String anchor : List.of("$", "\\Z", "(?m:$)", "(?m:^)", "(?dm:^)")) {
+        compareLineAnchorPaths(prefix + anchor, "\r\na", 1, 2, true, false);
+        compareLineAnchorPaths(prefix + anchor, "\na", 0, 1, true, false);
+      }
+    }
+    String terminator = data.pickValue(List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029"));
+    String input = "a\r" + terminator + "a".repeat(data.consumeInt(0, 4));
+    int start = data.consumeInt(0, 2);
+    int end = data.consumeInt(start, input.length());
+    String prefix =
+        data.pickValue(List.of("", "(.)?", "([\\s\\S])?", "([\\s\\S])*?", "([\\s\\S])"));
+    String anchor =
+        data.pickValue(
+            List.of("^", "(?m:^)", "(?dm:^)", "$", "\\Z", "(?m:$)", "(?dm:$)", "(?d:\\Z)"));
+    compareLineAnchorPaths(
+        prefix + anchor, input, start, end, data.consumeBoolean(), data.consumeBoolean());
+  }
+
+  private static void compareLineAnchorPaths(
+      String regex, String input, int start, int end, boolean anchoring, boolean transparent) {
+    Matcher scalar =
+        Pattern.compile(regex)
+            .matcher(input)
+            .region(start, end)
+            .useAnchoringBounds(anchoring)
+            .useTransparentBounds(transparent);
+    Matcher mixed =
+        Pattern.compile("(?:" + regex + ")|(?:\\Xz)")
+            .matcher(input)
+            .region(start, end)
+            .useAnchoringBounds(anchoring)
+            .useTransparentBounds(transparent);
+    // Engine equivalence is also the oracle for the approved opaque CRLF divergence.
+    for (boolean find : List.of(false, true)) {
+      scalar.region(start, end);
+      mixed.region(start, end);
+      boolean found;
+      do {
+        found = find ? scalar.find() : scalar.lookingAt();
+        boolean mixedFound = find ? mixed.find() : mixed.lookingAt();
+        if (found != mixedFound
+            || (found && !lineAnchorCaptures(scalar).equals(lineAnchorCaptures(mixed)))) {
+          throw new AssertionError(
+              "Line anchor engine mismatch: regex="
+                  + regex
+                  + " region=["
+                  + start
+                  + ","
+                  + end
+                  + "] input="
+                  + input
+                  + " anchoring="
+                  + anchoring
+                  + " transparent="
+                  + transparent
+                  + " find="
+                  + find);
+        }
+      } while (find && found);
+    }
+  }
+
+  private static List<String> lineAnchorCaptures(Matcher matcher) {
+    List<String> captures = new ArrayList<>();
+    for (int group = 0; group <= matcher.groupCount(); group++) {
+      captures.add(matcher.start(group) + "-" + matcher.end(group) + ":" + matcher.group(group));
+    }
+    return captures;
   }
 
   private static void compareGraphemeRegions() {
