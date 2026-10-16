@@ -1917,6 +1917,9 @@ final class Dfa {
           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
             break;
           }
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.recordForwardDfaStep();
+          }
           int cls = asciiClassMap[ch];
           int nsId = transitions[sId + cls];
           if (nsId == 0) {
@@ -1950,6 +1953,9 @@ final class Dfa {
           int ch = text.asciiAt(pos);
           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
             break;
+          }
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.recordForwardDfaStep();
           }
           int cls = asciiClassMap[ch];
           int nsId = transitions[sId + cls];
@@ -2089,6 +2095,7 @@ final class Dfa {
         }
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
+          WorkCounter.recordForwardDfaStep();
         }
         int cp;
         int nextPos;

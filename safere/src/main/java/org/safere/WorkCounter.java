@@ -13,6 +13,7 @@ final class WorkCounter {
 
   private static final class Counter {
     private long units;
+    private long forwardDfaSteps;
     private long startScanCalls;
     private long startSkippedUnits;
     private long quarantineCount;
@@ -24,6 +25,22 @@ final class WorkCounter {
 
   static long countForTesting(Runnable task) {
     return count(task).units;
+  }
+
+  static long countWithForwardDfaStepsForTesting(Runnable task) {
+    Counter counter = count(task);
+    return counter.units + counter.forwardDfaSteps;
+  }
+
+  static long countForwardDfaStepsForTesting(Runnable task) {
+    return count(task).forwardDfaSteps;
+  }
+
+  static void recordForwardDfaStep() {
+    Counter counter = COUNTER.get();
+    if (counter != null) {
+      counter.forwardDfaSteps++;
+    }
   }
 
   static StartAccelerationWork countStartAccelerationForTesting(Runnable task) {

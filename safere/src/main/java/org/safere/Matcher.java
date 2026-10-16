@@ -1778,7 +1778,7 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
     if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
       MatchStrategy rejectionStrategy =
           rejectPrefilter instanceof RejectPrefilter.Composite composite
@@ -1795,13 +1795,20 @@ public final class Matcher implements MatchResult {
 
     // Prefix acceleration: if the pattern has a start accelerator (literal, fixed-offset,
     // character-class, or line-anchor), skip ahead to candidate match positions.
-    int effectiveStart = searchFrom;
+    int accelerationFrom = parentPattern.innerLiteralSearchStart(scanner, searchFrom);
+    if (accelerationFrom < 0) {
+      diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
+      diagnosticBoundary(MatchStrategy.LITERAL);
+      return applyFailedMatchResult();
+    }
+    int effectiveStart = accelerationFrom;
     boolean literalPrefixCandidateStart = false;
     boolean startPositionPreselected = false;
     if (options.startAcceleration() && !prog.anchorStart()) {
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         Utf8StartAccelerator accelerator = parentPattern.utf8StartAccelerator();
-        if (accelerator != null && startAccelerationAllowed(searchFrom, accelerator.policy())) {
+        if (accelerator != null
+            && startAccelerationAllowed(accelerationFrom, accelerator.policy())) {
           AcceleratorPolicy policy = accelerator.policy();
           MatchStrategy strategy = policy.strategy();
           if (strategy != null) {
@@ -1810,7 +1817,7 @@ public final class Matcher implements MatchResult {
           if (accelerator instanceof Utf8StartAccelerator.LeadingExpansion le
               && le.canVerifyAtInner()
               && canUseForwardDfa()) {
-            int innerMatch = le.findInnerCandidate(utf8Scanner, searchFrom);
+            int innerMatch = le.findInnerCandidate(utf8Scanner, accelerationFrom);
             if (innerMatch < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -1825,11 +1832,12 @@ public final class Matcher implements MatchResult {
               diagnosticBoundary(MatchStrategy.DFA);
               return applyFailedMatchResult();
             }
-            effectiveStart = le.expandBackward(utf8Scanner, innerMatch, searchFrom);
+            effectiveStart = le.expandBackward(utf8Scanner, innerMatch, accelerationFrom);
             literalPrefixCandidateStart = policy.isExactMatchCandidate();
             startPositionPreselected = true;
           } else {
-            int idx = Utf8StartAccelerator.findNextCandidate(accelerator, utf8Scanner, searchFrom);
+            int idx =
+                Utf8StartAccelerator.findNextCandidate(accelerator, utf8Scanner, accelerationFrom);
             if (idx < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -1844,7 +1852,8 @@ public final class Matcher implements MatchResult {
         }
       } else if (text != null) {
         StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
-        if (accelerator != null && startAccelerationAllowed(searchFrom, accelerator.policy())) {
+        if (accelerator != null
+            && startAccelerationAllowed(accelerationFrom, accelerator.policy())) {
           AcceleratorPolicy policy = accelerator.policy();
           MatchStrategy strategy = policy.strategy();
           if (strategy != null) {
@@ -1853,7 +1862,8 @@ public final class Matcher implements MatchResult {
           if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
               && le.canVerifyAtInner()
               && canUseForwardDfa()) {
-            int innerMatch = le.findInnerCandidate(text, searchFrom, prog.lineStartUnixLines());
+            int innerMatch =
+                le.findInnerCandidate(text, accelerationFrom, prog.lineStartUnixLines());
             if (innerMatch < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -1868,13 +1878,13 @@ public final class Matcher implements MatchResult {
               diagnosticBoundary(MatchStrategy.DFA);
               return applyFailedMatchResult();
             }
-            effectiveStart = le.expandBackward(text, innerMatch, searchFrom);
+            effectiveStart = le.expandBackward(text, innerMatch, accelerationFrom);
             literalPrefixCandidateStart = policy.isExactMatchCandidate();
             startPositionPreselected = true;
           } else {
             int idx =
                 StringStartAccelerator.findNextCandidate(
-                    accelerator, text, searchFrom, prog.lineStartUnixLines());
+                    accelerator, text, accelerationFrom, prog.lineStartUnixLines());
             if (idx < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -3010,7 +3020,7 @@ public final class Matcher implements MatchResult {
         }
         hasEndAnchoredCandidate = endAnchoredStart >= 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (!hasEndAnchoredCandidate && rejectPrefilter != null && text != null) {
         InputScanner scanner = activeScanner();
         EnginePathOptions options = enginePathOptions();
@@ -3386,6 +3396,10 @@ public final class Matcher implements MatchResult {
 
     while (pos <= textLen) {
       if (parentPattern.prog().anchorStart() && pos > 0) {
+        break;
+      }
+      pos = parentPattern.innerLiteralSearchStart(scanner, pos);
+      if (pos < 0) {
         break;
       }
       if (hasStartAcceleration && pos < textLen && text != null) {
@@ -4670,7 +4684,7 @@ public final class Matcher implements MatchResult {
       if (endAnchoredStart == -1) {
         return 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
         if (rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())) {
           return 0;
@@ -4812,30 +4826,35 @@ public final class Matcher implements MatchResult {
       return packPositions(idx, idx + Character.charCount(cp));
     }
 
-    int effectiveStart = fromIndex;
+    int accelerationFrom = parentPattern.innerLiteralSearchStart(scanner, fromIndex);
+    if (accelerationFrom < 0) {
+      return -1L;
+    }
+    int effectiveStart = accelerationFrom;
     boolean startPositionPreselected = false;
     if (options.startAcceleration() && text != null && !prog.anchorStart()) {
       StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
-      if (accelerator != null && startAccelerationAllowed(fromIndex, accelerator.policy())) {
+      if (accelerator != null && startAccelerationAllowed(accelerationFrom, accelerator.policy())) {
         if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
             && le.canVerifyAtInner()
             && canUseForwardDfa()) {
-          int innerMatch = le.findInnerCandidate(text, fromIndex, prog.lineStartUnixLines());
+          int innerMatch = le.findInnerCandidate(text, accelerationFrom, prog.lineStartUnixLines());
           if (innerMatch < 0) {
             return -1L;
           }
-          chargeStartAcceleration(fromIndex, innerMatch, scanner.length(), accelerator.policy());
+          chargeStartAcceleration(
+              accelerationFrom, innerMatch, scanner.length(), accelerator.policy());
           Dfa.SearchResult fwdResult =
               forwardDfaSearch(dfa(false), scanner, innerMatch, false, false, true);
           if (fwdResult != null && !fwdResult.matched()) {
             return -1L;
           }
-          effectiveStart = le.expandBackward(text, innerMatch, fromIndex);
+          effectiveStart = le.expandBackward(text, innerMatch, accelerationFrom);
           startPositionPreselected = true;
         } else {
           int idx =
               StringStartAccelerator.findNextCandidate(
-                  accelerator, text, fromIndex, prog.lineStartUnixLines());
+                  accelerator, text, accelerationFrom, prog.lineStartUnixLines());
           if (idx < 0) {
             return -1L;
           }
