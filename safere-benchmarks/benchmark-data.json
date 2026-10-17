@@ -841,6 +841,38 @@
       "shared": true
     },
     {
+      "id": "leadingExpansion.spaces.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": " ",
+        "count": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingExpansion.longRun.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "leadingExpansion.spaces.{size}",
+        "suffix": "\uff3bx"
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -5065,6 +5097,46 @@
       "axes": {
         "size": [
           65536
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.longRun.{repetition}.{size}",
+      "operation": "find",
+      "patterns": [
+        " {repetition}[\\[\uff3b]x"
+      ],
+      "inputs": [
+        "leadingExpansion.longRun.{size}"
+      ],
+      "axes": {
+        "repetition": [
+          {
+            "id": "star",
+            "value": "*"
+          },
+          {
+            "id": "plus",
+            "value": "+"
+          }
+        ],
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
         ]
       },
       "requirements": []

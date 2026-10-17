@@ -576,17 +576,16 @@ sealed interface StringStartAccelerator {
     }
 
     int expandBackward(String text, int innerMatch, int fromIndex) {
-      return expandBackward(text, innerMatch, fromIndex, 0);
-    }
-
-    private int expandBackward(String text, int innerMatch, int fromIndex, int minimum) {
       int start = innerMatch;
       int count = 0;
       while (start > fromIndex) {
-        // Decode within the search range, just as forward execution does. An explicit cursor
-        // may expose a low surrogate whose high surrogate is before fromIndex.
-        int cp = start - fromIndex == 1 ? text.charAt(fromIndex) : text.codePointBefore(start);
+        int cp = text.codePointBefore(start);
         int cpStart = start - Character.charCount(cp);
+        if (cpStart < fromIndex) {
+          // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.
+          cp = text.charAt(fromIndex);
+          cpStart = fromIndex;
+        }
         if (!leadingClass.contains(cp)) {
           break;
         }
@@ -596,7 +595,7 @@ sealed interface StringStartAccelerator {
         count++;
         start = cpStart;
       }
-      return count >= minimum ? start : -1;
+      return start;
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
@@ -607,8 +606,26 @@ sealed interface StringStartAccelerator {
         if (innerMatch < 0) {
           return -1;
         }
-        int start = expandBackward(text, innerMatch, fromIndex, minRepetition);
-        if (start >= 0) {
+        int start = innerMatch;
+        int count = 0;
+        while (start > fromIndex) {
+          int cp = text.codePointBefore(start);
+          int cpStart = start - Character.charCount(cp);
+          if (cpStart < fromIndex) {
+            // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.
+            cp = text.charAt(fromIndex);
+            cpStart = fromIndex;
+          }
+          if (!leadingClass.contains(cp)) {
+            break;
+          }
+          if (count + 1 > maxRepetition) {
+            break;
+          }
+          count++;
+          start = cpStart;
+        }
+        if (count >= minRepetition) {
           return start;
         }
         searchPos = innerMatch + 1;
