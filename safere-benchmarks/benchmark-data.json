@@ -16254,9 +16254,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16287,9 +16291,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16320,9 +16328,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16347,6 +16359,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16388,6 +16401,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16435,9 +16449,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16468,9 +16486,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16501,9 +16523,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16534,9 +16560,13 @@
         {
           "engineIds": [
             "re2j-string",
-            "re2-ffm-string-conversion"
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
           ],
-          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+          "reason": "These engines do not support the \\X grapheme escape"
         }
       ],
       "resultConsumption": "integer",
@@ -16561,6 +16591,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16602,6 +16633,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16643,6 +16675,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16684,6 +16717,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16725,6 +16759,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16766,6 +16801,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
@@ -16825,6 +16861,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
@@ -16862,6 +16899,7 @@
         {
           "engineIds": [
             "safere-utf8",
+            "safere-utf8-vector",
             "jdk-string"
           ],
           "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
