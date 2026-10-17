@@ -9,6 +9,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.safere.Matcher;
 import org.safere.Pattern;
 
@@ -17,6 +18,8 @@ public final class RegionBoundsFuzzer {
 
   private record SafeReModelCase(
       String regex, String input, int start, int end, List<String> expectedFinds) {}
+
+  private record MixedGraphemeScalarPattern(String regex, int firstMatchEndOffset) {}
 
   private static final List<GraphemeRegion> GRAPHEME_REGIONS =
       List.of(
@@ -38,6 +41,71 @@ public final class RegionBoundsFuzzer {
   private static final List<String> SPLIT_REGIONAL_GRAPHEME_REGEXES =
       List.of("\\X", "\\b{g}", "\\X\\b{g}");
 
+  private static final List<String> REGION_LOCAL_SCALAR_ATOMS =
+      List.of(
+          ".",
+          ".*",
+          ".+",
+          "(.)",
+          "(.+)",
+          "([^a]+)",
+          "[^a]",
+          "[\\s\\S]",
+          "[\\s\\S]*",
+          "\\D",
+          "\\p{Cs}",
+          "\\P{Cs}",
+          "[^\\p{Cs}]");
+
+  private static final List<MixedGraphemeScalarPattern> MIXED_GRAPHEME_SCALAR_ATOMS =
+      List.of(
+          new MixedGraphemeScalarPattern("(?:\\X|.)", 2),
+          new MixedGraphemeScalarPattern("(?:.|\\X)", 1),
+          new MixedGraphemeScalarPattern("(?:\\X|[\\s\\S])", 2),
+          new MixedGraphemeScalarPattern("(?:\\b{g}|.)", 0));
+
+  private static final List<String> SCALAR_CONTEXTS = List.of("", "x", "\uD83D", "\uDC4D");
+
+  // Same bounded pattern grammar as RegionAssertionCompositionTest. Fuzzing extends its curated
+  // corpus by concatenating Unicode/context fragments and choosing arbitrary regions within them.
+  private static final List<String> ASSERTION_LEFT_ATOMS =
+      List.of(".", "(.)?", "(.)*", "(.)+?", "[\\s\\S]", "\\p{Cs}", "\\P{Cs}");
+  private static final List<String> ASSERTION_PREDICATES =
+      List.of(
+          "\\b",
+          "\\B",
+          "(?U:\\b)",
+          "(?U:\\B)",
+          "\\b{g}",
+          "^",
+          "$",
+          "\\A",
+          "\\z",
+          "\\Z",
+          "(?m:^)",
+          "(?m:$)",
+          "(?dm:$)",
+          "\\b{g}$",
+          "(?U:\\b)\\b{g}",
+          "\\b{g}\\b{g}");
+  private static final List<String> ASSERTION_RIGHT_ATOMS = List.of("", ".", "(.)?");
+  private static final List<String> ASSERTION_INPUT_FRAGMENTS =
+      List.of(
+          "a",
+          " ",
+          "\r",
+          "\u0085",
+          "\n",
+          "\uD83D\uDC4D",
+          "\uD801\uDC00",
+          "\uD83C\uDDE6",
+          "a\u0301",
+          "\uD83D\uDC69\u200D\uD83D\uDC69",
+          "\u1100\u1161",
+          "\u0915\u094D\u0937",
+          "\uD83D",
+          "\uDC4D");
+
   private static final List<GraphemeRegion> TRANSPARENT_GRAPHEME_CONTEXT_REGIONS =
       List.of(new GraphemeRegion("\uD83D\uDC4D\uD83C\uDFFB", 1, 3));
 
@@ -54,6 +122,8 @@ public final class RegionBoundsFuzzer {
           new SafeReModelCase("\\b{g}\\X\\b{g}", "ab", 0, 2, List.of("0-1", "1-2")),
           new SafeReModelCase(
               "\\X\\b{g}", "\uD83D\uDC69\u200D\uD83D\uDC69", 2, 5, List.of("2-3", "3-5")),
+          new SafeReModelCase(".\\b{g}.", "\uD83C\uDDE6".repeat(2), 1, 3, List.of()),
+          new SafeReModelCase("(?:.\\b{g}.)|(?:\\Xz)", "\uD83C\uDDE6".repeat(2), 1, 3, List.of()),
           new SafeReModelCase("\\X\\X", "\u0915\u094D\u0937", 0, 3, List.of("1-3")));
 
   @FuzzTest(maxDuration = "30s")
@@ -61,9 +131,20 @@ public final class RegionBoundsFuzzer {
     fuzzerTestOneInput(data);
   }
 
+  @FuzzTest(maxDuration = "30s")
+  void assertionComposition(FuzzedDataProvider data) {
+    compareGeneratedAssertionComposition(data);
+  }
+
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
     compareLineAnchorPaths(data);
+
+    compareRegionLocalScalarModel(data);
+    compareSplitSurrogateBoundaryModel(data);
+    compareMixedGraphemeScalarModel(data);
+    compareMixedAssertionModel(data);
+    compareGeneratedAssertionComposition(data);
 
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
@@ -161,6 +242,253 @@ public final class RegionBoundsFuzzer {
       captures.add(matcher.start(group) + "-" + matcher.end(group) + ":" + matcher.group(group));
     }
     return captures;
+  }
+
+  private static void compareRegionLocalScalarModel(FuzzedDataProvider data) {
+    String regex =
+        REGION_LOCAL_SCALAR_ATOMS.get(data.consumeInt(0, REGION_LOCAL_SCALAR_ATOMS.size() - 1));
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String exposedSurrogate = data.consumeBoolean() ? "\uD83D" : "\uDC4D";
+    String input = prefix + exposedSurrogate + suffix;
+    int start = prefix.length();
+    int end = start + 1;
+    boolean expected = !regex.equals("\\P{Cs}") && !regex.equals("[^\\p{Cs}]");
+    Matcher matcher =
+        Pattern.compile(regex)
+            .matcher(input)
+            .region(start, end)
+            .useTransparentBounds(data.consumeBoolean());
+    if (matcher.matches() != expected) {
+      throw new AssertionError("Region-local scalar matches mismatch: " + regex);
+    }
+    matcher.reset(input).region(start, end);
+    if (matcher.find() != expected) {
+      throw new AssertionError("Region-local scalar find mismatch: " + regex);
+    }
+    if (expected && (matcher.start() != start || matcher.end() != end)) {
+      throw new AssertionError("Region-local scalar match crossed the region: " + regex);
+    }
+    if (expected) {
+      for (int group = 1; group <= matcher.groupCount(); group++) {
+        if (matcher.start(group) != start
+            || matcher.end(group) != end
+            || !exposedSurrogate.equals(matcher.group(group))) {
+          throw new AssertionError("Region-local scalar capture mismatch: " + regex);
+        }
+      }
+    }
+  }
+
+  private static void compareSplitSurrogateBoundaryModel(FuzzedDataProvider data) {
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String input = prefix + "\uD801\uDC00" + suffix;
+    int start = prefix.length();
+    String regex = data.consumeBoolean() ? "(?U)\\b." : "(?U)\\B.";
+    boolean expected = regex.equals("(?U)\\B.");
+    if (Pattern.compile(regex).matcher(input).region(start, start + 1).matches() != expected) {
+      throw new AssertionError("Region-local Unicode word boundary mismatch: " + regex);
+    }
+  }
+
+  private static void compareMixedGraphemeScalarModel(FuzzedDataProvider data) {
+    MixedGraphemeScalarPattern pattern =
+        MIXED_GRAPHEME_SCALAR_ATOMS.get(data.consumeInt(0, MIXED_GRAPHEME_SCALAR_ATOMS.size() - 1));
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String input = prefix + "\uD83D\uDC4D" + suffix;
+    int start = prefix.length();
+    Pattern compiled = Pattern.compile(pattern.regex());
+    if (!compiled.matcher(input).region(start, start + 1).matches()) {
+      throw new AssertionError(
+          "Mixed grapheme/scalar full match crossed region: " + pattern.regex());
+    }
+    for (boolean find : new boolean[] {false, true}) {
+      Matcher matcher = compiled.matcher(input).region(start, start + 1);
+      if (!(find ? matcher.find() : matcher.lookingAt())
+          || matcher.start() != start
+          || matcher.end() != start + pattern.firstMatchEndOffset()) {
+        throw new AssertionError("Mixed grapheme/scalar priority mismatch: " + pattern.regex());
+      }
+    }
+  }
+
+  private static void compareMixedAssertionModel(FuzzedDataProvider data) {
+    String prefix = (data.consumeBoolean() ? "a" : " ").repeat(data.consumeInt(0, 8));
+    String boundary = data.consumeBoolean() ? "(?U:\\b)" : "(?U:\\B)";
+    String scalar =
+        data.consumeBoolean()
+            ? boundary + "."
+            : (data.consumeBoolean() ? "(.)\\b{g}" : "\\b{g}(.)\\b{g}");
+    boolean interior = data.consumeBoolean();
+    String regex = interior ? "(.)\\b{g}(.)" : Pattern.quote(prefix) + scalar;
+    Pattern ordinary = Pattern.compile(regex);
+    // No z occurs inside this region, so adding this alternative cannot create a match.
+    Pattern mixed =
+        Pattern.compile(
+            data.consumeBoolean() ? "(?:" + regex + ")|(?:\\Xz)" : "(?:\\Xz)|(?:" + regex + ")");
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String pair =
+        List.of("\uD801\uDC00", "\uD83D\uDC4D", "\uD83C\uDDE6").get(data.consumeInt(0, 2));
+    String input = prefix + pair.repeat(interior ? 2 : 1) + suffix;
+    int start = interior ? prefix.length() + 1 : 0;
+    int end = prefix.length() + (interior ? 3 : 1);
+    for (boolean transparent : new boolean[] {false, true}) {
+      for (int operation = 0; operation < 3; operation++) {
+        Matcher expected =
+            ordinary.matcher(input).region(start, end).useTransparentBounds(transparent);
+        Matcher actual = mixed.matcher(input).region(start, end).useTransparentBounds(transparent);
+        boolean expectedMatch =
+            switch (operation) {
+              case 0 -> expected.matches();
+              case 1 -> expected.lookingAt();
+              default -> expected.find();
+            };
+        boolean actualMatch =
+            switch (operation) {
+              case 0 -> actual.matches();
+              case 1 -> actual.lookingAt();
+              default -> actual.find();
+            };
+        if (actualMatch != expectedMatch
+            || (actualMatch
+                && (actual.start() != expected.start() || actual.end() != expected.end()))) {
+          throw new AssertionError("Unreachable grapheme branch changed assertion: " + regex);
+        }
+        if (actualMatch) {
+          for (int group = 1; group <= actual.groupCount(); group++) {
+            if (actual.start(group) != expected.start(group)
+                || actual.end(group) != expected.end(group)) {
+              throw new AssertionError("Unreachable grapheme branch changed capture: " + regex);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private static void compareGeneratedAssertionComposition(FuzzedDataProvider data) {
+    String left = ASSERTION_LEFT_ATOMS.get(data.consumeInt(0, ASSERTION_LEFT_ATOMS.size() - 1));
+    String assertion =
+        ASSERTION_PREDICATES.get(data.consumeInt(0, ASSERTION_PREDICATES.size() - 1));
+    String right = ASSERTION_RIGHT_ATOMS.get(data.consumeInt(0, ASSERTION_RIGHT_ATOMS.size() - 1));
+    String regex = left + assertion + right;
+    StringBuilder inputBuilder = new StringBuilder();
+    int fragments = data.consumeInt(0, 8);
+    for (int i = 0; i < fragments; i++) {
+      inputBuilder.append(
+          ASSERTION_INPUT_FRAGMENTS.get(data.consumeInt(0, ASSERTION_INPUT_FRAGMENTS.size() - 1)));
+    }
+    String input = inputBuilder.toString();
+    int start = data.consumeInt(0, input.length());
+    int end = data.consumeInt(start, input.length());
+    // CRLF-sliced compositions with grapheme assertions are a separate pre-existing bug (#1038).
+    // As in the matrix, restrict the input domain without waiving individual patterns.
+    if (input.contains("\r\n")) {
+      start = 0;
+      end = input.length();
+    }
+    boolean transparent = data.consumeBoolean();
+    boolean anchoring = data.consumeBoolean();
+    Pattern ordinary = Pattern.compile(regex);
+    Pattern appended = Pattern.compile("(?:" + regex + ")|(?:\\Xz)");
+    Pattern prepended = Pattern.compile("(?:\\Xz)|(?:" + regex + ")");
+    String context =
+        regex
+            + " input="
+            + input.codePoints().mapToObj(Integer::toHexString).toList()
+            + " region="
+            + start
+            + ":"
+            + end
+            + " transparent="
+            + transparent
+            + " anchoring="
+            + anchoring;
+    for (boolean full : new boolean[] {false, true}) {
+      Matcher expected = assertionMatcher(ordinary, input, start, end, transparent, anchoring);
+      boolean matched = full ? expected.matches() : expected.lookingAt();
+      for (Pattern mixed : List.of(appended, prepended)) {
+        Matcher actual = assertionMatcher(mixed, input, start, end, transparent, anchoring);
+        boolean actualMatch = full ? actual.matches() : actual.lookingAt();
+        if (matched != actualMatch) {
+          throw new AssertionError(
+              "Unreachable branch changed anchored assertion: "
+                  + context
+                  + " full="
+                  + full
+                  + " mixed="
+                  + mixed);
+        }
+        if (matched) {
+          if (actual.groupCount() != expected.groupCount()) {
+            throw new AssertionError("Unreachable branch changed group count: " + context);
+          }
+          for (int group = 0; group <= expected.groupCount(); group++) {
+            if (expected.start(group) != actual.start(group)
+                || expected.end(group) != actual.end(group)
+                || !Objects.equals(expected.group(group), actual.group(group))) {
+              throw new AssertionError(
+                  "Unreachable branch changed assertion capture: "
+                      + context
+                      + " full="
+                      + full
+                      + " mixed="
+                      + mixed
+                      + " group="
+                      + group);
+            }
+          }
+        }
+      }
+    }
+    // Supplementary find() candidate policies are checked separately by explicit model cases.
+    if (input.codePoints().allMatch(Character::isBmpCodePoint)) {
+      List<String> expected =
+          assertionFindTrace(
+              assertionMatcher(ordinary, input, start, end, transparent, anchoring),
+              input.length());
+      for (Pattern mixed : List.of(appended, prepended)) {
+        List<String> actual =
+            assertionFindTrace(
+                assertionMatcher(mixed, input, start, end, transparent, anchoring), input.length());
+        if (!actual.equals(expected)) {
+          throw new AssertionError(
+              "Unreachable branch changed assertion find sequence: "
+                  + context
+                  + " mixed="
+                  + mixed
+                  + " expected="
+                  + expected
+                  + " actual="
+                  + actual);
+        }
+      }
+    }
+  }
+
+  private static Matcher assertionMatcher(
+      Pattern pattern, String input, int start, int end, boolean transparent, boolean anchoring) {
+    return pattern
+        .matcher(input)
+        .region(start, end)
+        .useTransparentBounds(transparent)
+        .useAnchoringBounds(anchoring);
+  }
+
+  private static List<String> assertionFindTrace(Matcher matcher, int inputLength) {
+    List<String> trace = new ArrayList<>();
+    for (int step = 0; step <= inputLength + 1; step++) {
+      if (!matcher.find()) {
+        trace.add("false");
+        return trace;
+      }
+      for (int group = 0; group <= matcher.groupCount(); group++) {
+        trace.add(matcher.start(group) + ":" + matcher.end(group));
+      }
+    }
+    throw new AssertionError("Assertion find sequence did not exhaust: " + matcher.pattern());
   }
 
   private static void compareGraphemeRegions() {

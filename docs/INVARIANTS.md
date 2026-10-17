@@ -140,10 +140,19 @@ private JDK implementation structure.
 ## Unicode and boundary context
 
 Character consumption, boundary visibility, and anchoring bounds are distinct.
+Ordinary String atoms decode within the matcher region: a complete surrogate
+pair is one code point, while a half exposed at either region edge is unpaired.
+Transparent bounds extend assertion context, not ordinary consumption. A
+consuming `\X` can complete a surrogate pair across the region end; following
+opaque assertions use that completed edge, but `matches()` still requires the
+logical region end. An unreachable `\X` alternative must not change an ordinary
+branch's anchored result or captures.
+
 Unicode matching uses code points while public coordinates follow the input
-representation. Cache grapheme context with bounded work instead of scanning
-backward through arbitrary prefixes for each query. The detailed String
-contract is in [graphemes and regions](GRAPHEME_REGIONS.md).
+representation. Grapheme assertions may classify a complete code point in their
+visible context even when ordinary consumption stops inside it. Cache grapheme
+context with bounded work instead of scanning backward through arbitrary
+prefixes for each query. The detailed String contract is in [graphemes and regions](GRAPHEME_REGIONS.md).
 
 ## Verification
 

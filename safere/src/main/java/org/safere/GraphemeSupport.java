@@ -675,21 +675,9 @@ final class GraphemeSupport {
     if (hasGraphemeExtendAt(text, pos)) {
       return true;
     }
-    return isRegionalIndicator(regionLocalCodePointAt(text, pos, boundaryEndPos));
-  }
-
-  private static int regionLocalCodePointAt(String text, int pos, int endPos) {
-    if (pos < 0 || pos >= endPos || pos >= text.length()) {
-      return -1;
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < endPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    return ch;
+    // Region edges are handled before this interior assertion. Classify the next scalar in
+    // the grapheme context, as for Extend above, independently of which atoms may consume it.
+    return isRegionalIndicator(text.codePointAt(pos));
   }
 
   private static boolean isLowSurrogateBeforeZwjBoundary(
