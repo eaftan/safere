@@ -689,6 +689,10 @@ public final class Pattern implements Serializable {
 
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
+    if (matchDescriptor.minMatchLength() > 0 && length < matchDescriptor.minMatchLength()) {
+      diagnostics.boundary(MatchStrategy.LENGTH);
+      return false;
+    }
     if (literalMatchUtf8 != null && !literalFoldCase()) {
       boolean matched = findLiteralMatch(scanner);
       diagnostics.boundary(MatchStrategy.LITERAL);

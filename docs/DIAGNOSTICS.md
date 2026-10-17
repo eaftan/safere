@@ -222,6 +222,7 @@ event.strategyDecisions()
 
 Typical examples include:
 
+- `LENGTH` rejecting input shorter than the pattern's minimum match length before any engine runs;
 - a literal or character-class strategy performing start acceleration before DFA candidate
   verification;
 - a DFA authoritatively rejecting a non-match before an exact engine is needed;
@@ -239,6 +240,11 @@ engine implementation detail. Reverse DFA work is not a separate public strategy
 and reverse DFA search counts expose how many searches an operation attempted. Cache layout and
 transition-level work remain internal. The literal-alternation runner reports
 `LITERAL_ALTERNATION`; the single-literal runner reports `LITERAL`.
+
+Minimum-length rejection remains enabled during diagnostics for String and UTF-8 matchers and
+matcher-free `Pattern.find(Utf8Input)`. An operation rejected solely by this check reports `LENGTH`
+as the boundary strategy, no capture strategy, and zero DFA searches. It does not attribute work to
+an engine that never ran.
 
 ### Golden strategy tests
 

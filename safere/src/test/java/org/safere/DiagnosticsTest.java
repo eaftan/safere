@@ -258,8 +258,9 @@ class DiagnosticsTest {
     Pattern.setDiagnostics(diagnostics);
 
     for (MatchOperation operation : List.of(MatchOperation.FIND, MatchOperation.MATCHES)) {
-      assertCompositeRejection(operation, "needle", MatchStrategy.CHARACTER_CLASS);
-      assertCompositeRejection(operation, "x", MatchStrategy.LITERAL);
+      // Reach the composite prefilter rather than the earlier minimum-length rejection.
+      assertCompositeRejection(operation, "needle ", MatchStrategy.CHARACTER_CLASS);
+      assertCompositeRejection(operation, "xxxxxxx", MatchStrategy.LITERAL);
     }
   }
 
