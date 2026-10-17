@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * searches that leave the cached ASCII loop part way through: on a non-ASCII character, an
  * uncomputed or dead transition, a state with an accelerator, or a cache reset.
  */
+@DisabledForCrosscheck("compares SafeRE engine paths through package-private internals")
 class DfaAnchoredForwardTest {
   private static final List<String> INPUTS =
       List.of(
