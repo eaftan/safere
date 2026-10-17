@@ -69,6 +69,9 @@ build directory. Subsequent runs can use the default disconnected setting.
 
 ### Key Rules
 
+- **Rebar is a holdout set.** Run it for reporting, without tuning SafeRE against
+  its workloads. Keep Rebar workloads and inputs out of SafeRE's own benchmark
+  suite so routine optimization uses an independent development corpus.
 - **Use standard mode for routine evidence and `BENCHMARKS.md` updates.**
   Use `--long` for close, surprising, or especially important comparisons.
   Read the runner for current fork, warmup, and measurement settings; do not

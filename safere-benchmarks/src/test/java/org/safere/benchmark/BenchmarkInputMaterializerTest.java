@@ -35,8 +35,7 @@ class BenchmarkInputMaterializerTest {
   @TempDir Path tempDirectory;
 
   @Test
-  void declaredBenchmarkCorpusMaterializesDeterministically()
-      throws IOException, NoSuchAlgorithmException {
+  void declaredBenchmarkCorpusMaterializesDeterministically() throws IOException {
     JsonObject benchmarkData =
         JsonParser.parseString(Files.readString(Path.of("benchmark-data.json"))).getAsJsonObject();
 
@@ -56,10 +55,6 @@ class BenchmarkInputMaterializerTest {
         .hasSize(1050)
         .endsWith("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     assertThat(text(first, "fanout.unicode.1024")).hasSize(1024);
-    byte[] rustSource = first.get("rebar.boundedRepeatContext.rustSource");
-    assertThat(rustSource).hasSize(7_384_531);
-    assertThat(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(rustSource)))
-        .isEqualTo("7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36");
   }
 
   @Test
