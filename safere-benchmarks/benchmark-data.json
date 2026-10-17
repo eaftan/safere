@@ -4006,6 +4006,107 @@
         "input": "endAnchoredReplace.noLiteral.16384",
         "suffix": " foo"
       }
+    },
+    {
+      "id": "graphemePriority.ascii.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "surrogateRegion.splitEnd.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud83d\udc4d",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.combining.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "a\u0301",
+        "count": "{count}"
+      }
+    },
+    {
+      "id": "regionDecoding.emoji.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "\ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66",
+        "count": "{count}"
+      }
+    },
+    {
+      "id": "regionDecoding.unicodePrefix.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud83d\udc4da\ud83d\udc4d",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.nfaAscii.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.nfaUtf16.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud801\udc00",
+        "length": "{size}"
+      }
     }
   ],
   "workloads": [
@@ -16133,6 +16234,639 @@
           "prematerializedInput"
         ]
       }
+    },
+    {
+      "id": "GraphemePriorityBenchmark.graphemeFindAll.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "GraphemePriorityBenchmark.graphemeFirst.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:\\X|.)"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "GraphemePriorityBenchmark.scalarFirst.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SurrogateRegionBenchmark.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "SurrogateRegionBenchmark.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.combining.grapheme.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "regionDecoding.combining.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.combining.scalarFirst.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "regionDecoding.combining.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.emoji.grapheme.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "regionDecoding.emoji.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.emoji.scalarFirst.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "regionDecoding.emoji.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion"
+          ],
+          "reason": "RE2 variants do not support Java's \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.scalarFirst.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:.|\\X)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.graphemeFirst.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:\\X|.)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.scalarFirst.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:.|\\X)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.graphemeFirst.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:\\X|.)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodePrefix.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "regionDecoding.unicodePrefix.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodePrefix.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "regionDecoding.unicodePrefix.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.ordinaryNfaAscii.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "(a?)*"
+      ],
+      "inputs": [
+        "regionDecoding.nfaAscii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
+        }
+      ]
+    },
+    {
+      "id": "RegionDecodingBenchmark.ordinaryNfaUtf16.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "(\\p{L}?)*"
+      ],
+      "inputs": [
+        "regionDecoding.nfaUtf16.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "jdk-string"
+          ],
+          "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
+        }
+      ]
     }
   ]
 }

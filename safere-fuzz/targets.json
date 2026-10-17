@@ -104,7 +104,8 @@
     "oss_fuzz": false,
     "seeds": "src/test/resources/org/safere/fuzz/RegionBoundsFuzzerInputs",
     "methods": [
-      "regionBounds"
+      "regionBounds",
+      "assertionComposition"
     ]
   },
   {

@@ -683,8 +683,8 @@ public final class RegionZeroWidthDivergenceSweep {
     BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION(
         DivergenceStatus.KNOWN_INTENTIONAL,
         "Observed JDK traces distinguish . from [\\s\\S] after \\B at a transparent split-surrogate"
-            + " boundary. SafeRE keeps [\\s\\S] compositional with ordinary scalar-consuming"
-            + " atoms."),
+            + " boundary. SafeRE decodes both consuming atoms within the region while \\B"
+            + " retains its transparent-bound context."),
     NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION(
         DivergenceStatus.KNOWN_INTENTIONAL,
         "Observed JDK traces expose a \\B match at the interior UTF-16 position of a"
