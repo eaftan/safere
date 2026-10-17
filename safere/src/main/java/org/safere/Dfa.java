@@ -1922,9 +1922,15 @@ final class Dfa {
       if (ch < 0) {
         break;
       }
-      int nsId = transitions[sId + asciiClassMap[ch]];
+      int cls = asciiClassMap[ch];
+      int nsId = transitions[sId + cls];
       if (nsId == 0) {
-        // Not computed yet, or the dead state (also stored as 0): the general loop decides.
+        // The flat array stores both the dead state and an uncomputed transition as 0. Most
+        // anchored searches end in the dead state, so finish here; let the general loop compute
+        // a missing transition.
+        if (offsetToState[sId].next[cls] == deadState) {
+          return completeForwardSearch(new SearchResult(matched, matchEnd), pos, startBackoff);
+        }
         break;
       }
       if (nsId < 0) {
