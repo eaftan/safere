@@ -61,6 +61,15 @@ conflicting instructions instead of appending another exception.
   large inputs must not cause `StackOverflowError`.
 - **Unicode:** operate on code points, using `Character.codePointAt()` and
   related APIs rather than treating UTF-16 code units as characters.
+  Prefer the project's pinned ICU4J version for Unicode property data and rule
+  implementations, including in generators, tests, and fuzz oracles. Use ICU4J's
+  supported public property and segmentation APIs. When rules or tables must be
+  embedded in SafeRE, prefer extracting or generating them from ICU4J over
+  downloading UCD files or writing Unicode rules by hand. Keep Unicode versions
+  consistent and preserve the library's lack of an ICU4J runtime dependency.
+  If ICU4J cannot meet a requirement, document the limitation and justify any
+  handwritten rules or separate data source. See the
+  [Unicode generator guide](safere-unicode/README.md).
 - **JDK internals:** prefer supported public Java APIs and authoritative data
   sources over JDK implementation details in library code, tests, generators,
   and build tools. Avoid private JDK classes and members, reflective access to

@@ -71,7 +71,7 @@ final class FuzzSupport {
     if (safeReException != null && jdkException != null) {
       return null;
     }
-    if (safeReException != null && isIntentionallyUnsupported(regex, safeReException)) {
+    if (safeReException != null && isOverCompilerBudget(safeReException)) {
       return null;
     }
 
@@ -870,56 +870,8 @@ final class FuzzSupport {
     return result.toString();
   }
 
-  private static boolean isIntentionallyUnsupported(
-      String regex, PatternSyntaxException safeReException) {
-    return hasLookaround(regex)
-        || hasBackreference(regex)
-        || hasPossessiveQuantifier(regex)
-        || hasAtomicGroup(regex)
-        || hasPreviousMatchAnchor(regex, safeReException)
-        || isOverCompilerBudget(safeReException);
-  }
-
   private static boolean isOverCompilerBudget(PatternSyntaxException safeReException) {
     return Objects.equals(safeReException.getDescription(), "compiled program too large");
-  }
-
-  private static boolean hasLookaround(String regex) {
-    return regex.contains("(?=")
-        || regex.contains("(?!")
-        || regex.contains("(?<=")
-        || regex.contains("(?<!");
-  }
-
-  private static boolean hasBackreference(String regex) {
-    return regex.matches("(?s).*\\\\[1-9].*")
-        || regex.contains("\\k<")
-        || regex.contains("\\g{")
-        || regex.contains("\\g");
-  }
-
-  private static boolean hasPossessiveQuantifier(String regex) {
-    for (int i = 1; i < regex.length(); i++) {
-      if (regex.charAt(i) == '+' && isPossessiveQuantifierPrefix(regex.charAt(i - 1))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean isPossessiveQuantifierPrefix(char c) {
-    return c == '?' || c == '*' || c == '+' || c == '}';
-  }
-
-  private static boolean hasAtomicGroup(String regex) {
-    return regex.contains("(?>");
-  }
-
-  private static boolean hasPreviousMatchAnchor(
-      String regex, PatternSyntaxException safeReException) {
-    return regex.contains("\\G")
-        || Objects.equals(
-            safeReException.getDescription(), "\\G (end of previous match) is not supported");
   }
 
   static int consumeIndex(FuzzedDataProvider data, String input) {

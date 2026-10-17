@@ -37,8 +37,12 @@ The existing targets below remain available for exploratory differential work:
 - `RegionBoundsFuzzer` fuzzes regions and anchoring/transparent bounds.
 - `DeferredRegionCaptureFuzzer` forces deferred NFA captures across region bounds and matcher reuse.
 - `UnicodeFuzzer` biases input strings toward Unicode boundary cases.
-- `EmojiZwjGraphemeFuzzer` checks a small grapheme-property alphabet against an independent
-  UAX #29 reference, including GB11 interruptions and Prepend prefixes.
+- `EmojiZwjGraphemeFuzzer` compares segmentation directly with ICU4J's root-locale character
+  break iterator over representatives of every Unicode grapheme-property combination.
+  It checks short sequences exhaustively and generates longer sequences, covering Hangul,
+  Indic conjuncts, emoji ZWJ sequences, and scalar/boundary composition in String and UTF-8 APIs.
+  `GraphemeConformanceTest` checks property tables, the official conformance fixture, and regions.
+  See [graphemes and regions](../docs/GRAPHEME_REGIONS.md#verification) for the context model and limits.
 - `Utf8InputFuzzer` mixes focused JDK comparisons, representation checks, and byte-window robustness.
 
 ## Regression Mode

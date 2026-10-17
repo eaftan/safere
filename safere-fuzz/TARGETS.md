@@ -83,16 +83,21 @@ reuse the same assertions without invoking the broad differential paths.
 | `Utf8InputFuzzer` | Focused JDK comparisons, representation properties, arbitrary byte windows | Mixed, conservatively broad; property and robustness checks separately enrolled |
 
 Capture and replacement-output waivers have been removed. Parser-marked
-intentional class-syntax rejection is also reported as a finding. Existing
-unsupported-feature and compiler-budget compile exclusions remain confined to
-exploratory `FuzzSupport`; its text-based unsupported-feature recognition is
-conservative and can overexclude. The whole-input grapheme waiver is also removed. The #931/#933 exhausted-state
+intentional class-syntax rejection and unsupported-feature rejection are also
+reported as findings. No pattern-text recognizer suppresses unsupported syntax.
+Compiler-budget compile exclusions remain confined to exploratory `FuzzSupport`.
+The whole-input grapheme waiver is also removed. The #931/#933 exhausted-state
 oracle exception remains with an observed-state predicate and a change-detecting
-canary; it never exempts replacement output. Neither unsupported-feature handling
+canary; it never exempts replacement output. Neither compiler-budget handling
 nor the exhaustive helper's
 capture/compile skips is used by `StrictDifferential`.
 
 ## Intentional reproductions
+
+`SplitFuzzer` checks its fixed CRLF/interior-boundary matrix against Unicode
+GB3, separately from arbitrary differential inputs. `ExploratoryGraphemeTest`
+confirms that the broad split comparator still reports the intentional JDK
+interior-boundary difference; no mismatch is suppressed.
 
 `ExploratoryCaptureTest` pins SafeRE's failed-path capture model and separately
 asserts that differential comparison still reports the mismatch. It includes
@@ -108,6 +113,10 @@ these remain generated exploratory findings but are not unconditional agreement
 probes run for every input. Compatible spellings remain fixed differential probes.
 `IntentionalReproductionTest` replays it independently and requires review when
 outcomes change. These are not passing fuzz seeds and never suppress other inputs.
+`FuzzSupportTest` pins rejection and visible findings for unsupported syntax,
+including comments-separated possessive modifiers and the numeric backreference
+spellings formerly run as fixed agreement probes. Quoted and literal-mode controls
+still compile and compare normally.
 
 ## Graduation and retained coverage
 

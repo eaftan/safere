@@ -54,6 +54,7 @@
     <junit.version>6.1.3</junit.version>
     <jacoco.version>0.8.15</jacoco.version>
     <jazzer.version>0.30.0</jazzer.version>
+    <icu4j.version>78.3</icu4j.version>
     <gson.version>2.14.0</gson.version>
     <jmh.version>1.37</jmh.version>
     <error-prone.version>2.50.0</error-prone.version>
@@ -66,7 +67,7 @@
     <error-prone.extra-checks></error-prone.extra-checks>
     <google-java-format.version>1.35.0</google-java-format.version>
     <pmd.version>7.28.0</pmd.version>
-    <spotless.version>3.10.3</spotless.version>
+    <spotless.version>3.10.4</spotless.version>
   </properties>
 
   <build>

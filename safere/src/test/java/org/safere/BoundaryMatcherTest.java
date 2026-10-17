@@ -257,6 +257,13 @@ class BoundaryMatcherTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
+    private static void assertNoMatchInRegion(String regex, String input, int start, int end) {
+      Matcher matcher = Pattern.compile(regex).matcher(input).region(start, end);
+      assertThat(matcher.matches()).as("matches() for /%s/ on %s", regex, input).isFalse();
+      assertThat(matcher.lookingAt()).as("lookingAt() for /%s/ on %s", regex, input).isFalse();
+      assertThat(matcher.find()).as("find() for /%s/ on %s", regex, input).isFalse();
+    }
+
     private static void assertSafeReFindBounds(
         String regex, String input, int start, int end, List<String> expected) {
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -410,16 +417,22 @@ class BoundaryMatcherTest {
       assertTraceSameAsJdk("(\\b{g})", "e\u0301", 1, 2);
       assertTraceSameAsJdk("\\b{g}\\X", "e\u0301", 1, 2);
       assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "e\u0301", 1, 2);
-      assertTraceSameAsJdk("a\\b{g}\\u0300", "#a\u0300$", 1, 3);
-      assertTraceSameAsJdk("(?:a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
-      assertTraceSameAsJdk("(a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
-      assertTraceSameAsJdk("a(?:\\b{g})\\u0300", "#a\u0300$", 1, 3);
-      assertTraceSameAsJdk("\\u0061\\b{g}\\u0300", "#a\u0300$", 1, 3);
-      assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n$", 1, 3);
-      assertTraceSameAsJdk("(?:\\r)\\b{g}\\n", "#\r\n$", 1, 3);
-      assertTraceSameAsJdk("(\\r)\\b{g}\\n", "#\r\n$", 1, 3);
-      assertTraceSameAsJdk("\\r(?:\\b{g})\\n", "#\r\n$", 1, 3);
-      assertTraceSameAsJdk("\\u000D\\b{g}\\u000A", "#\r\n$", 1, 3);
+    }
+
+    @Test
+    @DisabledForCrosscheck("GB3 and GB9 forbid internal boundaries even after consuming a prefix")
+    @DisplayName("opaque regions do not invent boundaries inside base-mark or CRLF clusters")
+    void doesNotInventInternalClusterBoundariesInOpaqueRegions() {
+      assertNoMatchInRegion("a\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertNoMatchInRegion("(?:a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertNoMatchInRegion("(a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertNoMatchInRegion("a(?:\\b{g})\\u0300", "#a\u0300$", 1, 3);
+      assertNoMatchInRegion("\\u0061\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertNoMatchInRegion("\\r\\b{g}\\n", "#\r\n$", 1, 3);
+      assertNoMatchInRegion("(?:\\r)\\b{g}\\n", "#\r\n$", 1, 3);
+      assertNoMatchInRegion("(\\r)\\b{g}\\n", "#\r\n$", 1, 3);
+      assertNoMatchInRegion("\\r(?:\\b{g})\\n", "#\r\n$", 1, 3);
+      assertNoMatchInRegion("\\u000D\\b{g}\\u000A", "#\r\n$", 1, 3);
     }
 
     @Test

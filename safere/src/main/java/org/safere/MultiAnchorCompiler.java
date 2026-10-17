@@ -13,7 +13,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.TreeSet;
 import org.safere.MultiAnchorDescriptor.RejectPlan;
 import org.safere.MultiAnchorDescriptor.StartPlan;
 
@@ -44,6 +43,7 @@ final class MultiAnchorCompiler {
 
     final int minWidth;
     final int maxWidth;
+    // Sorted and duplicate-free when present.
     final int[] discreteWidths;
 
     AsciiWidthRange(int minWidth, int maxWidth, int[] discreteWidths) {
@@ -116,6 +116,7 @@ final class MultiAnchorCompiler {
 
     static final NodeAnalysis EMPTY =
         new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY, null);
+    // Cached widths must remain conservative, just as in the standalone width walker.
     static final NodeAnalysis UNKNOWN =
         new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY, null);
   }
@@ -123,14 +124,20 @@ final class MultiAnchorCompiler {
   private MultiAnchorCompiler() {}
 
   static NodeAnalysis analyze(Regexp re) {
-    return analyze(re, 0);
+    return analyze(re, 0).root();
   }
 
-  private static NodeAnalysis analyze(Regexp re, int flags) {
+  // The walker owns these child results; they are used only during this compilation and are
+  // never modified after the root's postVisit. Captures retain the unwrapped root's children.
+  private record Analysis(NodeAnalysis root, List<NodeAnalysis> children) {}
+
+  private static Analysis analyze(Regexp re, int flags) {
     if (re == null) {
-      return NodeAnalysis.EMPTY;
+      return new Analysis(NodeAnalysis.EMPTY, List.of());
     }
-    return new MultiAnchorWalker(re, flags).walk(re, NodeAnalysis.EMPTY);
+    MultiAnchorWalker walker = new MultiAnchorWalker(re, flags);
+    NodeAnalysis root = walker.walk(re, NodeAnalysis.EMPTY);
+    return new Analysis(root, walker.rootChildren);
   }
 
   static MultiAnchorDescriptor compile(Regexp re, int flags) {
@@ -149,12 +156,12 @@ final class MultiAnchorCompiler {
             && !node.subs.isEmpty()
             && node.subs.get(0).op == RegexpOp.BEGIN_TEXT;
 
-    NodeAnalysis analysis = analyze(factored, flags);
-    MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(factored, true, analysis);
+    Analysis analysis = analyze(factored, flags);
+    MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(factored, true, analysis.root());
     MultiAnchorDescriptor.RejectPlan rejectPlan =
         extractRejectPlan(factored, startPlan, anchorStart, analysis);
 
-    PrefixResult anchoredPrefix = analysis.start().anchoredPrefix();
+    PrefixResult anchoredPrefix = analysis.root().start().anchoredPrefix();
     String anchoredLiteral = anchoredPrefix.foldCase() ? null : anchoredPrefix.prefix();
 
     return new MultiAnchorDescriptor(
@@ -162,7 +169,7 @@ final class MultiAnchorCompiler {
         startPlan,
         rejectPlan,
         anchoredLiteral,
-        analysis.start().anchoredCharClassPrefix());
+        analysis.root().start().anchoredCharClassPrefix());
   }
 
   static MultiAnchorDescriptor.StartPlan extractStartPlan(Regexp metadataAst) {
@@ -266,8 +273,8 @@ final class MultiAnchorCompiler {
   }
 
   private static RejectPlan extractRejectPlan(
-      Regexp metadataAst, StartPlan startPlan, boolean anchorStart, NodeAnalysis analysis) {
-    RejectFacets reject = analysis.reject();
+      Regexp metadataAst, StartPlan startPlan, boolean anchorStart, Analysis analysis) {
+    RejectFacets reject = analysis.root().reject();
 
     List<RejectPlan> plans = new ArrayList<>();
 
@@ -287,7 +294,7 @@ final class MultiAnchorCompiler {
     if (drivingLiteral != null) {
       excludeStartLiterals.add(drivingLiteral);
       if (hasFixedOffset(startPlan)) {
-        excludeStartLiterals.addAll(extractFixedPrefixLiterals(metadataAst));
+        excludeStartLiterals.addAll(extractFixedPrefixLiterals(metadataAst, analysis.children()));
       }
     }
     CharClassScanInfo ccPrefix = drivingCharClass(startPlan);
@@ -491,6 +498,9 @@ final class MultiAnchorCompiler {
 
     private final int flags;
     private final Regexp fullAnalysisRoot;
+    // These results align with unwrapCaptures(root).subs; fixed-offset extraction indexes them
+    // only when that unwrapped root is a CONCAT.
+    private List<NodeAnalysis> rootChildren = List.of();
 
     MultiAnchorWalker(Regexp root, int flags) {
       this.flags = flags;
@@ -506,7 +516,7 @@ final class MultiAnchorCompiler {
       NodeAnalysis analysis =
           switch (node.op) {
             case CAPTURE, NON_CAPTURE ->
-                childArgs.isEmpty() ? NodeAnalysis.EMPTY : childArgs.getFirst();
+                childArgs.isEmpty() ? NodeAnalysis.UNKNOWN : childArgs.getFirst();
             case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_TEXT, END_TEXT, END_LINE ->
                 NodeAnalysis.EMPTY;
             case BEGIN_LINE ->
@@ -535,7 +545,14 @@ final class MultiAnchorCompiler {
             default -> NodeAnalysis.UNKNOWN;
           };
       if (node == fullAnalysisRoot) {
-        analysis = withRootCharClassPrefix(node, analysis);
+        rootChildren = childArgs;
+        // Concat already extracts the complete prefix, and atomic nodes build their own scanner.
+        if (node.op != RegexpOp.CONCAT
+            && node.op != RegexpOp.LITERAL
+            && node.op != RegexpOp.LITERAL_STRING
+            && node.op != RegexpOp.CHAR_CLASS) {
+          analysis = withRootCharClassPrefix(node, analysis);
+        }
       }
       return new NodeAnalysis(
           analysis.width(),
@@ -627,10 +644,9 @@ final class MultiAnchorCompiler {
           foldCase
               ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
               : new PrefixResult(lit, false);
-      CharClassScanInfo ccPrefix =
-          CharClassScanInfo.fromCharClass(literalCharClass(node.rune, node.flags));
-      String reqLit = !foldCase ? lit : null;
       CharClass reqClass = literalCharClass(node.rune, node.flags);
+      CharClassScanInfo ccPrefix = CharClassScanInfo.fromCharClass(reqClass);
+      String reqLit = !foldCase ? lit : null;
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
@@ -652,15 +668,13 @@ final class MultiAnchorCompiler {
           foldCase
               ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
               : new PrefixResult(lit, false);
-      CharClassScanInfo ccPrefix =
-          (node.runes != null && node.runes.length > 0)
-              ? CharClassScanInfo.fromCharClass(literalCharClass(node.runes[0], node.flags))
-              : null;
       String reqLit = (!foldCase && node.runes != null && node.runes.length >= 1) ? lit : null;
       CharClass reqClass =
           (node.runes != null && node.runes.length > 0)
               ? literalCharClass(node.runes[0], node.flags)
               : null;
+      CharClassScanInfo ccPrefix =
+          reqClass != null ? CharClassScanInfo.fromCharClass(reqClass) : null;
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
@@ -698,11 +712,13 @@ final class MultiAnchorCompiler {
       if (children.isEmpty()) {
         return NodeAnalysis.EMPTY;
       }
-      List<AsciiWidthRange> widths = new ArrayList<>(children.size());
+      AsciiWidthRange width = AsciiWidthRange.ZERO;
       for (NodeAnalysis c : children) {
-        widths.add(c.width());
+        width = concatenateWidths(width, c.width());
+        if (!width.isValid()) {
+          break;
+        }
       }
-      AsciiWidthRange width = concatenateWidths(widths);
 
       if (!fullAnalysis) {
         return visitNestedConcat(node, children, width);
@@ -712,7 +728,7 @@ final class MultiAnchorCompiler {
       PrefixResult prefix = extractPrefix(node);
 
       // Fixed-offset literal
-      FixedOffsetLiteral fol = extractFixedOffsetLiteral(node);
+      FixedOffsetLiteral fol = extractFixedOffsetLiteral(node, children);
 
       // Best required literal across concat
       String exactLit = extractExactAsciiLiteral(node);
@@ -835,7 +851,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitAlternate(Regexp node, List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.EMPTY;
+        return NodeAnalysis.UNKNOWN;
       }
       List<AsciiWidthRange> widths = new ArrayList<>(children.size());
       for (NodeAnalysis c : children) {
@@ -890,10 +906,9 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitQuest(List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.EMPTY;
+        return NodeAnalysis.UNKNOWN;
       }
-      AsciiWidthRange width =
-          AsciiWidthRangeWalker.optionalWidth(List.of(children.getFirst().width()));
+      AsciiWidthRange width = AsciiWidthRangeWalker.optionalWidth(children.getFirst().width());
       return new NodeAnalysis(width, StartFacets.EMPTY, RejectFacets.EMPTY, null);
     }
 
@@ -903,7 +918,7 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitPlus(List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.EMPTY;
+        return NodeAnalysis.UNKNOWN;
       }
       NodeAnalysis child = children.getFirst();
       AsciiWidthRange width = AsciiWidthRange.INVALID;
@@ -929,10 +944,10 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitRepeat(Regexp node, List<NodeAnalysis> children) {
       if (children.isEmpty()) {
-        return NodeAnalysis.EMPTY;
+        return NodeAnalysis.UNKNOWN;
       }
       NodeAnalysis child = children.getFirst();
-      AsciiWidthRange width = AsciiWidthRangeWalker.repeatWidth(node, List.of(child.width()));
+      AsciiWidthRange width = AsciiWidthRangeWalker.repeatWidth(node, child.width());
       StartFacets start =
           node.min > 0
               ? new StartFacets(
@@ -962,13 +977,18 @@ final class MultiAnchorCompiler {
   // --- Helper methods for chain, gap, and anchor extraction ---
 
   static Regexp factorAlternations(Regexp re) {
+    // These are whole-tree properties. Factoring introduces only literals and structural nodes,
+    // so descendants and newly factored nodes cannot acquire captures or assertions.
+    if (re == null || hasFactoringBarrier(re)) {
+      return re;
+    }
     return factorAlternations(re, 0);
   }
 
   private static final int MAX_FACTOR_DEPTH = 16;
 
   private static Regexp factorAlternations(Regexp re, int depth) {
-    if (re == null || depth > MAX_FACTOR_DEPTH || hasCaptures(re) || hasZeroWidthAssertions(re)) {
+    if (re == null || depth > MAX_FACTOR_DEPTH) {
       return re;
     }
     if (re.subs != null && !re.subs.isEmpty()) {
@@ -1058,9 +1078,6 @@ final class MultiAnchorCompiler {
     if (re == null || re.op != RegexpOp.ALTERNATE || re.subs == null || re.subs.size() < 2) {
       return re;
     }
-    if (hasCaptures(re) || hasZeroWidthAssertions(re)) {
-      return re;
-    }
 
     // 1. Common literal prefix factoring
     List<int[]> leadingRunesList = new ArrayList<>(re.subs.size());
@@ -1136,7 +1153,7 @@ final class MultiAnchorCompiler {
     return null;
   }
 
-  private static boolean hasCaptures(Regexp re) {
+  private static boolean hasFactoringBarrier(Regexp re) {
     if (re == null) {
       return false;
     }
@@ -1147,25 +1164,6 @@ final class MultiAnchorCompiler {
       if (current.op == RegexpOp.CAPTURE || current.cap != 0) {
         return true;
       }
-      if (current.subs != null) {
-        for (Regexp sub : current.subs) {
-          if (sub != null) {
-            pending.addLast(sub);
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasZeroWidthAssertions(Regexp re) {
-    if (re == null) {
-      return false;
-    }
-    Deque<Regexp> pending = new ArrayDeque<>();
-    pending.addLast(re);
-    while (!pending.isEmpty()) {
-      Regexp current = pending.removeLast();
       switch (current.op) {
         case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> {
           return true;
@@ -1185,7 +1183,7 @@ final class MultiAnchorCompiler {
   }
 
   private static int[] extractLeadingRunes(Regexp sub) {
-    if (sub == null || hasCaptures(sub) || hasZeroWidthAssertions(sub)) {
+    if (sub == null) {
       return null;
     }
     if (sub.op == RegexpOp.LITERAL) {
@@ -1197,7 +1195,7 @@ final class MultiAnchorCompiler {
     if (sub.op == RegexpOp.CONCAT && sub.subs != null && !sub.subs.isEmpty()) {
       List<Integer> collected = new ArrayList<>();
       for (Regexp c : sub.subs) {
-        if (c == null || hasCaptures(c) || hasZeroWidthAssertions(c)) {
+        if (c == null) {
           break;
         }
         if (c.op == RegexpOp.LITERAL) {
@@ -1748,6 +1746,11 @@ final class MultiAnchorCompiler {
   }
 
   static FixedOffsetLiteral extractFixedOffsetLiteral(Regexp re) {
+    return extractFixedOffsetLiteral(re, null);
+  }
+
+  private static FixedOffsetLiteral extractFixedOffsetLiteral(
+      Regexp re, List<NodeAnalysis> children) {
     Regexp node = unwrapCaptures(re);
     if (node == null || node.op != RegexpOp.CONCAT || node.subs == null) {
       return null;
@@ -1792,7 +1795,11 @@ final class MultiAnchorCompiler {
         continue;
       }
 
-      prefixWidth = concatenateWidths(prefixWidth, computeAsciiWidthRange(node.subs.get(index)));
+      AsciiWidthRange childWidth =
+          children != null
+              ? children.get(index).width()
+              : computeAsciiWidthRange(node.subs.get(index));
+      prefixWidth = concatenateWidths(prefixWidth, childWidth);
       if (!prefixWidth.isValid()) {
         break;
       }
@@ -1801,7 +1808,7 @@ final class MultiAnchorCompiler {
     return best;
   }
 
-  private static AsciiWidthRange computeAsciiWidthRange(Regexp re) {
+  static AsciiWidthRange computeAsciiWidthRange(Regexp re) {
     return new AsciiWidthRangeWalker().walk(re, AsciiWidthRange.INVALID);
   }
 
@@ -1829,8 +1836,10 @@ final class MultiAnchorCompiler {
                 : AsciiWidthRange.INVALID;
         case LITERAL_STRING -> literalStringWidth(node);
         case CHAR_CLASS -> characterClassWidth(node);
-        case REPEAT -> repeatWidth(node, childArgs);
-        case QUEST -> optionalWidth(childArgs);
+        case REPEAT ->
+            childArgs.isEmpty() ? AsciiWidthRange.INVALID : repeatWidth(node, childArgs.getFirst());
+        case QUEST ->
+            childArgs.isEmpty() ? AsciiWidthRange.INVALID : optionalWidth(childArgs.getFirst());
         case ALTERNATE -> alternateWidth(childArgs);
         case CONCAT -> concatenateWidths(childArgs);
         default -> AsciiWidthRange.INVALID;
@@ -1863,11 +1872,10 @@ final class MultiAnchorCompiler {
           : AsciiWidthRange.NON_DISCRETE_ONE;
     }
 
-    private static AsciiWidthRange repeatWidth(Regexp node, List<AsciiWidthRange> childArgs) {
-      if (node.min < 0 || node.max < 0 || childArgs.isEmpty()) {
+    private static AsciiWidthRange repeatWidth(Regexp node, AsciiWidthRange child) {
+      if (node.min < 0 || node.max < 0) {
         return AsciiWidthRange.INVALID;
       }
-      AsciiWidthRange child = childArgs.getFirst();
       if (!child.isValid()) {
         return AsciiWidthRange.INVALID;
       }
@@ -1877,6 +1885,9 @@ final class MultiAnchorCompiler {
         return AsciiWidthRange.INVALID;
       }
       if (child.discreteWidths != null && child.isExact() && node.max - node.min <= 8) {
+        if (child.minWidth == 0) {
+          return AsciiWidthRange.ZERO;
+        }
         int[] discrete = new int[node.max - node.min + 1];
         for (int index = 0; index < discrete.length; index++) {
           int width = multiplyWidth(child.minWidth, node.min + index);
@@ -1890,23 +1901,20 @@ final class MultiAnchorCompiler {
       return new AsciiWidthRange(minWidth, maxWidth, null);
     }
 
-    private static AsciiWidthRange optionalWidth(List<AsciiWidthRange> childArgs) {
-      if (childArgs.isEmpty() || !childArgs.getFirst().isValid()) {
+    private static AsciiWidthRange optionalWidth(AsciiWidthRange child) {
+      if (!child.isValid()) {
         return AsciiWidthRange.INVALID;
       }
-      AsciiWidthRange child = childArgs.getFirst();
       if (child.discreteWidths == null) {
         return new AsciiWidthRange(0, child.maxWidth, null);
       }
-      TreeSet<Integer> discrete = new TreeSet<>();
-      discrete.add(0);
+      int[] discrete = new int[child.discreteWidths.length + 1];
+      int size = 1;
       for (int width : child.discreteWidths) {
-        discrete.add(width);
+        size = insertWidth(discrete, size, width);
       }
       return new AsciiWidthRange(
-          0,
-          child.maxWidth,
-          discrete.size() <= 16 ? discrete.stream().mapToInt(Integer::intValue).toArray() : null);
+          0, child.maxWidth, size <= 16 ? Arrays.copyOf(discrete, size) : null);
     }
 
     private static AsciiWidthRange alternateWidth(List<AsciiWidthRange> childArgs) {
@@ -1915,7 +1923,8 @@ final class MultiAnchorCompiler {
       }
       int minWidth = Integer.MAX_VALUE;
       int maxWidth = Integer.MIN_VALUE;
-      TreeSet<Integer> discrete = new TreeSet<>();
+      int[] discrete = new int[8];
+      int size = 0;
       boolean allDiscrete = true;
       for (AsciiWidthRange child : childArgs) {
         if (!child.isValid()) {
@@ -1925,18 +1934,18 @@ final class MultiAnchorCompiler {
         maxWidth = Math.max(maxWidth, child.maxWidth);
         if (allDiscrete && child.discreteWidths != null) {
           for (int width : child.discreteWidths) {
-            discrete.add(width);
+            size = insertWidth(discrete, size, width);
+            if (size > discrete.length) {
+              allDiscrete = false;
+              break;
+            }
           }
         } else {
           allDiscrete = false;
         }
       }
       return new AsciiWidthRange(
-          minWidth,
-          maxWidth,
-          allDiscrete && discrete.size() <= 8
-              ? discrete.stream().mapToInt(Integer::intValue).toArray()
-              : null);
+          minWidth, maxWidth, allDiscrete ? Arrays.copyOf(discrete, size) : null);
     }
   }
 
@@ -1955,6 +1964,12 @@ final class MultiAnchorCompiler {
     if (!left.isValid() || !right.isValid()) {
       return AsciiWidthRange.INVALID;
     }
+    if (left == AsciiWidthRange.ZERO) {
+      return right;
+    }
+    if (right == AsciiWidthRange.ZERO) {
+      return left;
+    }
     int minWidth = addWidth(left.minWidth, right.minWidth);
     int maxWidth = addWidth(left.maxWidth, right.maxWidth);
     if (minWidth < 0 || maxWidth < 0) {
@@ -1964,19 +1979,36 @@ final class MultiAnchorCompiler {
     if (left.discreteWidths != null
         && right.discreteWidths != null
         && left.discreteWidths.length * right.discreteWidths.length <= 16) {
-      TreeSet<Integer> combined = new TreeSet<>();
+      int[] combined = new int[left.discreteWidths.length * right.discreteWidths.length];
+      int size = 0;
       for (int leftWidth : left.discreteWidths) {
         for (int rightWidth : right.discreteWidths) {
           int width = addWidth(leftWidth, rightWidth);
           if (width < 0) {
             return AsciiWidthRange.INVALID;
           }
-          combined.add(width);
+          size = insertWidth(combined, size, width);
         }
       }
-      discrete = combined.stream().mapToInt(Integer::intValue).toArray();
+      discrete = size == combined.length ? combined : Arrays.copyOf(combined, size);
     }
     return new AsciiWidthRange(minWidth, maxWidth, discrete);
+  }
+
+  // Width sets have at most sixteen entries. Keep them sorted without boxing or tree nodes;
+  // a return value beyond capacity means the caller must discard the discrete approximation.
+  private static int insertWidth(int[] widths, int size, int width) {
+    int index = Arrays.binarySearch(widths, 0, size, width);
+    if (index >= 0) {
+      return size;
+    }
+    if (size == widths.length) {
+      return size + 1;
+    }
+    index = -index - 1;
+    System.arraycopy(widths, index, widths, index + 1, size - index);
+    widths[index] = width;
+    return size + 1;
   }
 
   private static int addWidth(int left, int right) {
@@ -2197,7 +2229,7 @@ final class MultiAnchorCompiler {
     return null;
   }
 
-  private static Set<String> extractFixedPrefixLiterals(Regexp re) {
+  private static Set<String> extractFixedPrefixLiterals(Regexp re, List<NodeAnalysis> children) {
     Regexp node = unwrapCaptures(re);
     if (node == null || node.op != RegexpOp.CONCAT || node.subs == null) {
       return Set.of();
@@ -2206,7 +2238,7 @@ final class MultiAnchorCompiler {
     AsciiWidthRange prefixWidth = AsciiWidthRange.ZERO;
     for (int index = 0; index < node.subs.size(); index++) {
       Regexp sub = node.subs.get(index);
-      prefixWidth = concatenateWidths(prefixWidth, computeAsciiWidthRange(sub));
+      prefixWidth = concatenateWidths(prefixWidth, children.get(index).width());
       if (!prefixWidth.isValid()) {
         break;
       }

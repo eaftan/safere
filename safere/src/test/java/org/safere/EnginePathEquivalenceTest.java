@@ -154,6 +154,57 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  void accelerationPreservesScalarAndBoundaryTracesAcrossRegions() {
+    EnginePathOptions unaccelerated = EnginePathOptions.builder().startAcceleration(false).build();
+    for (String scalar :
+        List.of(
+            "\\p{Cs}",
+            "[\\uDC00-\\uDFFF]",
+            "\\uDC4D",
+            "\\p{So}",
+            "\\P{L}",
+            "[^\\p{Cs}]",
+            ".",
+            "[\\s\\S]",
+            "\\x{1F44D}",
+            "a")) {
+      for (String regex :
+          List.of(
+              scalar + "\\b{g}",
+              "(" + scalar + ")(\\b{g})",
+              "\\b{g}(" + scalar + ")",
+              "(?i:(" + scalar + "))\\b{g}",
+              "(" + scalar + ")\\b{g}\\z",
+              "(?:(" + scalar + ")+\\b{g})",
+              "(?:(" + scalar + ")\\b{g}|())",
+              "(?:(" + scalar + ")\\b{g}|(a))")) {
+        Pattern accelerated = Pattern.compile(regex);
+        Pattern control = Pattern.compile(regex, 0, unaccelerated);
+        for (String input :
+            List.of(
+                "\uD83D\uDC4D",
+                "a\uD83D\uDC4D\uD83D\uDC4Da",
+                "\uD83D\uDC4D\u0301\uD83D\uDC4D",
+                "\uD83D\uDC4D\uDC4Da\uD83D")) {
+          for (int start = 0; start <= input.length(); start++) {
+            for (int end = start; end <= input.length(); end++) {
+              for (boolean transparent : new boolean[] {false, true}) {
+                for (boolean anchoring : new boolean[] {false, true}) {
+                  assertThat(regionTrace(accelerated, input, start, end, transparent, anchoring))
+                      .as(
+                          "/%s/ region [%s,%s), transparent=%s, anchoring=%s",
+                          regex, start, end, transparent, anchoring)
+                      .isEqualTo(regionTrace(control, input, start, end, transparent, anchoring));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   @DisplayName("DFA-loop start acceleration preserves position-dependent state across inputs")
   void dfaLoopStartAccelerationPreservesPositionDependentStateAcrossInputs() {
     String regex = "(b|(?m:^a))c[0-9]";
@@ -456,6 +507,26 @@ class EnginePathEquivalenceTest {
         assertEquivalent(pattern, input, disabledShift);
       }
     }
+  }
+
+  private static List<MatchTrace> regionTrace(
+      Pattern pattern, String input, int start, int end, boolean transparent, boolean anchoring) {
+    Matcher matcher =
+        pattern.matcher(input).useTransparentBounds(transparent).useAnchoringBounds(anchoring);
+    List<MatchTrace> result = new ArrayList<>();
+    matcher.region(start, end);
+    result.add(snapshot(matcher, matcher.matches()));
+    matcher.region(start, end);
+    result.add(snapshot(matcher, matcher.lookingAt()));
+    matcher.region(start, end);
+    for (int step = 0; step <= input.length() + 1; step++) {
+      boolean found = matcher.find();
+      result.add(snapshot(matcher, found));
+      if (!found) {
+        return result;
+      }
+    }
+    throw new AssertionError("find sequence did not terminate");
   }
 
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {

@@ -71,4 +71,24 @@ final class EngineEquivalenceFuzzerTest {
         EngineEquivalenceFuzzer.check(".|", input, start);
     }
   }
+
+  @Test
+  void scalarPrefixesAndGraphemeBoundariesAgreeAcrossSearchPaths() {
+    for (String regex :
+        new String[] {"\\p{Cs}\\b{g}", "(\\uDC4D)(\\b{g})", "\\p{So}\\b{g}", "\\b{g}([^a])"}) {
+      for (String input : new String[] {"\uD83D\uDC4D", "a\uD83D\uDC4D\uDC4Da"}) {
+        for (int start = 0; start <= input.length(); start++) {
+          EngineEquivalenceFuzzer.check(regex, input, start);
+          for (int end = start; end <= input.length(); end++) {
+            for (boolean transparent : new boolean[] {false, true}) {
+              for (boolean anchoring : new boolean[] {false, true}) {
+                EngineEquivalenceFuzzer.checkRegion(
+                    regex, input, start, end, transparent, anchoring);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

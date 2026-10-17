@@ -147,6 +147,20 @@
   },
   "inputs": [
     {
+      "id": "compile.firstFind.simple",
+      "recipe": {
+        "kind": "literal",
+        "text": "noise hello tail"
+      }
+    },
+    {
+      "id": "compile.firstFind.complex",
+      "recipe": {
+        "kind": "literal",
+        "text": "noise person@example.com tail"
+      }
+    },
+    {
       "id": "compile.timestamp.input",
       "recipe": {
         "kind": "literal",
@@ -8694,6 +8708,24 @@
       }
     },
     {
+      "id": "CompileBenchmark.compileAndFindSimple",
+      "operation": "compileAndFind",
+      "patterns": [
+        "hello"
+      ],
+      "inputs": [
+        "compile.firstFind.simple"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "CompileBenchmark.compileAndFindMedium",
       "operation": "compileAndFind",
       "patterns": [
@@ -8713,6 +8745,24 @@
       ],
       "inputs": [
         "compile.timestamp.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindComplex",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      ],
+      "inputs": [
+        "compile.firstFind.complex"
       ],
       "resultConsumption": "boolean",
       "measurement": {

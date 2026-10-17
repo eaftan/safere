@@ -289,7 +289,7 @@ final class Nfa {
   }
 
   int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
-    if (prog.hasGraphemeSemantics()) {
+    if (prog.hasGraphemeClusterInstruction()) {
       doSearchEveryCharPosition(anchored);
     } else {
       doSearch(anchored);
@@ -654,12 +654,13 @@ final class Nfa {
   }
 
   /**
-   * Unanchored search variant for grapheme programs.
+   * Unanchored search variant for programs consuming grapheme clusters.
    *
    * <p>Active threads still consume Unicode code points, but new candidate matches are started at
    * every Java character offset. That matches {@link java.util.regex.Matcher}'s character-index
    * search contract for grapheme constructs without changing the code-point stepping used by
-   * ordinary SafeRE programs.
+   * ordinary SafeRE programs. A boundary assertion alone does not introduce new candidate starts;
+   * programs containing only scalar consumers and {@code \b{g}} use {@link #doSearch}.
    */
   private void doSearchEveryCharPosition(boolean anchored) {
     InputScanner text = context.text();
@@ -1278,7 +1279,16 @@ final class Nfa {
 
   static boolean isAtTrailingLineTerminator(
       InputScanner text, int pos, boolean unixLines, int logicalEndPos) {
-    return pos == text.trailingLineTerminatorStart(unixLines, logicalEndPos);
+    return isAtTrailingLineTerminator(text, pos, unixLines, 0, logicalEndPos);
+  }
+
+  private static boolean isAtTrailingLineTerminator(
+      InputScanner text, int pos, boolean unixLines, int logicalStartPos, int logicalEndPos) {
+    int terminatorStart = text.trailingLineTerminatorStart(unixLines, logicalEndPos);
+    // A logical context starting at the LF half of CRLF contains a standalone LF.
+    return terminatorStart >= 0
+        && pos < logicalEndPos
+        && pos == Math.max(terminatorStart, logicalStartPos);
   }
 
   /**
@@ -1421,12 +1431,14 @@ final class Nfa {
     // Line assertions carry their own mode. Compute both sets at each position so branches
     // with different scoped flags can coexist in the same engine state.
     if (hasTextAnchor) {
+      // Anchoring bounds set logical line ends; transparent bounds still expose CRLF context.
+      int lineContextStart = Math.min(anchorStartPos, regionStart);
       if (pos == anchorStartPos) {
         flags |= EmptyOp.BEGIN_TEXT;
-        if (text.length() != 0 && pos != anchorEndPos) {
+        if (pos < anchorEndPos) {
           flags |= EmptyOp.BEGIN_LINE | EmptyOp.UNIX_BEGIN_LINE;
         }
-      } else if (pos < text.length()) {
+      } else if (pos > anchorStartPos && pos < anchorEndPos) {
         int prev = text.codePointBefore(pos);
         if (prev == '\n') {
           flags |= EmptyOp.BEGIN_LINE | EmptyOp.UNIX_BEGIN_LINE;
@@ -1446,20 +1458,21 @@ final class Nfa {
                 | EmptyOp.DOLLAR_END
                 | EmptyOp.UNIX_DOLLAR_END;
       } else {
-        if (pos < text.length()) {
+        if (pos >= anchorStartPos && pos < anchorEndPos) {
           int ch = text.codePointAt(pos);
           if (ch == '\n') {
             flags |= EmptyOp.UNIX_END_LINE;
           }
           // Standard line mode treats CRLF as one atomic terminator.
-          if (isLineTerminator(ch) && !(ch == '\n' && pos > 0 && text.asciiAt(pos - 1) == '\r')) {
+          if (isLineTerminator(ch)
+              && !(ch == '\n' && pos > lineContextStart && text.asciiAt(pos - 1) == '\r')) {
             flags |= EmptyOp.END_LINE;
           }
         }
-        if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
+        if (isAtTrailingLineTerminator(text, pos, false, lineContextStart, anchorEndPos)) {
           flags |= EmptyOp.DOLLAR_END;
         }
-        if (isAtTrailingLineTerminator(text, pos, true, anchorEndPos)) {
+        if (isAtTrailingLineTerminator(text, pos, true, lineContextStart, anchorEndPos)) {
           flags |= EmptyOp.UNIX_DOLLAR_END;
         }
       }

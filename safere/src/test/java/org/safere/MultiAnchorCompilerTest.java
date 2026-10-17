@@ -9,18 +9,69 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.safere.MultiAnchorDescriptor.RejectPlan;
 import org.safere.MultiAnchorDescriptor.StartPlan;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 @Isolated
 class MultiAnchorCompilerTest {
+
+  @Test
+  void cachedWidthsMatchTheStandaloneWalkerAcrossParsedAndSimplifiedTrees() {
+    EnumSet<RegexpOp> visited = EnumSet.noneOf(RegexpOp.class);
+    for (String regex :
+        List.of(
+            "hello.*world",
+            "foo.*bar.*baz",
+            "(?s)foo.*bar.*baz",
+            "^foo.*bar$",
+            "\\bfoo.*bar",
+            "(?i)foo.*bar",
+            "[0-9]{4}-[0-9]{2}-target",
+            "([ab]{0,3})needle",
+            "(?:a|bbb)?needle",
+            "[é中]needle",
+            "😀needle",
+            "a{0,20}needle",
+            "a*needle",
+            "a+needle",
+            ".needle",
+            "(?s).needle",
+            "[^\\s\\S]needle",
+            "(?:)needle",
+            "\\Xneedle")) {
+      Regexp parsed = Parser.parse(regex, Pattern.toParseFlags(0));
+      for (Regexp tree : List.of(parsed, Simplifier.simplify(parsed))) {
+        var pending = new ArrayDeque<Regexp>();
+        pending.push(tree);
+        while (!pending.isEmpty()) {
+          Regexp node = pending.pop();
+          visited.add(node.op);
+          assertThat(MultiAnchorCompiler.analyze(node).width())
+              .as("%s: %s", regex, node.op)
+              .usingRecursiveComparison()
+              .isEqualTo(MultiAnchorCompiler.computeAsciiWidthRange(node));
+          if (node.subs != null) {
+            for (Regexp child : node.subs) pending.push(child);
+          }
+        }
+      }
+    }
+    // Full and empty classes simplify to these operators, so the unknown-width cases are reachable.
+    assertThat(visited).contains(RegexpOp.ANY_CHAR, RegexpOp.NO_MATCH);
+  }
 
   @Test
   void nullAstReturnsNull() {
@@ -160,6 +211,148 @@ class MultiAnchorCompilerTest {
     assertThat(fo.fol().literal()).isEqualTo("-target");
     assertThat(fo.fol().minOffset()).isEqualTo(7);
     assertThat(fo.fol().maxOffset()).isEqualTo(7);
+  }
+
+  @ParameterizedTest
+  @MethodSource("boundedWidthPrefixes")
+  void fixedOffsetsPreserveDiscreteWidthBudgets(String prefix, int min, int max, int[] offsets) {
+    Regexp ast = Parser.parse(prefix + "needle", Pattern.toParseFlags(0));
+    MultiAnchorCompiler.FixedOffsetLiteral standalone =
+        MultiAnchorCompiler.extractFixedOffsetLiteral(ast);
+    assertThat(standalone).isNotNull();
+    assertThat(standalone.literal()).isEqualTo("needle");
+    assertThat(standalone.minOffset()).isEqualTo(min);
+    assertThat(standalone.maxOffset()).isEqualTo(max);
+    assertThat(standalone.discreteOffsets()).isEqualTo(offsets);
+    assertThat(MultiAnchorCompiler.analyze(ast).start().fixedOffsetLiteral())
+        .usingRecursiveComparison()
+        .isEqualTo(standalone);
+  }
+
+  private static Stream<Arguments> boundedWidthPrefixes() {
+    return Stream.of(
+        Arguments.of("[ab]{2}", 2, 2, new int[] {2}),
+        Arguments.of("([ab]{2})", 2, 2, new int[] {2}),
+        Arguments.of("[ab]?", 0, 1, new int[] {0, 1}),
+        Arguments.of("[ab]{0,8}", 0, 8, new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8}),
+        Arguments.of("[ab]{0,9}", 0, 9, null),
+        Arguments.of("[ab]{0,3}[cd]{0,3}", 0, 6, new int[] {0, 1, 2, 3, 4, 5, 6}),
+        Arguments.of("[ab]{0,4}[cd]{0,3}", 0, 7, null),
+        Arguments.of("[0-9].", 2, 2, null),
+        Arguments.of(
+            "(?:a|bb|ccc|dddd|eeeee|ffffff|ggggggg|hhhhhhhh)",
+            1,
+            8,
+            new int[] {1, 2, 3, 4, 5, 6, 7, 8}),
+        Arguments.of("(?:a|bb|ccc|dddd|eeeee|ffffff|ggggggg|hhhhhhhh|iiiiiiiii)", 1, 9, null),
+        Arguments.of("[éê]{2}", 2, 2, null));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "[0-9]\\Xneedle",
+        "[0-9]\\b{g}needle",
+        "[0-9][^\\s\\S]needle",
+        "[0-9](?i:a)needle",
+        "[0-9]😀needle"
+      })
+  void unsupportedWidthStopsFixedOffsetAnalysis(String regex) {
+    Regexp ast = Parser.parse(regex, Pattern.toParseFlags(0));
+    assertThat(MultiAnchorCompiler.extractFixedOffsetLiteral(ast)).isNull();
+    assertThat(MultiAnchorCompiler.analyze(ast).start().fixedOffsetLiteral()).isNull();
+  }
+
+  @Test
+  void zeroWidthRepetitionsDeduplicateOffsets() {
+    Regexp emptyRepeat = Regexp.repeat(Regexp.emptyMatch(0), 0, 0, 8);
+    Regexp ast =
+        Regexp.concat(
+            List.of(
+                emptyRepeat,
+                Regexp.repeat(Regexp.literal('x', 0), 0, 2, 2),
+                Regexp.literalString("needle".codePoints().toArray(), 0)),
+            0);
+    assertThat(MultiAnchorCompiler.extractFixedOffsetLiteral(ast).discreteOffsets())
+        .containsExactly(2);
+    assertThat(MultiAnchorCompiler.analyze(ast).start().fixedOffsetLiteral())
+        .usingRecursiveComparison()
+        .isEqualTo(MultiAnchorCompiler.extractFixedOffsetLiteral(ast));
+  }
+
+  @ParameterizedTest
+  @MethodSource("zeroWidthRepeatBounds")
+  void zeroWidthRepeatsHaveOneDiscreteWidth(int min, int max) {
+    var expected = MultiAnchorCompiler.analyze(Regexp.emptyMatch(0)).width();
+    for (Regexp operand :
+        List.of(
+            Regexp.emptyMatch(0),
+            Regexp.literalString(new int[0], 0),
+            Regexp.capture(Regexp.emptyMatch(0), 0, 1, null),
+            Regexp.rawQuantifier(RegexpOp.QUEST, Regexp.emptyMatch(0), 0))) {
+      Regexp repeat = Regexp.repeat(operand, 0, min, max);
+      assertThat(MultiAnchorCompiler.analyze(repeat).width())
+          .as("cached width for %s{%s,%s}", operand.op, min, max)
+          .usingRecursiveComparison()
+          .isEqualTo(expected);
+      assertThat(MultiAnchorCompiler.computeAsciiWidthRange(repeat))
+          .as("standalone width for %s{%s,%s}", operand.op, min, max)
+          .usingRecursiveComparison()
+          .isEqualTo(expected);
+    }
+  }
+
+  private static Stream<Arguments> zeroWidthRepeatBounds() {
+    return Stream.of(
+        Arguments.of(0, 0),
+        Arguments.of(0, 2),
+        Arguments.of(2, 2),
+        Arguments.of(1, 8),
+        Arguments.of(17, 25),
+        Arguments.of(Integer.MAX_VALUE - 2, Integer.MAX_VALUE));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"[0-9]{2}needle.*tail", "[ab]{0,4}[cd]{0,3}needle.*tail"})
+  void rootCaptureWrappersPreserveStartAndRejectPlans(String regex) {
+    MultiAnchorDescriptor expected =
+        MultiAnchorCompiler.compile(Parser.parse(regex, Pattern.toParseFlags(0)), 0);
+    for (String wrapped : List.of("(" + regex + ")", "(?:(" + regex + "))")) {
+      assertThat(MultiAnchorCompiler.compile(Parser.parse(wrapped, Pattern.toParseFlags(0)), 0))
+          .usingRecursiveComparison()
+          .isEqualTo(expected);
+    }
+  }
+
+  @Test
+  void overflowingSuffixDoesNotWrapFixedOffsets() {
+    Regexp large = Regexp.repeat(Regexp.literal('x', 0), 0, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    Regexp ast =
+        Regexp.concat(
+            List.of(
+                large,
+                Regexp.literal('y', 0),
+                Regexp.literalString("needle".codePoints().toArray(), 0)),
+            0);
+    // The literal run starts at a valid offset, but consuming it would overflow the next offset.
+    MultiAnchorCompiler.FixedOffsetLiteral literal =
+        MultiAnchorCompiler.extractFixedOffsetLiteral(ast);
+    assertThat(literal.minOffset()).isEqualTo(Integer.MAX_VALUE);
+    assertThat(literal.maxOffset()).isEqualTo(Integer.MAX_VALUE);
+    assertThat(MultiAnchorCompiler.analyze(ast).start().fixedOffsetLiteral())
+        .usingRecursiveComparison()
+        .isEqualTo(literal);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "^(?:prefixOne|prefixTwo)", "\\b(?:prefixOne|prefixTwo)",
+        "(?:prefixOne|prefixTwo)$", "(?:prefixOne|prefixTwo)(capture)"
+      })
+  void capturesAndAssertionsPreventFactoringAcrossTheWholeTree(String regex) {
+    Regexp ast = Parser.parse(regex, Pattern.toParseFlags(0));
+    assertThat(MultiAnchorCompiler.factorAlternations(ast)).isSameAs(ast);
   }
 
   @Test

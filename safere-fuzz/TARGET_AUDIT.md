@@ -24,7 +24,7 @@ comparisons use `FuzzSupport` and inherit its limitations listed below.
 | MatchFuzzer | Arbitrary patterns/flags/subjects; matches, lookingAt, find and find(start). Focused families cover accelerated restart growth, Unicode boundary caches, leading classes, factored/scoped case flags, line terminators/start anchors, zero-width priority/capture retention, sandwich searches, Unicode casefolding and UTF-8 literals, multi-anchor gaps, and priority selection. Explicit casefold regression/model tables also run. | Shared CaseFamilyChecks extracted; finite PriorityCases graduated separately. Unicode, anchor, flag and capture interactions remain exploratory. |
 | FindSequenceFuzzer | Arbitrary and focused delimiter/capture/anchor/CRLF/supplementary patterns; warmup reuse, repeated finds and bounded sequences of match/find/reset/new input/group/region/bounds/snapshot state operations. | Stateful and zero-width continuation expectations require their own domain review. |
 | ReplacementFuzzer | Arbitrary patterns/flags/input/replacement or Unicode casefold suffix families; replaceAll/First, matcher state, appendReplacement/Tail with builders and buffers. | Invalid replacement handling and capture semantics keep this broad. |
-| SplitFuzzer | `split`: arbitrary patterns/flags, inputs, signed and very large limits plus CRLF/grapheme regressions. `unassignedControlSplits`: default-ignorable grapheme controls. `repeatedClassSplits`: repeated classes over binary/ASCII/NUL/supplementary alphabets, optional captures, repeated delimiters. Both check split and splitWithDelimiters variants. | All methods now discoverable through the runner; no automatic promotion from focused generation. |
+| SplitFuzzer | `split`: arbitrary patterns/flags, inputs, signed and very large limits. A separate Unicode-model regression checks that explicit boundary delimiters cannot split CRLF. `unassignedControlSplits`: default-ignorable grapheme controls. `repeatedClassSplits`: repeated classes over binary/ASCII/NUL/supplementary alphabets, optional captures, repeated delimiters. Both check split and splitWithDelimiters variants. | Fuzz methods remain discoverable through the runner; fixed Unicode-model regressions do not impose JDK compatibility. |
 | RegionBoundsFuzzer | Arbitrary regions and bounds plus fixed grapheme/surrogate/CRLF matrices; getters, find, matches and lookingAt. Explicit SafeRE grapheme model cases coexist. | Region model and JDK observations are deliberately not enrolled together. |
 | DeferredRegionCaptureFuzzer | Package-private forced deferred execution, disabled one-pass/bit-state paths; anchored/boundary/optional captures, BMP/supplementary subjects, reset/reuse and region/bounds combinations. Direct JDK success/capture/find assertions. | Inventoried despite its package; focused but complex, with an unbudgeted direct oracle. No graduation claimed. |
 | UnicodeFuzzer | Fixed grapheme/Indic matrices, anchored long grapheme subjects, arbitrary patterns and Unicode-heavy inputs; finds/captures, matches and lookingAt. | Unicode and grapheme boundaries include intentional differences. |
@@ -32,11 +32,12 @@ comparisons use `FuzzSupport` and inherit its limitations listed below.
 
 ## Shared exploratory comparator boundaries
 
-- Both engines rejecting syntax ends the comparison. SafeRE-only rejection of
-  lexically recognized lookaround, backreferences or possessive syntax, and
-  compiler-size rejection, remains excluded. These encode unsupported features
-  or workload limits, but lexical recognition can overexclude. Strict generators
-  do not use this path; their valid patterns must compile in both engines.
+- Both engines rejecting syntax ends the comparison. SafeRE compiler-size
+  rejection remains excluded as a workload limit. Other one-sided rejections,
+  including unsupported syntax, are findings; no lexical recognizer suppresses
+  lookaround, backreferences, possessive quantifiers, atomic groups or `\G`.
+  Strict generators do not use the compiler-size exclusion; their valid patterns
+  must compile in both engines.
 - The old capture, dependent replacement, and parser-marked intentional class
   rejection waivers are removed. Exact reviewed outcomes are replayed separately;
   arbitrary related failures are still findings.
@@ -98,8 +99,10 @@ missing sequence observations. Oracle unavailability is tested separately.
 
 ## Current-main reconciliation
 
-The refreshed inventory also includes `EmojiZwjGraphemeFuzzer` (an independent
-UAX model, not automatically enrolled) and `SplitFuzzer#unassignedControlSplits`
+The refreshed inventory also includes `EmojiZwjGraphemeFuzzer` (ICU4J segmentation
+comparisons across Unicode grapheme-property combinations, with exhaustive short
+sequences and generated longer sequences; not automatically enrolled) and
+`SplitFuzzer#unassignedControlSplits`
 (default-ignorable grapheme controls). Upstream #930 supplies surrogate-interior
 reverse-DFA correctness; #933 supplies exhausted-state assertions. The latter's
 observed-state oracle exception remains, with dedicated canaries. The #959

@@ -335,9 +335,14 @@ class LinebreakGraphemeTest {
     }
 
     @Test
-    @DisplayName("repeated find with an internal grapheme boundary follows JDK CRLF state")
-    void repeatedFindWithInternalGraphemeBoundaryFollowsJdkCrLfState() {
-      assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n\r\n$", 1, 5);
+    @DisplayName("an internal grapheme boundary cannot split CRLF")
+    @DisabledForCrosscheck(
+        "GB3 forbids an interior CRLF boundary, including after a consumed prefix")
+    void internalGraphemeBoundaryCannotSplitCrLf() {
+      Matcher matcher = Pattern.compile("\\r\\b{g}\\n").matcher("#\r\n\r\n$").region(1, 5);
+      assertThat(matcher.lookingAt()).isFalse();
+      assertThat(matcher.matches()).isFalse();
+      assertThat(matcher.find()).isFalse();
     }
 
     @Test
@@ -369,7 +374,6 @@ class LinebreakGraphemeTest {
       assertTraceSameAsJdk("\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u0301$", 1, 8);
       assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00\r\r\uDE00", 1, 4);
       assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00a\u0903\r\n\uDE00", 1, 6);
-      assertTransparentTraceSameAsJdk("\\b{g}a\\u0300\\b{g}", "aa\u0300\u0300", 1, 3);
     }
 
     @Test

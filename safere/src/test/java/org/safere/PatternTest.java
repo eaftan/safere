@@ -402,11 +402,12 @@ class PatternTest {
     }
 
     @Test
-    @DisplayName("split advances after internal grapheme boundary CRLF matches")
-    void splitAdvancesAfterInternalGraphemeBoundaryCrLfMatches() {
+    @DisabledForCrosscheck("GB3 forbids boundaries inside CRLF; the JDK invents a break")
+    @DisplayName("split cannot use a delimiter requiring a boundary inside CRLF")
+    void splitPreservesCrLfWhenDelimiterRequiresInternalGraphemeBoundary() {
       Pattern p = Pattern.compile("\\r\\b{g}\\n");
-      String[] parts = p.split("#\r\n\r\n$", -1);
-      assertThat(parts).containsExactly("#", "\r\n$");
+      String input = "#\r\n\r\n$";
+      assertThat(p.split(input, -1)).containsExactly(input);
     }
   }
 
@@ -501,11 +502,12 @@ class PatternTest {
     }
 
     @Test
-    @DisplayName("splitWithDelimiters advances after internal grapheme boundary CRLF matches")
-    void splitWithDelimitersAdvancesAfterInternalGraphemeBoundaryCrLfMatches() {
+    @DisabledForCrosscheck("GB3 forbids boundaries inside CRLF; the JDK invents a break")
+    @DisplayName("splitWithDelimiters cannot use a delimiter requiring a boundary inside CRLF")
+    void splitWithDelimitersPreservesCrLfWhenDelimiterRequiresInternalGraphemeBoundary() {
       Pattern p = Pattern.compile("\\r\\b{g}\\n");
-      String[] parts = p.splitWithDelimiters("#\r\n\r\n$", -1);
-      assertThat(parts).containsExactly("#", "\r\n", "\r\n$");
+      String input = "#\r\n\r\n$";
+      assertThat(p.splitWithDelimiters(input, -1)).containsExactly(input);
     }
   }
 
