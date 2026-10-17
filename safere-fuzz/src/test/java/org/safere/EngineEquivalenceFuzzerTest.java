@@ -73,6 +73,28 @@ final class EngineEquivalenceFuzzerTest {
   }
 
   @Test
+  void leadingRepetitionsPreserveInteriorCursors() {
+    for (String scalar : new String[] {"\\uDC4D", "[\\uDC00-\\uDFFF]", "\\p{Cs}", "."}) {
+      for (String quantifier : new String[] {"*", "*?", "+", "+?"}) {
+        String regex = "(" + scalar + quantifier + ")([ab])(\\b{g})";
+        for (String input : new String[] {"\uD83D\uDC4Da\uD83D\uDC4Db", "\uDC4Da\uDC4Db"}) {
+          for (int start = 0; start <= input.length(); start++) {
+            EngineEquivalenceFuzzer.check(regex, input, start);
+            for (int end = start; end <= input.length(); end++) {
+              for (boolean transparent : new boolean[] {false, true}) {
+                for (boolean anchoring : new boolean[] {false, true}) {
+                  EngineEquivalenceFuzzer.checkRegion(
+                      regex, input, start, end, transparent, anchoring);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void scalarPrefixesAndGraphemeBoundariesAgreeAcrossSearchPaths() {
     for (String regex :
         new String[] {"\\p{Cs}\\b{g}", "(\\uDC4D)(\\b{g})", "\\p{So}\\b{g}", "\\b{g}([^a])"}) {
