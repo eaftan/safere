@@ -3203,6 +3203,21 @@
       }
     },
     {
+      "id": "diagnostics.length.{size}",
+      "axes": {
+        "size": [
+          200,
+          800,
+          1000
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "a",
+        "count": "{size}"
+      }
+    },
+    {
       "id": "diagnostics.tinyLiteralMatches",
       "recipe": {
         "kind": "literal",
@@ -13154,6 +13169,48 @@
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "DiagnosticsLengthBenchmark.{action}.{listener}.{size}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[ab]{1000}\\z"
+      ],
+      "inputs": [
+        "diagnostics.length.{size}"
+      ],
+      "axes": {
+        "action": [
+          "booleanFind",
+          "find"
+        ],
+        "listener": [
+          "disabled",
+          "noop"
+        ],
+        "size": [
+          200,
+          800,
+          1000
+        ]
+      },
+      "arguments": {
+        "action": "{action}",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Compare direct and matcher-based UTF-8 length rejection with diagnostics enabled and disabled, with an exact-length match as a control.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     },
     {

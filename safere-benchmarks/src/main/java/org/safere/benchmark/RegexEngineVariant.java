@@ -539,6 +539,7 @@ enum RegexEngineVariant {
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
       case SAFERE_UTF8, SAFERE_UTF8_VECTOR -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.DIAGNOSTICS);
         features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
         features.add(DeclarativeBenchmarkPlan.Feature.MATCHER_STATE);
         features.add(DeclarativeBenchmarkPlan.Feature.REGIONS);

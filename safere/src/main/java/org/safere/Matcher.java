@@ -617,11 +617,12 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean cannotMatchLength(int availableLength) {
-    if (diagnosticOperation != null) {
-      return false;
-    }
     int min = parentPattern.matchDescriptor().minMatchLength();
-    return min > 0 && availableLength < min;
+    if (min > 0 && availableLength < min) {
+      diagnosticBoundary(MatchStrategy.LENGTH);
+      return true;
+    }
+    return false;
   }
 
   private EnginePathOptions enginePathOptions() {
