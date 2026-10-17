@@ -14,6 +14,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** DFA start states memoized by word context must give the same results as the NFA. */
+@DisabledForCrosscheck("compares SafeRE engine paths through package-private EnginePathOptions")
 class DfaStartStateContextTest {
   private static final List<String> INPUTS =
       List.of(
