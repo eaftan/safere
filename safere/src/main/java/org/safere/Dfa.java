@@ -258,6 +258,16 @@ final class Dfa {
 
   private final int[] startStateContextKeys = new int[256];
 
+  /**
+   * Start states for programs whose start context is fully described by direction, anchoring and
+   * the word-character class of the adjacent characters: no text anchors, no CRLF context and no
+   * grapheme semantics. Indexed by {@link #fastStartIndex}; cleared with the other start caches.
+   */
+  private final State[] fastStartStates;
+
+  /** Whether anchored forward searches can start in {@link #leanAnchoredForwardSearch}. */
+  private final boolean leanAnchoredForward;
+
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
 
@@ -392,6 +402,15 @@ final class Dfa {
     this.hasStartAcceleration = utf8StartAccelerator != null || stringStartAccelerator != null;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
     this.hasCrLfContext = hasStandardLineBoundary(prog);
+    this.leanAnchoredForward =
+        !hasGraphemeSemantics
+            && !prog.hasTextAnchor()
+            && !prog.anchorEnd()
+            && !prog.dollarAnchorEnd();
+    this.fastStartStates =
+        !hasGraphemeSemantics && !prog.hasTextAnchor() && !hasCrLfContext
+            ? new State[prog.hasWordBoundary() ? 64 : 4]
+            : null;
     this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
@@ -944,6 +963,9 @@ final class Dfa {
     Arrays.fill(deadState.next, null);
     // A surviving start-cache entry would hand back a state the flat arrays no longer describe.
     Arrays.fill(startStateByContext, null);
+    if (fastStartStates != null) {
+      Arrays.fill(fastStartStates, null);
+    }
     cache.clear();
     hasStateAccelerators = false;
     nextStateId = 1;
@@ -1197,6 +1219,43 @@ final class Dfa {
    *     the right of where a reverse scan begins), rather than the character BEFORE pos
    */
   State startState(InputScanner text, int pos, boolean anchored, boolean reverseContext) {
+    if (fastStartStates == null) {
+      return computeStartState(text, pos, anchored, reverseContext);
+    }
+    int index = fastStartIndex(text, pos, anchored, reverseContext);
+    State s = fastStartStates[index];
+    if (s == null) {
+      s = computeStartState(text, pos, anchored, reverseContext);
+      fastStartStates[index] = s;
+    }
+    return s;
+  }
+
+  /**
+   * Without text anchors, CRLF context or grapheme semantics, a start state depends only on its
+   * direction and anchoring and, for {@code \b} programs, on whether the characters on either side
+   * of {@code pos} are ASCII and Unicode word characters (see {@link Nfa#emptyFlags}).
+   */
+  private int fastStartIndex(InputScanner text, int pos, boolean anchored, boolean reverseContext) {
+    int index = (anchored ? 1 : 0) | (reverseContext ? 2 : 0);
+    if (fastStartStates.length == 4) {
+      return index;
+    }
+    if (pos > 0) {
+      int cp = text.codePointBefore(pos);
+      boolean word = Nfa.isWordChar(cp);
+      index |= (word ? 4 : 0) | ((cp < 128 ? word : Nfa.isUnicodeWordChar(cp)) ? 8 : 0);
+    }
+    if (pos < text.length()) {
+      int cp = text.codePointAt(pos);
+      boolean word = Nfa.isWordChar(cp);
+      index |= (word ? 16 : 0) | ((cp < 128 ? word : Nfa.isUnicodeWordChar(cp)) ? 32 : 0);
+    }
+    return index;
+  }
+
+  private State computeStartState(
+      InputScanner text, int pos, boolean anchored, boolean reverseContext) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;
@@ -1765,6 +1824,9 @@ final class Dfa {
       boolean longest,
       boolean startPositionPreselected,
       long startBackoff) {
+    if (anchored && leanAnchoredForward) {
+      return leanAnchoredForwardSearch(text, startPos, longest, startBackoff);
+    }
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     beginSearch(startPos);
     int pos = startPos;
@@ -1783,7 +1845,6 @@ final class Dfa {
     // because the same (state, character-class) pair at a different position (in the same or
     // a different text) would produce a different result. See the class-level comment on
     // DFA caching invariants.
-    int posDepThreshold = positionDependentThreshold(text);
 
     State s = startStateOrReset(text, startPos, anchored, false);
     if (s == null) {
@@ -1807,6 +1868,126 @@ final class Dfa {
       return completeForwardSearch(new SearchResult(matched, matchEnd), pos, startBackoff);
     }
 
+    return forwardLoop(
+        text,
+        startPos,
+        anchored,
+        longest,
+        startPositionPreselected,
+        startBackoff,
+        s,
+        pos,
+        matched,
+        matchEnd,
+        trailingTermStart);
+  }
+
+  /**
+   * An anchored forward search that only follows cached ASCII transitions. It handles programs
+   * whose transitions never depend on position and whose matches need no end check, so it skips the
+   * general loop's setup. On the first non-ASCII character, uncomputed or dead transition, or state
+   * with an accelerator, it hands the current state to {@link #forwardLoop}, which continues from
+   * that position. Bookkeeping is shared with the general path: {@link #beginSearch} here and
+   * {@link #completeSearch} in every exit.
+   */
+  private SearchResult leanAnchoredForwardSearch(
+      InputScanner text, int startPos, boolean longest, long startBackoff) {
+    graphemeContext = GraphemeSupport.Context.create(text, false);
+    beginSearch(startPos);
+    State s = startStateOrReset(text, startPos, true, false);
+    if (s == null) {
+      return completeForwardSearch(null, startPos, startBackoff);
+    }
+    boolean matched = false;
+    int matchEnd = -1;
+    if (s.isMatch()) {
+      matched = true;
+      matchEnd = startPos;
+      if (!longest && s.isHighestPriorityMatch) {
+        return completeForwardSearch(new SearchResult(true, startPos), startPos, startBackoff);
+      }
+    }
+    if (s == deadState) {
+      return completeForwardSearch(new SearchResult(matched, matchEnd), startPos, startBackoff);
+    }
+    int pos = startPos;
+    int textLen = text.length();
+    int[] transitions = this.transitions;
+    State[] offsetToState = this.offsetToState;
+    boolean[] isAcceleratedStateOffset = this.isAcceleratedStateOffset;
+    int[] asciiClassMap = this.asciiClassMap;
+    int sId = s.id * numClasses;
+    while (pos < textLen) {
+      int ch = text.asciiAt(pos);
+      if (ch < 0) {
+        break;
+      }
+      int cls = asciiClassMap[ch];
+      int nsId = transitions[sId + cls];
+      if (nsId == 0) {
+        // The flat array stores both the dead state and an uncomputed transition as 0. Most
+        // anchored searches end in the dead state, so finish here; let the general loop compute
+        // a missing transition.
+        if (offsetToState[sId].next[cls] == deadState) {
+          return completeForwardSearch(new SearchResult(matched, matchEnd), pos, startBackoff);
+        }
+        break;
+      }
+      if (nsId < 0) {
+        nsId = -nsId;
+        State ns = offsetToState[nsId];
+        if (ns.isMatch()) {
+          boolean useBefore =
+              (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+          int endPos = useBefore ? pos : pos + 1;
+          if (!longest && ns.isHighestPriorityMatch) {
+            return completeForwardSearch(new SearchResult(true, endPos), pos, startBackoff);
+          }
+          matched = true;
+          matchEnd = endPos;
+        }
+      }
+      if (nsId == sId && isAcceleratedStateOffset[sId]) {
+        // The search stays in a state with an accelerator: let the general loop use it.
+        pos++;
+        break;
+      }
+      sId = nsId;
+      pos++;
+    }
+    return forwardLoop(
+        text,
+        startPos,
+        true,
+        longest,
+        false,
+        startBackoff,
+        offsetToState[sId],
+        pos,
+        matched,
+        matchEnd,
+        textLen);
+  }
+
+  /**
+   * The forward search loop, entered with state {@code s} at {@code pos}. Either from the start of
+   * a search by {@link #doSearchInternal} or mid-search by {@link #leanAnchoredForwardSearch}.
+   */
+  private SearchResult forwardLoop(
+      InputScanner text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean startPositionPreselected,
+      long startBackoff,
+      State s,
+      int pos,
+      boolean matched,
+      int matchEnd,
+      int trailingTermStart) {
+    int textLen = text.length();
+    boolean needEndMatch = prog.anchorEnd();
+    int posDepThreshold = positionDependentThreshold(text);
     AcceleratorPolicy activePolicy = startAccelerationPolicy(text, s);
     boolean canAccelerate = activePolicy != null && !anchored;
     Utf8StartAccelerator.SearchCursor utf8Cursor =
