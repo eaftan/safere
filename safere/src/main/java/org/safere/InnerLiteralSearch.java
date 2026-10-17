@@ -13,6 +13,10 @@ final class InnerLiteralSearch {
   // A failed probe must add bounded work even when the entire input belongs to the gap class.
   private static final int MAX_BACKWARD_CODE_POINTS = 256;
 
+  // Pay for narrowing only after the native matcher has consumed this much failed input.
+  // Prefix-accelerator skips do not contribute to the budget.
+  static final int MIN_FAILED_INPUT_UNITS = 64;
+
   private final RejectPrefilter.Literal suffix;
   private final CharClassScanInfo gap;
   private final int prefixCodePoints;
@@ -116,6 +120,9 @@ final class InnerLiteralSearch {
    * not repeatedly scan the same unconsumed suffix range.
    */
   int searchStart(InputScanner scanner, int from) {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.recordInnerLiteralProbe();
+    }
     int inner;
     if (scanner instanceof Utf8InputScanner bytes) {
       inner = bytes.indexOf(suffix.utf8(), suffix.failure(), suffix.shifts(), from);

@@ -658,10 +658,7 @@ public final class Pattern implements Serializable {
         && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
       return false;
     }
-    int searchStart = innerLiteralSearchStart(scanner, 0);
-    if (searchStart < 0) {
-      return false;
-    }
+    int searchStart = 0;
     boolean startPositionPreselected = false;
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
@@ -752,12 +749,7 @@ public final class Pattern implements Serializable {
             scanner, 0, enginePathOptions, diagnostics)) {
       return false;
     }
-    int searchStart = innerLiteralSearchStart(scanner, 0);
-    if (searchStart < 0) {
-      diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
-      diagnostics.boundary(MatchStrategy.LITERAL);
-      return false;
-    }
+    int searchStart = 0;
     boolean startPositionPreselected = false;
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
@@ -1376,7 +1368,8 @@ public final class Pattern implements Serializable {
               forwardDfaSetup(),
               false,
               enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
+              enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
+              innerLiteralSearch);
       cachedForwardFirstMatchDfa.set(dfa);
     }
     return dfa;
@@ -1615,29 +1608,9 @@ public final class Pattern implements Serializable {
     return rejectPrefilter;
   }
 
-  /** Literal-guided find already checks its required suffix; avoid scanning for it twice. */
+  /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
   RejectPrefilter findRejectPrefilter() {
-    return innerLiteralSearch == null ? rejectPrefilter : null;
-  }
-
-  /** Narrows candidate starts using the first required suffix without choosing a match. */
-  int innerLiteralSearchStart(InputScanner scanner, int from) {
-    if (innerLiteralSearch == null
-        || !enginePathOptions.startAcceleration()
-        || !enginePathOptions.literalFastPaths()) {
-      return from;
-    }
-    // Locate the ordinary prefix first. A selective prefix can already exclude most input,
-    // and searching its suffix only from that position avoids rescanning the excluded range.
-    int candidate =
-        scanner instanceof Utf8InputScanner bytes
-            ? Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, bytes, from)
-            : StringStartAccelerator.findNextCandidate(
-                stringStartAccelerator,
-                ((StringInputScanner) scanner).text(),
-                from,
-                prog.lineStartUnixLines());
-    return candidate < 0 ? -1 : innerLiteralSearch.searchStart(scanner, candidate);
+    return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
   }
 
   MultiAnchorDescriptor multiAnchor() {

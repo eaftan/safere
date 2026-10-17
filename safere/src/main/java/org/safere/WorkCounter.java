@@ -14,6 +14,7 @@ final class WorkCounter {
   private static final class Counter {
     private long units;
     private long forwardDfaSteps;
+    private long innerLiteralProbes;
     private long startScanCalls;
     private long startSkippedUnits;
     private long quarantineCount;
@@ -40,6 +41,17 @@ final class WorkCounter {
     Counter counter = COUNTER.get();
     if (counter != null) {
       counter.forwardDfaSteps++;
+    }
+  }
+
+  static long countInnerLiteralProbesForTesting(Runnable task) {
+    return count(task).innerLiteralProbes;
+  }
+
+  static void recordInnerLiteralProbe() {
+    Counter counter = COUNTER.get();
+    if (counter != null) {
+      counter.innerLiteralProbes++;
     }
   }
 
