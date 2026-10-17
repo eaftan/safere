@@ -148,6 +148,7 @@ public final class Pattern implements Serializable {
   private final transient StringStartAccelerator stringStartAccelerator;
   private final transient EnginePathOptions enginePathOptions;
   private final transient LiteralAlternation literalAlternation;
+  private final transient InnerLiteralSearch innerLiteralSearch;
   private final transient Matcher.PreparedMatchRunner defaultPreparedMatchRunner;
   private final transient Matcher.PreparedMatchRunner regionPreparedMatchRunner;
   private final long patternId;
@@ -292,6 +293,16 @@ public final class Pattern implements Serializable {
         StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    this.innerLiteralSearch =
+        enginePathOptions.startAcceleration()
+                && enginePathOptions.literalFastPaths()
+                && this.matchDescriptor.literalMatch() == null
+                && !prog.anchorStart()
+                && this.multiAnchor.startPlan()
+                    instanceof MultiAnchorDescriptor.StartPlan.Literal lit
+                && !lit.foldCase()
+            ? InnerLiteralSearch.compile(ast, rejectPrefilter)
+            : null;
     // The literal-alternation runner skips canReject on its initial String find().
     // The filter's type still selects its window policy; fallback operations retain the filter.
     this.literalAlternation =
@@ -642,7 +653,9 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    if (rejectPrefilter != null && rejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -650,7 +663,8 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      searchStart =
+          Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, searchStart);
       if (searchStart < 0) {
         return false;
       }
@@ -729,8 +743,10 @@ public final class Pattern implements Serializable {
       diagnostics.boundary(MatchStrategy.NFA);
       return true;
     }
-    if (rejectPrefilter != null
-        && rejectPrefilter.canRejectWithDiagnostics(scanner, 0, enginePathOptions, diagnostics)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && findRejectPrefilter.canRejectWithDiagnostics(
+            scanner, 0, enginePathOptions, diagnostics)) {
       return false;
     }
     int searchStart = 0;
@@ -742,7 +758,8 @@ public final class Pattern implements Serializable {
       if (strategy != null) {
         diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
       }
-      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      searchStart =
+          Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, searchStart);
       if (searchStart < 0) {
         if (strategy != null) {
           diagnostics.boundary(strategy);
@@ -1351,7 +1368,8 @@ public final class Pattern implements Serializable {
               forwardDfaSetup(),
               false,
               enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
+              enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
+              innerLiteralSearch);
       cachedForwardFirstMatchDfa.set(dfa);
     }
     return dfa;
@@ -1588,6 +1606,11 @@ public final class Pattern implements Serializable {
   /** Returns whole-input rejection prefilter, or {@code null}. */
   RejectPrefilter rejectPrefilter() {
     return rejectPrefilter;
+  }
+
+  /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
+  RejectPrefilter findRejectPrefilter() {
+    return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
   }
 
   MultiAnchorDescriptor multiAnchor() {

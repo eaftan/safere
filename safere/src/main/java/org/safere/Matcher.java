@@ -1778,7 +1778,7 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
     if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
       MatchStrategy rejectionStrategy =
           rejectPrefilter instanceof RejectPrefilter.Composite composite
@@ -3026,7 +3026,7 @@ public final class Matcher implements MatchResult {
         }
         hasEndAnchoredCandidate = endAnchoredStart >= 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (!hasEndAnchoredCandidate && rejectPrefilter != null && text != null) {
         InputScanner scanner = activeScanner();
         EnginePathOptions options = enginePathOptions();
@@ -4686,7 +4686,7 @@ public final class Matcher implements MatchResult {
       if (endAnchoredStart == -1) {
         return 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
         if (rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())) {
           return 0;
