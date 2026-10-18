@@ -2118,6 +2118,11 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private static boolean canVerifyLeadingExpansion(StringStartAccelerator accelerator) {
+    return accelerator instanceof StringStartAccelerator.LeadingExpansion le
+        && le.canVerifyAtInner();
+  }
+
   /** Selects a start, rejecting nullable leading expansions at the inner candidate first. */
   private int findNextStringStartCandidate(StringStartAccelerator accelerator, int fromIndex) {
     Prog prog = parentPattern.prog();
@@ -3387,9 +3392,13 @@ public final class Matcher implements MatchResult {
       boolean startPositionPreselected = false;
       // Every replacement search needs the same candidate verification as find(), including a
       // failing candidate after an earlier match. Keep one backoff budget across the sequence.
+      // With a literal prefix, the prefix scan below already finds the next candidate, so only a
+      // leading expansion, whose inner candidate can be verified, needs the start accelerator.
       if (enginePathOptions().startAcceleration() && !isStartAnchored) {
         StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
-        if (accelerator != null && startAccelerationAllowed(pos, accelerator.policy())) {
+        if (accelerator != null
+            && (!hasStartAcceleration || canVerifyLeadingExpansion(accelerator))
+            && startAccelerationAllowed(pos, accelerator.policy())) {
           int candidate = findNextStringStartCandidate(accelerator, pos);
           if (candidate < 0) {
             break;
@@ -3400,6 +3409,14 @@ public final class Matcher implements MatchResult {
       }
       if (hasStartAcceleration && pos < textLen && text != null) {
         int idx = foldCase ? indexOfIgnoreCase(text, prefix, pos) : text.indexOf(prefix, pos);
+        // As in findNextStringStartCandidate: a literal scan can find a prefix that starts with a
+        // low surrogate inside an intact pair, where a scalar search must not start.
+        while (idx > pos
+            && Character.isLowSurrogate(prefix.charAt(0))
+            && !parentPattern.prog().hasGraphemeClusterInstruction()
+            && !scanner.isCodePointBoundary(idx)) {
+          idx = foldCase ? indexOfIgnoreCase(text, prefix, idx + 1) : text.indexOf(prefix, idx + 1);
+        }
         if (idx < 0) {
           diagnosticBoundary(MatchStrategy.LITERAL);
           break;
