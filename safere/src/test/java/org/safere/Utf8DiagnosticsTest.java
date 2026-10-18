@@ -9,6 +9,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -121,6 +122,61 @@ class Utf8DiagnosticsTest {
               assertThat(event.inputLength()).isEqualTo(4);
               assertThat(event.matchCount()).isEqualTo(1);
             });
+  }
+
+  @ParameterizedTest
+  @MethodSource("literalFindOptions")
+  void patternBooleanFindHonorsLiteralFastPathOption(
+      String literal, boolean literalFastPaths, boolean present)
+      throws ReflectiveOperationException {
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    // Disable independent start acceleration so misses also reach the chosen boundary engine.
+    Pattern pattern =
+        Pattern.compile(
+            literal,
+            0,
+            EnginePathOptions.builder()
+                .literalFastPaths(literalFastPaths)
+                .startAcceleration(false)
+                .build());
+    Utf8Input input = input(present ? "prefix " + literal + " suffix" : "unrelated text");
+
+    // With diagnostics disabled, lazy DFA creation proves the literal shortcut was bypassed.
+    Field cacheField = Pattern.class.getDeclaredField("cachedForwardFirstMatchDfa");
+    cacheField.setAccessible(true);
+    ThreadLocal<?> dfaCache = (ThreadLocal<?>) cacheField.get(pattern);
+    assertThat(dfaCache.get()).isNull();
+    assertThat(pattern.find(input)).isEqualTo(present);
+    if (literalFastPaths) {
+      assertThat(dfaCache.get()).isNull();
+    } else {
+      assertThat(dfaCache.get()).isNotNull();
+    }
+
+    Pattern.setDiagnostics(diagnostics);
+    assertThat(pattern.find(input)).isEqualTo(present);
+
+    MatchStrategy expected = literalFastPaths ? MatchStrategy.LITERAL : MatchStrategy.DFA;
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(expected);
+              assertThat(event.forwardDfaSearchCount()).isEqualTo(literalFastPaths ? 0 : 1);
+              assertThat(event.outcome())
+                  .isEqualTo(present ? MatchOutcome.MATCH : MatchOutcome.NO_MATCH);
+            });
+  }
+
+  private static Stream<Arguments> literalFindOptions() {
+    return Stream.of("hello", "é", "😀", "café😀")
+        .flatMap(
+            literal ->
+                Stream.of(false, true)
+                    .flatMap(
+                        literalFastPaths ->
+                            Stream.of(false, true)
+                                .map(present -> Arguments.of(literal, literalFastPaths, present))));
   }
 
   @Test

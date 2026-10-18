@@ -273,7 +273,10 @@ public final class Pattern implements Serializable {
             ? null
             : this.anchoredPrefix.getBytes(StandardCharsets.UTF_8);
     this.matchDescriptor = matchDescriptor != null ? matchDescriptor : MatchDescriptor.NONE;
-    String literalMatch = this.matchDescriptor.literalMatch();
+    // Fold the option into prepared literal data so the search methods need no extra guard.
+    // An extra guard there can perturb C2 compilation of their inlined byte-scanning loops.
+    String literalMatch =
+        enginePathOptions.literalFastPaths() ? this.matchDescriptor.literalMatch() : null;
     this.literalMatchUtf8 =
         literalMatch == null ? null : literalMatch.getBytes(StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
