@@ -857,6 +857,35 @@
       "shared": true
     },
     {
+      "id": "leadingExpansion.noqa.{outcome}.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "leadingExpansion.spaces.{size}",
+        "suffix": "{outcome}"
+      },
+      "shared": true
+    },
+    {
       "id": "leadingExpansion.longRun.{size}",
       "axes": {
         "size": [
@@ -5100,6 +5129,87 @@
         ]
       },
       "requirements": []
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.find.{outcome}.{size}",
+      "operation": "find",
+      "patterns": [
+        "\\s*# noqa[0-9]"
+      ],
+      "inputs": [
+        "leadingExpansion.noqa.{outcome}.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.replaceAll.{outcome}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\s*# noqa[0-9]"
+      ],
+      "inputs": [
+        "leadingExpansion.noqa.{outcome}.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "requirements": [],
+      "arguments": {
+        "replacement": "X"
+      }
     },
     {
       "id": "StartAccelerationBenchmark.leadingExpansion.longRun.{repetition}.{size}",

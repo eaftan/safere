@@ -480,7 +480,8 @@ class DiagnosticsTest {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
               assertThat(event.matchCount()).isEqualTo(2);
-              assertThat(event.forwardDfaSearchCount()).isEqualTo(3);
+              // The terminal start-accelerator scan rejects without another DFA search.
+              assertThat(event.forwardDfaSearchCount()).isEqualTo(2);
               assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
               assertThat(event.auxiliaryStrategies())
                   .contains(

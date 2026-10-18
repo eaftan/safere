@@ -650,7 +650,7 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      searchStart = findNextUtf8StartCandidate(scanner, null);
       if (searchStart < 0) {
         return false;
       }
@@ -738,15 +738,8 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      MatchStrategy strategy = utf8StartAccelerator.policy().strategy();
-      if (strategy != null) {
-        diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
-      }
-      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      searchStart = findNextUtf8StartCandidate(scanner, diagnostics);
       if (searchStart < 0) {
-        if (strategy != null) {
-          diagnostics.boundary(strategy);
-        }
         return false;
       }
       startPositionPreselected = true;
@@ -789,6 +782,49 @@ public final class Pattern implements Serializable {
             != null;
     diagnostics.boundary(MatchStrategy.NFA);
     return matched;
+  }
+
+  /** Shares candidate selection between the diagnostic and non-diagnostic matcher-free paths. */
+  private int findNextUtf8StartCandidate(
+      Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
+    MatchStrategy strategy = utf8StartAccelerator.policy().strategy();
+    if (diagnostics != null && strategy != null) {
+      diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
+    }
+    if (utf8StartAccelerator instanceof Utf8StartAccelerator.LeadingExpansion le
+        && le.canVerifyAtInner()) {
+      int innerMatch = le.findInnerCandidate(scanner, 0);
+      if (innerMatch >= 0) {
+        // With zero repetitions and no leading assertions, an unanchored rejection from the
+        // inner candidate also rejects every expanded start. Do this before walking backward.
+        if (diagnostics != null) {
+          diagnostics.participate(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnostics.incrementForwardDfaSearchCount();
+        }
+        Dfa.SearchResult result =
+            forwardFirstMatchDfa().doSearch(scanner, innerMatch, false, false, true);
+        if (result != null && !result.matched()) {
+          if (diagnostics != null) {
+            diagnostics.boundary(MatchStrategy.DFA);
+          }
+          return -1;
+        }
+        if (result == null && diagnostics != null) {
+          diagnostics.decision(
+              MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+        }
+        return le.expandBackward(scanner, innerMatch, 0);
+      }
+    } else {
+      int candidate = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      if (candidate >= 0) {
+        return candidate;
+      }
+    }
+    if (diagnostics != null && strategy != null) {
+      diagnostics.boundary(strategy);
+    }
+    return -1;
   }
 
   /**
