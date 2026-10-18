@@ -246,6 +246,11 @@ matcher-free `Pattern.find(Utf8Input)`. An operation rejected solely by this che
 as the boundary strategy, no capture strategy, and zero DFA searches. It does not attribute work to
 an engine that never ran.
 
+`LENGTH` is a new public `MatchStrategy` enum constant. When upgrading from SafeRE 1.0, exhaustive
+switches that enumerate the constants need a `LENGTH` case or a `default` branch. It is reported
+only as a boundary strategy, never as a capture strategy, auxiliary participation, or strategy
+decision.
+
 ### Golden strategy tests
 
 The immutable event fields can also serve as golden expectations for benchmark patterns and

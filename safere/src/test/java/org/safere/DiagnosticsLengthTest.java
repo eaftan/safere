@@ -120,6 +120,44 @@ class DiagnosticsLengthTest {
         .allSatisfy(event -> assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH));
   }
 
+  @Test
+  void lengthRemainsBoundaryOnlyAlongsideEngineParticipationAndDecisions() {
+    Pattern.setDiagnostics(listener);
+    EnginePathOptions options =
+        EnginePathOptions.builder()
+            .literalFastPaths(false)
+            .charClassMatchFastPaths(false)
+            .keywordAlternationFastPath(false)
+            .startAcceleration(false)
+            .onePass(false)
+            .bitState(false)
+            .build();
+    Pattern pattern = Pattern.compile("(?:(a)?)*X", 0, options);
+
+    assertThat(pattern.find(Utf8Input.trusted(new byte[0]))).isFalse();
+    assertThat(pattern.matcher("").find()).isFalse();
+    assertThat(pattern.matcher("aaaaX").find()).isTrue();
+    // Replacement aggregates an engine match and a terminal minimum-length rejection.
+    assertThat(pattern.matcher("aaaaX").replaceAll("done")).isEqualTo("done");
+
+    assertLengthRejection(events.get(0));
+    assertLengthRejection(events.get(1));
+    assertThat(events)
+        .hasSize(4)
+        .anySatisfy(event -> assertThat(event.auxiliaryStrategies()).isNotEmpty())
+        .anySatisfy(event -> assertThat(event.strategyDecisions()).isNotEmpty())
+        .allSatisfy(
+            event -> {
+              assertThat(event.captureStrategy()).isNotEqualTo(MatchStrategy.LENGTH);
+              assertThat(event.auxiliaryStrategies())
+                  .extracting(StrategyParticipation::strategy)
+                  .doesNotContain(MatchStrategy.LENGTH);
+              assertThat(event.strategyDecisions())
+                  .extracting(StrategyDecision::strategy)
+                  .doesNotContain(MatchStrategy.LENGTH);
+            });
+  }
+
   @Tag("work-counter")
   @ParameterizedTest
   @ValueSource(strings = {"a{1000}", "[ab]{1000}", "[ab]{1000}\\z", "^[ab]{1000}"})
