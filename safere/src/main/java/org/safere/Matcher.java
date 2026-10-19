@@ -5305,10 +5305,12 @@ public final class Matcher implements MatchResult {
   }
 
   static final class ShiftDfaPreparedRunner implements PreparedMatchRunner {
-    private final ShiftDfa shiftDfa;
+    private final Pattern pattern;
+    private final PreparedMatchRunner fallback;
 
-    ShiftDfaPreparedRunner(ShiftDfa shiftDfa) {
-      this.shiftDfa = shiftDfa;
+    ShiftDfaPreparedRunner(Pattern pattern, PreparedMatchRunner fallback) {
+      this.pattern = pattern;
+      this.fallback = fallback;
     }
 
     @Override
@@ -5325,6 +5327,10 @@ public final class Matcher implements MatchResult {
           || matcher.transparentBounds
           || !matcher.anchoringBounds) {
         return matcher.matchesCore();
+      }
+      ShiftDfa shiftDfa = pattern.shiftDfa();
+      if (shiftDfa == null) {
+        return fallback.matches(matcher);
       }
       matcher.capturesResolved = true;
       boolean matched;
