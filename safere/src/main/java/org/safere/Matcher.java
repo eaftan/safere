@@ -4772,6 +4772,10 @@ public final class Matcher implements MatchResult {
     if (options.literalFastPaths() && literal != null) {
       int idx;
       if (prog.anchorStart()) {
+        // The unchecked folded comparison requires the entire literal to fit in the input.
+        if (literal.length() > text.length()) {
+          return -1L;
+        }
         if (parentPattern.literalFoldCase()) {
           idx = Ascii.regionMatchesIgnoreCase(text, 0, literal, literal.length()) ? 0 : -1;
         } else {
