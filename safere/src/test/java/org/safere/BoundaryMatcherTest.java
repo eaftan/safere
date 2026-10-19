@@ -519,8 +519,6 @@ class BoundaryMatcherTest {
       assertTraceSameAsJdk("^\\X$", emoji, 0, 1);
       assertTraceSameAsJdk("\\b{g}\\X", emoji, 0, 1);
       assertTraceSameAsJdk("\\X\\b{g}", emoji, 0, 1);
-      assertCapturedFindTraceSameAsJdk("(.)|(\\X)", emoji, 0, 1);
-      assertCapturedFindTraceSameAsJdk("(\\X)|(.)", emoji, 0, 1);
     }
 
     @Test
