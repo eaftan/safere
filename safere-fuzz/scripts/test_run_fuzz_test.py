@@ -60,6 +60,9 @@ if case.get('broken_log_file'):
     log = pathlib.Path(args['safere.fuzz.findingsDir']).parent / (args['test'] + '.log')
     log.unlink(missing_ok=True)
     log.mkdir()
+if case.get('broken_result_file'):
+    result = pathlib.Path(args['safere.fuzz.findingsDir']).parent / (args['test'] + '-result.json')
+    result.mkdir()
 sys.exit(case.get('exit', 0))
 ''')
         self.summary = self.root / 'step-summary.md'
@@ -168,6 +171,27 @@ sys.exit(case.get('exit', 0))
         self.assertIn(line, result.stdout)
         self.assertIn(line, self.summary.read_text())
         self.assertIn('Completed ExampleFuzzer#second', result.stdout)
+
+    def test_result_json_write_failure_preserves_observed_statuses(self):
+        for exit_code in (0, 1):
+            for has_findings in (False, True):
+                with self.subTest(exit_code=exit_code, has_findings=has_findings):
+                    log = '== Java Exception: java.lang.AssertionError' if has_findings else 'Clean'
+                    result = self.run_runner({'exit': exit_code, 'log': log,
+                                              'broken_result_file': True})
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    process = 'SUCCEEDED' if exit_code == 0 else 'FAILED'
+                    findings = 'UNTRIAGED' if has_findings else 'NONE'
+                    line = (f'ExampleFuzzer#first: process={process} (exit {exit_code}); '
+                            f'findings={findings}; reporting=FAILED')
+                    self.assertGreaterEqual(result.stdout.count(line), 2)
+                    self.assertIn(line, self.summary.read_text())
+                    self.assertIn('could not write result JSON', result.stderr)
+                    logs = self.root / 'safere-fuzz/target/fuzz-logs'
+                    latest = max(logs.iterdir(), key=lambda p: p.stat().st_mtime_ns)
+                    self.assertIn(line, (latest / 'summary.txt').read_text())
+                    self.assertIn(line, (latest / 'ExampleFuzzer#first.log').read_text())
+                    self.assertIn('Completed ExampleFuzzer#second', result.stdout)
 
     def test_log_capture_failure_is_reporting_failure(self):
         real_tee = shutil.which('tee')

@@ -157,8 +157,9 @@ Per-target and final summaries report independent dimensions:
 - `reporting=FAILED` means evidence or its summary could not be read or written
   reliably. `findings=UNKNOWN` marks unavailable inspection, for example because
   the reporter or log capture failed. Observed findings are retained when only
-  appending the target summary fails. A reporting failure is never treated as an
-  absence of findings or as a failure of the fuzz process itself.
+  appending the target summary or saving the result JSON fails. A reporting
+  failure is never treated as an absence of findings or as a failure of the fuzz
+  process itself.
 
 Any finding evidence, nonzero process exit, or reporting failure makes the runner
 exit nonzero. In particular, Jazzer `keep_going` runs that exit zero with findings

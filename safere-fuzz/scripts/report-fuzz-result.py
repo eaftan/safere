@@ -19,6 +19,16 @@ def summary(result):
             f"findings={result['findings']}; reporting={result['reporting']}")
 
 
+def append_summary(log_file, result):
+    try:
+        with log_file.open('a', encoding='utf-8') as log:
+            log.write(f'=== Completed {summary(result)} ===\n')
+    except OSError as error:
+        # Keep the observed findings and process status even if the log cannot be appended.
+        result['reporting'] = 'FAILED'
+        print(f'error: could not append target summary: {error}', file=sys.stderr)
+
+
 def report(log_dir, target, exit_code):
     log_dir = Path(log_dir)
     # Stream logs: coverage-guided runs can produce large output. Do not scan old Surefire reports
@@ -37,14 +47,15 @@ def report(log_dir, target, exit_code):
     result = dict(target=target, exit_code=exit_code, process=process, findings=findings,
                   reporting='OK', log_evidence=log_evidence, finding_files=json_files,
                   reproducer_files=reproducer_files)
+    log_file = log_dir / f'{target}.log'
+    append_summary(log_file, result)
     try:
-        with (log_dir / f'{target}.log').open('a', encoding='utf-8') as log:
-            log.write(f'=== Completed {summary(result)} ===\n')
+        (log_dir / f'{target}-result.json').write_text(json.dumps(result, indent=2) + '\n')
     except OSError as error:
-        # Keep the observed findings and process status even if the log cannot be appended.
         result['reporting'] = 'FAILED'
-        print(f'error: could not append target summary: {error}', file=sys.stderr)
-    (log_dir / f'{target}-result.json').write_text(json.dumps(result, indent=2) + '\n')
+        print(f'error: could not write result JSON: {error}', file=sys.stderr)
+        # Update the log with the final reporting status when that destination still works.
+        append_summary(log_file, result)
     return summary(result)
 
 
