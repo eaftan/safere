@@ -58,6 +58,40 @@ public final class ReplacementFuzzer {
       flags = 0;
       input = data.consumeString(64);
       replacement = data.pickValue(List.of("-", "", "[$0]"));
+    } else if (data.consumeBoolean()) {
+      String leading = data.pickValue(List.of("\\s", "[é😀]", "[ab]"));
+      String repetition = data.pickValue(List.of("*", "*?", "+", "{0,3}", "{1,3}"));
+      regex = "(" + leading + repetition + ")# noqa" + data.pickValue(List.of("[0-9]", "\\b"));
+      flags = 0;
+      input =
+          data.pickValue(List.of(" ", "é😀", "ab")).repeat(data.consumeInt(0, 64))
+              + data.pickValue(List.of("# noqaX", "# noqa1", "# nopeX"))
+              + data.pickValue(List.of("", "    # noqa2", "é😀# noqa3"));
+      replacement = data.pickValue(List.of("X", "", "<$0>", "<$1>"));
+    } else if (data.consumeBoolean()) {
+      String low = data.pickValue(List.of("\uDC00", "\uDE00", "\uDFFF"));
+      String high = data.pickValue(List.of("\uD800", "\uD83D", "\uDBFF"));
+      regex = "(\\s" + data.pickValue(List.of("*", "*?", "+", "{0,3}")) + ")" + low + "[bc]";
+      flags = 0;
+      input =
+          " " + low + "b;" + (high + low + "b;").repeat(data.consumeInt(1, 64)) + " " + low + "c";
+      replacement = data.pickValue(List.of("X", "<$0>", "<$1>"));
+    } else if (data.consumeBoolean()) {
+      int window = data.consumeInt(1, 16);
+      regex = "(\\s*)# noqa[ab]*a[ab]{" + window + "}Z";
+      flags = 0;
+      StringBuilder binary = new StringBuilder();
+      int length = data.consumeInt(0, 512);
+      for (int i = 0; i < length; i++) {
+        binary.append(data.consumeBoolean() ? 'a' : 'b');
+      }
+      String candidate =
+          "# noqa" + binary + "a" + "b".repeat(window) + data.pickValue(List.of("Z", "Y"));
+      input =
+          data.pickValue(List.of("", "# noqa" + "a" + "b".repeat(window) + "Z;"))
+              + " ".repeat(data.consumeInt(0, 64))
+              + candidate;
+      replacement = data.pickValue(List.of("X", "<$0>", "<$1>"));
     } else {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);

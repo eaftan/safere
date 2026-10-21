@@ -34,6 +34,9 @@ public final class EngineEquivalenceFuzzer {
     String atom = data.pickValue(List.of("a", ".", "[ab]", "[^a]", "é", "😀"));
     String boundaryAtom =
         data.pickValue(List.of(atom, "\\p{Cs}", "\\p{So}", "[\\uDC00-\\uDFFF]", "\\uDC4D"));
+    String leadingRepeat =
+        boundaryAtom + data.pickValue(List.of("*", "*?", "+", "+?", "?", "??", "{0,2}", "{1,2}?"));
+    String suffix = data.pickValue(List.of("[ab]", "a", "(a|b)"));
     String regex =
         data.pickValue(
             List.of(
@@ -45,6 +48,8 @@ public final class EngineEquivalenceFuzzer {
                 boundaryAtom + "\\b{g}",
                 "(" + boundaryAtom + ")(\\b{g})",
                 "\\b{g}(" + boundaryAtom + ")",
+                leadingRepeat + suffix + "\\b{g}",
+                "(" + leadingRepeat + ")(" + suffix + ")(\\b{g})",
                 "(?:(" + boundaryAtom + ")\\b{g}|(a))"));
     StringBuilder input = new StringBuilder();
     int length = data.consumeInt(0, 32);

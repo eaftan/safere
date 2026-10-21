@@ -258,6 +258,13 @@ final class Dfa {
 
   private final int[] startStateContextKeys = new int[256];
 
+  /**
+   * Start states for programs whose start context is fully described by direction, anchoring and
+   * the word-character class of the adjacent characters: no text anchors, no CRLF context and no
+   * grapheme semantics. Indexed by {@link #fastStartIndex}; cleared with the other start caches.
+   */
+  private final State[] fastStartStates;
+
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
 
@@ -421,6 +428,10 @@ final class Dfa {
     this.hasStartAcceleration = utf8StartAccelerator != null || stringStartAccelerator != null;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
     this.hasCrLfContext = hasStandardLineBoundary(prog);
+    this.fastStartStates =
+        !hasGraphemeSemantics && !prog.hasTextAnchor() && !hasCrLfContext
+            ? new State[prog.hasWordBoundary() ? 64 : 4]
+            : null;
     this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
@@ -1002,6 +1013,9 @@ final class Dfa {
     Arrays.fill(deadState.next, null);
     // A surviving start-cache entry would hand back a state the flat arrays no longer describe.
     Arrays.fill(startStateByContext, null);
+    if (fastStartStates != null) {
+      Arrays.fill(fastStartStates, null);
+    }
     cache.clear();
     hasStateAccelerators = false;
     nextStateId = 1;
@@ -1255,6 +1269,43 @@ final class Dfa {
    *     the right of where a reverse scan begins), rather than the character BEFORE pos
    */
   State startState(InputScanner text, int pos, boolean anchored, boolean reverseContext) {
+    if (fastStartStates == null) {
+      return computeStartState(text, pos, anchored, reverseContext);
+    }
+    int index = fastStartIndex(text, pos, anchored, reverseContext);
+    State s = fastStartStates[index];
+    if (s == null) {
+      s = computeStartState(text, pos, anchored, reverseContext);
+      fastStartStates[index] = s;
+    }
+    return s;
+  }
+
+  /**
+   * Without text anchors, CRLF context or grapheme semantics, a start state depends only on its
+   * direction and anchoring and, for {@code \b} programs, on whether the characters on either side
+   * of {@code pos} are ASCII and Unicode word characters (see {@link Nfa#emptyFlags}).
+   */
+  private int fastStartIndex(InputScanner text, int pos, boolean anchored, boolean reverseContext) {
+    int index = (anchored ? 1 : 0) | (reverseContext ? 2 : 0);
+    if (fastStartStates.length == 4) {
+      return index;
+    }
+    if (pos > 0) {
+      int cp = text.codePointBefore(pos);
+      boolean word = Nfa.isWordChar(cp);
+      index |= (word ? 4 : 0) | ((cp < 128 ? word : Nfa.isUnicodeWordChar(cp)) ? 8 : 0);
+    }
+    if (pos < text.length()) {
+      int cp = text.codePointAt(pos);
+      boolean word = Nfa.isWordChar(cp);
+      index |= (word ? 16 : 0) | ((cp < 128 ? word : Nfa.isUnicodeWordChar(cp)) ? 32 : 0);
+    }
+    return index;
+  }
+
+  private State computeStartState(
+      InputScanner text, int pos, boolean anchored, boolean reverseContext) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;

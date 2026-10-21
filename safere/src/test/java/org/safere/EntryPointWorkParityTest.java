@@ -42,7 +42,10 @@ class EntryPointWorkParityTest {
   private record Scenario(String regex, String tail) {
     @Override
     public String toString() {
-      return "/" + regex + "/" + (tail.isEmpty() ? " no match" : " + '" + tail + "'");
+      String leading = tail.substring(0, tail.length() - tail.stripLeading().length());
+      String shown =
+          leading.length() > 8 ? "<" + leading.length() + " spaces>" + tail.stripLeading() : tail;
+      return "/" + regex + "/" + (tail.isEmpty() ? " no match" : " + '" + shown + "'");
     }
   }
 
@@ -63,6 +66,8 @@ class EntryPointWorkParityTest {
           new Scenario("^GET [^ ]+", ""),
           new Scenario("\\s*# noqa", ""),
           new Scenario("\\s*# noqa", "  # noqa"),
+          // The inner candidate fails verification after a long leading run.
+          new Scenario("\\s*# noqa[0-9]", " ".repeat(20_000) + "# noqaX"),
           new Scenario("foo.*bar.*[0-9]$", ""),
           new Scenario("a*[bc]d", ""),
           new Scenario("é[ab]+c", ""),

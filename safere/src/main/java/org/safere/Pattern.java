@@ -274,7 +274,10 @@ public final class Pattern implements Serializable {
             ? null
             : this.anchoredPrefix.getBytes(StandardCharsets.UTF_8);
     this.matchDescriptor = matchDescriptor != null ? matchDescriptor : MatchDescriptor.NONE;
-    String literalMatch = this.matchDescriptor.literalMatch();
+    // Fold the option into prepared literal data so the search methods need no extra guard.
+    // An extra guard there can perturb C2 compilation of their inlined byte-scanning loops.
+    String literalMatch =
+        enginePathOptions.literalFastPaths() ? this.matchDescriptor.literalMatch() : null;
     this.literalMatchUtf8 =
         literalMatch == null ? null : literalMatch.getBytes(StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
@@ -663,8 +666,7 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      searchStart =
-          Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, searchStart);
+      searchStart = findNextUtf8StartCandidate(scanner, null);
       if (searchStart < 0) {
         return false;
       }
@@ -703,6 +705,10 @@ public final class Pattern implements Serializable {
 
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
+    if (matchDescriptor.minMatchLength() > 0 && length < matchDescriptor.minMatchLength()) {
+      diagnostics.boundary(MatchStrategy.LENGTH);
+      return false;
+    }
     if (literalMatchUtf8 != null && !literalFoldCase()) {
       boolean matched = findLiteralMatch(scanner);
       diagnostics.boundary(MatchStrategy.LITERAL);
@@ -754,16 +760,8 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      MatchStrategy strategy = utf8StartAccelerator.policy().strategy();
-      if (strategy != null) {
-        diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
-      }
-      searchStart =
-          Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, searchStart);
+      searchStart = findNextUtf8StartCandidate(scanner, diagnostics);
       if (searchStart < 0) {
-        if (strategy != null) {
-          diagnostics.boundary(strategy);
-        }
         return false;
       }
       startPositionPreselected = true;
@@ -806,6 +804,49 @@ public final class Pattern implements Serializable {
             != null;
     diagnostics.boundary(MatchStrategy.NFA);
     return matched;
+  }
+
+  /** Shares candidate selection between the diagnostic and non-diagnostic matcher-free paths. */
+  private int findNextUtf8StartCandidate(
+      Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
+    MatchStrategy strategy = utf8StartAccelerator.policy().strategy();
+    if (diagnostics != null && strategy != null) {
+      diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
+    }
+    if (utf8StartAccelerator instanceof Utf8StartAccelerator.LeadingExpansion le
+        && le.canVerifyAtInner()) {
+      int innerMatch = le.findInnerCandidate(scanner, 0);
+      if (innerMatch >= 0) {
+        // With zero repetitions and no leading assertions, an unanchored rejection from the
+        // inner candidate also rejects every expanded start. Do this before walking backward.
+        if (diagnostics != null) {
+          diagnostics.participate(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnostics.incrementForwardDfaSearchCount();
+        }
+        Dfa.SearchResult result =
+            forwardFirstMatchDfa().doSearch(scanner, innerMatch, false, false, true);
+        if (result != null && !result.matched()) {
+          if (diagnostics != null) {
+            diagnostics.boundary(MatchStrategy.DFA);
+          }
+          return -1;
+        }
+        if (result == null && diagnostics != null) {
+          diagnostics.decision(
+              MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+        }
+        return le.expandBackward(scanner, innerMatch, 0);
+      }
+    } else {
+      int candidate = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
+      if (candidate >= 0) {
+        return candidate;
+      }
+    }
+    if (diagnostics != null && strategy != null) {
+      diagnostics.boundary(strategy);
+    }
+    return -1;
   }
 
   /**

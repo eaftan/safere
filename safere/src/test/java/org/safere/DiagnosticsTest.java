@@ -258,8 +258,9 @@ class DiagnosticsTest {
     Pattern.setDiagnostics(diagnostics);
 
     for (MatchOperation operation : List.of(MatchOperation.FIND, MatchOperation.MATCHES)) {
-      assertCompositeRejection(operation, "needle", MatchStrategy.CHARACTER_CLASS);
-      assertCompositeRejection(operation, "x", MatchStrategy.LITERAL);
+      // Reach the composite prefilter rather than the earlier minimum-length rejection.
+      assertCompositeRejection(operation, "needle ", MatchStrategy.CHARACTER_CLASS);
+      assertCompositeRejection(operation, "xxxxxxx", MatchStrategy.LITERAL);
     }
   }
 
@@ -480,7 +481,8 @@ class DiagnosticsTest {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
               assertThat(event.matchCount()).isEqualTo(2);
-              assertThat(event.forwardDfaSearchCount()).isEqualTo(3);
+              // The terminal start-accelerator scan rejects without another DFA search.
+              assertThat(event.forwardDfaSearchCount()).isEqualTo(2);
               assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
               assertThat(event.auxiliaryStrategies())
                   .contains(

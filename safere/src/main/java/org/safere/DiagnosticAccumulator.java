@@ -13,6 +13,7 @@ import java.util.Set;
 
 /** Enabled-only, bounded diagnostics state for one public operation. */
 final class DiagnosticAccumulator {
+  // Boundary-only outcomes such as LENGTH need no auxiliary participation or decision slots.
   private static final MatchStrategy[] STRATEGIES = {
     MatchStrategy.NONE,
     MatchStrategy.LITERAL,
@@ -200,6 +201,7 @@ final class DiagnosticAccumulator {
       case BIT_STATE -> 7;
       case NFA -> 8;
       case LITERAL_ALTERNATION -> 9;
+      case LENGTH -> throw new IllegalArgumentException("LENGTH is a boundary-only strategy");
     };
   }
 

@@ -582,7 +582,9 @@ sealed interface StringStartAccelerator {
         int cp = text.codePointBefore(start);
         int cpStart = start - Character.charCount(cp);
         if (cpStart < fromIndex) {
-          break;
+          // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.
+          cp = text.charAt(fromIndex);
+          cpStart = fromIndex;
         }
         if (!leadingClass.contains(cp)) {
           break;
@@ -610,7 +612,9 @@ sealed interface StringStartAccelerator {
           int cp = text.codePointBefore(start);
           int cpStart = start - Character.charCount(cp);
           if (cpStart < fromIndex) {
-            break;
+            // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.
+            cp = text.charAt(fromIndex);
+            cpStart = fromIndex;
           }
           if (!leadingClass.contains(cp)) {
             break;

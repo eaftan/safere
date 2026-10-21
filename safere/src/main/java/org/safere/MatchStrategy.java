@@ -17,5 +17,7 @@ public enum MatchStrategy {
   BIT_STATE,
   NFA,
   /** Exact search over ordered literal alternatives. */
-  LITERAL_ALTERNATION
+  LITERAL_ALTERNATION,
+  /** Boundary-only rejection of input shorter than the pattern's minimum match length. */
+  LENGTH
 }
