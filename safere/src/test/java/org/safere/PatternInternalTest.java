@@ -10,6 +10,11 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
@@ -867,5 +872,147 @@ class PatternInternalTest {
   @ValueSource(strings = {"\\X|a+", "\\b{g}a+", "a+\\X"})
   void forwardDfaRejectsLiveGraphemeInstructions(String regex) {
     assertThat(Pattern.compile(regex).forwardDfaSupported()).isFalse();
+  }
+
+  @Test
+  void threadCacheRebuildsAfterSoftReferenceIsCleared() throws ReflectiveOperationException {
+    Pattern dfaPattern = Pattern.compile("([a-z]+)[0-9]+");
+    Dfa firstDfa = dfaPattern.forwardFirstMatchDfa();
+    Dfa longestDfa = dfaPattern.forwardLongestMatchDfa();
+    Dfa reverseDfa = dfaPattern.reverseDfa();
+    assertThat(dfaPattern.forwardFirstMatchDfa()).isSameAs(firstDfa);
+    assertThat(dfaPattern.forwardLongestMatchDfa()).isSameAs(longestDfa);
+    assertThat(dfaPattern.reverseDfa()).isSameAs(reverseDfa);
+
+    clearThreadCacheReference(dfaPattern);
+
+    assertThat(dfaPattern.cachedForwardFirstMatchDfa()).isNull();
+    assertThat(dfaPattern.forwardFirstMatchDfa()).isNotNull().isNotSameAs(firstDfa);
+    assertThat(dfaPattern.forwardLongestMatchDfa()).isNotNull().isNotSameAs(longestDfa);
+    assertThat(dfaPattern.reverseDfa()).isNotNull().isNotSameAs(reverseDfa);
+  }
+
+  @Test
+  void bitStateAndNfaCachesRebuildAfterSoftReferenceIsCleared()
+      throws ReflectiveOperationException {
+    Pattern bitStatePattern =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
+    Pattern nfaPattern =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)",
+            0,
+            EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build());
+    for (Pattern pattern : List.of(bitStatePattern, nfaPattern)) {
+      assertThat(pattern.matcher("abc123").find()).isTrue();
+      clearThreadCacheReference(pattern);
+      assertThat(pattern.borrowBitState()).isNull();
+      assertThat(pattern.borrowNfa()).isNull();
+
+      Matcher m = pattern.matcher("xyz789");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(2)).isEqualTo("789");
+    }
+    assertThat(bitStatePattern.borrowBitState()).isNotNull();
+    assertThat(nfaPattern.borrowNfa()).isNotNull();
+  }
+
+  private static void clearThreadCacheReference(Pattern pattern)
+      throws ReflectiveOperationException {
+    Field threadCacheField = Pattern.class.getDeclaredField("threadCache");
+    threadCacheField.setAccessible(true);
+    SoftReference<?> ref =
+        (SoftReference<?>) ((ThreadLocal<?>) threadCacheField.get(pattern)).get();
+    assertThat(ref).isNotNull();
+    ref.clear();
+  }
+
+  @Test
+  @Timeout(10)
+  void isolatedClassLoaderIsNotStronglyRetainedByThreadLocalCache() throws Exception {
+    // Clears the soft references explicitly: System.gc() does not clear recently used soft
+    // references, so this verifies that nothing but the soft referents retains the loader.
+    WeakReference<ClassLoader> loaderRef = createIsolatedLoaderAndPopulateCaches();
+    for (int i = 0; i < 50 && loaderRef.get() != null; i++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertThat(loaderRef.get()).isNull();
+  }
+
+  private static WeakReference<ClassLoader> createIsolatedLoaderAndPopulateCaches()
+      throws Exception {
+    URL[] urls = {
+      Pattern.class.getProtectionDomain().getCodeSource().getLocation(),
+      PatternInternalTest.class.getProtectionDomain().getCodeSource().getLocation(),
+    };
+    try (URLClassLoader loader =
+        new URLClassLoader(urls, Pattern.class.getClassLoader()) {
+          @Override
+          protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if (name.startsWith("org.safere.")) {
+              synchronized (getClassLoadingLock(name)) {
+                Class<?> c = findLoadedClass(name);
+                if (c == null) {
+                  c = findClass(name);
+                }
+                if (resolve) {
+                  resolveClass(c);
+                }
+                return c;
+              }
+            }
+            return super.loadClass(name, resolve);
+          }
+        }) {
+      Class<?> holderClass = loader.loadClass(ChildLoaderPatternHolder.class.getName());
+      assertThat(holderClass.getClassLoader()).isSameAs(loader);
+      // populateThreadCaches() returns List<SoftReference<?>>.
+      @SuppressWarnings("unchecked")
+      List<SoftReference<?>> refs =
+          (List<SoftReference<?>>) holderClass.getMethod("populateThreadCaches").invoke(null);
+      assertThat(refs).hasSize(3);
+      for (SoftReference<?> ref : refs) {
+        assertThat(ref).isNotNull();
+        assertThat(ref.getClass().getClassLoader()).isNull();
+        Object cache = ref.get();
+        assertThat(cache).isNotNull();
+        assertThat(cache.getClass().getClassLoader()).isSameAs(loader);
+        ref.clear();
+      }
+      return new WeakReference<>(loader);
+    }
+  }
+
+  public static final class ChildLoaderPatternHolder {
+    private static final Pattern DFA_PATTERN = Pattern.compile("([a-z]+)[0-9]+");
+    private static final Pattern BITSTATE_PATTERN =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
+    private static final Pattern NFA_PATTERN =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)",
+            0,
+            EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build());
+
+    private ChildLoaderPatternHolder() {}
+
+    public static List<SoftReference<?>> populateThreadCaches()
+        throws ReflectiveOperationException {
+      if (DFA_PATTERN.forwardFirstMatchDfa() == null
+          || DFA_PATTERN.forwardLongestMatchDfa() == null
+          || DFA_PATTERN.reverseDfa() == null) {
+        throw new AssertionError("Expected DFAs to be initialized");
+      }
+      if (!BITSTATE_PATTERN.matcher("abc123").find() || !NFA_PATTERN.matcher("abc123").find()) {
+        throw new AssertionError("Expected matches to succeed");
+      }
+      Field field = Pattern.class.getDeclaredField("threadCache");
+      field.setAccessible(true);
+      return List.of(
+          (SoftReference<?>) ((ThreadLocal<?>) field.get(DFA_PATTERN)).get(),
+          (SoftReference<?>) ((ThreadLocal<?>) field.get(BITSTATE_PATTERN)).get(),
+          (SoftReference<?>) ((ThreadLocal<?>) field.get(NFA_PATTERN)).get());
+    }
   }
 }

@@ -86,8 +86,7 @@ class MatcherDeferredCaptureStateTest {
 
     assertThat(pattern.matcher("abc123").find()).isTrue();
 
-    ThreadLocal<?> cachedNfa = (ThreadLocal<?>) field(Pattern.class, "cachedNfa").get(pattern);
-    Object nfa = cachedNfa.get();
+    Nfa nfa = pattern.borrowNfa();
     assertThat(nfa).isNotNull();
     assertThat(field(Nfa.class, "context").get(nfa)).isNull();
   }

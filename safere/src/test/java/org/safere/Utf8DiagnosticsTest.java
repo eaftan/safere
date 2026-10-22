@@ -9,7 +9,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -127,8 +126,7 @@ class Utf8DiagnosticsTest {
   @ParameterizedTest
   @MethodSource("literalFindOptions")
   void patternBooleanFindHonorsLiteralFastPathOption(
-      String literal, boolean literalFastPaths, boolean present)
-      throws ReflectiveOperationException {
+      String literal, boolean literalFastPaths, boolean present) {
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     // Disable independent start acceleration so misses also reach the chosen boundary engine.
     Pattern pattern =
@@ -142,15 +140,12 @@ class Utf8DiagnosticsTest {
     Utf8Input input = input(present ? "prefix " + literal + " suffix" : "unrelated text");
 
     // With diagnostics disabled, lazy DFA creation proves the literal shortcut was bypassed.
-    Field cacheField = Pattern.class.getDeclaredField("cachedForwardFirstMatchDfa");
-    cacheField.setAccessible(true);
-    ThreadLocal<?> dfaCache = (ThreadLocal<?>) cacheField.get(pattern);
-    assertThat(dfaCache.get()).isNull();
+    assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
     assertThat(pattern.find(input)).isEqualTo(present);
     if (literalFastPaths) {
-      assertThat(dfaCache.get()).isNull();
+      assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
     } else {
-      assertThat(dfaCache.get()).isNotNull();
+      assertThat(pattern.cachedForwardFirstMatchDfa()).isNotNull();
     }
 
     Pattern.setDiagnostics(diagnostics);
