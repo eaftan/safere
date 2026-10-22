@@ -13151,6 +13151,35 @@
       }
     },
     {
+      "id": "ByteReplacementBenchmark.wholeMatch",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "([A-Za-z]+)=([^&]+)"
+      ],
+      "inputs": [
+        "utf8.replacement.numbered"
+      ],
+      "arguments": {
+        "replacement": {
+          "java": "[$0]",
+          "alternates": {
+            "re2-cpp": {
+              "replacement": "[\\0]",
+              "reason": "C++ RE2 uses backslash-number capture references"
+            }
+          }
+        }
+      },
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "PatternAnalysisBenchmark.cachedAnalysis",
       "operation": "cachedAnalysis",
       "patterns": [
