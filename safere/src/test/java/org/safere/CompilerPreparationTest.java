@@ -182,6 +182,56 @@ class CompilerPreparationTest {
   }
 
   @Test
+  void derivedDfaProgramPreservesNullableRepeatLanguageAndExactProgram() {
+    for (String regex :
+        new String[] {
+          "(a?)*b",
+          "(a?)+?b",
+          "(?:(^)|a){2}b",
+          "(?:()|\\W+){0,3}y",
+          "(?:(a?|b)){2,3}?y",
+          "(?:(?:()|\\W+){0,2}){2,3}y",
+          "(?:\\b|a)+y",
+          "(?m:(?:^|a)+b$)",
+          "(?:(é?)|()){2,3}𐐀"
+        }) {
+      Compiler.Prepared prepared = Compiler.prepare(Parser.parse(regex, FLAGS));
+      Prog exact = Compiler.compile(prepared, false);
+      String original = exact.dump();
+      Prog derived = exact.flattenedDfaCopy();
+      Prog independent = Compiler.compileForDfa(prepared, false).flattenedCopy();
+      assertThat(derived.numLoopRegs()).isZero();
+      assertThat(exact.dump()).isEqualTo(original);
+      for (String input :
+          new String[] {
+            "", "a", "b", "ab", "aab", "aaaby", "y", "ay", "bay", " y", "  y", "a y y", "\naab\n",
+            "😀y", "é𐐀", "éé𐐀"
+          }) {
+        for (boolean anchored : new boolean[] {false, true}) {
+          assertThat(Dfa.search(derived, input, anchored, true))
+              .as("DFA language for /%s/ on %s, anchored=%s", regex, input, anchored)
+              .isEqualTo(Dfa.search(independent, input, anchored, true));
+        }
+      }
+    }
+  }
+
+  @Test
+  void forwardDfaSetupBelongsToTheDfaProgram() {
+    Pattern pattern = Pattern.compile("(?:()|\\W+){0,20}y");
+    Prog dfa = pattern.flatDfaProg();
+    Dfa.Setup setup = pattern.forwardDfaSetup();
+    assertThat(dfa.numLoopRegs()).isZero();
+    assertThat(pattern.prog().numLoopRegs()).isPositive();
+    assertThat(pattern.forwardDfaSetup()).isSameAs(setup);
+    Dfa.Setup expected = Dfa.buildSetup(dfa);
+    assertThat(setup.boundaries()).containsExactly(expected.boundaries());
+    assertThat(setup.asciiClassMap()).containsExactly(expected.asciiClassMap());
+    assertThat(setup.numClasses()).isEqualTo(expected.numClasses());
+    assertThat(setup.splitUnicodeWordClasses()).isEqualTo(expected.splitUnicodeWordClasses());
+  }
+
+  @Test
   void reverseDfaSetupBelongsToTheDfaProgram() {
     Pattern pattern = Pattern.compile("(a?)*b");
     Prog dfa = pattern.flatReverseDfaProg();

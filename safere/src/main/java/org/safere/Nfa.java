@@ -900,7 +900,7 @@ final class Nfa {
       boolean frameConsumedInput = stack.consumedInput;
       Inst ip = prog.inst(instructionId);
       // Loop instructions are excluded from the visited set: progress registers terminate
-      // zero-width iterations, while fresh entries reset only their own loop's register.
+      // zero-width iterations, while fresh entries record only their own loop's start position.
       //
       // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
       // same alternation or capture instruction at the same input position with different capture
@@ -984,7 +984,7 @@ final class Nfa {
           }
           int regIdx = ncapture + ip.arg;
           int saved = t0[regIdx];
-          t0[regIdx] = -1;
+          t0[regIdx] = pos;
           stack.pushRestore(-2 - instructionId, 0);
           stack.pushRestore(regIdx, saved);
           stack.pushInstruction(ip.out, frameConsumedInput);
@@ -994,12 +994,10 @@ final class Nfa {
           int reg = ip.arg;
           int regIdx = ncapture + reg;
           int saved = t0[regIdx];
-          if (saved == -1) {
-            t0[regIdx] = pos;
-            stack.pushRestore(regIdx, -1);
-            stack.pushInstruction(ip.out, frameConsumedInput);
-          } else if (saved == pos) {
+          if (saved == pos) {
             stack.pushInstruction(ip.out1, frameConsumedInput);
+          } else if (ip.progressOnly) {
+            stack.pushInstruction(ip.out, frameConsumedInput);
           } else {
             t0[regIdx] = pos;
             stack.pushRestore(regIdx, saved);

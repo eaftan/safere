@@ -147,6 +147,37 @@
   },
   "inputs": [
     {
+      "id": "nullableRepeat.optionalAtoms.{size}",
+      "axes": {
+        "size": [
+          32,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "nullableRepeat.match.{size}",
+      "axes": {
+        "size": [
+          2,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": " ",
+        "suffix": "y",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "compile.firstFind.simple",
       "recipe": {
         "kind": "literal",
@@ -4076,6 +4107,218 @@
     }
   ],
   "workloads": [
+    {
+      "id": "NullableRepeatBenchmark.optionalAtomsBoolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?){20}a{20}"
+      ],
+      "inputs": [
+        "nullableRepeat.optionalAtoms.{size}"
+      ],
+      "axes": {
+        "size": [
+          32,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.greedyBoolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?:()|\\W+){0,20}y"
+      ],
+      "inputs": [
+        "nullableRepeat.match.{size}"
+      ],
+      "axes": {
+        "size": [
+          2,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.greedyAbsent.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?:()|\\W+){0,20}y"
+      ],
+      "inputs": [
+        "nullableRepeat.optionalAtoms.{size}"
+      ],
+      "axes": {
+        "size": [
+          32,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.optionalAtoms.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a?){20}a{20}"
+      ],
+      "inputs": [
+        "nullableRepeat.optionalAtoms.{size}"
+      ],
+      "axes": {
+        "size": [
+          32,
+          1024
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.greedy.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(?:()|\\W+){0,20}y"
+      ],
+      "inputs": [
+        "nullableRepeat.match.{size}"
+      ],
+      "axes": {
+        "size": [
+          2,
+          1024
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.reluctant.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(?:()|\\W+){1,20}?y"
+      ],
+      "inputs": [
+        "nullableRepeat.match.{size}"
+      ],
+      "axes": {
+        "size": [
+          2,
+          1024
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.exact.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(?:()|\\W+){20}y"
+      ],
+      "inputs": [
+        "nullableRepeat.match.{size}"
+      ],
+      "axes": {
+        "size": [
+          2,
+          1024
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.compile.20",
+      "operation": "compile",
+      "patterns": [
+        "(?:()|\\W+){0,20}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "NullableRepeatBenchmark.compile.100",
+      "operation": "compile",
+      "patterns": [
+        "(?:()|\\W+){0,100}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
     {
       "id": "SearchScalingBenchmark.endAnchoredAbsentLiteralDot.{size}",
       "axes": {

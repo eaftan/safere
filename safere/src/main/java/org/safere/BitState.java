@@ -202,7 +202,7 @@ final class BitState {
 
     int ncap = 2 * Math.max(nsubmatch, 1);
     BitState bs;
-    if (cached != null && cached.canReuse(prog, text, startPos, textLen, ncap)) {
+    if (cached != null && cached.canReuse(prog, text, startPos, textLen)) {
       bs = cached;
       bs.reset(text, startPos, textLen, ncap, longest, endMatch);
     } else {
@@ -242,7 +242,7 @@ final class BitState {
       int ncap,
       boolean longest,
       boolean endMatch) {
-    if (cached != null && cached.canReuse(prog, text, startPos, endPos, ncap)) {
+    if (cached != null && cached.canReuse(prog, text, startPos, endPos)) {
       cached.reset(text, startPos, endPos, ncap, longest, endMatch);
       return cached;
     }
@@ -345,10 +345,10 @@ final class BitState {
    * non-cycle ALTs be revisited within a single start, which capture priority requires.
    *
    * <p>PROGRESS_CHECK loop registers do not break this. They only guard nullable loop bodies, so a
-   * first visit's body-only branch still reaches the exit through a zero-width iteration, and a
-   * path that arrives with the register equal to the current position (exit-only) exists only
-   * because the same start already took the body from that position. Either way the failed start
-   * explored every future a later start could have through the pruned pair.
+   * fresh entry's body-only path still reaches the exit through a zero-width iteration, and a path
+   * that arrives with the register equal to the current position (exit-only) exists only because
+   * the same start already took the body from that position. Either way the failed start explored
+   * every future a later start could have through the pruned pair.
    *
    * <p>Allocated unconditionally alongside {@link #visited}, even though anchored-only instances
    * never use it: lazily allocating it on first unanchored use was tried and measured 40-60% slower
@@ -380,7 +380,7 @@ final class BitState {
   private static final byte CYCLE_ALT = 2;
 
   /** Current capture registers. */
-  private final int[] cap;
+  private int[] cap;
 
   /** Current loop progress-check registers. */
   private final int[] loopRegs;
@@ -641,7 +641,7 @@ final class BitState {
         case InstOp.OP_LOOP_ENTER -> {
           int reg = ip.arg;
           push(-(ncap + reg + 1), loopRegs[reg]);
-          loopRegs[reg] = -1;
+          loopRegs[reg] = pos;
           if (shouldVisit(ip.out, pos)) {
             push(ip.out, pos);
           }
@@ -650,17 +650,15 @@ final class BitState {
         case InstOp.OP_PROGRESS_CHECK -> {
           int reg = ip.arg;
           int saved = loopRegs[reg];
-          if (saved == -1) {
-            // First visit: must enter body at least once (plus semantics).
-            push(-(ncap + reg + 1), saved);
-            loopRegs[reg] = pos;
-            if (shouldVisit(ip.out, pos)) {
-              push(ip.out, pos);
-            }
-          } else if (saved == pos) {
+          if (saved == pos) {
             // Zero-width body match: only exit.
             if (shouldVisit(ip.out1, pos)) {
               push(ip.out1, pos);
+            }
+          } else if (ip.progressOnly) {
+            // The tail owns its own entry register; this iteration's position is no longer live.
+            if (shouldVisit(ip.out, pos)) {
+              push(ip.out, pos);
             }
           } else {
             // Progress: save and push both paths like ALT.
@@ -784,18 +782,17 @@ final class BitState {
 
   /**
    * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
-   * the program is the same and the pre-allocated arrays are large enough for the full text.
+   * the program is the same and the search buffers are large enough for the requested range.
+   * Capture storage can grow separately when a group-zero search is followed by capture extraction.
    */
-  boolean canReuse(Prog prog, InputScanner text, int startPos, int endPos, int ncap) {
+  boolean canReuse(Prog prog, InputScanner text, int startPos, int endPos) {
     if (this.prog != prog) {
       return false;
     }
     int newTextSlots = (endPos - startPos) + 2;
     int totalBits = prog.size() * newTextSlots;
     int requiredVisitedLen = (totalBits + 63) / 64;
-    return visited.length >= requiredVisitedLen
-        && cap.length >= ncap
-        && jobInstId.length >= Math.min(totalBits, 4096);
+    return visited.length >= requiredVisitedLen && jobInstId.length >= Math.min(totalBits, 4096);
   }
 
   /** Clears input-dependent references before this object enters the Pattern-level reuse cache. */
@@ -806,7 +803,8 @@ final class BitState {
 
   /**
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
-   * reallocating. The caller must verify {@link #canReuse} first.
+   * reallocating search buffers. Capture storage grows on demand. The caller must verify {@link
+   * #canReuse} first.
    */
   private void reset(
       InputScanner text, int startPos, int endPos, int ncap, boolean longest, boolean endMatch) {
@@ -830,6 +828,9 @@ final class BitState {
       Arrays.fill(dead, deadLo, deadHi + 1, 0L);
       deadLo = Integer.MAX_VALUE;
       deadHi = -1;
+    }
+    if (cap.length < ncap) {
+      cap = new int[ncap];
     }
     Arrays.fill(cap, 0, ncap, -1);
     if (loopRegs.length > 0) {

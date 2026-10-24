@@ -94,6 +94,9 @@ final class Inst {
    */
   public long bitmap1;
 
+  /** For a counted-repeat progress check, progress follows only {@link #out}, not the exit. */
+  public boolean progressOnly;
+
   /** Creates an uninitialized instruction (defaults to FAIL). */
   public Inst() {
     this.op = InstOp.FAIL;
@@ -114,6 +117,7 @@ final class Inst {
     this.ranges = other.ranges;
     this.bitmap0 = other.bitmap0;
     this.bitmap1 = other.bitmap1;
+    this.progressOnly = other.progressOnly;
   }
 
   /** Initializes as an ALT instruction branching to {@code out} or {@code out1}. */
@@ -183,7 +187,6 @@ final class Inst {
    * <p>Behavior:
    *
    * <ul>
-   *   <li><b>First visit</b> (saved == -1): saves position and enters the body (plus semantics)
    *   <li><b>Progress</b> (pos != saved): saves position, follows both successors like ALT (greedy
    *       → prefer body; non-greedy → prefer exit)
    *   <li><b>Zero-width</b> (pos == saved): follows only exit (terminates the loop)
@@ -201,9 +204,18 @@ final class Inst {
     this.out = bodyOut;
     this.out1 = exitOut;
     this.foldCase = nonGreedy;
+    this.progressOnly = false;
   }
 
-  /** Initializes a fresh loop entry resetting {@code loopReg} before continuing to {@code out}. */
+  /** Initializes a counted-repeat check: continue on progress and exit only on zero progress. */
+  public void initRepeatCheck(int loopReg, int tailOut, int exitOut) {
+    initProgressCheck(loopReg, tailOut, exitOut, false);
+    this.progressOnly = true;
+  }
+
+  /**
+   * Initializes a fresh loop entry recording its position before entering the body at {@code out}.
+   */
   public void initLoopEnter(int loopReg, int out) {
     this.op = InstOp.LOOP_ENTER;
     this.opCode = InstOp.OP_LOOP_ENTER;
@@ -354,7 +366,7 @@ final class Inst {
               arg,
               out,
               out1,
-              foldCase ? "non-greedy" : "greedy");
+              progressOnly ? "continue-on-progress" : foldCase ? "non-greedy" : "greedy");
       case CHAR_CLASS -> {
         StringBuilder sb = new StringBuilder("charclass [");
         for (int i = 0; i < ranges.length; i += 2) {

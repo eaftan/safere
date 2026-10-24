@@ -62,6 +62,16 @@ class Utf8EnginePathEquivalenceTest {
             "ééé😀xé",
             EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()),
         Arguments.of(
+            "bounded nullable repetition preserves final empty captures",
+            "(?:()|\\W+){0,2}y",
+            "😀y é y y",
+            canonicalFallback()),
+        Arguments.of(
+            "reluctant bounded nullable repetition preserves capture participation",
+            "(?:()|\\W+){1,3}?y",
+            "😀y é y y",
+            canonicalFallback()),
+        Arguments.of(
             "deferred versus eager capture extraction",
             "(?<letters>[\\p{L}]+)(?<digits>[0-9]+)",
             "😀élan42 fin7",

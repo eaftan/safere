@@ -17,6 +17,10 @@ public final class CaptureSemanticsFuzzer {
     "(\\b)",
     "(a|aa)",
     "()|\\W+",
+    "\\W+|()",
+    "()|(?:\\W|\\W\\W)",
+    "(()|\\W+)",
+    "(\\W*)",
     "(a)|b",
     "b|(a)",
     "a|(b)|()",
@@ -29,7 +33,8 @@ public final class CaptureSemanticsFuzzer {
     "(?<word>a|aa)"
   };
   private static final String[] QUANTIFIERS = {
-    "*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??", "{0,2}?", "{1,2}?", "*+", "?+", "{0,2}+"
+    "*", "+", "?", "{0,2}", "{1,2}", "{2}", "{2,3}", "{2,}", "*?", "+?", "??", "{0,2}?", "{1,2}?",
+    "{2,3}?", "*+", "?+", "{0,2}+"
   };
   private static final String[] CHAINED_QUANTIFIERS = {
     "{0}", "{1}", "{0,2}", "{1}?", "{0}?", "{0}+", "{1}+", "{0,2}+"
@@ -56,7 +61,10 @@ public final class CaptureSemanticsFuzzer {
   }
 
   private static String consumeRegex(FuzzedDataProvider data, boolean named) {
-    String atom = named ? pick(data, "(?<word>a)", "(?<word>a|aa)") : pick(data, ATOMS);
+    String atom =
+        named
+            ? pick(data, "(?<word>a)", "(?<word>a|aa)", "(?<word>)|\\W+", "\\W+|(?<word>)")
+            : pick(data, ATOMS);
     String regex = "(?:" + atom + ")";
     if (!data.consumeBoolean()) {
       regex += pick(data, QUANTIFIERS);

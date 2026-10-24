@@ -553,6 +553,38 @@ final class Prog {
     return copy;
   }
 
+  /**
+   * Derives a language-only DFA program from an unflattened exact program, without another AST
+   * walk. Fresh entries already enter the mandatory body, so only back-edge progress checks become
+   * alternatives. Counted-repeat checks become concatenation: their nullable remaining copies can
+   * repeat the same empty path at the same position. Capture priority still requires the exact
+   * program; this copy is only a rejection filter when loop registers are present.
+   */
+  Prog flattenedDfaCopy() {
+    if (didFlatten) {
+      throw new IllegalStateException("DFA conversion requires an unflattened program");
+    }
+    Prog copy = new Prog(this, /* copyInstructions= */ false);
+    for (int i = 0; i < copy.instructions.size(); i++) {
+      Inst inst = copy.instructions.get(i);
+      if (inst.op == InstOp.LOOP_ENTER || inst.op == InstOp.PROGRESS_CHECK) {
+        Inst replacement = new Inst();
+        if (inst.op == InstOp.LOOP_ENTER || inst.progressOnly) {
+          replacement.initNop(inst.out);
+        } else if (inst.foldCase) {
+          replacement.initAlt(inst.out1, inst.out);
+        } else {
+          replacement.initAlt(inst.out, inst.out1);
+        }
+        copy.instructions.set(i, replacement);
+      }
+    }
+    copy.numLoopRegs = 0;
+    copy.flatten();
+    copy.freeze();
+    return copy;
+  }
+
   public void flatten() {
     if (didFlatten) {
       return;

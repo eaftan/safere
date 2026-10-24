@@ -65,6 +65,29 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(a){2})*$", "aaab"));
   }
 
+  private static Stream<Arguments> boundedNullableCaptureCases() {
+    List<Arguments> cases = new ArrayList<>();
+    for (String operand :
+        List.of(
+            "()|\\W+", "\\W+|()", "(\\W*)", "(()|\\W+)", "()|(?:\\W|\\W\\W)", "(?<empty>)|\\W+")) {
+      for (String quantifier :
+          List.of(
+              "{0,1}", "{0,2}", "{1,2}", "{2,3}", "{2}", "{3}", "{2,}", "{0,3}?", "{1,3}?",
+              "{2,3}?", "{2}?", "*", "*?")) {
+        for (String input : List.of("y", " y", "  y", " y y", "aca cybb yyaaaaa", "😀y")) {
+          cases.add(
+              Arguments.of(
+                  new GeneratedCase(
+                      "nullable bounded repeat",
+                      "(?:" + operand + ")" + quantifier + "y",
+                      input,
+                      null)));
+        }
+      }
+    }
+    return cases.stream();
+  }
+
   private static Stream<Arguments> lazyNullableGroupZeroCases() {
     return Stream.of(
         Arguments.of("(?:(?:(a){0,2})*?)", "a"),
@@ -185,6 +208,64 @@ class QuantifiedCaptureSemanticsTest {
   void generatedQuantifiedCaptureCasesMatchJdk(GeneratedCase testCase) {
     assertOperationTraceMatchesJdk(testCase);
     assertReplacementTraceMatchesJdk(testCase);
+  }
+
+  @ParameterizedTest(name = "[{index}] {0}")
+  @MethodSource("boundedNullableCaptureCases")
+  void boundedNullableCapturesMatchJdk(GeneratedCase testCase) {
+    // Nullable iteration order is unspecified; preserve the JDK's successful-path behavior (#1051).
+    assertOperationTraceMatchesJdk(testCase);
+  }
+
+  @Test
+  void nullableRepeatProgressPreservesMandatoryIterationsAndEnginePaths() {
+    for (String regex :
+        List.of(
+            "(?:^|a){2}b",
+            "(?:^|a){2,3}?b",
+            "(?:()|a){2}b",
+            "(?:()|a){2,3}?b",
+            "(?:()|a){0,2}a",
+            "(?:(?:()|a){0,2}){2}b",
+            "(?:()|a){0,2}a?")) {
+      for (String input : List.of("", "a", "ab", "aab", "aaab")) {
+        GeneratedCase testCase = new GeneratedCase("nullable engine paths", regex, input, null);
+        java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+        for (EnginePathOptions options :
+            List.of(
+                EnginePathOptions.allEnabled(),
+                EnginePathOptions.builder().onePass(false).bitState(false).dfa(false).build(),
+                EnginePathOptions.builder().onePass(false).bitState(false).build())) {
+          Pattern safere = Pattern.compile(regex, 0, options);
+          for (Operation operation : Operation.values()) {
+            assertSingleOperationMatchesJdk(testCase, jdk, safere, operation);
+          }
+          assertFindSequenceMatchesJdk(testCase, jdk, safere);
+        }
+      }
+    }
+  }
+
+  @Test
+  void boundedNullableSnapshotsSurviveLaterFindsAndReset() {
+    GeneratedCase testCase =
+        new GeneratedCase("retained snapshot", "(?:x)?(?:()|\\W+){0,2}y", "aca cybb yyaaaaa", null);
+    java.util.regex.Matcher jdk =
+        java.util.regex.Pattern.compile(testCase.regex()).matcher(testCase.input());
+    Matcher safere = Pattern.compile(testCase.regex()).matcher(testCase.input());
+    List<MatchResult> jdkSnapshots = new ArrayList<>();
+    List<MatchResult> safereSnapshots = new ArrayList<>();
+    while (jdk.find()) {
+      assertThat(safere.find()).isTrue();
+      jdkSnapshots.add(jdk.toMatchResult());
+      safereSnapshots.add(safere.toMatchResult());
+    }
+    assertThat(safere.find()).isFalse();
+    jdk.reset();
+    safere.reset();
+    for (int i = 0; i < jdkSnapshots.size(); i++) {
+      assertMatchResultMatchesJdk(testCase, jdkSnapshots.get(i), safereSnapshots.get(i));
+    }
   }
 
   @ParameterizedTest(name = "[{index}] replacement APIs for /{0}/ on \"{1}\"")

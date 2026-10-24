@@ -71,6 +71,7 @@ final class Simplifier {
     switch (a.op) {
       case ALTERNATE:
       case CONCAT:
+      case REPEAT_STEP:
       case STAR:
       case PLUS:
       case QUEST:
@@ -88,6 +89,7 @@ final class Simplifier {
       switch (a.op) {
         case ALTERNATE:
         case CONCAT:
+        case REPEAT_STEP:
           for (int i = 0; i < a.subs.size(); i++) {
             Regexp a2 = a.subs.get(i);
             Regexp b2 = b.subs.get(i);
@@ -156,6 +158,7 @@ final class Simplifier {
 
       case ALTERNATE:
       case CONCAT:
+      case REPEAT_STEP:
         return a.subs.size() == b.subs.size();
 
       case STAR:
@@ -289,6 +292,8 @@ final class Simplifier {
         return Regexp.alternate(newSubs, re.flags);
       case CONCAT:
         return Regexp.concat(newSubs, re.flags);
+      case REPEAT_STEP:
+        return Regexp.repeatStep(newSubs.get(0), newSubs.get(1), re.flags);
       default:
         throw new IllegalArgumentException("Unexpected op: " + re.op);
     }
@@ -488,12 +493,15 @@ final class Simplifier {
           return re;
 
         case CONCAT:
+        case REPEAT_STEP:
         case ALTERNATE:
           {
             if (!childArgsChanged(re, childArgs)) {
               return re;
             }
-            if (re.op == RegexpOp.CONCAT) {
+            if (re.op == RegexpOp.REPEAT_STEP) {
+              return Regexp.repeatStep(childArgs.get(0), childArgs.get(1), re.flags);
+            } else if (re.op == RegexpOp.CONCAT) {
               return Regexp.concat(childArgs, re.flags);
             } else {
               return Regexp.alternate(childArgs, re.flags);
@@ -640,6 +648,7 @@ final class Simplifier {
         case HAVE_MATCH:
           break;
         case CONCAT:
+        case REPEAT_STEP:
         case ALTERNATE:
           for (Regexp sub : node.subs) {
             stack.push(sub);
@@ -711,6 +720,10 @@ final class Simplifier {
     }
 
     // x{n,} means at least n matches.
+    if ((max >= 2 || (max == -1 && min >= 2)) && AstAnalysis.analyze(re).canMatchEmpty()) {
+      return simplifyNullableRepeat(re, min, max, flags);
+    }
+
     if (max == -1) {
       if (min == 0) {
         return starPlusOrQuest(RegexpOp.STAR, re, flags);
@@ -771,6 +784,29 @@ final class Simplifier {
       return Regexp.noMatch(flags);
     }
     return nre;
+  }
+
+  /** Keeps iteration boundaries so the compiler can terminate a nullable counted repetition. */
+  private static Regexp simplifyNullableRepeat(Regexp re, int min, int max, int flags) {
+    Regexp tail;
+    int copies;
+    if (max == -1) {
+      tail = rawQuantifier(RegexpOp.PLUS, re, flags);
+      copies = min - 1;
+    } else {
+      tail = re;
+      if (max > min) {
+        tail = rawQuantifier(RegexpOp.QUEST, tail, flags);
+      }
+      copies = max - 1;
+    }
+    for (int i = copies - 1; i >= 0; i--) {
+      tail = Regexp.repeatStep(re, tail, flags);
+      if (i >= min) {
+        tail = rawQuantifier(RegexpOp.QUEST, tail, flags);
+      }
+    }
+    return tail;
   }
 
   /**

@@ -148,7 +148,7 @@ record AstAnalysis(
           canMatchEmpty = !childArgs.isEmpty() && childArgs.getFirst().canMatchEmpty;
           minMatchLength = !childArgs.isEmpty() ? childArgs.getFirst().minMatchLength : 0;
         }
-        case CONCAT -> {
+        case CONCAT, REPEAT_STEP -> {
           boolean allEmpty = true;
           long sum = 0;
           for (AnalysisNode child : childArgs) {

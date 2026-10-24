@@ -12,12 +12,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntSupplier;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("WorkCounter is an internal SafeRE API")
 @Tag("work-counter")
 class SearchScalingRegressionTest {
+
+  @Test
+  void boundedNullableCaptureFindWorkIsLinear() {
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.allEnabled(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      for (String quantifier : new String[] {"{0,20}", "{2,20}?", "{20}"}) {
+        Pattern pattern = Pattern.compile("(?:()|\\W+)" + quantifier + "y", 0, options);
+        assertFindAllWorkIsLinear(
+            size -> pattern.matcher(" y".repeat(size))::find, "String bounded nullable captures");
+        assertFindAllWorkIsLinear(
+            size -> pattern.matcher(Utf8Input.trusted("😀y".repeat(size).getBytes(UTF_8)))::find,
+            "UTF-8 bounded nullable captures");
+      }
+    }
+  }
 
   @Test
   void nestedNullableLoopEntryResetsKeepFindWorkLinear() {
@@ -497,6 +516,46 @@ class SearchScalingRegressionTest {
     assertThat(pattern.innerCapturesObserved())
         .as("Replacement with capture references must mark inner captures as observed")
         .isTrue();
+  }
+
+  @Test
+  void observedCaptureDemandAvoidsRepeatingExactFallbackSearch() {
+    String input = "a".repeat(1_024);
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.allEnabled(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      for (boolean utf8 : new boolean[] {false, true}) {
+        Pattern pattern = Pattern.compile("(a?){20}a{20}", 0, options);
+        Matcher priming = pattern.matcher(input);
+        assertThat(priming.find()).isTrue();
+        assertThat(priming.group(1)).isEqualTo("a");
+
+        IntSupplier captureStart;
+        IntSupplier captureEnd;
+        if (utf8) {
+          Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        } else {
+          Matcher matcher = pattern.matcher(input);
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        }
+        long captureWork =
+            WorkCounter.countForTesting(
+                () -> {
+                  assertThat(captureStart.getAsInt()).isEqualTo(19);
+                  assertThat(captureEnd.getAsInt()).isEqualTo(20);
+                });
+        assertThat(captureWork)
+            .as("Known-demand captures should already be available after exact fallback")
+            .isZero();
+      }
+    }
   }
 
   @Test

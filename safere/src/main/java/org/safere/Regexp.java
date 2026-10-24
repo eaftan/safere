@@ -29,6 +29,7 @@ import java.util.Locale;
  *   <tr><td>{@link RegexpOp#CHAR_CLASS}</td><td>{@link #charClass}</td></tr>
  *   <tr><td>{@link RegexpOp#GRAPHEME_CLUSTER}</td><td>{@link #flags}</td></tr>
  *   <tr><td>{@link RegexpOp#CONCAT}, {@link RegexpOp#ALTERNATE}</td><td>{@link #subs}</td></tr>
+ *   <tr><td>{@link RegexpOp#REPEAT_STEP}</td><td>{@link #subs} (body and tail)</td></tr>
  *   <tr><td>{@link RegexpOp#STAR}, {@link RegexpOp#PLUS}, {@link RegexpOp#QUEST}</td>
  *       <td>{@link #subs} (length 1), {@link #flags}</td></tr>
  *   <tr><td>{@link RegexpOp#REPEAT}</td><td>{@link #subs} (length 1), {@link #min},
@@ -49,7 +50,7 @@ final class Regexp {
 
   /**
    * Sub-expressions (children). Used by CONCAT, ALTERNATE, STAR, PLUS, QUEST, REPEAT, NON_CAPTURE,
-   * and CAPTURE.
+   * REPEAT_STEP, and CAPTURE.
    */
   public List<Regexp> subs;
 
@@ -115,6 +116,13 @@ final class Regexp {
   public static Regexp concat(List<Regexp> subs, int flags) {
     Regexp re = new Regexp(RegexpOp.CONCAT, flags);
     re.subs = List.copyOf(subs);
+    return re;
+  }
+
+  /** Creates an internal counted-repeat iteration with a zero-progress exit before its tail. */
+  static Regexp repeatStep(Regexp body, Regexp tail, int flags) {
+    Regexp re = new Regexp(RegexpOp.REPEAT_STEP, flags);
+    re.subs = List.of(body, tail);
     return re;
   }
 
@@ -344,7 +352,7 @@ final class Regexp {
                 CHAR_CLASS,
                 HAVE_MATCH ->
                 PREC_ATOM;
-            case CONCAT, LITERAL_STRING -> {
+            case CONCAT, REPEAT_STEP, LITERAL_STRING -> {
               if (prec < PREC_CONCAT) {
                 sb.append("(?:");
               }
@@ -400,7 +408,7 @@ final class Regexp {
             sb.append(')');
           }
         }
-        case CONCAT -> {
+        case CONCAT, REPEAT_STEP -> {
           if (prec < PREC_CONCAT) {
             sb.append(')');
           }

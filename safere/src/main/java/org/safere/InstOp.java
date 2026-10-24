@@ -56,19 +56,22 @@ enum InstOp {
 
   /**
    * Loop progress check for zero-width repetition breaking. Emitted at the entry point of each loop
-   * iteration for {@code *}/{@code +} with nullable bodies. On first visit (saved == -1), saves the
-   * current position and enters the body. On subsequent visits, compares position to saved: if
-   * unchanged (zero-width body match), follows only the exit; if different, updates saved position
-   * and chooses between body and exit according to greediness.
+   * iteration for {@code *}/{@code +} with nullable bodies, after LOOP_ENTER records the initial
+   * position and enters the body. Compares position to saved: if unchanged (zero-width body match),
+   * follows only the exit; if different, updates saved position and chooses between body and exit
+   * according to greediness.
    *
    * <p>The register index is stored in {@link Inst#arg}. Each engine maintains per-thread loop
    * registers to track positions.
+   *
+   * <p>Counted-repeat checks set {@link Inst#progressOnly}: progress follows only {@code out},
+   * since the tail itself encodes which remaining iterations are mandatory or optional.
    */
   PROGRESS_CHECK,
 
   /**
-   * Fresh entry to a nullable repetition. Resets the loop register in {@link Inst#arg} to {@code
-   * -1} and continues to {@code out}. The repetition's back edge bypasses this instruction.
+   * Fresh entry to a nullable repetition. Records the current position in the loop register in
+   * {@link Inst#arg} and enters the body at {@code out}. The back edge bypasses this instruction.
    */
   LOOP_ENTER;
 

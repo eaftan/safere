@@ -354,6 +354,10 @@ public final class SafeReDiagnostics {
     appendNumberField(json, "out1", inst.out1);
     json.append(',');
     appendBooleanField(json, "nonGreedy", inst.foldCase);
+    if (inst.progressOnly) {
+      json.append(',');
+      appendBooleanField(json, "progressOnly", true);
+    }
   }
 
   private static void appendStringField(StringBuilder json, String name, String value) {

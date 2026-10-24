@@ -2082,15 +2082,17 @@ public final class Matcher implements MatchResult {
           StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
     }
 
-    // Fallback: DFA bailed out or reverse DFA unavailable. Search only for group 0 first, then
-    // defer inner capture extraction until group access. This keeps find-all loops that only need
-    // match existence or group 0 from paying full capture-tracking cost on every match.
+    // Fallback: DFA bailed out or reverse DFA unavailable. Unless earlier group access established
+    // capture demand, search only for group 0 first and defer inner capture extraction. Once exact
+    // search is necessary, collecting known-demand captures here avoids a second exact search
+    // without bypassing DFA rejection on long inputs.
     //
     // Region searches keep eager capture extraction: deferred resolution runs on the full input,
     // while the fallback below sees the substituted region substring.
     boolean lazyFallbackCaptures =
         !regionActive
             && !eagerFallbackCaptures
+            && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
             && options.lazyCaptureExtraction()
             && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;

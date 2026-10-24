@@ -240,7 +240,6 @@ public final class Pattern implements Serializable {
       String pattern,
       int flags,
       Prog prog,
-      Compiler.Prepared prepared,
       Regexp ast,
       AstAnalysis astAnalysis,
       MatchDescriptor matchDescriptor,
@@ -253,9 +252,7 @@ public final class Pattern implements Serializable {
     this.flags = flags;
     this.prog = prog;
     if (enginePathOptions.dfa() && prog.numLoopRegs() > 0) {
-      this.flatProg = prog.flattenedCopy();
-      Prog dfaProg = Compiler.compileForDfa(prepared, false);
-      this.flatDfaProg = dfaProg != null ? dfaProg.flattenedCopy() : this.flatProg;
+      this.flatDfaProg = prog.flattenedDfaCopy();
     }
 
     this.ast = ast;
@@ -470,7 +467,6 @@ public final class Pattern implements Serializable {
         regex,
         effectiveFlags,
         compiled,
-        prepared,
         re,
         astAnalysis,
         matchDescriptor,
@@ -1714,7 +1710,7 @@ public final class Pattern implements Serializable {
       synchronized (this) {
         setup = forwardDfaSetup;
         if (setup == null) {
-          Prog flat = flatProg();
+          Prog flat = flatDfaProg();
           setup = Dfa.buildSetup(flat != null ? flat : prog);
           forwardDfaSetup = setup;
         }
@@ -2128,7 +2124,7 @@ public final class Pattern implements Serializable {
         case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS, GRAPHEME_CLUSTER ->
             GraphemeBoundaryContext.consuming();
         case GRAPHEME_CLUSTER_BOUNDARY -> GraphemeBoundaryContext.explicitBoundary();
-        case CONCAT -> concatBoundaryContext(childArgs);
+        case CONCAT, REPEAT_STEP -> concatBoundaryContext(childArgs);
         case ALTERNATE -> alternateBoundaryContext(childArgs);
         case STAR, QUEST -> optionalBoundaryContext(childArgs);
         case PLUS, NON_CAPTURE, CAPTURE -> childBoundaryContext(childArgs);
@@ -2914,7 +2910,7 @@ public final class Pattern implements Serializable {
           int subMin = childArgs.isEmpty() ? 0 : childArgs.getFirst();
           yield (int) Math.min((long) subMin * Math.max(0, re.min), Integer.MAX_VALUE / 2);
         }
-        case CONCAT -> {
+        case CONCAT, REPEAT_STEP -> {
           long sum = 0;
           for (int child : childArgs) {
             sum += child;

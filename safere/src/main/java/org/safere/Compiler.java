@@ -552,6 +552,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   private static Regexp copyWithChildren(Regexp re, List<Regexp> childArgs) {
     return switch (re.op) {
       case CONCAT -> Regexp.concat(childArgs, re.flags);
+      case REPEAT_STEP -> Regexp.repeatStep(childArgs.get(0), childArgs.get(1), re.flags);
       case ALTERNATE -> Regexp.alternate(childArgs, re.flags);
       case NON_CAPTURE -> Regexp.nonCapture(childArgs.get(0), re.flags);
       case CAPTURE -> Regexp.capture(childArgs.get(0), re.flags, re.cap, re.name);
@@ -896,7 +897,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     // When the body is nullable (can match zero characters), insert a PROGRESS_CHECK at the
     // loop entry to implement the JDK "zero-width match breaks repetition" rule.
     //
-    // Fresh entry resets the loop register; the body end loops back to PROGRESS_CHECK directly.
+    // Fresh entry records the position and enters the body; the body end visits PROGRESS_CHECK.
     // An enclosing repetition can re-enter this loop at the same position where it last exited,
     // which must not be mistaken for a zero-width iteration of this loop.
     // On progress, PROGRESS_CHECK acts like ALT(body, exit) with greediness preference.
@@ -911,7 +912,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         return Frag.NO_MATCH;
       }
       int loopReg = nextLoopReg++;
-      prog.mutableInst(entryId).initLoopEnter(loopReg, pcId);
+      prog.mutableInst(entryId).initLoopEnter(loopReg, a.begin);
       prog.mutableInst(pcId).initProgressCheck(loopReg, a.begin, 0, nongreedy);
       long pl = PatchList.mk((pcId << 1) | 1); // patch out1 (exit)
 
@@ -934,6 +935,25 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     PatchList.patch(prog, a.end, id);
     return new Frag(a.begin, pl, a.nullable);
+  }
+
+  private Frag repeatStep(Frag body, Frag tail) {
+    if (forDfa || !body.nullable) {
+      return cat(body, tail);
+    }
+    // Each unrolled iteration owns a register: fresh entry records its start, and an empty
+    // completion exits the whole remaining repetition. Mandatory empty copies at this position
+    // would only repeat the same successful zero-width path. No matcher replay is needed.
+    int entry = allocInst();
+    int end = allocInst();
+    if (failed) {
+      return Frag.NO_MATCH;
+    }
+    int reg = nextLoopReg++;
+    prog.mutableInst(entry).initLoopEnter(reg, body.begin);
+    prog.mutableInst(end).initRepeatCheck(reg, tail.begin, 0);
+    PatchList.patch(prog, body.end, end);
+    return new Frag(entry, PatchList.append(prog, tail.end, PatchList.mk((end << 1) | 1)), true);
   }
 
   private Frag star(Frag a, boolean nongreedy) {
@@ -1194,6 +1214,8 @@ final class Compiler extends Walker<Compiler.Frag> {
         }
         yield f;
       }
+
+      case REPEAT_STEP -> repeatStep(childArgs.get(0), childArgs.get(1));
 
       case ALTERNATE -> {
         Frag f = childArgs.get(0);

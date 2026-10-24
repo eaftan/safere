@@ -29,6 +29,9 @@ enum RegexpOp {
   /** Matches concatenation of sub-expressions. */
   CONCAT,
 
+  /** Internal counted-repeat iteration followed by its tail; an empty iteration skips the tail. */
+  REPEAT_STEP,
+
   /** Matches union (alternation) of sub-expressions. */
   ALTERNATE,
 
