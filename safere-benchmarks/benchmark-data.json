@@ -147,6 +147,39 @@
   },
   "inputs": [
     {
+      "id": "captureFallback.early.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaay",
+        "unit": "z",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "captureFallback.loop.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "y",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "compile.firstFind.simple",
       "recipe": {
         "kind": "literal",
@@ -4076,6 +4109,164 @@
     }
   ],
   "workloads": [
+    {
+      "id": "CaptureFallbackBenchmark.earlyCapture.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.early.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.earlyBoolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.early.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.capture.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.boolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.reject.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*z"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.compile.20",
+      "operation": "compile",
+      "patterns": [
+        "(?:(a?)*){20}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.compile.100",
+      "operation": "compile",
+      "patterns": [
+        "(?:(a?)*){100}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
     {
       "id": "SearchScalingBenchmark.endAnchoredAbsentLiteralDot.{size}",
       "axes": {
