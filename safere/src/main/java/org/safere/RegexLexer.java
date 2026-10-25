@@ -53,7 +53,10 @@ final class RegexLexer {
     POSSESSIVE
   }
 
-  /** Mutable token storage owned by the lexer, including original UTF-16 source coordinates. */
+  /**
+   * Mutable token storage owned by the lexer, including original UTF-16 source coordinates. Only
+   * fields applicable to the current kind carry a value; other payload fields may retain old data.
+   */
   static final class Token {
     Kind kind;
     int start;
@@ -155,7 +158,7 @@ final class RegexLexer {
     return classToken;
   }
 
-  /** Reads one scalar endpoint before recognizing any following class operator. */
+  /** Peeks at a possible range endpoint, preserving brackets and reading ampersands singly. */
   Token peekClassRangeEndpoint() {
     if (classTokenReady) {
       throw new IllegalStateException("range endpoint requested after expression lookahead");
@@ -173,12 +176,8 @@ final class RegexLexer {
   }
 
   private void scan(Token out, boolean inClass, boolean rangeEndpoint) {
-    out.text = null;
-    out.negated = false;
-    out.mode = RepetitionMode.GREEDY;
-    out.leadingTrivia = false;
-    out.end = -1;
     if (unicodeUnitReady) {
+      out.leadingTrivia = false;
       out.kind = Kind.LITERAL;
       out.start = unicodeStart;
       out.end = unicodeEnd;
@@ -188,6 +187,7 @@ final class RegexLexer {
       return;
     }
     if ((flags & ParseFlags.LITERAL) != 0) {
+      out.leadingTrivia = false;
       out.start = sourcePosition;
       if (sourcePosition == source.length()) {
         out.kind = Kind.END;
@@ -206,40 +206,69 @@ final class RegexLexer {
     out.rune = c;
     if (c < 0) {
       out.kind = Kind.END;
+      out.end = source.length();
     } else if (c == '\\') {
-      escape(out, inClass);
+      out.end = -1;
+      if (!takeQuotedLiteral(out)) escape(out, inClass);
+      if (out.end < 0) out.end = lastEnd;
     } else if (inClass) {
-      out.kind =
-          switch (c) {
-            case '[' -> Kind.CLASS_OPEN;
-            case ']' -> Kind.CLASS_CLOSE;
-            case '-' -> Kind.HYPHEN;
-            case '^' -> Kind.CARET;
-            default -> Kind.LITERAL;
-          };
-      if (c == '&' && !rangeEndpoint) {
-        out.kind = Kind.AMPERSAND;
-        skipTrivia();
-        if (peekRaw() == '&') {
-          readRaw();
-          out.kind = Kind.INTERSECTION;
-        }
-      }
+      classOperator(out, c, rangeEndpoint);
+      out.end = lastEnd;
     } else {
-      out.kind =
-          switch (c) {
-            case '(' -> Kind.OPEN;
-            case ')' -> Kind.CLOSE;
-            case '|' -> Kind.ALTERNATION;
-            case '[' -> Kind.CLASS_OPEN;
-            case '^' -> Kind.CARET;
-            case '$' -> Kind.DOLLAR;
-            case '.' -> Kind.DOT;
-            case '*', '+', '?', '{' -> Kind.REPEAT;
-            default -> Kind.LITERAL;
-          };
-      if (out.kind == Kind.REPEAT) repetition(out, c);
-      if (out.kind == Kind.OPEN && (flags & ParseFlags.PERL_X) != 0) {
+      operator(out, c);
+      out.end = lastEnd;
+    }
+  }
+
+  private boolean takeQuotedLiteral(Token out) {
+    // At a token boundary, an untouched synthetic escape represents exactly one quoted scalar.
+    // Component readers still see its logical spelling, including leading-digit disambiguation.
+    if (pendingIndex != 1 || pendingCount <= 1 || currentRune != UNREAD || lookaheadCount != 0) {
+      return false;
+    }
+    out.kind = Kind.LITERAL;
+    out.rune = pending[pendingCount - 1];
+    pendingIndex = pendingCount;
+    return true;
+  }
+
+  private void classOperator(Token out, int c, boolean rangeEndpoint) {
+    out.kind =
+        switch (c) {
+          // Ignored trivia cannot turn structural brackets into scalar endpoints (#1070).
+          case '[' -> Kind.CLASS_OPEN;
+          case ']' -> Kind.CLASS_CLOSE;
+          case '-' -> Kind.HYPHEN;
+          case '^' -> Kind.CARET;
+          default -> Kind.LITERAL;
+        };
+    if (c == '&' && !rangeEndpoint) {
+      out.kind = Kind.AMPERSAND;
+      skipTrivia();
+      if (peekRaw() == '&') {
+        readRaw();
+        out.kind = Kind.INTERSECTION;
+      }
+    }
+  }
+
+  private void operator(Token out, int c) {
+    out.kind =
+        switch (c) {
+          case '(' -> Kind.OPEN;
+          case ')' -> Kind.CLOSE;
+          case '|' -> Kind.ALTERNATION;
+          case '[' -> Kind.CLASS_OPEN;
+          case '^' -> Kind.CARET;
+          case '$' -> Kind.DOLLAR;
+          case '.' -> Kind.DOT;
+          case '*', '+', '?', '{' -> Kind.REPEAT;
+          default -> Kind.LITERAL;
+        };
+    if (out.kind == Kind.REPEAT) repetition(out, c);
+    if (out.kind == Kind.OPEN) {
+      out.text = null;
+      if ((flags & ParseFlags.PERL_X) != 0) {
         skipTrivia();
         if (peekRaw() == '?') {
           readRaw();
@@ -247,10 +276,10 @@ final class RegexLexer {
         }
       }
     }
-    if (out.end < 0) out.end = c < 0 ? source.length() : lastEnd;
   }
 
   private void repetition(Token out, int operator) {
+    out.mode = RepetitionMode.GREEDY;
     if (operator == '{') {
       out.min = decimal();
       out.max = out.min;
@@ -433,12 +462,37 @@ final class RegexLexer {
   }
 
   private int exactHex(int digits, int start) {
+    int direct = sourceHex(digits);
+    if (direct >= 0) return direct;
     int code = 0;
     for (int i = 0; i < digits; i++) {
       skipTrivia();
       if (!Utils.isHexDigit(peekRaw())) throw error("invalid escape sequence", start);
       code = code * 16 + Utils.unhex(readRaw());
     }
+    return code;
+  }
+
+  private int sourceHex(int digits) {
+    if (currentRune != UNREAD
+        || lookaheadCount != 0
+        || pendingIndex != pendingCount
+        || quoting
+        || escapedSourceRune
+        || source.length() - sourcePosition < digits) {
+      return -1;
+    }
+    // A fixed-width all-ASCII payload has no quote/trivia transitions. Probe its bounded width
+    // before committing so malformed or interrupted payloads retain the general reader's errors.
+    int code = 0;
+    for (int i = 0; i < digits; i++) {
+      int digit = Utils.unhex(source.charAt(sourcePosition + i));
+      if (digit < 0) return -1;
+      code = code * 16 + digit;
+    }
+    if (WorkCounterConfig.ENABLED) WorkCounter.record(digits);
+    sourcePosition += digits;
+    lastEnd = sourcePosition;
     return code;
   }
 
@@ -524,38 +578,71 @@ final class RegexLexer {
   private boolean skipTrivia() {
     if ((flags & ParseFlags.COMMENTS) == 0) return false;
     boolean skipped = false;
+    if (currentRune == UNREAD
+        && lookaheadCount == 0
+        && pendingIndex == pendingCount
+        && !quoting
+        && !escapedSourceRune) {
+      skipped = skipSourceTrivia();
+    }
     while (true) {
       int c = peekRaw();
       if (c == ' ' || (c >= '\t' && c <= '\r')) {
         readRaw();
         skipped = true;
       } else if (c == '#') {
-        // Comment text is discarded before quote interpretation (#858). Discard bounded
-        // lookahead too, then scan the original comment once without interpreting its escapes.
-        sourcePosition = currentStart + 1;
-        currentRune = UNREAD;
-        lookaheadCount = 0;
-        pendingIndex = pendingCount = 0;
-        quoting = false;
-        escapedSourceRune = false;
-        while (sourcePosition < source.length()) {
-          if (WorkCounterConfig.ENABLED) WorkCounter.record();
-          int cp = source.codePointAt(sourcePosition);
-          if (cp == 0
-              || cp == '\n'
-              || ((flags & ParseFlags.UNIX_LINES) == 0 && Nfa.isLineTerminator(cp))) break;
-          if (cp == '\\'
-              && sourcePosition + 1 < source.length()
-              && (source.charAt(sourcePosition + 1) == 'Q'
-                  || source.charAt(sourcePosition + 1) == 'E')) {
-            commentQuoting = true;
-          }
-          sourcePosition += Character.charCount(cp);
-        }
+        skipComment();
         skipped = true;
       } else {
         return skipped;
       }
+    }
+  }
+
+  private boolean skipSourceTrivia() {
+    // No logical characters are buffered here. Read ordinary source trivia without populating
+    // and consuming the cursor for each whitespace rune; quotes still use logical interpretation.
+    boolean skipped = false;
+    while (sourcePosition < source.length()) {
+      int c = source.codePointAt(sourcePosition);
+      if (c == ' ' || (c >= '\t' && c <= '\r')) {
+        if (WorkCounterConfig.ENABLED) WorkCounter.record();
+        sourcePosition += Character.charCount(c);
+        lastEnd = sourcePosition;
+      } else if (c == '#') {
+        if (WorkCounterConfig.ENABLED) WorkCounter.record();
+        currentStart = sourcePosition;
+        skipComment();
+      } else {
+        break;
+      }
+      skipped = true;
+    }
+    return skipped;
+  }
+
+  private void skipComment() {
+    // Comment text is discarded before quote interpretation (#858). Discard bounded
+    // lookahead too, then scan the original comment once without interpreting its escapes.
+    sourcePosition = currentStart + 1;
+    currentRune = UNREAD;
+    lookaheadCount = 0;
+    pendingIndex = pendingCount = 0;
+    quoting = false;
+    escapedSourceRune = false;
+    while (sourcePosition < source.length()) {
+      if (WorkCounterConfig.ENABLED) WorkCounter.record();
+      int cp = source.codePointAt(sourcePosition);
+      if (cp == 0
+          || cp == '\n'
+          || ((flags & ParseFlags.UNIX_LINES) == 0 && Nfa.isLineTerminator(cp))) break;
+      if (cp == '\\'
+          && sourcePosition + 1 < source.length()
+          && (source.charAt(sourcePosition + 1) == 'Q'
+              || source.charAt(sourcePosition + 1) == 'E')) {
+        commentQuoting = true;
+      }
+      sourcePosition += Character.charCount(cp);
     }
   }
 
@@ -618,6 +705,28 @@ final class RegexLexer {
   }
 
   private void advance() {
+    // Keep ordinary source reads small enough to inline into numeric readers and token scanning.
+    // Quote expansion and backslash state transitions share the general path below.
+    if (!quoting && pendingIndex == pendingCount && sourcePosition < source.length()) {
+      int cp = source.codePointAt(sourcePosition);
+      if (cp != '\\'
+          || escapedSourceRune
+          || (flags & ParseFlags.PERL_X) == 0
+          || sourcePosition + 1 == source.length()
+          || source.charAt(sourcePosition + 1) != 'Q') {
+        if (WorkCounterConfig.ENABLED) WorkCounter.record();
+        currentStart = sourcePosition;
+        sourcePosition += Character.charCount(cp);
+        currentRune = cp;
+        currentEnd = sourcePosition;
+        escapedSourceRune = cp == '\\' && !escapedSourceRune;
+        return;
+      }
+    }
+    advanceExpanded();
+  }
+
+  private void advanceExpanded() {
     int value;
     int start;
     int end;

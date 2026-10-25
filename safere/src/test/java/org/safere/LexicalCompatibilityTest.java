@@ -42,6 +42,67 @@ class LexicalCompatibilityTest {
           "\uD83D\uD800\uDE00");
 
   @Test
+  void literalRunsKeepAtomQuantifiersAndGroupBoundaries() {
+    List<String> inputs =
+        List.of(
+            "",
+            "a",
+            "ab",
+            "abc",
+            "abcc",
+            "abccc",
+            "abcabc",
+            "abab",
+            "ababab",
+            "abcd",
+            "abC",
+            "aBCD",
+            "ABCD",
+            "ABC",
+            "abefef",
+            "xabcabccyabc",
+            "a😀",
+            "a😀😀",
+            "a😀a😀",
+            "a\uD83D\uD800\uDE00",
+            "a\uD83D\uD800\uDE00\uD800\uDE00");
+    for (String regex :
+        List.of(
+            "abc+",
+            "abc{0,2}",
+            "abc*?",
+            "(?:abc)+",
+            "(abc)+",
+            "(ab)c+",
+            "(?:ab)c+",
+            "ab|cd+",
+            "ab(?:cd|ef)+",
+            "ab(?i:c+)d",
+            "(?i:a)bcd+",
+            "ab(?i)cd+",
+            "a\\x42\\u0043+",
+            "\\Qabc\\E+",
+            "(?x)a #c\n b c+",
+            "a😀+",
+            "(?:a😀)+",
+            "a\\uD83D\\uDE00+",
+            "a\\uD83D\\uD800\\uDE00+",
+            "abc\\Q\\E+?",
+            "(a|ab)c+",
+            "(ab){0}c+",
+            "^abc+$")) {
+      for (int flags :
+          List.of(
+              0,
+              Pattern.COMMENTS,
+              Pattern.CASE_INSENSITIVE,
+              Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)) {
+        assertSame(regex, flags, inputs);
+      }
+    }
+  }
+
+  @Test
   void propertyComponentsCrossTriviaAndQuoteBoundaries() {
     for (String introducer : List.of("\\p", "\\P")) {
       for (String gap : List.of("", "\\Q\\E", "\\Q\\E\\Q\\E", " ", "#c\n", " \\Q\\E#c\n")) {
@@ -113,8 +174,8 @@ class LexicalCompatibilityTest {
   @Test
   @DisabledForCrosscheck("SafeRE rejects possessive repetition over consuming operands")
   void consumingPossessiveRejectionHasOnePathForEquivalentSpellings() {
-    for (String operand : List.of("a", "(a)", "(?:a?)")) {
-      for (String repeat : List.of("?", "*", "+", "{1}", "{0,2}")) {
+    for (String operand : List.of("a", "(a)", "(?:a?)", "\\p{Lower}", "^\\p{Lower}")) {
+      for (String repeat : List.of("?", "*", "+", "{1}", "{0,2}", "{1,3}")) {
         for (String gap : List.of("", "\\Q\\E", "\\Q\\E\\Q\\E", " \\Q\\E#c\n")) {
           assertThatThrownBy(() -> Pattern.compile(operand + repeat + gap + "+", Pattern.COMMENTS))
               .isInstanceOf(PatternSyntaxException.class)
@@ -148,6 +209,15 @@ class LexicalCompatibilityTest {
         assertSame(regex, 0);
         assertSame(regex, Pattern.COMMENTS);
       }
+    }
+  }
+
+  @Test
+  void rangeEndpointControlsKeepDelimiterRolesAndValidation() {
+    List<String> inputs = List.of("!", "-", "A", "]", "a", "!]", "-]", "A]", "]]");
+    for (String regex : List.of("[!-]]", "[!-\\Q\\E]]", "[!-\\]]", "[!-\\Q]\\E]")) {
+      assertSame(regex, 0, inputs);
+      assertSame(regex, Pattern.COMMENTS, inputs);
     }
   }
 
@@ -255,6 +325,10 @@ class LexicalCompatibilityTest {
   }
 
   private static void assertSame(String regex, int flags) {
+    assertSame(regex, flags, INPUTS);
+  }
+
+  private static void assertSame(String regex, int flags, List<String> inputs) {
     java.util.regex.Pattern expected;
     try {
       expected = java.util.regex.Pattern.compile(regex, flags);
@@ -265,7 +339,7 @@ class LexicalCompatibilityTest {
       return;
     }
     Pattern actual = Pattern.compile(regex, flags);
-    for (String input : INPUTS) {
+    for (String input : inputs) {
       java.util.regex.Matcher jdk = expected.matcher(input);
       Matcher safe = actual.matcher(input);
       while (true) {

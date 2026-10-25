@@ -5,9 +5,13 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import java.util.regex.PatternSyntaxException;
 
 public final class CharacterClassExpressionFuzzer {
 
@@ -111,7 +115,7 @@ public final class CharacterClassExpressionFuzzer {
   private static final List<String> INPUTS =
       List.of(
           "", "a", "b", "c", "^", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ", "\t", "Ā",
-          "é", "\n", "]");
+          "é", "\n", "]", "!", ".", "\\", "!]", "-]", "A]");
   private static final String[] REGRESSION_REGEXES = {
     "[\\Qab\\E&&[b]]",
     "[[ab]&&[^b]]",
@@ -132,6 +136,12 @@ public final class CharacterClassExpressionFuzzer {
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
+    // #1070: model checks use unspaced references, not the JDK's trivia-sensitive parsing.
+    assertRangeTriviaIgnored("(?x)[!-", " ", "]]");
+    assertRangeTriviaIgnored("(?x)[!-", " ", "]a]");
+    assertRangeTriviaIgnored("(?x)[!-", " #c\n", "]]");
+    assertRangeTriviaIgnored("(?x)[!-", " ", "[A]]");
+    assertRangeTriviaIgnored("(?x)[a-", " #c\n", "]");
     for (String regex : REGRESSION_REGEXES) {
       FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
     }
@@ -173,6 +183,33 @@ public final class CharacterClassExpressionFuzzer {
         };
 
     FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
+    // Append the range-shape axis so saved inputs retain their original expression.
+    String before = prefix + data.pickValue(List.of("!", "A", "\\x41", "\\Q!\\E")) + "-";
+    String gap = pickSeparator(data, comments);
+    String after =
+        data.pickValue(List.of("[", "]")) + data.pickValue(List.of("", "a", "\\d", "[A-Z]")) + "]";
+    assertRangeTriviaIgnored(before, gap, after);
+    // Broad differential discovery still reports intentional differences; never waive them.
+    FuzzSupport.assertFullMatchesJdk(before + gap + after, 0, INPUTS);
+  }
+
+  private static void assertRangeTriviaIgnored(String before, String gap, String after) {
+    String regex = before + gap + after;
+    java.util.regex.Pattern reference;
+    try {
+      reference = java.util.regex.Pattern.compile(before + after);
+    } catch (PatternSyntaxException e) {
+      assertThatThrownBy(() -> org.safere.Pattern.compile(regex))
+          .as("range trivia preserves rejection of /%s/ in /%s/", before + after, regex)
+          .isInstanceOf(PatternSyntaxException.class);
+      return;
+    }
+    var pattern = org.safere.Pattern.compile(regex);
+    for (String input : INPUTS) {
+      assertThat(pattern.matcher(input).matches())
+          .as("/%s/ equivalent to unspaced /%s/ on <%s>", regex, before + after, input)
+          .isEqualTo(reference.matcher(input).matches());
+    }
   }
 
   private static String pickSeparator(FuzzedDataProvider data, boolean comments) {

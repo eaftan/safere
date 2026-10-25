@@ -9,6 +9,7 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -120,6 +121,11 @@ final class Parser {
   private final RegexLexer lexer;
   private int tokenStart;
   private StackEntry stacktop;
+  // Ordinary literals share one pending run within a flag scope. Flush before every nonliteral
+  // token; before a quantifier, leave the final code point as a separate operand on the stack.
+  private int firstLiteral;
+  private int literalCount;
+  private int[] literalRunes;
   private int ncap;
   private final Set<String> namedCaptures = new HashSet<>();
 
@@ -177,6 +183,9 @@ final class Parser {
       lexer.setFlags(flags);
       RegexLexer.Token token = lexer.next();
       tokenStart = token.start;
+      if (literalCount != 0 && token.kind != RegexLexer.Kind.LITERAL) {
+        flushLiterals(token.kind == RegexLexer.Kind.REPEAT);
+      }
       if (token.kind == RegexLexer.Kind.END) break;
       if (WorkCounterConfig.ENABLED) WorkCounter.record();
       boolean unary = false;
@@ -323,6 +332,10 @@ final class Parser {
   }
 
   private void pushLiteral(int r) {
+    if ((flags & (ParseFlags.FOLD_CASE | ParseFlags.NEVER_NL)) == 0) {
+      appendLiteral(r);
+      return;
+    }
     // Do case folding if needed.
     if ((flags & ParseFlags.FOLD_CASE) != 0 && (flags & ParseFlags.UNICODE_CASE) != 0) {
       if (UnicodeCaseFolding.hasUnicodeCaseVariant(r) || UnicodeCaseFolding.cycleFoldRune(r) != r) {
@@ -350,6 +363,42 @@ final class Parser {
     }
     Regexp re = Regexp.literal(r, literalFlags);
     pushRegexp(re);
+  }
+
+  private void appendLiteral(int rune) {
+    if (literalCount == 0) {
+      firstLiteral = rune;
+    } else {
+      if (literalRunes == null) {
+        literalRunes = new int[8];
+      } else if (literalCount == literalRunes.length) {
+        if (WorkCounterConfig.ENABLED) WorkCounter.record(literalRunes.length);
+        int capacity =
+            literalRunes.length <= Integer.MAX_VALUE / 2
+                ? literalRunes.length * 2
+                : Integer.MAX_VALUE;
+        literalRunes = Arrays.copyOf(literalRunes, capacity);
+      }
+      if (literalCount == 1) literalRunes[0] = firstLiteral;
+      literalRunes[literalCount] = rune;
+    }
+    literalCount++;
+  }
+
+  private void flushLiterals(boolean separateLast) {
+    int length = literalCount - (separateLast ? 1 : 0);
+    if (length == 1) {
+      pushRegexp(Regexp.literal(firstLiteral, flags));
+    } else if (length > 1) {
+      if (WorkCounterConfig.ENABLED) WorkCounter.record(2L * length);
+      // Regexp takes its own copy, allowing the parser's scratch array to serve later runs.
+      pushRegexp(Regexp.literalString(Arrays.copyOf(literalRunes, length), flags));
+    }
+    if (separateLast) {
+      int last = literalCount == 1 ? firstLiteral : literalRunes[literalCount - 1];
+      pushRegexp(Regexp.literal(last, flags));
+    }
+    literalCount = 0;
   }
 
   private void pushCaret() {
@@ -812,7 +861,7 @@ final class Parser {
     if (start < 0) {
       return;
     }
-    if (runeCount == 1) {
+    if (end - start == 1) {
       target.add(source.get(start));
       return;
     }
@@ -932,11 +981,6 @@ final class Parser {
     if (lexer.peekClass().kind == RegexLexer.Kind.HYPHEN) {
       lexer.takeClass();
       RegexLexer.Token endpoint = lexer.peekClassRangeEndpoint();
-      if ((endpoint.kind == RegexLexer.Kind.CLASS_CLOSE
-              || endpoint.kind == RegexLexer.Kind.CLASS_OPEN)
-          && endpoint.leadingTrivia) {
-        throw lexer.error("bad class syntax", endpoint.start);
-      }
       if (endpoint.kind == RegexLexer.Kind.CLASS_CLOSE
           || endpoint.kind == RegexLexer.Kind.CLASS_OPEN
           || endpoint.kind == RegexLexer.Kind.END) {

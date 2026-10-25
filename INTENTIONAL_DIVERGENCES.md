@@ -257,6 +257,52 @@ leak (so `[\u0100&&[a]&]` fails to match `\u0100`). SafeRE treats all Unicode co
 points uniformly according to boolean set algebra rather than reproducing JDK parser
 bugs and implementation accidents.
 
+## Bracket Roles after Ignored Range Trivia
+
+Issue reference: [#1070](https://github.com/eaftan/safere/issues/1070), which tracks
+considering an upstream JDK bug report.
+
+The [JDK 26 `COMMENTS` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#COMMENTS)
+says whitespace and line comments are ignored, including whitespace inside
+character classes. SafeRE preserves bracket roles when skipping that trivia.
+An unescaped closing bracket after a range hyphen still closes the class, and
+an unescaped opening bracket still begins a nested class. A hyphen before
+either delimiter remains literal, as in the corresponding unspaced spelling.
+
+With comments mode enabled, SafeRE therefore gives these pairs identical meanings:
+
+| Patterns | SafeRE meaning |
+| --- | --- |
+| `[!-]]` and `[!- ]]` | Two characters: `!]` or `-]`. |
+| `[!-[A]]` and `[!- [A]]` | One character: `!`, `-`, or `A`. |
+| `[a-]` and `[a- ]` | One character: `a` or `-`. |
+| `[a-[z]]` and `[a- [z]]` | One character: `a`, `-`, or `z`. |
+
+Observed JDK 26.0.2 behavior instead treats a bracket reached after trivia as
+a scalar range endpoint. For example, `(?x)[!- ]]` matches one character in
+the inclusive range from `!` to `]`, and `(?x)[!- [A]]` matches a character
+from `!` to `[` followed by a literal `]`. The JDK rejects `(?x)[a- ]` and
+`(?x)[a- [z]]` as illegal ranges, although it accepts their unspaced forms.
+Line comments before the bracket produce the same inconsistencies.
+
+SafeRE intentionally follows the documented insignificance of trivia, with
+the project owner's approval, rather than reproducing those JDK parsing quirks.
+The documentation does not fully formalize hyphen fallback before nested
+classes; SafeRE preserves the established unspaced Java interpretation and
+the documented precedence of grouping over ranges. Nested classes remain
+expressions even when they contain a single character.
+
+Escaped and quoted brackets remain scalar endpoints: `(?x)[!- \]]` is a
+real range ending at `]`. Escaped or quoted spaces remain significant, and
+without comments mode ordinary spaces remain significant. Set-valued escapes
+such as `\d` do not become valid scalar endpoints.
+
+`CharacterClassRangeTriviaTest` pins these meanings, nesting, flag scopes,
+quoted and escaped endpoints, and malformed forms. The class-expression fuzz
+generator checks the same invariant against unspaced references. Exact JDK
+differences are retained in the intentional reproduction registry, and broad
+differential fuzzing continues to report them.
+
 ## `\v` next to a Range Hyphen in Character Classes
 
 The JDK `Pattern` documentation defines `\v` as the vertical-whitespace class

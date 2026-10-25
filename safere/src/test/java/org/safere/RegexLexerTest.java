@@ -12,11 +12,37 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("Lexer source spans and lookahead are SafeRE implementation contracts")
 class RegexLexerTest {
+  @Test
+  void quotedLiteralsKeepSpansAndLeaveFollowingSyntaxAvailable() {
+    for (int rune :
+        IntStream.concat(IntStream.range(0, 128), IntStream.of(0xe9, 0x1f600)).toArray()) {
+      String quoted = "\\Q" + new String(Character.toChars(rune)) + "\\E";
+      for (int flags : List.of(ParseFlags.LIKE_PERL, ParseFlags.LIKE_PERL | ParseFlags.COMMENTS)) {
+        for (boolean inClass : List.of(false, true)) {
+          RegexLexer lexer = new RegexLexer(quoted + "+", flags);
+          RegexLexer.Token literal = inClass ? lexer.takeClass() : lexer.next();
+          assertThat(literal.kind).isEqualTo(RegexLexer.Kind.LITERAL);
+          assertThat(literal.rune).isEqualTo(rune);
+          assertThat(literal.start).isZero();
+          assertThat(literal.end).isEqualTo(quoted.length() - 2);
+          RegexLexer.Token following = inClass ? lexer.takeClass() : lexer.next();
+          assertThat(following.kind)
+              .isEqualTo(inClass ? RegexLexer.Kind.LITERAL : RegexLexer.Kind.REPEAT);
+          assertThat(following.rune).isEqualTo('+');
+          assertThat(following.start).isEqualTo(quoted.length());
+          assertThat(following.end).isEqualTo(quoted.length() + 1);
+          assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.END);
+        }
+      }
+    }
+  }
+
   @Test
   void completeQuantifiersKeepOriginalUtf16Spans() {
     String regex = "😀a+\\Q\\E?";
@@ -47,20 +73,21 @@ class RegexLexerTest {
   }
 
   @Test
-  void multiCharacterLookaheadPreservesSpansAcrossEmptyQuotes() {
-    String regex = "😀\\b{\\Q\\Eg}a";
-    RegexLexer lexer = new RegexLexer(regex, ParseFlags.LIKE_PERL);
-    assertThat(lexer.next().rune).isEqualTo(0x1f600);
-    RegexLexer.Token boundary = lexer.next();
-    assertThat(boundary.kind).isEqualTo(RegexLexer.Kind.GRAPHEME_BOUNDARY);
-    assertThat(boundary.start).isEqualTo(2);
-    assertThat(boundary.end).isEqualTo(regex.length() - 1);
-    RegexLexer.Token literal = lexer.next();
-    assertThat(literal.kind).isEqualTo(RegexLexer.Kind.LITERAL);
-    assertThat(literal.rune).isEqualTo('a');
-    assertThat(literal.start).isEqualTo(regex.length() - 1);
-    assertThat(literal.end).isEqualTo(regex.length());
-    assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.END);
+  void graphemeBoundariesKeepSpansAcrossEmptyQuotes() {
+    for (String regex : List.of("😀\\b{g}a", "😀\\b{\\Q\\Eg}a")) {
+      RegexLexer lexer = new RegexLexer(regex, ParseFlags.LIKE_PERL);
+      assertThat(lexer.next().rune).isEqualTo(0x1f600);
+      RegexLexer.Token boundary = lexer.next();
+      assertThat(boundary.kind).isEqualTo(RegexLexer.Kind.GRAPHEME_BOUNDARY);
+      assertThat(boundary.start).isEqualTo(2);
+      assertThat(boundary.end).isEqualTo(regex.length() - 1);
+      RegexLexer.Token literal = lexer.next();
+      assertThat(literal.kind).isEqualTo(RegexLexer.Kind.LITERAL);
+      assertThat(literal.rune).isEqualTo('a');
+      assertThat(literal.start).isEqualTo(regex.length() - 1);
+      assertThat(literal.end).isEqualTo(regex.length());
+      assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.END);
+    }
   }
 
   @Test
@@ -105,6 +132,23 @@ class RegexLexerTest {
     lexer.setFlags(ParseFlags.LIKE_PERL);
     assertThat(lexer.next().rune).isEqualTo(' ');
     assertThat(lexer.next().rune).isEqualTo('c');
+  }
+
+  @Test
+  void rangeLookaheadKeepsRawBracketRolesAfterTrivia() {
+    for (String gap : List.of("", " ", "#c\n", "\\Q\\E", " \\Q\\E")) {
+      for (String bracket : List.of("[", "]")) {
+        RegexLexer lexer =
+            new RegexLexer(gap + bracket, ParseFlags.LIKE_PERL | ParseFlags.COMMENTS);
+        RegexLexer.Token token = lexer.peekClassRangeEndpoint();
+        assertThat(token.kind)
+            .isEqualTo(
+                bracket.equals("[") ? RegexLexer.Kind.CLASS_OPEN : RegexLexer.Kind.CLASS_CLOSE);
+        assertThat(lexer.peekClass()).isSameAs(token);
+        assertThat(lexer.takeClass()).isSameAs(token);
+        assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.END);
+      }
+    }
   }
 
   @Test
