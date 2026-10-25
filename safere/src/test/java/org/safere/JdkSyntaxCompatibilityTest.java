@@ -442,6 +442,8 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> malformedJdkSyntax() {
+      // Trailing hyphens across COMMENTS trivia intentionally differ from the JDK (#1070).
+      // CharacterClassRangeTriviaTest covers their acceptance and membership separately.
       return Stream.of(
           Arguments.of(new DialectRejection("unterminated character class", "[abc")),
           Arguments.of(new DialectRejection("empty character class", "[]")),
@@ -607,12 +609,7 @@ class JdkSyntaxCompatibilityTest {
                   "quoted ampersand before trailing class intersection after nested class",
                   "[[a]\\Q&\\E&&]")),
           Arguments.of(
-              new DialectRejection("empty quoted class item has no terminator", "[\\Q\\E]")),
-          Arguments.of(
-              new DialectRejection("comments-mode spaced range has no endpoint", "(?x)[a- ]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode spaced empty quote has no endpoint", "(?x)[a- \\Q\\E]")));
+              new DialectRejection("empty quoted class item has no terminator", "[\\Q\\E]")));
     }
 
     @ParameterizedTest(name = "{0}")
