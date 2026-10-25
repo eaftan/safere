@@ -169,6 +169,40 @@ public final class ParserCompatibilityFuzzer {
     FuzzSupport.assertFullMatchesJdk(regex, flags, INPUTS);
     // Append consumers to preserve the interpretation of the existing corpus.
     assertOperandFreePossessiveCountedRepeatMatchesJdk(data);
+    assertQuantifierBoundaryFindsMatchJdk(data);
+  }
+
+  private static void assertQuantifierBoundaryFindsMatchJdk(FuzzedDataProvider data) {
+    String operand = data.pickValue(List.of("a", "(a)", "(a?)", "()", "(?i)"));
+    String repeat = data.pickValue(List.of("?", "*", "+", "{0}", "{1,3}"));
+    String gap = data.pickValue(List.of("\\Q\\E", "\\Q\\E\\Q\\E", " \\Q\\E#c\n"));
+    String modifier = data.pickValue(List.of("?", "?+", "??"));
+    String regex = operand + repeat + gap + modifier;
+    int flags = Pattern.COMMENTS;
+    FuzzSupport.assertFullMatchesJdk(regex, flags, INPUTS);
+    java.util.regex.Pattern expected;
+    try {
+      expected = java.util.regex.Pattern.compile(regex, flags);
+    } catch (java.util.regex.PatternSyntaxException rejected) {
+      return; // Compile agreement was already checked above.
+    }
+    Pattern actual = Pattern.compile(regex, flags);
+    for (String input : INPUTS) {
+      java.util.regex.Matcher jdk = expected.matcher(input);
+      Matcher safe = actual.matcher(input);
+      while (true) {
+        boolean found = jdk.find();
+        if (safe.find() != found) throw new AssertionError("find disagreement: " + regex);
+        if (!found) break;
+        for (int group = 0; group <= jdk.groupCount(); group++) {
+          if (safe.start(group) != jdk.start(group)
+              || safe.end(group) != jdk.end(group)
+              || !Objects.equals(safe.group(group), jdk.group(group))) {
+            throw new AssertionError("find capture disagreement: " + regex + " on " + input);
+          }
+        }
+      }
+    }
   }
 
   private static void assertOperandFreePossessiveCountedRepeatMatchesJdk(FuzzedDataProvider data) {

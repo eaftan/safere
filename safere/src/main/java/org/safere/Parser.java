@@ -117,25 +117,17 @@ final class Parser {
 
   // Parse state
   private int flags;
-  private final String pattern;
-  private int pos; // current parse position (char index into pattern)
+  private final RegexLexer lexer;
+  private int tokenStart;
   private StackEntry stacktop;
   private int ncap;
-  private final int runeMax;
   private final Set<String> namedCaptures = new HashSet<>();
-  private boolean commentQuoting;
 
   private Parser(String pattern, int flags) {
-    this.pattern = pattern;
+    this.lexer = new RegexLexer(pattern, flags);
     this.flags = flags;
-    this.pos = 0;
     this.stacktop = null;
     this.ncap = 0;
-    this.runeMax = Utils.MAX_RUNE;
-  }
-
-  private static boolean isCommentsWhitespace(int cp) {
-    return cp == ' ' || ('\t' <= cp && cp <= '\r');
   }
 
   /**
@@ -153,8 +145,7 @@ final class Parser {
       result = p.doParse();
     } catch (PatternSyntaxException syntaxFailure) {
       try {
-        p.reportIntentionalDivergences(
-            syntaxFailure instanceof IntentionalDivergenceSyntaxException);
+        p.reportIntentionalDivergences(RegexLexer.isClassSyntaxError(syntaxFailure));
       } catch (RuntimeException | Error notificationFailure) {
         if (!syntaxFailure.equals(notificationFailure)) {
           syntaxFailure.addSuppressed(notificationFailure);
@@ -168,7 +159,7 @@ final class Parser {
 
   private void reportIntentionalDivergences(boolean classSyntaxFailure) {
     SafeReMatchDiagnostics listener = Pattern.diagnostics();
-    if (commentQuoting) {
+    if (lexer.sawCommentQuoting()) {
       listener.onIntentionalDivergence(IntentionalDivergence.COMMENT_QUOTING);
     }
     if (classSyntaxFailure) {
@@ -176,371 +167,116 @@ final class Parser {
     }
   }
 
-  // ---- Comments mode helpers ----
-
-  /**
-   * If comments mode ({@link ParseFlags#COMMENTS}) is active, skips whitespace characters and
-   * {@code #}-to-end-of-line comments at the current position. Advances {@link #pos} past any
-   * skipped content.
-   *
-   * <p>This implements the behavior of Java's {@link java.util.regex.Pattern#COMMENTS} flag and
-   * Perl's {@code (?x)} mode. Whitespace and comments become insignificant, allowing patterns to be
-   * formatted with whitespace and annotations for readability.
-   */
-  private void skipCommentsAndWhitespace() {
-    pos = skipCommentsAndWhitespaceAt(pos);
-  }
-
-  private int skipCommentsAndWhitespaceAt(int index) {
-    while (index < pattern.length()) {
-      int c = pattern.codePointAt(index);
-      if (c == '#') {
-        // Skip from '#' to end of line (or end of pattern).
-        index++;
-        while (index < pattern.length()) {
-          int commentChar = pattern.codePointAt(index);
-          if (isCommentTerminator(commentChar)) {
-            break;
-          }
-          if (commentChar == '\\'
-              && index + 1 < pattern.length()
-              && (pattern.charAt(index + 1) == 'Q' || pattern.charAt(index + 1) == 'E')) {
-            commentQuoting = true;
-          }
-          index += Character.charCount(commentChar);
-        }
-      } else if (isCommentsWhitespace(c)) {
-        index += Character.charCount(c);
-      } else {
-        break;
-      }
-    }
-    return index;
-  }
-
-  private void skipQuantifierModifierTrivia() {
-    if ((flags & ParseFlags.COMMENTS) != 0) {
-      skipCommentsAndWhitespace();
-    }
-  }
-
-  private boolean isCommentTerminator(int c) {
-    if (c == '\0' || c == '\n') {
-      return true;
-    }
-    return (flags & ParseFlags.UNIX_LINES) == 0 && Nfa.isLineTerminator(c);
-  }
-
-  // ---- Main parse method ----
+  // ---- Token-driven iterative parse method ----
 
   private Regexp doParse() {
-    if ((flags & ParseFlags.LITERAL) != 0) {
-      // Special parse loop for literal string.
-      int i = 0;
-      while (i < pattern.length()) {
-        if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record();
-        }
-        int r = pattern.codePointAt(i);
-        i += Character.charCount(r);
-        pushLiteral(r);
-      }
-      return doFinish();
-    }
-
-    String lastunary = null;
+    boolean lastUnary = false;
     boolean lastUnaryWasBareGreedyPlus = false;
     boolean lastTokenNonRepeatable = false;
-    boolean lastTokenWasEmptyQuotedLiteral = false;
-    while (pos < pattern.length()) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      // In comments mode, skip whitespace and #-comments before each token.
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        skipCommentsAndWhitespace();
-        if (pos >= pattern.length()) {
-          break;
-        }
-      }
-      String isunary = null;
-      boolean isBareGreedyPlusUnary = false;
-      boolean isNonRepeatable = false;
-      int c = pattern.codePointAt(pos);
-      switch (c) {
-        case '(' -> {
-          // "(?" introduces Perl escape.
-          if ((flags & ParseFlags.PERL_X) != 0
-              && pos + 1 < pattern.length()
-              && pattern.charAt(pos + 1) == '?') {
-            isNonRepeatable = parsePerlFlags();
-            break;
-          }
-          if ((flags & ParseFlags.NEVER_CAPTURE) != 0) {
+    while (true) {
+      lexer.setFlags(flags);
+      RegexLexer.Token token = lexer.next();
+      tokenStart = token.start;
+      if (token.kind == RegexLexer.Kind.END) break;
+      if (WorkCounterConfig.ENABLED) WorkCounter.record();
+      boolean unary = false;
+      boolean barePlus = false;
+      boolean nonRepeatable = false;
+      switch (token.kind) {
+        case LITERAL -> pushLiteral(token.rune);
+        case OPEN -> {
+          if (token.text != null || (flags & ParseFlags.NEVER_CAPTURE) == 0) {
+            doLeftParen(token.text);
+          } else {
             doLeftParenNoCapture();
-          } else {
-            doLeftParen(null);
           }
-          pos++; // '('
         }
-        case '|' -> {
-          doVerticalBar();
-          pos++; // '|'
+        case NONCAPTURE, SCOPED_FLAGS -> {
+          doLeftParenNoCapture();
+          flags = token.flags;
         }
-        case ')' -> {
-          doRightParen();
-          pos++; // ')'
+        case FLAGS -> {
+          flags = token.flags;
+          nonRepeatable = true;
         }
-        case '^' -> {
-          pushCaret();
-          pos++; // '^'
+        case CLOSE -> doRightParen();
+        case ALTERNATION -> doVerticalBar();
+        case CARET -> pushCaret();
+        case DOLLAR -> pushDollar();
+        case DOT -> pushDot();
+        case CLASS_OPEN -> pushRegexp(parseCharClass(token.start));
+        case PROPERTY, PREDEFINED -> pushRegexp(finishCharClassBuilder(expandClassToken(token)));
+        case BOUNDARY -> pushWordBoundary(!token.negated);
+        case GRAPHEME_BOUNDARY -> pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
+        case BEGIN -> pushSimpleOp(RegexpOp.BEGIN_TEXT);
+        case END_TEXT -> pushSimpleOp(RegexpOp.END_TEXT);
+        case FINAL_END -> {
+          int savedFlags = flags;
+          flags |= ParseFlags.WAS_DOLLAR;
+          pushSimpleOp(RegexpOp.END_TEXT);
+          flags = savedFlags;
         }
-        case '$' -> {
-          pushDollar();
-          pos++; // '$'
-        }
-        case '.' -> {
-          pushDot();
-          pos++; // '.'
-        }
-        case '[' -> {
-          Regexp re = parseCharClass();
-          pushRegexp(re);
-        }
-        case '*', '+', '?' -> {
-          if (lastTokenNonRepeatable) {
-            throw new PatternSyntaxException(
-                "missing argument to repetition operator", pattern, pos);
-          }
-          RegexpOp op = c == '*' ? RegexpOp.STAR : c == '+' ? RegexpOp.PLUS : RegexpOp.QUEST;
-          int opStart = pos;
-          pos++; // the operator
-          boolean nongreedy = false;
-          boolean possessive = false;
-          if ((flags & ParseFlags.PERL_X) != 0) {
-            skipQuantifierModifierTrivia();
-            if (pos < pattern.length() && pattern.charAt(pos) == '+') {
-              if (!canIgnorePossessiveModifierOnZeroWidthOperand()) {
-                throw new PatternSyntaxException(
-                    "possessive quantifiers are not supported", pattern, opStart);
-              }
-              possessive = true;
-              pos++; // '+'
-            }
-            if (!possessive && pos < pattern.length() && pattern.charAt(pos) == '?') {
-              nongreedy = true;
-              pos++; // '?'
-            }
-            if (lastunary != null && lastTokenWasEmptyQuotedLiteral && c != '*') {
-              isunary = lastunary;
-              isBareGreedyPlusUnary = lastUnaryWasBareGreedyPlus;
-              break;
-            }
-            if (lastunary != null && !canRepeatAfterUnary(op, lastUnaryWasBareGreedyPlus)) {
-              throw new PatternSyntaxException(
-                  "invalid nested repetition operator", pattern, opStart);
-            }
-          }
-          String opstr = pattern.substring(opStart, pos);
-          if (possessive && op == RegexpOp.STAR && canObservePossessiveZeroWidthIteration()) {
-            pushPossessiveZeroWidthRepeatOp(op);
-          } else {
-            pushRepeatOp(op, opstr, nongreedy);
-          }
-          isunary = opstr;
-          isBareGreedyPlusUnary = op == RegexpOp.PLUS && !nongreedy && !possessive;
-        }
-        case '{' -> {
-          int opStart = pos;
-          int[] lohi = maybeParseRepetition();
-          if (lohi == null) {
-            throw new PatternSyntaxException("Illegal repetition", pattern, opStart);
-          }
-          int lo = lohi[0];
-          int hi = lohi[1];
-          boolean nongreedy = false;
-          boolean possessive = false;
-          if ((flags & ParseFlags.PERL_X) != 0) {
-            skipQuantifierModifierTrivia();
-            if (pos < pattern.length() && pattern.charAt(pos) == '+') {
-              // A counted repetition with no operand of its own, as at the start of a sequence
-              // or after another quantifier, repeats an empty expression in the JDK, so a
-              // possessive modifier on it cannot change the match.
-              boolean implicitEmptyOperand =
-                  lastTokenNonRepeatable
-                      || lastunary != null
+        case LINEBREAK -> pushRegexp(buildLinebreakRegexp());
+        case GRAPHEME -> pushRegexp(Regexp.graphemeCluster(flags));
+        case REPEAT -> {
+          boolean counted = token.rune == '{';
+          boolean reluctant = token.mode == RegexLexer.RepetitionMode.RELUCTANT;
+          boolean possessive = token.mode == RegexLexer.RepetitionMode.POSSESSIVE;
+          boolean implicitEmpty =
+              counted
+                  && (lastTokenNonRepeatable
+                      || lastUnary
                       || stacktop == null
-                      || isMarker(stacktop);
-              if (!implicitEmptyOperand && !canIgnorePossessiveModifierOnZeroWidthOperand()) {
-                throw new PatternSyntaxException(
-                    "possessive quantifiers are not supported", pattern, opStart);
+                      || isMarker(stacktop));
+          if (possessive && !implicitEmpty && !canIgnorePossessiveModifierOnZeroWidthOperand()) {
+            throw lexer.error("possessive quantifiers are not supported", token.start);
+          }
+          if (counted) {
+            validateRepeatCount(token.min, token.max, token.start);
+            if (lastTokenNonRepeatable) {
+              nonRepeatable = true;
+            } else if (lastUnary) {
+              unary = true;
+            } else {
+              if (possessive
+                  && token.min == 0
+                  && token.max != 0
+                  && canObservePossessiveZeroWidthIteration()) {
+                pushPossessiveZeroWidthRepeatRange(token.max);
+              } else {
+                pushRepetition(token.min, token.max, token.start, reluctant);
               }
-              possessive = true;
-              pos++; // '+'
+              unary = true;
             }
-            if (!possessive && pos < pattern.length() && pattern.charAt(pos) == '?') {
-              nongreedy = true;
-              pos++; // '?'
-            }
-          }
-          String opstr = pattern.substring(opStart, pos);
-          if (lastTokenNonRepeatable) {
-            validateRepeatCount(lo, hi, opstr);
-            isNonRepeatable = true;
-            break;
-          }
-          if (lastunary != null) {
-            validateRepeatCount(lo, hi, opstr);
-            isunary = opstr;
-            break;
-          }
-          if (possessive && lo == 0 && hi != 0 && canObservePossessiveZeroWidthIteration()) {
-            pushPossessiveZeroWidthRepeatRange(hi);
           } else {
-            pushRepetition(lo, hi, opstr, nongreedy);
-          }
-          isunary = opstr;
-        }
-        case '\\' -> {
-          if (parseBackslash()) {
-            if (stacktop == null || isMarker(stacktop) || lastTokenNonRepeatable) {
-              lastunary = null;
-              lastUnaryWasBareGreedyPlus = false;
-              lastTokenNonRepeatable = true;
+            if (lastTokenNonRepeatable) {
+              throw lexer.error("missing argument to repetition operator", token.start);
             }
-            lastTokenWasEmptyQuotedLiteral = true;
-            continue;
+            RegexpOp op =
+                token.rune == '*'
+                    ? RegexpOp.STAR
+                    : token.rune == '+' ? RegexpOp.PLUS : RegexpOp.QUEST;
+            if ((flags & ParseFlags.PERL_X) != 0
+                && lastUnary
+                && !canRepeatAfterUnary(op, lastUnaryWasBareGreedyPlus)) {
+              throw lexer.error("invalid nested repetition operator", token.start);
+            }
+            if (possessive && op == RegexpOp.STAR && canObservePossessiveZeroWidthIteration()) {
+              pushPossessiveZeroWidthRepeatOp(op);
+            } else {
+              pushRepeatOp(op, token.start, reluctant);
+            }
+            unary = true;
+            barePlus = op == RegexpOp.PLUS && !reluctant && !possessive;
           }
         }
-        default -> {
-          pos += Character.charCount(c);
-          pushLiteral(c);
-        }
+        default -> throw new AssertionError("unexpected token: " + token.kind);
       }
-      lastunary = isunary;
-      lastUnaryWasBareGreedyPlus = isBareGreedyPlusUnary;
-      lastTokenNonRepeatable = isNonRepeatable;
-      lastTokenWasEmptyQuotedLiteral = false;
+      lastUnary = unary;
+      lastUnaryWasBareGreedyPlus = barePlus;
+      lastTokenNonRepeatable = nonRepeatable;
     }
     return doFinish();
-  }
-
-  // ---- Backslash handling (top-level) ----
-
-  private boolean parseBackslash() {
-    // \b and \B: word boundary or not
-    if ((flags & ParseFlags.PERL_B) != 0
-        && pos + 1 < pattern.length()
-        && (pattern.charAt(pos + 1) == 'b' || pattern.charAt(pos + 1) == 'B')) {
-      // \b{g}: grapheme cluster boundary.
-      if (pattern.charAt(pos + 1) == 'b'
-          && pos + 4 < pattern.length()
-          && pattern.charAt(pos + 2) == '{'
-          && pattern.charAt(pos + 3) == 'g'
-          && pattern.charAt(pos + 4) == '}') {
-        pos += 5; // '\\', 'b', '{', 'g', '}'
-        pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
-        return false;
-      }
-      pushWordBoundary(pattern.charAt(pos + 1) == 'b');
-      pos += 2; // '\\', 'b' or 'B'
-      return false;
-    }
-
-    if ((flags & ParseFlags.PERL_X) != 0 && pos + 1 < pattern.length()) {
-      char next = pattern.charAt(pos + 1);
-      if (next == 'A') {
-        pushSimpleOp(RegexpOp.BEGIN_TEXT);
-        pos += 2;
-        return false;
-      }
-      if (next == 'z') {
-        pushSimpleOp(RegexpOp.END_TEXT);
-        pos += 2;
-        return false;
-      }
-      if (next == 'Z') {
-        // \Z matches at end of input or before a final newline, same as $ in non-multiline mode.
-        int oflags = flags;
-        flags |= ParseFlags.WAS_DOLLAR;
-        pushSimpleOp(RegexpOp.END_TEXT);
-        flags = oflags;
-        pos += 2;
-        return false;
-      }
-      if (next == 'G') {
-        throw new PatternSyntaxException(
-            "\\G (end of previous match) is not supported", pattern, pos);
-      }
-      if (next == 'Q') {
-        // \Q ... \E: the ... is always literals
-        pos += 2; // '\\', 'Q'
-        boolean sawLiteral = false;
-        while (pos < pattern.length()) {
-          if (pos + 1 < pattern.length()
-              && pattern.charAt(pos) == '\\'
-              && pattern.charAt(pos + 1) == 'E') {
-            pos += 2; // '\\', 'E'
-            break;
-          }
-          int r = pattern.codePointAt(pos);
-          pos += Character.charCount(r);
-          pushLiteral(r);
-          sawLiteral = true;
-        }
-        return !sawLiteral;
-      }
-    }
-
-    // \R: Unicode linebreak sequence.
-    // Equivalent to (?:\r\n|[\n\x0B\f\r\x{85}\x{2028}\x{2029}]).
-    if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'R') {
-      pos += 2; // '\\', 'R'
-      pushRegexp(buildLinebreakRegexp());
-      return false;
-    }
-
-    // \X: Extended grapheme cluster.
-    if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'X') {
-      pos += 2; // '\\', 'X'
-      pushRegexp(Regexp.graphemeCluster(flags));
-      return false;
-    }
-
-    // Unicode group \p{...} or \P{...}
-    if (pos + 1 < pattern.length()
-        && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
-      CharClassBuilder ccb = new CharClassBuilder();
-      int saved = pos;
-      int result = parseUnicodeGroup(ccb);
-      if (result == PARSE_OK) {
-        Regexp re = finishCharClassBuilder(ccb);
-        pushRegexp(re);
-        return false;
-      } else if (result == PARSE_ERROR) {
-        // error already thrown by parseUnicodeGroup
-        return false;
-      }
-      // PARSE_NOTHING: fall through
-      pos = saved;
-    }
-
-    // Perl character class \d, \D, \s, \S, \w, \W
-    {
-      int saved = pos;
-      CharClassBuilder ccb = maybeParsePerlCCEscape();
-      if (ccb != null) {
-        Regexp re = finishCharClassBuilder(ccb);
-        pushRegexp(re);
-        return false;
-      }
-      pos = saved;
-    }
-
-    // Regular escape
-    int r = parseEscape();
-    pushLiteral(r);
-    return false;
   }
 
   // ---- Stack operations ----
@@ -638,7 +374,7 @@ final class Parser {
       // UNIX_LINES: . matches everything except \n
       CharClassBuilder ccb = new CharClassBuilder();
       ccb.addRange(0, '\n' - 1);
-      ccb.addRange('\n' + 1, runeMax);
+      ccb.addRange('\n' + 1, Utils.MAX_RUNE);
       Regexp re = Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
       pushRegexp(re);
     } else {
@@ -649,7 +385,7 @@ final class Parser {
       ccb.addRange('\n' + 1, '\r' - 1); // 0x0B–0x0C
       ccb.addRange('\r' + 1, '\u0085' - 1); // 0x0E–0x0084
       ccb.addRange('\u0085' + 1, '\u2028' - 1); // 0x0086–0x2027
-      ccb.addRange('\u2029' + 1, runeMax); // 0x202A–max
+      ccb.addRange('\u2029' + 1, Utils.MAX_RUNE); // 0x202A–max
       Regexp re = Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
       pushRegexp(re);
     }
@@ -680,10 +416,9 @@ final class Parser {
     pushRegexp(re);
   }
 
-  private void pushRepeatOp(RegexpOp op, String opstr, boolean nongreedy) {
+  private void pushRepeatOp(RegexpOp op, int opStart, boolean nongreedy) {
     if (stacktop == null || isMarker(stacktop)) {
-      throw new PatternSyntaxException(
-          "missing argument to repetition operator", pattern, pos - opstr.length());
+      throw lexer.error("missing argument to repetition operator", opStart);
     }
 
     int fl = flags;
@@ -724,7 +459,7 @@ final class Parser {
         Regexp sub = stacktop.re;
         stacktop.re = Regexp.rawQuantifier(RegexpOp.QUEST, Regexp.plus(sub, flags), flags);
       }
-      case PLUS -> pushRepeatOp(RegexpOp.PLUS, "+", false);
+      case PLUS -> pushRepeatOp(RegexpOp.PLUS, tokenStart, false);
       case QUEST -> {
         // Best-effort zero-width possessive normalization: prefer the one-iteration capture path.
       }
@@ -807,8 +542,8 @@ final class Parser {
     return true;
   }
 
-  private void pushRepetition(int min, int max, String opstr, boolean nongreedy) {
-    validateRepeatCount(min, max, opstr);
+  private void pushRepetition(int min, int max, int opStart, boolean nongreedy) {
+    validateRepeatCount(min, max, opStart);
     if (stacktop == null || isMarker(stacktop)) {
       pushRegexp(Regexp.emptyMatch(flags));
     }
@@ -825,14 +560,14 @@ final class Parser {
     // Check for too-deep nesting of repeats.
     if (min >= 2 || max >= 2) {
       if (countRepeat(stacktop.re, MAX_REPEAT) == 0) {
-        throw new PatternSyntaxException("invalid repeat count", pattern, pos - opstr.length());
+        throw lexer.error("invalid repeat count", opStart);
       }
     }
   }
 
-  private void validateRepeatCount(int min, int max, String opstr) {
+  private void validateRepeatCount(int min, int max, int opStart) {
     if ((max != -1 && max < min) || min > MAX_REPEAT || max > MAX_REPEAT) {
-      throw new PatternSyntaxException("invalid repeat count", pattern, pos - opstr.length());
+      throw lexer.error("invalid repeat count", opStart);
     }
   }
 
@@ -883,8 +618,7 @@ final class Parser {
 
   private void doLeftParen(String name) {
     if (name != null && !namedCaptures.add(name)) {
-      throw new PatternSyntaxException(
-          "named capturing group <" + name + "> is already defined", pattern, pos);
+      throw lexer.error("named capturing group <" + name + "> is already defined", tokenStart);
     }
     StackEntry e = newMarker(LEFT_PAREN);
     e.cap = ++ncap;
@@ -933,7 +667,7 @@ final class Parser {
     StackEntry r1 = stacktop;
     StackEntry r2 = r1 != null ? r1.down : null;
     if (r1 == null || r2 == null || !isLeftParen(r2)) {
-      throw new PatternSyntaxException("unexpected )", pattern, pos);
+      throw lexer.error("unexpected )", tokenStart);
     }
 
     // Pop off r1, r2.
@@ -955,7 +689,7 @@ final class Parser {
     doAlternation();
     StackEntry top = stacktop;
     if (top != null && top.down != null) {
-      throw new PatternSyntaxException("missing closing )", pattern, pattern.length());
+      throw lexer.error("missing closing )", lexer.length());
     }
     if (top == null) {
       return Regexp.emptyMatch(flags);
@@ -1111,159 +845,142 @@ final class Parser {
     return re.op == RegexpOp.LITERAL ? 1 : re.runes.length;
   }
 
-  // ---- Character class parsing ----
+  // ---- Character-class grammar over shared lexical tokens ----
 
-  private Regexp parseCharClass() {
-    CharClassBuilder ccb = parseCharClassBuilder();
-    return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
-  }
-
-  private CharClassBuilder parseCharClassBuilder() {
-    if (pos >= pattern.length() || pattern.charAt(pos) != '[') {
-      throw new PatternSyntaxException("internal error", pattern, pos);
-    }
+  private Regexp parseCharClass(int rootStart) {
     ArrayDeque<ClassExpressionFrame> stack = new ArrayDeque<>();
-    int rootStart = pos;
-    pos++;
-    boolean rootNegated = false;
-    if (pos < pattern.length() && pattern.charAt(pos) == '^') {
-      rootNegated = true;
-      pos++;
-    }
-    stack.push(new ClassExpressionFrame(rootStart, rootNegated));
-
+    stack.push(newClassFrame(rootStart));
     while (!stack.isEmpty()) {
       ClassExpressionFrame frame = stack.peek();
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        skipCommentsAndWhitespace();
-      }
-      if (pos >= pattern.length()) {
-        throw new PatternSyntaxException("missing closing ]", pattern, frame.classStart);
-      }
-
-      char c = pattern.charAt(pos);
-
-      // Check for closing bracket ']'
-      if (c == ']') {
-        if (!frame.hasItems && !frame.afterIntersection) {
-          // POSIX/JDK rule: ']' as very first element is treated as literal character ']'
-          int scalar = parseCCCharacter();
-          addScalarClassItem(frame.currentUnion, scalar);
+      RegexLexer.Token token = lexer.takeClass();
+      int start = token.start;
+      switch (token.kind) {
+        case END -> throw lexer.error("missing closing ]", frame.classStart);
+        case CLASS_CLOSE -> {
+          if (!frame.hasItems && !frame.afterIntersection) {
+            addScalarClassItem(frame.currentUnion, ']');
+            frame.hasItems = true;
+            continue;
+          }
+          if (frame.afterIntersection)
+            throw lexer.classError("empty right side of character class intersection", start);
+          CharClassBuilder completed = completeClassExpression(frame);
+          stack.pop();
+          if (stack.isEmpty()) return finishCharClassBuilder(completed);
+          ClassExpressionFrame parent = stack.peek();
+          parent.currentUnion.addCharClass(completed);
+          parent.hasItems = true;
+          parent.afterIntersection = false;
+        }
+        case CLASS_OPEN -> stack.push(newClassFrame(start));
+        case INTERSECTION -> {
+          if (!frame.hasItems || frame.afterIntersection) {
+            throw lexer.classError("empty left side of character class intersection", start);
+          }
+          if (frame.leftOperand == null) frame.leftOperand = frame.currentUnion;
+          else frame.leftOperand.intersect(frame.currentUnion);
+          frame.currentUnion = new CharClassBuilder();
+          frame.afterIntersection = true;
+          RegexLexer.Kind next = lexer.peekClass().kind;
+          if (next == RegexLexer.Kind.AMPERSAND || next == RegexLexer.Kind.INTERSECTION) {
+            throw lexer.classError("invalid character class intersection", start);
+          }
+          if (next == RegexLexer.Kind.HYPHEN)
+            throw lexer.classError("dangling character class '-'", lexer.peekClass().start);
+        }
+        case PROPERTY, PREDEFINED -> {
+          boolean verticalTab =
+              token.kind == RegexLexer.Kind.PREDEFINED && token.rune == 'v' && !token.negated;
+          CharClassBuilder expanded = expandClassToken(token);
+          if (verticalTab
+              && lexer.peekClass().kind == RegexLexer.Kind.HYPHEN
+              && !lexer.peekClass().leadingTrivia) {
+            throw lexer.classError(
+                "ambiguous \\v before '-' in a character class: use \\x0B for U+000B, or escape the"
+                    + " hyphen as \\-",
+                start);
+          }
+          frame.currentUnion.addCharClass(expanded);
           frame.hasItems = true;
-          continue;
+          frame.afterIntersection = false;
         }
-        if (frame.afterIntersection) {
-          throw new IntentionalDivergenceSyntaxException(
-              "empty right side of character class intersection", pattern, pos);
-        }
-        pos++; // consume ']'
-        CharClassBuilder completed = completeClassExpression(frame);
-        stack.pop();
-        if (stack.isEmpty()) {
-          return completed;
-        }
-        ClassExpressionFrame parent = stack.peek();
-        parent.currentUnion.addCharClass(completed);
-        parent.hasItems = true;
-        parent.afterIntersection = false;
-        continue;
-      }
-
-      // Check for nested character class '['
-      if (c == '[') {
-        int classStart = pos;
-        pos++;
-        boolean negated = false;
-        if (pos < pattern.length() && pattern.charAt(pos) == '^') {
-          negated = true;
-          pos++;
-        }
-        stack.push(new ClassExpressionFrame(classStart, negated));
-        continue;
-      }
-
-      // Check for intersection operator '&&'. COMMENTS-mode trivia is lexically insignificant,
-      // including between the two ampersands.
-      int intersectionEnd = scanClassIntersectionEnd();
-      if (intersectionEnd >= 0) {
-        int nextToken = skipClassOperatorTriviaAt(intersectionEnd);
-        if (nextToken < pattern.length() && pattern.charAt(nextToken) == '&') {
-          throw new IntentionalDivergenceSyntaxException(
-              "invalid character class intersection", pattern, pos);
-        }
-        if (!frame.hasItems || frame.afterIntersection) {
-          throw new IntentionalDivergenceSyntaxException(
-              "empty left side of character class intersection", pattern, pos);
-        }
-        pos = intersectionEnd;
-        if (frame.leftOperand == null) {
-          frame.leftOperand = frame.currentUnion;
-        } else {
-          frame.leftOperand.intersect(frame.currentUnion);
-        }
-        frame.currentUnion = new CharClassBuilder();
-        frame.afterIntersection = true;
-
-        if ((flags & ParseFlags.COMMENTS) != 0) {
-          skipCommentsAndWhitespace();
-        }
-        if (pos < pattern.length()) {
-          char next = pattern.charAt(pos);
-          if (next == ']') {
-            throw new IntentionalDivergenceSyntaxException(
-                "empty right side of character class intersection", pattern, pos);
+        case LITERAL, CARET, HYPHEN, AMPERSAND -> {
+          if (frame.afterIntersection && token.kind == RegexLexer.Kind.HYPHEN) {
+            throw lexer.classError("dangling character class '-'", start);
           }
-          if (next == '&' && pos + 1 < pattern.length() && pattern.charAt(pos + 1) == '&') {
-            throw new IntentionalDivergenceSyntaxException(
-                "empty right side of character class intersection", pattern, pos);
-          }
-          if (next == '-') {
-            throw new IntentionalDivergenceSyntaxException(
-                "dangling character class '-'", pattern, pos);
-          }
+          addScalarClassItem(frame.currentUnion, token.rune);
+          frame.hasItems = true;
+          frame.afterIntersection = false;
         }
-        continue;
-      }
-
-      // If we are right after an intersection and the next character is unescaped '-', reject
-      if (frame.afterIntersection && c == '-') {
-        throw new IntentionalDivergenceSyntaxException(
-            "dangling character class '-'", pattern, pos);
-      }
-
-      // Any other character atom / range / single '&' / quoted literal
-      if (parseClassAtomOrRange(frame.currentUnion)) {
-        frame.hasItems = true;
-        frame.afterIntersection = false;
+        default -> throw lexer.error("bad class syntax", start);
       }
     }
-
-    throw new PatternSyntaxException("missing closing ]", pattern, rootStart);
+    throw new AssertionError("class stack exhausted");
   }
 
-  private int scanClassIntersectionEnd() {
-    if (pattern.charAt(pos) != '&') {
-      return -1;
-    }
-    int secondAmpersand = skipClassOperatorTriviaAt(pos + 1);
-    if (secondAmpersand >= pattern.length() || pattern.charAt(secondAmpersand) != '&') {
-      return -1;
-    }
-    return secondAmpersand + 1;
+  private ClassExpressionFrame newClassFrame(int start) {
+    RegexLexer.Token first = lexer.peekClass();
+    boolean negated = first.kind == RegexLexer.Kind.CARET && !first.leadingTrivia;
+    if (negated) lexer.takeClass();
+    return new ClassExpressionFrame(start, negated);
   }
 
-  private int skipClassOperatorTriviaAt(int index) {
-    while (true) {
-      int next = index;
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        next = skipCommentsAndWhitespaceAt(next);
+  private void addScalarClassItem(CharClassBuilder ccb, int lo) {
+    if (lexer.peekClass().kind == RegexLexer.Kind.HYPHEN) {
+      lexer.takeClass();
+      RegexLexer.Token endpoint = lexer.peekClassRangeEndpoint();
+      if ((endpoint.kind == RegexLexer.Kind.CLASS_CLOSE
+              || endpoint.kind == RegexLexer.Kind.CLASS_OPEN)
+          && endpoint.leadingTrivia) {
+        throw lexer.error("bad class syntax", endpoint.start);
       }
-      if (startsEmptyQuotedLiteralAt(next)) {
-        index = next + 4;
-        continue;
+      if (endpoint.kind == RegexLexer.Kind.CLASS_CLOSE
+          || endpoint.kind == RegexLexer.Kind.CLASS_OPEN
+          || endpoint.kind == RegexLexer.Kind.END) {
+        addRangeFlags(ccb, lo, lo, flags | ParseFlags.CLASS_NL);
+        addRangeFlags(ccb, '-', '-', flags | ParseFlags.CLASS_NL);
+        return;
       }
-      return next;
+      if (endpoint.kind == RegexLexer.Kind.PREDEFINED
+          && endpoint.rune == 'v'
+          && !endpoint.negated) {
+        throw lexer.classError(
+            "ambiguous \\v as a character class range end: use \\x0B for U+000B, or escape the"
+                + " hyphen as \\-",
+            endpoint.start);
+      }
+      if (endpoint.kind != RegexLexer.Kind.LITERAL
+          && endpoint.kind != RegexLexer.Kind.CARET
+          && endpoint.kind != RegexLexer.Kind.HYPHEN
+          && endpoint.kind != RegexLexer.Kind.AMPERSAND) {
+        throw lexer.error("invalid escape sequence", endpoint.start);
+      }
+      int hi = endpoint.rune;
+      int end = endpoint.start;
+      lexer.takeClass();
+      if (hi < lo) throw lexer.error("invalid character class range", end);
+      addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
+    } else {
+      addRangeFlags(ccb, lo, lo, flags | ParseFlags.CLASS_NL);
     }
+  }
+
+  private CharClassBuilder expandClassToken(RegexLexer.Token token) {
+    CharClassExpander.Group group =
+        token.kind == RegexLexer.Kind.PROPERTY
+            ? CharClassExpander.lookupUnicodeGroup(
+                token.text, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0)
+            : CharClassExpander.lookupPerlGroup(
+                "\\" + (char) token.rune, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
+    if (group == null) throw lexer.error("invalid Unicode group: " + token.text, token.start);
+    CharClassBuilder ccb = new CharClassBuilder();
+    if (token.negated) CharClassExpander.addNegatedGroup(ccb, group, flags);
+    else CharClassExpander.addPositiveGroup(ccb, group, flags);
+    return ccb;
+  }
+
+  private static void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
+    CharClassExpander.addRange(ccb, lo, hi, parseFlags);
   }
 
   private CharClassBuilder completeClassExpression(ClassExpressionFrame frame) {
@@ -1295,808 +1012,6 @@ final class Parser {
       this.classStart = classStart;
       this.negated = negated;
     }
-  }
-
-  private static final class IntentionalDivergenceSyntaxException extends PatternSyntaxException {
-    private static final long serialVersionUID = 1L;
-
-    IntentionalDivergenceSyntaxException(String description, String regex, int index) {
-      super(description, regex, index);
-    }
-  }
-
-  private boolean parseClassAtomOrRange(CharClassBuilder ccb) {
-    // Look for Unicode character group like \p{Han}
-    if (pos + 2 < pattern.length()
-        && pattern.charAt(pos) == '\\'
-        && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
-      int result = parseUnicodeGroup(ccb);
-      if (result == PARSE_OK) {
-        return true;
-      } else if (result == PARSE_ERROR) {
-        throw new PatternSyntaxException("invalid Unicode group", pattern, pos);
-      }
-      // PARSE_NOTHING: fall through
-    }
-
-    // JDK Pattern reads \v as U+000B instead of vertical whitespace when the next character is '-'
-    // (after empty \Q\E quotes are removed), an undocumented compatibility rule. SafeRE rejects
-    // that spelling instead of silently matching something different (see
-    // INTENTIONAL_DIVERGENCES.md).
-    if (startsVerticalTabRangeStart()) {
-      throw new IntentionalDivergenceSyntaxException(
-          "ambiguous \\v before '-' in a character class: use \\x0B for U+000B, or escape the"
-              + " hyphen as \\- to keep \\v as vertical whitespace",
-          pattern,
-          pos);
-    }
-
-    // Look for Perl character class symbols.
-    {
-      int saved = pos;
-      CharClassBuilder perlCcb = maybeParsePerlCCEscape();
-      if (perlCcb != null) {
-        ccb.addCharClass(perlCcb);
-        return true;
-      }
-      pos = saved;
-    }
-
-    if (startsQuotedLiteral()) {
-      return addQuotedLiteralClassItem(ccb);
-    }
-
-    int scalar = parseCCCharacter();
-    addScalarClassItem(ccb, scalar);
-    return true;
-  }
-
-  private boolean addQuotedLiteralClassItem(CharClassBuilder ccb) {
-    int[] literals = parseQuotedLiteralSequence();
-    if (literals.length == 0) {
-      return false;
-    }
-    for (int i = 0; i + 1 < literals.length; i++) {
-      addRangeFlags(ccb, literals[i], literals[i], flags | ParseFlags.CLASS_NL);
-    }
-    addScalarClassItem(ccb, literals[literals.length - 1]);
-    return true;
-  }
-
-  private void addScalarClassItem(CharClassBuilder ccb, int lo) {
-    int hi = lo;
-    // In comments mode, skip whitespace before checking for '-'.
-    if ((flags & ParseFlags.COMMENTS) != 0) {
-      skipCommentsAndWhitespace();
-    }
-    while (startsEmptyQuotedLiteralAt(pos)) {
-      pos += 4;
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        skipCommentsAndWhitespace();
-      }
-    }
-    if (pos < pattern.length() && pattern.charAt(pos) == '-') {
-      if (hasRangeEndpointAfterHyphen()) {
-        pos++; // '-'
-        // In comments mode, skip whitespace after '-'.
-        if ((flags & ParseFlags.COMMENTS) != 0) {
-          skipCommentsAndWhitespace();
-        }
-        RangeEndpoint endpoint = parseCCRangeEndpoint();
-        hi = endpoint.first;
-        if (hi < lo) {
-          throw new PatternSyntaxException("invalid character class range", pattern, pos);
-        }
-        addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
-        for (int r : endpoint.trailingLiterals) {
-          addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
-        }
-        return;
-      }
-    }
-
-    addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
-  }
-
-  private boolean hasRangeEndpointAfterHyphen() {
-    int peekPos = pos + 1;
-    if (peekPos < pattern.length() && pattern.charAt(peekPos) == ']') {
-      return false;
-    }
-    while (startsEmptyQuotedLiteralAt(peekPos)) {
-      peekPos += 4;
-      if (peekPos < pattern.length() && pattern.charAt(peekPos) == ']') {
-        return false;
-      }
-    }
-    if (peekPos < pattern.length() && pattern.charAt(peekPos) == '[') {
-      return false;
-    }
-    return peekPos < pattern.length();
-  }
-
-  private RangeEndpoint parseCCRangeEndpoint() {
-    skipClassRangeEndpointTrivia();
-    if (pos < pattern.length() && pattern.charAt(pos) == '[') {
-      throw new PatternSyntaxException("bad class syntax", pattern, pos);
-    }
-    if (startsQuotedLiteral()) {
-      int[] literals = parseQuotedLiteralSequence();
-      if (literals.length == 0) {
-        throw new PatternSyntaxException("bad class syntax", pattern, pos);
-      }
-      int[] trailing = new int[literals.length - 1];
-      System.arraycopy(literals, 1, trailing, 0, trailing.length);
-      return new RangeEndpoint(literals[0], trailing);
-    }
-    // JDK Pattern reads a \v range end as U+000B; SafeRE rejects it, as it does a \v range start.
-    if (startsVerticalTabEscapeAt(pos)) {
-      throw new IntentionalDivergenceSyntaxException(
-          "ambiguous \\v as a character class range end: use \\x0B for U+000B, or escape the"
-              + " hyphen as \\- to keep \\v as vertical whitespace",
-          pattern,
-          pos);
-    }
-    return new RangeEndpoint(parseCCCharacter(), new int[0]);
-  }
-
-  private boolean startsVerticalTabRangeStart() {
-    if (!startsVerticalTabEscapeAt(pos)) {
-      return false;
-    }
-    int next = pos + 2;
-    while (startsEmptyQuotedLiteralAt(next)) {
-      next += 4;
-    }
-    return next < pattern.length() && pattern.charAt(next) == '-';
-  }
-
-  private boolean startsVerticalTabEscapeAt(int index) {
-    return index + 1 < pattern.length()
-        && pattern.charAt(index) == '\\'
-        && pattern.charAt(index + 1) == 'v';
-  }
-
-  private void skipClassRangeEndpointTrivia() {
-    while (true) {
-      int before = pos;
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        skipCommentsAndWhitespace();
-      }
-      skipEmptyQuotedLiterals();
-      if (pos == before) {
-        return;
-      }
-    }
-  }
-
-  private boolean startsQuotedLiteral() {
-    return pos + 1 < pattern.length()
-        && pattern.charAt(pos) == '\\'
-        && pattern.charAt(pos + 1) == 'Q';
-  }
-
-  private boolean startsEmptyQuotedLiteralAt(int index) {
-    return index + 3 < pattern.length()
-        && pattern.charAt(index) == '\\'
-        && pattern.charAt(index + 1) == 'Q'
-        && pattern.charAt(index + 2) == '\\'
-        && pattern.charAt(index + 3) == 'E';
-  }
-
-  private void skipEmptyQuotedLiterals() {
-    while (startsEmptyQuotedLiteralAt(pos)) {
-      pos += 4;
-    }
-  }
-
-  private int[] parseQuotedLiteralSequence() {
-    pos += 2; // skip \Q
-    int[] buffer = new int[Math.max(4, pattern.length() - pos)];
-    int count = 0;
-    while (pos < pattern.length()) {
-      if (pos + 1 < pattern.length()
-          && pattern.charAt(pos) == '\\'
-          && pattern.charAt(pos + 1) == 'E') {
-        pos += 2; // skip \E
-        break;
-      }
-      int r = pattern.codePointAt(pos);
-      pos += Character.charCount(r);
-      if (count == buffer.length) {
-        int[] expanded = new int[buffer.length * 2];
-        System.arraycopy(buffer, 0, expanded, 0, buffer.length);
-        buffer = expanded;
-      }
-      buffer[count++] = r;
-    }
-    int[] result = new int[count];
-    System.arraycopy(buffer, 0, result, 0, count);
-    return result;
-  }
-
-  private static final class RangeEndpoint {
-    final int first;
-    final int[] trailingLiterals;
-
-    RangeEndpoint(int first, int[] trailingLiterals) {
-      this.first = first;
-      this.trailingLiterals = trailingLiterals;
-    }
-  }
-
-  private int parseCCCharacter() {
-    if (pos >= pattern.length()) {
-      throw new PatternSyntaxException("missing closing ]", pattern, pos);
-    }
-    if (pattern.charAt(pos) == '\\') {
-      return parseEscape();
-    }
-    int r = pattern.codePointAt(pos);
-    pos += Character.charCount(r);
-    return r;
-  }
-
-  // ---- Escape parsing ----
-
-  private int parseEscape() {
-    if (pos >= pattern.length() || pattern.charAt(pos) != '\\') {
-      throw new PatternSyntaxException("internal error: expected \\", pattern, pos);
-    }
-    if (pos + 1 >= pattern.length()) {
-      throw new PatternSyntaxException("trailing backslash", pattern, pos);
-    }
-    pos++; // '\\'
-    int c = pattern.codePointAt(pos);
-    pos += Character.charCount(c);
-
-    switch (c) {
-      // Named Unicode character: \N{name}
-      case 'N' -> {
-        if (pos >= pattern.length() || pattern.charAt(pos) != '{') {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-        }
-        pos++; // '{'
-        int nameStart = pos;
-        int end = pattern.indexOf('}', pos);
-        if (end < 0) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 3);
-        }
-        String name = pattern.substring(nameStart, end);
-        pos = end + 1; // skip '}'
-        try {
-          return Character.codePointOf(name);
-        } catch (IllegalArgumentException e) {
-          PatternSyntaxException error =
-              new PatternSyntaxException(
-                  "unknown Unicode character name: " + name, pattern, nameStart);
-          error.initCause(e);
-          throw error;
-        }
-      }
-      // JDK treats all non-zero numeric escapes as back references, not octal literals.
-      case '1', '2', '3', '4', '5', '6', '7', '8', '9' ->
-          throw new PatternSyntaxException("backreferences are not supported", pattern, pos - 2);
-      case '0' -> {
-        // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).
-        if (pos >= pattern.length() || pattern.charAt(pos) < '0' || pattern.charAt(pos) > '7') {
-          throw new PatternSyntaxException("Illegal octal escape sequence", pattern, pos);
-        }
-        int code = 0;
-        int digits = 0;
-        while (digits < 3
-            && pos < pattern.length()
-            && pattern.charAt(pos) >= '0'
-            && pattern.charAt(pos) <= '7') {
-          int next = code * 8 + pattern.charAt(pos) - '0';
-          if (next > 0377) {
-            break;
-          }
-          code = next;
-          pos++;
-          digits++;
-        }
-        return code;
-      }
-      // Hexadecimal escapes.
-      case 'x' -> {
-        if (pos >= pattern.length()) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-        }
-        int c2 = pattern.codePointAt(pos);
-        pos += Character.charCount(c2);
-        if (c2 == '{') {
-          // Any number of digits in braces.
-          if (pos >= pattern.length()) {
-            throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-          }
-          int code = 0;
-          int nhex = 0;
-          while (pos < pattern.length()) {
-            int hc = pattern.codePointAt(pos);
-            if (hc == '}') {
-              pos++; // '}'
-              break;
-            }
-            if (!Utils.isHexDigit(hc)) {
-              throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-            }
-            nhex++;
-            code = code * 16 + Utils.unhex(hc);
-            if (code > runeMax) {
-              throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-            }
-            pos += Character.charCount(hc);
-            if (pos >= pattern.length()) {
-              throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-            }
-          }
-          if (nhex == 0) {
-            throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-          }
-          return code;
-        }
-        // Two hex digits.
-        if (pos >= pattern.length()) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 3);
-        }
-        int c3 = pattern.codePointAt(pos);
-        pos += Character.charCount(c3);
-        if (!Utils.isHexDigit(c2) || !Utils.isHexDigit(c3)) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-        }
-        return Utils.unhex(c2) * 16 + Utils.unhex(c3);
-      }
-      // Unicode escape: \\uhhhh (exactly 4 hex digits).
-      // If the value is a high surrogate and the next escape is a low surrogate,
-      // they are combined into a single supplementary code point.
-      case 'u' -> {
-        int code = parseExactHex(4);
-        if (Character.isHighSurrogate((char) code)
-            && pos + 5 < pattern.length()
-            && pattern.charAt(pos) == '\\'
-            && pattern.charAt(pos + 1) == 'u') {
-          int savedPos = pos;
-          pos += 2; // skip \\u
-          int low = parseExactHex(4);
-          if (Character.isLowSurrogate((char) low)) {
-            code = Character.toCodePoint((char) code, (char) low);
-          } else {
-            pos = savedPos; // not a surrogate pair, backtrack
-          }
-        }
-        return code;
-      }
-      // C escapes.
-      case 'n' -> {
-        return '\n';
-      }
-      case 'r' -> {
-        return '\r';
-      }
-      case 't' -> {
-        return '\t';
-      }
-      case 'a' -> {
-        return '\u0007';
-      } // bell
-      case 'e' -> {
-        return '\u001B';
-      } // escape
-      case 'f' -> {
-        return '\f';
-      }
-      // Control character: \cX → X ^ 0x40
-      case 'c' -> {
-        if ((flags & ParseFlags.COMMENTS) != 0) {
-          skipCommentsAndWhitespace();
-        }
-        if (pos >= pattern.length()) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-        }
-        int ctrl = pattern.codePointAt(pos);
-        pos += Character.charCount(ctrl);
-        return ctrl ^ 0x40;
-      }
-      default -> {
-        // JDK reserves backslash before ASCII alphabetic characters for escaped constructs.
-        if (!Utils.isAlpha(c)) {
-          return c;
-        }
-        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-      }
-    }
-  }
-
-  /**
-   * Parses exactly {@code n} hex digits at the current position and returns their value. Advances
-   * {@code pos} past the digits.
-   */
-  private int parseExactHex(int n) {
-    if (pos + n > pattern.length()) {
-      throw new PatternSyntaxException("invalid unicode escape", pattern, pos - 2);
-    }
-    int code = 0;
-    for (int i = 0; i < n; i++) {
-      int hc = pattern.charAt(pos);
-      if (!Utils.isHexDigit(hc)) {
-        throw new PatternSyntaxException("invalid unicode escape", pattern, pos);
-      }
-      code = code * 16 + Utils.unhex(hc);
-      pos++;
-    }
-    return code;
-  }
-
-  // ---- Perl character class escapes (\d, \s, \w, \D, \S, \W) ----
-
-  private CharClassBuilder maybeParsePerlCCEscape() {
-    if ((flags & ParseFlags.PERL_CLASSES) == 0) return null;
-    if (pos + 1 >= pattern.length() || pattern.charAt(pos) != '\\') return null;
-
-    char c2 = pattern.charAt(pos + 1);
-    String posName; // the positive version
-    boolean negate;
-    switch (c2) {
-      case 'd' -> {
-        posName = "\\d";
-        negate = false;
-      }
-      case 'D' -> {
-        posName = "\\d";
-        negate = true;
-      }
-      case 'h' -> {
-        posName = "\\h";
-        negate = false;
-      }
-      case 'H' -> {
-        posName = "\\h";
-        negate = true;
-      }
-      case 's' -> {
-        posName = "\\s";
-        negate = false;
-      }
-      case 'S' -> {
-        posName = "\\s";
-        negate = true;
-      }
-      case 'v' -> {
-        posName = "\\v";
-        negate = false;
-      }
-      case 'V' -> {
-        posName = "\\v";
-        negate = true;
-      }
-      case 'w' -> {
-        posName = "\\w";
-        negate = false;
-      }
-      case 'W' -> {
-        posName = "\\w";
-        negate = true;
-      }
-      default -> {
-        return null;
-      }
-    }
-
-    pos += 2; // '\\', letter
-    CharClassExpander.Group group =
-        CharClassExpander.lookupPerlGroup(posName, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
-    if (group == null) {
-      return null;
-    }
-
-    CharClassBuilder ccb = new CharClassBuilder();
-    if (negate) {
-      CharClassExpander.addNegatedGroup(ccb, group, flags);
-    } else {
-      CharClassExpander.addPositiveGroup(ccb, group, flags);
-    }
-    return ccb;
-  }
-
-  // ---- Unicode group parsing (\p{...}, \P{...}) ----
-
-  private static final int PARSE_OK = 0;
-  private static final int PARSE_ERROR = 1;
-  private static final int PARSE_NOTHING = 2;
-
-  private int parseUnicodeGroup(CharClassBuilder ccb) {
-    if ((flags & ParseFlags.UNICODE_GROUPS) == 0) return PARSE_NOTHING;
-    if (pos + 1 >= pattern.length() || pattern.charAt(pos) != '\\') return PARSE_NOTHING;
-    char c = pattern.charAt(pos + 1);
-    if (c != 'p' && c != 'P') return PARSE_NOTHING;
-
-    int sign = (c == 'P') ? -1 : 1;
-    int seqStart = pos;
-    pos += 2; // '\\', 'p'/'P'
-
-    if (pos >= pattern.length()) {
-      throw new PatternSyntaxException("invalid Unicode group", pattern, seqStart);
-    }
-
-    int c2 = pattern.codePointAt(pos);
-    pos += Character.charCount(c2);
-
-    String name;
-    if (c2 != '{') {
-      // Single char property name, e.g. \pL
-      name = new String(Character.toChars(c2));
-    } else {
-      // Name is in braces.
-      int nameStart = pos;
-      int end = pattern.indexOf('}', pos);
-      if (end < 0) {
-        throw new PatternSyntaxException("invalid Unicode group", pattern, seqStart);
-      }
-      name = pattern.substring(nameStart, end);
-      pos = end + 1; // skip '}'
-    }
-
-    CharClassExpander.Group group =
-        CharClassExpander.lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
-    if (group == null) {
-      throw new PatternSyntaxException("invalid Unicode group: " + name, pattern, seqStart);
-    }
-
-    if (sign > 0) {
-      CharClassExpander.addPositiveGroup(ccb, group, flags);
-    } else {
-      CharClassExpander.addNegatedGroup(ccb, group, flags);
-    }
-    return PARSE_OK;
-  }
-
-  /** Add a range to the character class, but exclude newline if asked. Also handle case folding. */
-  private static void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
-    CharClassExpander.addRange(ccb, lo, hi, parseFlags);
-  }
-
-  // ---- Perl flags parsing ----
-
-  private boolean parsePerlFlags() {
-    // Caller checked that pattern[pos] == '(' and pattern[pos+1] == '?'
-    if ((flags & ParseFlags.PERL_X) == 0
-        || pos + 1 >= pattern.length()
-        || pattern.charAt(pos) != '('
-        || pattern.charAt(pos + 1) != '?') {
-      throw new PatternSyntaxException("internal error", pattern, pos);
-    }
-
-    int startPos = pos;
-
-    // Check for look-around assertions.
-    if (pos + 2 < pattern.length()) {
-      char c2 = pattern.charAt(pos + 2);
-      if (c2 == '=' || c2 == '!') {
-        throw new PatternSyntaxException(
-            "invalid Perl operator: " + pattern.substring(pos, pos + 3), pattern, pos);
-      }
-      if (c2 == '<' && pos + 3 < pattern.length()) {
-        char c3 = pattern.charAt(pos + 3);
-        if (c3 == '=' || c3 == '!') {
-          throw new PatternSyntaxException(
-              "invalid Perl operator: " + pattern.substring(pos, pos + 4), pattern, pos);
-        }
-      }
-    }
-
-    // Check for named captures.
-    // (?<name>expr)
-    if (pos + 3 < pattern.length()) {
-      if (pattern.charAt(pos + 2) == '<') {
-        int begin = pos + 3;
-        int end = pattern.indexOf('>', begin);
-        if (end < 0) {
-          throw new PatternSyntaxException("invalid named capture", pattern, pos);
-        }
-        String name = pattern.substring(begin, end);
-        if (!isValidCaptureName(name, false)) {
-          throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
-        }
-        doLeftParen(name);
-        pos = end + 1; // skip past '>'
-        return false;
-      }
-    }
-    // (?P<name>expr) is a SafeRE extension that supports Python-style named groups in
-    // addition to the JDK (?<name>expr) syntax above.
-    if (pos + 4 < pattern.length()) {
-      if (pattern.charAt(pos + 2) == 'P' && pattern.charAt(pos + 3) == '<') {
-        int begin = pos + 4;
-        int end = pattern.indexOf('>', begin);
-        if (end < 0) {
-          throw new PatternSyntaxException("invalid named capture", pattern, pos);
-        }
-        String name = pattern.substring(begin, end);
-        if (!isValidCaptureName(name, true)) {
-          throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
-        }
-        doLeftParen(name);
-        pos = end + 1; // skip past '>'
-        return false;
-      }
-    }
-
-    pos += 2; // "(?"
-
-    boolean negated = false;
-    boolean sawflags = false;
-    boolean standaloneFlags = false;
-    int nflags = flags;
-
-    boolean done = false;
-    while (!done) {
-      if (pos >= pattern.length()) {
-        throw new PatternSyntaxException("invalid Perl operator", pattern, startPos);
-      }
-      int c = pattern.codePointAt(pos);
-      pos += Character.charCount(c);
-      switch (c) {
-        case 'd' -> {
-          sawflags = true;
-          if (negated) nflags &= ~ParseFlags.UNIX_LINES;
-          else nflags |= ParseFlags.UNIX_LINES;
-        }
-        case 'i' -> {
-          sawflags = true;
-          if (negated) nflags &= ~ParseFlags.FOLD_CASE;
-          else nflags |= ParseFlags.FOLD_CASE;
-        }
-        case 'm' -> { // opposite of OneLine
-          sawflags = true;
-          if (negated) nflags |= ParseFlags.ONE_LINE;
-          else nflags &= ~ParseFlags.ONE_LINE;
-        }
-        case 's' -> {
-          sawflags = true;
-          if (negated) nflags &= ~ParseFlags.DOT_NL;
-          else nflags |= ParseFlags.DOT_NL;
-        }
-        case 'u' -> {
-          sawflags = true;
-          if (negated) nflags &= ~ParseFlags.UNICODE_CASE;
-          else nflags |= ParseFlags.UNICODE_CASE;
-        }
-        case 'U' -> {
-          sawflags = true;
-          if (negated) {
-            nflags &=
-                ~(ParseFlags.UNICODE_CASE
-                    | ParseFlags.UNICODE_GROUPS
-                    | ParseFlags.UNICODE_CHAR_CLASS);
-          } else {
-            nflags |=
-                ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
-          }
-        }
-        case 'x' -> {
-          sawflags = true;
-          if (negated) nflags &= ~ParseFlags.COMMENTS;
-          else nflags |= ParseFlags.COMMENTS;
-        }
-        case '-' -> {
-          if (negated) {
-            throw new PatternSyntaxException("invalid Perl operator", pattern, startPos);
-          }
-          negated = true;
-          sawflags = false;
-        }
-        case ':' -> {
-          doLeftParenNoCapture();
-          done = true;
-        }
-        case ')' -> {
-          standaloneFlags = true;
-          done = true;
-        }
-        default -> {
-          throw new PatternSyntaxException("invalid Perl operator", pattern, startPos);
-        }
-      }
-    }
-
-    if (negated && !sawflags) {
-      throw new PatternSyntaxException("invalid Perl operator", pattern, startPos);
-    }
-
-    flags = nflags;
-    return standaloneFlags;
-  }
-
-  // ---- Repetition parsing ----
-
-  /**
-   * Tries to parse a repetition suffix like {1,2} or {2} or {2,}. Returns null if the pattern at
-   * pos does not look like a valid repetition. Otherwise returns int[]{lo, hi} and advances pos.
-   */
-  private int[] maybeParseRepetition() {
-    int saved = pos;
-    if (pos >= pattern.length() || pattern.charAt(pos) != '{') {
-      return null;
-    }
-    pos++; // '{'
-
-    int lo = parseDecimal();
-    if (lo < 0) {
-      pos = saved;
-      return null;
-    }
-
-    int hi;
-    if (pos >= pattern.length()) {
-      pos = saved;
-      return null;
-    }
-    if (pattern.charAt(pos) == ',') {
-      pos++; // ','
-      if (pos >= pattern.length()) {
-        pos = saved;
-        return null;
-      }
-      if (pattern.charAt(pos) == '}') {
-        hi = -1; // unbounded
-      } else {
-        hi = parseDecimal();
-        if (hi < 0) {
-          pos = saved;
-          return null;
-        }
-      }
-    } else {
-      hi = lo;
-    }
-
-    if (pos >= pattern.length() || pattern.charAt(pos) != '}') {
-      pos = saved;
-      return null;
-    }
-    pos++; // '}'
-    return new int[] {lo, hi};
-  }
-
-  /** Parses a decimal integer at current pos. Returns -1 if no digits. */
-  private int parseDecimal() {
-    if (pos >= pattern.length() || !Utils.isDigit(pattern.charAt(pos))) {
-      return -1;
-    }
-    int n = 0;
-    while (pos < pattern.length() && Utils.isDigit(pattern.charAt(pos))) {
-      if (n >= 100_000_000) return -1; // avoid overflow
-      n = n * 10 + pattern.charAt(pos) - '0';
-      pos++;
-    }
-    return n;
-  }
-
-  // ---- Capture name validation ----
-
-  private static boolean isValidCaptureName(String name, boolean allowUnderscores) {
-    if (name.isEmpty()) return false;
-    // Match java.util.regex.Pattern rules: first character must be an ASCII letter,
-    // subsequent characters must be ASCII letters or digits. When allowUnderscores is true,
-    // underscores are also permitted.
-    char first = name.charAt(0);
-    if (!((first >= 'A' && first <= 'Z')
-        || (first >= 'a' && first <= 'z')
-        || (allowUnderscores && first == '_'))) {
-      return false;
-    }
-    for (int i = 1; i < name.length(); i++) {
-      char c = name.charAt(i);
-      if ((c >= 'A' && c <= 'Z')
-          || (c >= 'a' && c <= 'z')
-          || (c >= '0' && c <= '9')
-          || (allowUnderscores && c == '_')) {
-        continue;
-      }
-      return false;
-    }
-    return true;
   }
 
   // ---- Helper: finish CharClassBuilder into a Regexp ----

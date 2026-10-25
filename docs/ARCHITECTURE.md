@@ -8,8 +8,22 @@ Java-style match selection, captures, and matcher state. See
 ## Compilation pipeline
 
 ```text
-Pattern string → Parser → Regexp AST → Simplifier → Compiler → Prog → Execution
+Pattern string → RegexLexer → Parser → Regexp AST → Simplifier → Compiler → Prog → Execution
 ```
+
+The streaming lexer privately owns the source and cursor. It recognizes complete escapes,
+quantifiers and their modifiers, and group headers, and returns reusable tokens with original
+UTF-16 source spans. Quoting is interpreted within lexical constructs rather than creating an
+AST operand; empty quotes therefore cannot split a quantifier from its modifier. Quoted
+punctuation retains escaped meaning. Trivia handling is context dependent: for example,
+COMMENTS-mode trivia can precede a property name, but trailing property-name whitespace is
+significant. Ignored comments cannot open or close quoting on subsequent lines.
+
+The parser owns flag scope and supplies the current lexical flags before requesting another
+token. Group-header recognition stops at its delimiter, and the lexer never scans the body
+before the parser commits the new mode or restores an enclosing mode. Character-class grammar
+uses the same escape and quotation reader. Logical-character lookahead has a fixed bound;
+quoted contents and comments are streamed without per-fragment tail-sized buffers.
 
 The parser uses explicit stacks to handle nested expressions without consuming
 the Java call stack. It records source semantics such as scoped flags, group

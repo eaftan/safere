@@ -16364,6 +16364,314 @@
           "prematerializedInput"
         ]
       }
+    },
+    {
+      "id": "LexicalCompileBenchmark.shortLiteral",
+      "operation": "compile",
+      "patterns": [
+        "a"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.longLiteral",
+      "operation": "compile",
+      "patterns": [
+        "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.numericEscapes",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077\\x41\\u0042\\077",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support Java Unicode escapes or comments-mode flags in this exact compilation workload"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not accept this Java octal escape spelling by default"
+            },
+            "pcre2": {
+              "unsupported": true,
+              "reason": "PCRE2 default syntax does not accept Java Unicode escapes"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.quotedPunctuation",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E\\Q[a-z]+.# ()\\E",
+          "alternates": {
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not support Java quoted literals"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET does not support Java quoted literals"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.quotedFragments",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E",
+          "alternates": {
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not support Java quoted literals"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET does not support Java quoted literals"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.comments",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "(?x)a # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\na # comment\n",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support Java Unicode escapes or comments-mode flags in this exact compilation workload"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.scopedFlags",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)(?x:a b)(?-x: c)",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support Java Unicode escapes or comments-mode flags in this exact compilation workload"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.propertyLetter",
+      "operation": "compile",
+      "patterns": [
+        "\\p{L}+"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.propertyMix",
+      "operation": "compile",
+      "patterns": [
+        "[\\p{L}\\p{N}\\p{P}]"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.quotedClass32",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "[\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E]",
+          "alternates": {
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not support Java quoted literals"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET does not support Java quoted literals"
+            },
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support quoting delimiters inside character classes"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.quotedClass128",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "[\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E]",
+          "alternates": {
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not support Java quoted literals"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET does not support Java quoted literals"
+            },
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support quoting delimiters inside character classes"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.quotedClass512",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "[\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E\\Qa\\E]",
+          "alternates": {
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "Rust regex does not support Java quoted literals"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET does not support Java quoted literals"
+            },
+            "re2": {
+              "unsupported": true,
+              "reason": "RE2 does not support quoting delimiters inside character classes"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
     }
   ]
 }
