@@ -532,7 +532,8 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '8.0.x'
+          # An exact version bypasses the aka.ms redirect to a non-public storage account.
+          dotnet-version: '8.0.427'
 
       - name: Smoke test .NET non-backtracking benchmarks
         run: ./run-dotnet-benchmarks.sh --smoke RegexBenchmark.literalMatch
