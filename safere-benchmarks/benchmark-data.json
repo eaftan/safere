@@ -16672,6 +16672,76 @@
         "mode": "compileOnly",
         "timingUnit": "microseconds"
       }
+    },
+    {
+      "id": "LexicalCompileBenchmark.graphemeBoundaries",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a\\b{g}a",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support Java grapheme-boundary escape syntax"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support Java grapheme-boundary escape syntax"
+            },
+            "pcre2": {
+              "unsupported": true,
+              "reason": "This engine does not support Java grapheme-boundary escape syntax"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support Java grapheme-boundary escape syntax"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "LexicalCompileBenchmark.surrogateEscapes",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00\\uD83D\\uDE00",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the canonical Java surrogate-escape spelling"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the canonical Java surrogate-escape spelling"
+            },
+            "pcre2": {
+              "unsupported": true,
+              "reason": "This engine does not support the canonical Java surrogate-escape spelling"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; omit the SafeRE UTF-8 variant to avoid duplicating the same compiler.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
     }
   ]
 }

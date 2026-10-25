@@ -205,7 +205,11 @@ final class Parser {
         case DOLLAR -> pushDollar();
         case DOT -> pushDot();
         case CLASS_OPEN -> pushRegexp(parseCharClass(token.start));
-        case PROPERTY, PREDEFINED -> pushRegexp(finishCharClassBuilder(expandClassToken(token)));
+        case PROPERTY, PREDEFINED -> {
+          CharClassBuilder ccb = new CharClassBuilder();
+          expandClassToken(token, ccb);
+          pushRegexp(finishCharClassBuilder(ccb));
+        }
         case BOUNDARY -> pushWordBoundary(!token.negated);
         case GRAPHEME_BOUNDARY -> pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
         case BEGIN -> pushSimpleOp(RegexpOp.BEGIN_TEXT);
@@ -891,7 +895,7 @@ final class Parser {
         case PROPERTY, PREDEFINED -> {
           boolean verticalTab =
               token.kind == RegexLexer.Kind.PREDEFINED && token.rune == 'v' && !token.negated;
-          CharClassBuilder expanded = expandClassToken(token);
+          expandClassToken(token, frame.currentUnion);
           if (verticalTab
               && lexer.peekClass().kind == RegexLexer.Kind.HYPHEN
               && !lexer.peekClass().leadingTrivia) {
@@ -900,7 +904,6 @@ final class Parser {
                     + " hyphen as \\-",
                 start);
           }
-          frame.currentUnion.addCharClass(expanded);
           frame.hasItems = true;
           frame.afterIntersection = false;
         }
@@ -965,7 +968,7 @@ final class Parser {
     }
   }
 
-  private CharClassBuilder expandClassToken(RegexLexer.Token token) {
+  private void expandClassToken(RegexLexer.Token token, CharClassBuilder ccb) {
     CharClassExpander.Group group =
         token.kind == RegexLexer.Kind.PROPERTY
             ? CharClassExpander.lookupUnicodeGroup(
@@ -973,10 +976,8 @@ final class Parser {
             : CharClassExpander.lookupPerlGroup(
                 "\\" + (char) token.rune, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
     if (group == null) throw lexer.error("invalid Unicode group: " + token.text, token.start);
-    CharClassBuilder ccb = new CharClassBuilder();
     if (token.negated) CharClassExpander.addNegatedGroup(ccb, group, flags);
     else CharClassExpander.addPositiveGroup(ccb, group, flags);
-    return ccb;
   }
 
   private static void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {

@@ -15,6 +15,9 @@ import java.util.regex.PatternSyntaxException;
  * The parser owns flag scope and updates this lexer before scanning beyond a group boundary.
  */
 final class RegexLexer {
+  private static final int UNREAD = -2;
+  private static final int MAX_LOOKAHEAD = 2;
+
   enum Kind {
     END,
     LITERAL,
@@ -73,21 +76,23 @@ final class RegexLexer {
   private int quoteStart;
   private boolean escapedSourceRune;
   private boolean commentQuoting;
-  // Bounded logical-character lookahead. Quoted punctuation contributes an escaped pair; a
-  // leading quoted ASCII digit contributes a hexadecimal escape, preventing numeric ambiguity.
-  private final int[] runes = new int[8];
-  private final int[] starts = new int[8];
-  private final int[] ends = new int[8];
-  private int head;
-  private int buffered;
-  private final int[] pending = new int[4];
+  // The common path caches only the current logical code point and its source span. Additional
+  // lookahead is bounded and allocated only for multi-character boundary/surrogate recognition.
+  private int currentRune = UNREAD;
+  private int currentStart;
+  private int currentEnd;
+  private int[] lookahead;
+  private int lookaheadCount;
+  // Quoted punctuation contributes an escaped pair; a leading quoted ASCII digit contributes
+  // a hexadecimal escape. Most patterns never need this expansion storage.
+  private int[] pending;
   private int pendingIndex;
   private int pendingCount;
   private int pendingStart;
   private int pendingEnd;
   private int lastEnd;
   private final Token token = new Token();
-  private final Token classToken = new Token();
+  private Token classToken;
   private boolean classTokenReady;
   // At most one decoded Unicode escape can be held while deciding whether a high surrogate
   // forms a pair. This lets the ordinary component reader consume arbitrarily long trivia once.
@@ -143,6 +148,7 @@ final class RegexLexer {
 
   Token peekClass() {
     if (!classTokenReady) {
+      if (classToken == null) classToken = new Token();
       scan(classToken, true, false);
       classTokenReady = true;
     }
@@ -154,6 +160,7 @@ final class RegexLexer {
     if (classTokenReady) {
       throw new IllegalStateException("range endpoint requested after expression lookahead");
     }
+    if (classToken == null) classToken = new Token();
     scan(classToken, true, true);
     classTokenReady = true;
     return classToken;
@@ -525,8 +532,9 @@ final class RegexLexer {
       } else if (c == '#') {
         // Comment text is discarded before quote interpretation (#858). Discard bounded
         // lookahead too, then scan the original comment once without interpreting its escapes.
-        sourcePosition = starts[head] + 1;
-        buffered = 0;
+        sourcePosition = currentStart + 1;
+        currentRune = UNREAD;
+        lookaheadCount = 0;
         pendingIndex = pendingCount = 0;
         quoting = false;
         escapedSourceRune = false;
@@ -552,31 +560,64 @@ final class RegexLexer {
   }
 
   private int position() {
-    return buffered == 0 ? sourcePosition : starts[head];
+    return currentRune == UNREAD ? sourcePosition : currentStart;
   }
 
   private int peekRaw() {
-    return peekRaw(0);
+    if (currentRune == UNREAD) advance();
+    return currentRune;
   }
 
   private int peekRaw(int offset) {
-    while (buffered <= offset) {
-      if (!fill()) return -1;
+    if (offset == 0) return peekRaw();
+    if (offset < 0 || offset > MAX_LOOKAHEAD) {
+      throw new IllegalArgumentException("logical lookahead exceeds its fixed bound");
     }
-    return runes[(head + offset) % runes.length];
+    if (peekRaw() < 0) return -1;
+    if (lookahead == null) lookahead = new int[MAX_LOOKAHEAD * 3];
+    while (lookaheadCount < offset) {
+      int savedRune = currentRune;
+      int savedStart = currentStart;
+      int savedEnd = currentEnd;
+      advance();
+      int nextRune = currentRune;
+      int nextStart = currentStart;
+      int nextEnd = currentEnd;
+      currentRune = savedRune;
+      currentStart = savedStart;
+      currentEnd = savedEnd;
+      if (nextRune < 0) return -1;
+      int index = lookaheadCount * 3;
+      lookahead[index] = nextRune;
+      lookahead[index + 1] = nextStart;
+      lookahead[index + 2] = nextEnd;
+      lookaheadCount++;
+    }
+    return lookahead[(offset - 1) * 3];
   }
 
   private int readRaw() {
     int result = peekRaw();
     if (result >= 0) {
-      lastEnd = ends[head];
-      head = (head + 1) % runes.length;
-      buffered--;
+      lastEnd = currentEnd;
+      if (lookaheadCount == 0) {
+        currentRune = UNREAD;
+      } else {
+        currentRune = lookahead[0];
+        currentStart = lookahead[1];
+        currentEnd = lookahead[2];
+        lookaheadCount--;
+        if (lookaheadCount != 0) {
+          lookahead[0] = lookahead[3];
+          lookahead[1] = lookahead[4];
+          lookahead[2] = lookahead[5];
+        }
+      }
     }
     return result;
   }
 
-  private boolean fill() {
+  private void advance() {
     int value;
     int start;
     int end;
@@ -587,7 +628,11 @@ final class RegexLexer {
         end = pendingEnd;
         break;
       }
-      if (sourcePosition == source.length()) return false;
+      if (sourcePosition == source.length()) {
+        currentRune = -1;
+        currentStart = currentEnd = sourcePosition;
+        return;
+      }
       start = sourcePosition;
       if (WorkCounterConfig.ENABLED) WorkCounter.record();
       int cp = source.codePointAt(sourcePosition);
@@ -608,12 +653,14 @@ final class RegexLexer {
         pendingEnd = end;
         pendingIndex = 0;
         if (first && cp >= '0' && cp <= '9') {
+          if (pending == null) pending = new int[4];
           pending[0] = '\\';
           pending[1] = 'x';
           pending[2] = '3';
           pending[3] = cp;
           pendingCount = 4;
         } else if (cp < 128 && !Utils.isAlpha(cp) && !Utils.isDigit(cp)) {
+          if (pending == null) pending = new int[4];
           pending[0] = '\\';
           pending[1] = cp;
           pendingCount = 2;
@@ -641,11 +688,8 @@ final class RegexLexer {
       value = cp;
       break;
     }
-    int tail = (head + buffered) % runes.length;
-    runes[tail] = value;
-    starts[tail] = start;
-    ends[tail] = end;
-    buffered++;
-    return true;
+    currentRune = value;
+    currentStart = start;
+    currentEnd = end;
   }
 }

@@ -10,6 +10,8 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -42,6 +44,53 @@ class RegexLexerTest {
     assertThat(second.rune).isEqualTo('A');
     assertThat(second.start).isEqualTo(6);
     assertThat(second.end).isEqualTo(12);
+  }
+
+  @Test
+  void multiCharacterLookaheadPreservesSpansAcrossEmptyQuotes() {
+    String regex = "😀\\b{\\Q\\Eg}a";
+    RegexLexer lexer = new RegexLexer(regex, ParseFlags.LIKE_PERL);
+    assertThat(lexer.next().rune).isEqualTo(0x1f600);
+    RegexLexer.Token boundary = lexer.next();
+    assertThat(boundary.kind).isEqualTo(RegexLexer.Kind.GRAPHEME_BOUNDARY);
+    assertThat(boundary.start).isEqualTo(2);
+    assertThat(boundary.end).isEqualTo(regex.length() - 1);
+    RegexLexer.Token literal = lexer.next();
+    assertThat(literal.kind).isEqualTo(RegexLexer.Kind.LITERAL);
+    assertThat(literal.rune).isEqualTo('a');
+    assertThat(literal.start).isEqualTo(regex.length() - 1);
+    assertThat(literal.end).isEqualTo(regex.length());
+    assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.END);
+  }
+
+  @Test
+  void unsuccessfulLookaheadLeavesTheFollowingQuantifierAvailable() {
+    RegexLexer lexer = new RegexLexer("\\b{0}a", ParseFlags.LIKE_PERL);
+    assertThat(lexer.next().kind).isEqualTo(RegexLexer.Kind.BOUNDARY);
+    RegexLexer.Token repeat = lexer.next();
+    assertThat(repeat.kind).isEqualTo(RegexLexer.Kind.REPEAT);
+    assertThat(repeat.min).isZero();
+    assertThat(repeat.max).isZero();
+    assertThat(repeat.start).isEqualTo(2);
+    assertThat(repeat.end).isEqualTo(5);
+    assertThat(lexer.next().rune).isEqualTo('a');
+  }
+
+  @Test
+  void lookaheadAtEndKeepsMalformedRepeatCoordinates() {
+    for (String regex : List.of("\\b{", "\\b{g", "\\b{g\\Q\\E")) {
+      RegexLexer lexer = new RegexLexer(regex, ParseFlags.LIKE_PERL);
+      RegexLexer.Token boundary = lexer.next();
+      assertThat(boundary.kind).isEqualTo(RegexLexer.Kind.BOUNDARY);
+      assertThat(boundary.end).isEqualTo(2);
+      assertThatThrownBy(lexer::next)
+          .isInstanceOfSatisfying(
+              PatternSyntaxException.class,
+              error -> {
+                assertThat(error.getPattern()).isEqualTo(regex);
+                assertThat(error.getIndex()).isEqualTo(2);
+              });
+    }
   }
 
   @Test
