@@ -172,9 +172,11 @@ public final class Pattern implements Serializable {
   private transient volatile OnePassAnalysis onePassAnalysis;
 
   /**
-   * Whether a matcher created from this pattern has requested an inner capture. This adaptive
-   * signal lets later small-input match operations avoid a redundant DFA pass when capture
-   * extraction is demonstrably part of the workload.
+   * Whether a matcher has consumed inner captures, including already resolved captures and
+   * successful snapshots. Shared for this Pattern's lifetime across matchers, inputs and threads;
+   * independent of any matcher's current result. Exact fallback searches can reuse this hint to
+   * collect captures in a required pass; small-input heuristics may also avoid a redundant DFA
+   * pass. Internal resolution and group-zero-only access must not set it.
    */
   private transient volatile boolean innerCapturesObserved;
 

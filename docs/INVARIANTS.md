@@ -50,6 +50,13 @@ operations must not reconstruct capture history with additional searches over
 candidate partitions. If an optimization cannot preserve these contracts, use
 an eligible capture-capable engine.
 
+Capture consumption history is an adaptive Pattern hint, independent of whether
+captures were already resolved. Group-zero access and internal bookkeeping do
+not imply inner-capture demand. Known operation requirements have operation
+scope. Hints must not change result semantics or bypass engine eligibility;
+see the [capture-demand audit](CAPTURE_DEMAND.md) for the operation matrix and
+selection policy.
+
 ## Engines agree on public observations
 
 Every execution path must distinguish what it can establish:

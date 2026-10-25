@@ -553,6 +553,39 @@ class DiagnosticsTest {
   }
 
   @Test
+  void captureHistoryFromEagerResultsPreservesAcceleratedDfaRejection() {
+    Pattern.setDiagnostics(diagnostics);
+    for (boolean utf8 : new boolean[] {false, true}) {
+      Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
+      String successful = "error:[C] code:500";
+      String rejected = "error:[x] code:500 ".repeat(20);
+      if (utf8) {
+        Utf8Matcher primer = pattern.matcher(Utf8Input.trusted(successful.getBytes(UTF_8)));
+        assertThat(primer.matches()).isTrue();
+        assertThat(primer.start(1)).isZero();
+      } else {
+        Matcher primer = pattern.matcher(successful);
+        assertThat(primer.matches()).isTrue();
+        assertThat(primer.start(1)).isZero();
+      }
+      assertThat(pattern.innerCapturesObserved()).isTrue();
+      if (utf8) {
+        assertThat(pattern.matcher(Utf8Input.trusted(rejected.getBytes(UTF_8))).find()).isFalse();
+      } else {
+        assertThat(pattern.matcher(rejected).find()).isFalse();
+      }
+      assertThat(operationsFor(pattern))
+          .last()
+          .satisfies(
+              event -> {
+                assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+                assertThat(event.forwardDfaSearchCount()).isPositive();
+              });
+    }
+  }
+
+  @Test
   void replacementCaptureModeAgreesWithCaptureStrategyAcrossTerminalFindFailure() {
     Pattern.setDiagnostics(diagnostics);
     Pattern deferredPattern = Pattern.compile("(a+)b");
