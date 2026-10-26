@@ -888,8 +888,8 @@ final class Nfa {
         continue;
       }
       if (stack.restoreIndex < -1) {
-        // A fresh loop entry's expansion is complete; later entries at this position are skipped.
-        markLoopEntryExpanded(q, -2 - stack.restoreIndex, text, pos);
+        // This epsilon expansion is complete; later entries at this position are skipped.
+        markExpansionComplete(q, -2 - stack.restoreIndex, text, pos);
         continue;
       }
       if (stack.id == 0) {
@@ -902,13 +902,17 @@ final class Nfa {
       // Loop instructions are excluded from the visited set: progress registers terminate
       // zero-width iterations, while fresh entries reset only their own loop's register.
       //
-      // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
-      // same alternation or capture instruction at the same input position with different capture
-      // registers. The later zero-width iteration is JDK-visible and must not be discarded.
+      // ALT and CAPTURE can be revisited by a final empty iteration with different captures.
+      // With progress loops, NOP and EMPTY_WIDTH are memoized after expansion: a nested visit
+      // can carry changed loop progress and must reach the final empty iteration, but later visits
+      // after completion are redundant. Marking them before expansion loses the loop exit;
+      // omitting memoization entirely enumerates the paths through optional epsilon chains.
+      // Without progress loops, marking on entry is sufficient and avoids completion bookkeeping.
       if (ip.op != InstOp.PROGRESS_CHECK
           && ip.op != InstOp.LOOP_ENTER
           && ip.op != InstOp.ALT
-          && ip.op != InstOp.CAPTURE) {
+          && ip.op != InstOp.CAPTURE
+          && ((ip.op != InstOp.NOP && ip.op != InstOp.EMPTY_WIDTH) || prog.numLoopRegs() == 0)) {
         if (q.hasGraphemeSemantics) {
           long visitKey = visitKey(ip, instructionId, text, pos, pos);
           if (!q.visitedGrapheme.add(visitKey)) {
@@ -920,6 +924,11 @@ final class Nfa {
           }
           q.visitedInst[instructionId] = q.visitedGeneration;
         }
+      } else if (ip.op == InstOp.NOP || ip.op == InstOp.EMPTY_WIDTH) {
+        if (isExpansionComplete(q, instructionId, text, pos)) {
+          continue;
+        }
+        stack.pushRestore(-2 - instructionId, 0);
       }
 
       switch (ip.op) {
@@ -979,7 +988,7 @@ final class Nfa {
           // same loop is higher priority than that expansion's remaining alternatives, so it is
           // expanded. Without this, alternating lazy/greedy nesting re-expands each inner loop
           // once per enclosing iteration, exponentially in the nesting depth.
-          if (isLoopEntryExpanded(q, instructionId, text, pos)) {
+          if (isExpansionComplete(q, instructionId, text, pos)) {
             continue;
           }
           int regIdx = ncapture + ip.arg;
@@ -1021,7 +1030,7 @@ final class Nfa {
     }
   }
 
-  private boolean isLoopEntryExpanded(QueueState q, int instructionId, InputScanner text, int pos) {
+  private boolean isExpansionComplete(QueueState q, int instructionId, InputScanner text, int pos) {
     if (q.hasGraphemeSemantics) {
       return q.visitedGrapheme.contains(
           visitKey(prog.inst(instructionId), instructionId, text, pos, pos));
@@ -1029,7 +1038,7 @@ final class Nfa {
     return q.visitedInst[instructionId] == q.visitedGeneration;
   }
 
-  private void markLoopEntryExpanded(QueueState q, int instructionId, InputScanner text, int pos) {
+  private void markExpansionComplete(QueueState q, int instructionId, InputScanner text, int pos) {
     if (q.hasGraphemeSemantics) {
       q.visitedGrapheme.add(visitKey(prog.inst(instructionId), instructionId, text, pos, pos));
     } else {

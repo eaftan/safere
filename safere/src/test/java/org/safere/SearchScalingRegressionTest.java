@@ -36,6 +36,36 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void nullableLoopEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String regex : new String[] {"(?:a?(?:|.))+", "(?:a?(?:\\b|.))+"}) {
+      Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher("!a!".repeat(size))::find, "String epsilon revisits");
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.trusted("!a!".repeat(size).getBytes(UTF_8)))::find,
+          "UTF-8 epsilon revisits");
+    }
+  }
+
+  @Test
+  void optionalEpsilonChainsKeepWorkLinearInPatternSize() {
+    for (String template : new String[] {"(?:\\b?){%d}a", "(?:(?:|b)?){%d}a"}) {
+      long[] work = new long[2];
+      for (int index = 0; index < work.length; index++) {
+        Pattern pattern = Pattern.compile(template.formatted(8 * (index + 1)));
+        Matcher matcher = pattern.matcher("a!").region(0, 1).useTransparentBounds(true);
+        work[index] = WorkCounter.countForTesting(() -> assertThat(matcher.lookingAt()).isTrue());
+      }
+      assertThat(work[0]).as("epsilon work must be observed for %s", template).isPositive();
+      assertThat(work[1])
+          .as("doubling optional epsilon chains must not enumerate their paths: %s", template)
+          .isLessThan(work[0] * 4);
+    }
+  }
+
+  @Test
   void alternatingNestedNullableLoopWorkIsPolynomialInDepth() {
     // Alternating lazy and greedy nullable loops do not simplify away. Each fresh entry must be
     // expanded at most once per position, or every enclosing iteration re-expands the inner loops

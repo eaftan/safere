@@ -54,6 +54,19 @@ class NestedNullableLoopTest {
     cases.add(Arguments.of("((x?)+?)*", "xxx"));
     cases.add(Arguments.of("(?:(?:x|)+?)*", ""));
     cases.add(Arguments.of("(?:(?:x|)+?)*", "!xx!xxx"));
+    // Empty paths must be revisited when a loop's progress state changes, including NOPs
+    // and assertions shared by a consuming iteration and the final zero-width iteration.
+    for (String empty : List.of("", "\\b", "\\B", "\\b\\b", "(?:)")) {
+      for (String quantifier : List.of("+", "*", "+?", "{1,3}")) {
+        for (String atom : List.of("a", "é", "😀")) {
+          String regex = "(?:" + atom + "?(?:" + empty + "|.))" + quantifier;
+          for (String input : List.of(atom + "!" + atom + "!", "!" + atom + "!", atom.repeat(3))) {
+            cases.add(Arguments.of(regex, input));
+            cases.add(Arguments.of(regex + "!", input));
+          }
+        }
+      }
+    }
     return cases.stream();
   }
 
