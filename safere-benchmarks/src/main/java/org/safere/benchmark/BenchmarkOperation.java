@@ -139,16 +139,26 @@ enum BenchmarkOperation {
             }
           };
       case MATCHER_RESET_FIND -> {
-        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
         yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retainedMatcher != null ? retainedMatcher : pattern.matcher(input);
           matcher.reset();
           blackhole.consume(findAllCount(matcher));
         };
       }
       case MATCHER_REGION_FIND -> {
-        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
         DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
         yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retainedMatcher != null ? retainedMatcher : pattern.matcher(input);
           matcher.region(region.start(), region.end());
           blackhole.consume(matcher.find());
         };
