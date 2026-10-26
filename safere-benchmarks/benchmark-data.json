@@ -147,6 +147,39 @@
   },
   "inputs": [
     {
+      "id": "captureFallback.early.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaay",
+        "unit": "z",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "captureFallback.loop.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "y",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "compile.firstFind.simple",
       "recipe": {
         "kind": "literal",
@@ -4073,9 +4106,237 @@
         "input": "endAnchoredReplace.noLiteral.16384",
         "suffix": " foo"
       }
+    },
+    {
+      "id": "denseDelimited.html.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "<p>value</p> ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.quotedClass.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\"field\" \"value\" ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.digits.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "[123] [4567] ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.quotedLazy.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\"field\" \"value\" ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "denseDelimited.braces.{size}",
+      "axes": {
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "{key=1} {value=2} ",
+        "length": "{size}"
+      }
     }
   ],
   "workloads": [
+    {
+      "id": "CaptureFallbackBenchmark.earlyCapture.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.early.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.earlyBoolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.early.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.capture.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.boolean.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.reject.{size}",
+      "operation": "find",
+      "patterns": [
+        "(a?)*z"
+      ],
+      "inputs": [
+        "captureFallback.loop.{size}"
+      ],
+      "axes": {
+        "size": [
+          64,
+          1024
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.compile.20",
+      "operation": "compile",
+      "patterns": [
+        "(?:(a?)*){20}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "CaptureFallbackBenchmark.compile.100",
+      "operation": "compile",
+      "patterns": [
+        "(?:(a?)*){100}y"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
     {
       "id": "SearchScalingBenchmark.endAnchoredAbsentLiteralDot.{size}",
       "axes": {
@@ -16741,6 +17002,101 @@
       "measurement": {
         "mode": "compileOnly",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "DenseDelimitedBenchmark.findAll.{shape}.{size}",
+      "axes": {
+        "shape": [
+          {
+            "id": "html",
+            "value": "<[^>]*>"
+          },
+          {
+            "id": "quotedClass",
+            "value": "\"([^\"]*)\""
+          },
+          {
+            "id": "digits",
+            "value": "\\[\\d+\\]"
+          },
+          {
+            "id": "quotedLazy",
+            "value": "\"(.*?)\""
+          },
+          {
+            "id": "braces",
+            "value": "\\{([^}]+)\\}"
+          }
+        ],
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "{shape}"
+      ],
+      "inputs": [
+        "denseDelimited.{shape}.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DenseDelimitedBenchmark.replaceAll.{shape}.{size}",
+      "axes": {
+        "shape": [
+          {
+            "id": "html",
+            "value": "<[^>]*>"
+          },
+          {
+            "id": "quotedClass",
+            "value": "\"([^\"]*)\""
+          },
+          {
+            "id": "digits",
+            "value": "\\[\\d+\\]"
+          },
+          {
+            "id": "quotedLazy",
+            "value": "\"(.*?)\""
+          },
+          {
+            "id": "braces",
+            "value": "\\{([^}]+)\\}"
+          }
+        ],
+        "size": [
+          4096,
+          100000
+        ]
+      },
+      "operation": "replaceAll",
+      "patterns": [
+        "{shape}"
+      ],
+      "inputs": [
+        "denseDelimited.{shape}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "X"
       }
     }
   ]

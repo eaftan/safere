@@ -1796,7 +1796,7 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
     if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
       MatchStrategy rejectionStrategy =
           rejectPrefilter instanceof RejectPrefilter.Composite composite
@@ -2099,15 +2099,17 @@ public final class Matcher implements MatchResult {
           StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
     }
 
-    // Fallback: DFA bailed out or reverse DFA unavailable. Search only for group 0 first, then
-    // defer inner capture extraction until group access. This keeps find-all loops that only need
-    // match existence or group 0 from paying full capture-tracking cost on every match.
+    // Fallback: DFA bailed out or reverse DFA unavailable. Unless earlier group access established
+    // capture demand, search only for group 0 first and defer inner capture extraction. Once exact
+    // search is necessary, collecting known-demand captures here avoids a second exact search
+    // without bypassing DFA rejection on long inputs.
     //
     // Region searches keep eager capture extraction: deferred resolution runs on the full input,
     // while the fallback below sees the substituted region substring.
     boolean lazyFallbackCaptures =
         !regionActive
             && !eagerFallbackCaptures
+            && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
             && options.lazyCaptureExtraction()
             && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
@@ -3062,7 +3064,7 @@ public final class Matcher implements MatchResult {
         }
         hasEndAnchoredCandidate = endAnchoredStart >= 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (!hasEndAnchoredCandidate && rejectPrefilter != null && text != null) {
         InputScanner scanner = activeScanner();
         EnginePathOptions options = enginePathOptions();
@@ -4727,7 +4729,7 @@ public final class Matcher implements MatchResult {
       if (endAnchoredStart == -1) {
         return 0;
       }
-      RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
+      RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
         if (rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())) {
           return 0;
