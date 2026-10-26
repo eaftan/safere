@@ -26,6 +26,7 @@ public final class Utf8Matcher {
   private boolean replacementFailed;
   private Utf8Input cachedReplacement;
   private ReplacementSegment[] cachedTemplate;
+  private boolean cachedTemplateNeedsCaptures;
   private int modCount;
   private boolean appending;
 
@@ -194,7 +195,8 @@ public final class Utf8Matcher {
     int expectedModCount = modCount;
     try {
       ReplacementSegment[] template = replacementTemplate(replacement);
-      int[] bounds = captureBounds();
+      // Group 0 bounds don't require resolving inner captures, which can be much more expensive.
+      int[] bounds = cachedTemplateNeedsCaptures ? captureBounds() : new int[] {start(), end()};
       appendRange(sink, appendPosition, bounds[0], expectedModCount);
       for (ReplacementSegment segment : template) {
         switch (segment) {
@@ -296,23 +298,28 @@ public final class Utf8Matcher {
       Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount());
       ReplacementSegment[] compiled = new ReplacementSegment[parsed.length];
       Map<String, Integer> namedGroups = pattern.namedGroups();
+      boolean needsCaptures = false;
       for (int index = 0; index < parsed.length; index++) {
         compiled[index] =
             switch (parsed[index]) {
               case Matcher.ReplacementSegment.Literal(var literal) ->
                   new ReplacementSegment.Literal(literal.getBytes(UTF_8));
-              case Matcher.ReplacementSegment.GroupRef(var group) ->
-                  new ReplacementSegment.GroupRef(group);
+              case Matcher.ReplacementSegment.GroupRef(var group) -> {
+                needsCaptures |= group != 0;
+                yield new ReplacementSegment.GroupRef(group);
+              }
               case Matcher.ReplacementSegment.NamedGroupRef(var name) -> {
                 Integer group = namedGroups.get(name);
                 if (group == null) {
                   throw new IllegalArgumentException("No group with name <" + name + ">");
                 }
+                needsCaptures |= group != 0;
                 yield new ReplacementSegment.NamedGroupRef(group);
               }
             };
       }
       cachedTemplate = compiled;
+      cachedTemplateNeedsCaptures = needsCaptures;
       cachedReplacement = replacement;
     }
     return cachedTemplate;

@@ -95,6 +95,27 @@ final class EngineEquivalenceFuzzerTest {
   }
 
   @Test
+  void surrogateLiteralPlansAgreeAcrossEnginesAndRepresentations() {
+    for (String regex :
+        new String[] {
+          "\\x{D800}",
+          "\\x{DC00}",
+          "\"\\x{D800}",
+          "\\x{D800}\\x{DC00}",
+          "\\x{D800}(?:\\x{DC00})",
+          "a\\x{D800}b",
+          "(?iu)k\\x{D800}",
+          ".*\\x{DC00}$",
+          "(?:a\\x{D800}|banana)"
+        }) {
+      for (String input :
+          new String[] {"\"?", "a?b", "\uD800\uDC00", "a\uD800b", "K\uD800", "\uDC00", "banana"}) {
+        EngineEquivalenceFuzzer.check(regex, input, 0);
+      }
+    }
+  }
+
+  @Test
   void scalarPrefixesAndGraphemeBoundariesAgreeAcrossSearchPaths() {
     for (String regex :
         new String[] {"\\p{Cs}\\b{g}", "(\\uDC4D)(\\b{g})", "\\p{So}\\b{g}", "\\b{g}([^a])"}) {

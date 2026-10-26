@@ -396,6 +396,12 @@ public final class Matcher implements MatchResult {
    */
   private Dfa cachedForwardFirstMatchDfa;
 
+  /**
+   * The parent pattern's per-thread cache, fetched on first use so later lookups by this Matcher
+   * skip the {@link ThreadLocal} and {@link java.lang.ref.SoftReference} dereferences.
+   */
+  private Pattern.ThreadCache threadCache;
+
   private Dfa cachedForwardLongestMatchDfa;
 
   private Dfa cachedReverseDfa;
@@ -580,6 +586,7 @@ public final class Matcher implements MatchResult {
 
   private void invalidatePatternCaches() {
     consecutiveWindowFailures = 0;
+    threadCache = null;
     cachedForwardFirstMatchDfa = null;
     cachedForwardLongestMatchDfa = null;
     cachedReverseDfa = null;
@@ -645,19 +652,29 @@ public final class Matcher implements MatchResult {
         && BitState.maxTextSize(prog) >= scanner.length();
   }
 
+  private Pattern.ThreadCache threadCache() {
+    Pattern.ThreadCache cache = threadCache;
+    if (cache == null || cache.ownerThreadId != Thread.currentThread().threadId()) {
+      // A sequential handoff must not borrow through the previous thread's cache holder.
+      cache = parentPattern.getOrCreateThreadCache();
+      threadCache = cache;
+    }
+    return cache;
+  }
+
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
   private Dfa dfa(boolean longest) {
     if (longest) {
       Dfa d = cachedForwardLongestMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardLongestMatchDfa();
+        d = parentPattern.forwardLongestMatchDfa(threadCache());
         cachedForwardLongestMatchDfa = d;
       }
       return d;
     } else {
       Dfa d = cachedForwardFirstMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardFirstMatchDfa();
+        d = parentPattern.forwardFirstMatchDfa(threadCache());
         cachedForwardFirstMatchDfa = d;
       }
       return d;
@@ -667,7 +684,7 @@ public final class Matcher implements MatchResult {
   /** Returns the Pattern's thread-local cached reverse DFA (or null), caching it for reuse. */
   private Dfa reverseDfa() {
     if (!reverseDfaLookedUp) {
-      cachedReverseDfa = parentPattern.reverseDfa();
+      cachedReverseDfa = parentPattern.reverseDfa(threadCache());
       reverseDfaLookedUp = true;
     }
     return cachedReverseDfa;
@@ -2643,7 +2660,7 @@ public final class Matcher implements MatchResult {
       int ncap = 2 * Math.max(nsubmatch, 1);
       // Borrow from Pattern's thread-local cache on first use.
       if (cachedBitState == null && !bitStateBorrowed) {
-        cachedBitState = parentPattern.borrowBitState();
+        cachedBitState = Pattern.borrowBitState(threadCache());
         bitStateBorrowed = true;
       }
       // One fixed-size attempt per search. Never retry with successively larger windows.
@@ -2665,7 +2682,7 @@ public final class Matcher implements MatchResult {
               : bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
       cachedBitState = bs;
       // Return to Pattern's cache for reuse by future Matchers.
-      parentPattern.returnBitState(bs);
+      Pattern.returnBitState(threadCache(), bs);
       if (!bs.budgetExceeded() && (!speculate || result != null)) {
         if (speculate) {
           consecutiveWindowFailures = 0;
@@ -2780,14 +2797,14 @@ public final class Matcher implements MatchResult {
             graphemeContextFor(prog));
 
     if (cachedNfa == null && !nfaBorrowed) {
-      cachedNfa = parentPattern.borrowNfa();
+      cachedNfa = Pattern.borrowNfa(threadCache());
       nfaBorrowed = true;
     }
 
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
     int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
     cachedNfa = nfa;
-    parentPattern.returnNfa(nfa);
+    Pattern.returnNfa(threadCache(), nfa);
 
     return result;
   }

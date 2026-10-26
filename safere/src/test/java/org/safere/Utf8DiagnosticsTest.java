@@ -9,7 +9,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -127,8 +126,7 @@ class Utf8DiagnosticsTest {
   @ParameterizedTest
   @MethodSource("literalFindOptions")
   void patternBooleanFindHonorsLiteralFastPathOption(
-      String literal, boolean literalFastPaths, boolean present)
-      throws ReflectiveOperationException {
+      String literal, boolean literalFastPaths, boolean present) {
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     // Disable independent start acceleration so misses also reach the chosen boundary engine.
     Pattern pattern =
@@ -142,15 +140,12 @@ class Utf8DiagnosticsTest {
     Utf8Input input = input(present ? "prefix " + literal + " suffix" : "unrelated text");
 
     // With diagnostics disabled, lazy DFA creation proves the literal shortcut was bypassed.
-    Field cacheField = Pattern.class.getDeclaredField("cachedForwardFirstMatchDfa");
-    cacheField.setAccessible(true);
-    ThreadLocal<?> dfaCache = (ThreadLocal<?>) cacheField.get(pattern);
-    assertThat(dfaCache.get()).isNull();
+    assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
     assertThat(pattern.find(input)).isEqualTo(present);
     if (literalFastPaths) {
-      assertThat(dfaCache.get()).isNull();
+      assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
     } else {
-      assertThat(dfaCache.get()).isNotNull();
+      assertThat(pattern.cachedForwardFirstMatchDfa()).isNotNull();
     }
 
     Pattern.setDiagnostics(diagnostics);
@@ -503,6 +498,32 @@ class Utf8DiagnosticsTest {
     assertThat(matcher.start(1)).isEqualTo(2);
     assertThat(matcher.end(1)).isEqualTo(6);
     assertThat(operationsFor(pattern)).hasSize(1);
+  }
+
+  @Test
+  void appendReplacementWithoutInnerGroupsKeepsSubsequentFindsOnDfa() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("(é+)x");
+    Utf8Matcher matcher = matcher(pattern, "zzééx yyééx");
+    Utf8Sink noopSink = (bytes, offset, length) -> {};
+    Utf8Input replacement = input("[$0]");
+
+    while (matcher.find()) {
+      matcher.appendReplacement(noopSink, replacement);
+    }
+    matcher.appendTail(noopSink);
+
+    assertThat(operationsFor(pattern))
+        .filteredOn(event -> event.outcome() == MatchOutcome.MATCH)
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              // Resolving inner captures records demand for them, which moves later finds off the
+              // DFA.
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
   }
 
   @Test

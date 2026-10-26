@@ -10,7 +10,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 
 public final class FindSequenceFuzzer {
@@ -194,6 +197,51 @@ public final class FindSequenceFuzzer {
     }
   }
 
+  @Test
+  void resetAndThreadHandoffKeepsNfaCachesSeparate() {
+    for (String regex : List.of("\\X", "(\\X)", "\\X+", "\\X+?")) {
+      assertResetHandoffCacheIsolation(regex, "aé😀", "e\u0301x");
+    }
+  }
+
+  private static void assertResetHandoffCacheIsolation(
+      String regex, String warmInput, String newInput) {
+    try {
+      var pattern = org.safere.Pattern.compile(regex);
+      var transferred = pattern.matcher(warmInput);
+      assertThat(transferred.find()).isTrue();
+      transferred.reset(newInput);
+      var retained = pattern.matcher(warmInput);
+      assertThat(retained.find()).isTrue();
+      // Check the ownership invariant deterministically rather than racing the two engines.
+      Field engine = org.safere.Matcher.class.getDeclaredField("cachedNfa");
+      engine.setAccessible(true);
+      Object retainedEngine = engine.get(retained);
+      assertThat(retainedEngine).isNotNull();
+      try (ExecutorService worker = Executors.newSingleThreadExecutor()) {
+        Object transferredEngine =
+            worker
+                .submit(
+                    () -> {
+                      assertThat(transferred.find()).isTrue();
+                      var oracle = java.util.regex.Pattern.compile(regex).matcher(newInput);
+                      assertThat(oracle.find()).isTrue();
+                      assertThat(transferred.start()).isEqualTo(oracle.start());
+                      assertThat(transferred.end()).isEqualTo(oracle.end());
+                      assertThat(transferred.group()).isEqualTo(oracle.group());
+                      return engine.get(transferred);
+                    })
+                .get();
+        assertThat(transferredEngine).isNotNull().isNotSameAs(retainedEngine);
+      }
+    } catch (Exception e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw new AssertionError("Reset/handoff cache isolation failed", e);
+    }
+  }
+
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
@@ -206,7 +254,7 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 16)) {
+    switch (data.consumeInt(0, 17)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -365,6 +413,15 @@ public final class FindSequenceFuzzer {
         input =
             unit.repeat(data.consumeInt(0, 1_000))
                 + "   A1234Z e1234Z aa12345Z 😀1234Z éé12345Z x1234Z aé12345Z";
+      }
+      case 17 -> {
+        String grapheme = data.pickValue(List.of("\\X", "(\\X)", "(?:\\X)"));
+        String quantifier = data.pickValue(List.of("", "+", "+?", "{1,3}"));
+        String warm = "a" + data.consumeString(16);
+        String next =
+            data.pickValue(List.of("é", "😀", "e\u0301", "\r\n")) + data.consumeString(16);
+        assertResetHandoffCacheIsolation(grapheme + quantifier, warm, next);
+        return;
       }
       default -> throw new AssertionError();
     }

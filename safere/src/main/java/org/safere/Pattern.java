@@ -12,6 +12,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
+import java.lang.ref.SoftReference;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -198,38 +199,29 @@ public final class Pattern implements Serializable {
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /**
-   * Thread-local cached BitState instance. Shared across all Matchers created from this Pattern
-   * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
-   * idiom where each call creates a new Matcher.
+   * Per-thread cached execution state. Shared across all Matchers created from this Pattern within
+   * the same thread, so warm DFA state caches and BitState/Nfa scratch buffers persist across the
+   * common {@code pattern.matcher(t).find()} idiom.
+   *
+   * <p>The cache is held via a {@link SoftReference} (a bootstrap-loaded JDK class) so that when
+   * SafeRE is loaded in a child {@link ClassLoader} and patterns are held in {@code static final}
+   * fields, the {@link ThreadLocal} entry value in long-lived threads does not strongly reference
+   * SafeRE classes and pin the child {@code ClassLoader}.
    */
-  // Per-Pattern ThreadLocals are intentional: each Pattern caches its own DFA/BitState per thread,
-  // so the warm state cache persists across the common pattern.matcher(t).find() idiom.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
+  static final class ThreadCache {
+    // Use the ID rather than retaining the Thread and its other thread-local values.
+    final long ownerThreadId = Thread.currentThread().threadId();
+    BitState bitState;
+    Nfa nfa;
+    Dfa forwardFirstMatchDfa;
+    Dfa forwardLongestMatchDfa;
+    Dfa reverseDfa;
+  }
 
+  // Per-Pattern ThreadLocal is intentional: each Pattern caches its own DFA/BitState/Nfa state per
+  // thread, so warm state caches persist across the common pattern.matcher(t).find() idiom.
   @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Nfa> cachedNfa = new ThreadLocal<>();
-
-  /**
-   * Thread-local cached forward DFA. Shared across all Matchers created from this Pattern within
-   * the same thread, so the DFA state cache persists across the common {@code
-   * pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by NFA
-   * instruction sets and flags), so it remains valid for any input text.
-   */
-  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedForwardFirstMatchDfa = new ThreadLocal<>();
-
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedForwardLongestMatchDfa = new ThreadLocal<>();
-
-  /**
-   * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to run
-   * with a warm state cache across Matcher instances.
-   */
-  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
+  private final transient ThreadLocal<SoftReference<ThreadCache>> threadCache = new ThreadLocal<>();
 
   /** Holder for OnePass analysis results. */
   private record OnePassAnalysis(
@@ -1334,28 +1326,71 @@ public final class Pattern implements Serializable {
     }
   }
 
+  private ThreadCache existingThreadCache() {
+    SoftReference<ThreadCache> ref = threadCache.get();
+    return ref != null ? ref.get() : null;
+  }
+
+  /**
+   * Returns the current thread's cache, creating it if needed. A {@link Matcher} fetches this once
+   * and passes it to the cache accessors, so each lookup does not repeat the {@link ThreadLocal}
+   * and {@link SoftReference} dereferences.
+   */
+  ThreadCache getOrCreateThreadCache() {
+    ThreadCache cache = existingThreadCache();
+    if (cache == null) {
+      cache = new ThreadCache();
+      threadCache.set(new SoftReference<>(cache));
+    }
+    return cache;
+  }
+
   /** Returns the thread-local cached BitState, or null if none has been cached yet. */
   BitState borrowBitState() {
-    BitState bs = cachedBitState.get();
-    cachedBitState.set(null); // take ownership
+    ThreadCache cache = existingThreadCache();
+    if (cache == null) {
+      return null;
+    }
+    return borrowBitState(cache);
+  }
+
+  static BitState borrowBitState(ThreadCache cache) {
+    BitState bs = cache.bitState;
+    cache.bitState = null; // take ownership
     return bs;
   }
 
   /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
   void returnBitState(BitState bs) {
+    returnBitState(getOrCreateThreadCache(), bs);
+  }
+
+  static void returnBitState(ThreadCache cache, BitState bs) {
     bs.releaseInput();
-    cachedBitState.set(bs);
+    cache.bitState = bs;
   }
 
   Nfa borrowNfa() {
-    Nfa nfa = cachedNfa.get();
-    cachedNfa.set(null);
+    ThreadCache cache = existingThreadCache();
+    if (cache == null) {
+      return null;
+    }
+    return borrowNfa(cache);
+  }
+
+  static Nfa borrowNfa(ThreadCache cache) {
+    Nfa nfa = cache.nfa;
+    cache.nfa = null;
     return nfa;
   }
 
   void returnNfa(Nfa nfa) {
+    returnNfa(getOrCreateThreadCache(), nfa);
+  }
+
+  static void returnNfa(ThreadCache cache, Nfa nfa) {
     nfa.releaseInputContext();
-    cachedNfa.set(nfa);
+    cache.nfa = nfa;
   }
 
   /** Maximum number of DFA states before the DFA bails out. */
@@ -1400,7 +1435,11 @@ public final class Pattern implements Serializable {
   }
 
   Dfa forwardFirstMatchDfa() {
-    Dfa dfa = cachedForwardFirstMatchDfa.get();
+    return forwardFirstMatchDfa(getOrCreateThreadCache());
+  }
+
+  Dfa forwardFirstMatchDfa(ThreadCache cache) {
+    Dfa dfa = cache.forwardFirstMatchDfa;
     if (dfa == null) {
       dfa =
           new Dfa(
@@ -1411,13 +1450,17 @@ public final class Pattern implements Serializable {
               enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
               enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
               innerLiteralSearch);
-      cachedForwardFirstMatchDfa.set(dfa);
+      cache.forwardFirstMatchDfa = dfa;
     }
     return dfa;
   }
 
   Dfa forwardLongestMatchDfa() {
-    Dfa dfa = cachedForwardLongestMatchDfa.get();
+    return forwardLongestMatchDfa(getOrCreateThreadCache());
+  }
+
+  Dfa forwardLongestMatchDfa(ThreadCache cache) {
+    Dfa dfa = cache.forwardLongestMatchDfa;
     if (dfa == null) {
       dfa =
           new Dfa(
@@ -1427,7 +1470,7 @@ public final class Pattern implements Serializable {
               true,
               enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
               enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
-      cachedForwardLongestMatchDfa.set(dfa);
+      cache.forwardLongestMatchDfa = dfa;
     }
     return dfa;
   }
@@ -1437,15 +1480,25 @@ public final class Pattern implements Serializable {
    * compilation of the reverse program if needed.
    */
   Dfa reverseDfa() {
-    Dfa dfa = cachedReverseDfa.get();
+    return reverseDfa(getOrCreateThreadCache());
+  }
+
+  Dfa reverseDfa(ThreadCache cache) {
+    Dfa dfa = cache.reverseDfa;
     if (dfa == null) {
       Prog rp = flatReverseDfaProg();
       if (rp != null) {
         dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true);
-        cachedReverseDfa.set(dfa);
+        cache.reverseDfa = dfa;
       }
     }
     return dfa;
+  }
+
+  /** Returns the currently cached forward first-match DFA without creating it. For tests. */
+  Dfa cachedForwardFirstMatchDfa() {
+    ThreadCache cache = existingThreadCache();
+    return cache != null ? cache.forwardFirstMatchDfa : null;
   }
 
   /**
@@ -2818,6 +2871,9 @@ public final class Pattern implements Serializable {
 
     switch (node.op) {
       case LITERAL -> {
+        if (!Utils.isValidRune(node.rune)) {
+          return LiteralResult.NONE;
+        }
         foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
         sb.appendCodePoint(node.rune);
       }
@@ -2825,6 +2881,9 @@ public final class Pattern implements Serializable {
         foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
         if (node.runes != null) {
           for (int r : node.runes) {
+            if (!Utils.isValidRune(r)) {
+              return LiteralResult.NONE;
+            }
             sb.appendCodePoint(r);
           }
         }
@@ -2848,6 +2907,9 @@ public final class Pattern implements Serializable {
           boolean childFoldCase = (c.flags & ParseFlags.FOLD_CASE) != 0;
           switch (c.op) {
             case LITERAL -> {
+              if (!Utils.isValidRune(c.rune)) {
+                return LiteralResult.NONE;
+              }
               if (Inst.simpleFold(c.rune) != c.rune) {
                 if (!foldCaseInitialized) {
                   foldCase = childFoldCase;
@@ -2863,6 +2925,9 @@ public final class Pattern implements Serializable {
                 return LiteralResult.NONE;
               }
               for (int r : c.runes) {
+                if (!Utils.isValidRune(r)) {
+                  return LiteralResult.NONE;
+                }
                 if (Inst.simpleFold(r) != r) {
                   if (!foldCaseInitialized) {
                     foldCase = childFoldCase;

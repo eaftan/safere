@@ -9,8 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests internal deferred-capture lifecycle invariants for {@link Matcher}. */
 @DisabledForCrosscheck("uses package-private reflection to assert SafeRE matcher internals")
@@ -86,10 +90,43 @@ class MatcherDeferredCaptureStateTest {
 
     assertThat(pattern.matcher("abc123").find()).isTrue();
 
-    ThreadLocal<?> cachedNfa = (ThreadLocal<?>) field(Pattern.class, "cachedNfa").get(pattern);
-    Object nfa = cachedNfa.get();
+    Nfa nfa = pattern.borrowNfa();
     assertThat(nfa).isNotNull();
     assertThat(field(Nfa.class, "context").get(nfa)).isNull();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void resetInputThenHandoffBorrowsEngineFromExecutingThread(boolean bitState) throws Exception {
+    Pattern pattern =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)",
+            0,
+            EnginePathOptions.builder().dfa(false).onePass(false).bitState(bitState).build());
+    Field engineField = field(Matcher.class, bitState ? "cachedBitState" : "cachedNfa");
+    Matcher transferred = pattern.matcher("abc123");
+    assertThat(transferred.find()).isTrue();
+    Object initialEngine = engineField.get(transferred);
+    assertThat(initialEngine).isNotNull();
+    transferred.reset("xyz789");
+    assertThat(engineField.get(transferred)).isNull();
+
+    Matcher retained = pattern.matcher("abc123");
+    assertThat(retained.find()).isTrue();
+    assertThat(engineField.get(retained)).isSameAs(initialEngine);
+    try (ExecutorService worker = Executors.newSingleThreadExecutor()) {
+      Object workerEngine =
+          worker
+              .submit(
+                  () -> {
+                    assertThat(transferred.find()).isTrue();
+                    Object borrowedEngine = engineField.get(transferred);
+                    assertThat(transferred.group(2)).isEqualTo("789");
+                    return borrowedEngine;
+                  })
+              .get();
+      assertThat(workerEngine).isNotNull().isNotSameAs(engineField.get(retained));
+    }
   }
 
   @Test

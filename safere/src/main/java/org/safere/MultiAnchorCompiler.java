@@ -635,18 +635,21 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitLiteral(Regexp node) {
       boolean foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
-      String lit = Character.toString(node.rune);
+      boolean validRune = Utils.isValidRune(node.rune);
+      String lit = validRune ? Character.toString(node.rune) : null;
       AsciiWidthRange width =
           node.rune >= 0 && node.rune < 128 && !foldCase
               ? AsciiWidthRange.ONE
               : AsciiWidthRange.INVALID;
       PrefixResult prefix =
-          foldCase
-              ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
-              : new PrefixResult(lit, false);
+          !validRune
+              ? PrefixResult.NO_PREFIX
+              : foldCase
+                  ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
+                  : new PrefixResult(lit, false);
       CharClass reqClass = literalCharClass(node.rune, node.flags);
       CharClassScanInfo ccPrefix = CharClassScanInfo.fromCharClass(reqClass);
-      String reqLit = !foldCase ? lit : null;
+      String reqLit = validRune && !foldCase ? lit : null;
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
@@ -662,13 +665,22 @@ final class MultiAnchorCompiler {
 
     private static NodeAnalysis visitLiteralString(Regexp node) {
       boolean foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
-      String lit = node.runes != null ? new String(node.runes, 0, node.runes.length) : "";
+      boolean validRunes = areAllValidRunes(node.runes);
+      String lit = validRunes ? new String(node.runes, 0, node.runes.length) : null;
       AsciiWidthRange width = AsciiWidthRangeWalker.literalStringWidth(node);
       PrefixResult prefix =
-          foldCase
-              ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
-              : new PrefixResult(lit, false);
-      String reqLit = (!foldCase && node.runes != null && node.runes.length >= 1) ? lit : null;
+          !validRunes
+              ? PrefixResult.NO_PREFIX
+              : foldCase
+                  ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
+                  : new PrefixResult(lit, false);
+      // bestRequiredLiteral only feeds DisjointLiterals, which runs on String inputs only.
+      // A lone surrogate is safe there because any String match contains the same UTF-16 code unit,
+      // but adjacent high/low surrogate runes would coalesce into a supplementary code point.
+      String reqLit =
+          !foldCase && canRepresentAsCodePointString(node.runes) && node.runes.length >= 1
+              ? (lit != null ? lit : new String(node.runes, 0, node.runes.length))
+              : null;
       CharClass reqClass =
           (node.runes != null && node.runes.length > 0)
               ? literalCharClass(node.runes[0], node.flags)
@@ -1468,6 +1480,9 @@ final class MultiAnchorCompiler {
   }
 
   private static boolean appendFoldCompatibleLiteral(StringBuilder prefix, int rune, int flags) {
+    if (!Utils.isValidRune(rune)) {
+      return false;
+    }
     if ((flags & ParseFlags.FOLD_CASE) == 0 && Inst.simpleFold(rune) != rune) {
       return false;
     }
@@ -1534,8 +1549,11 @@ final class MultiAnchorCompiler {
     boolean foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
     StringBuilder sb = new StringBuilder();
     if (node.op == RegexpOp.LITERAL) {
+      if (!Utils.isValidRune(node.rune)) {
+        return new PrefixResult(null, false);
+      }
       sb.appendCodePoint(node.rune);
-    } else if (node.op == RegexpOp.LITERAL_STRING && node.runes != null) {
+    } else if (node.op == RegexpOp.LITERAL_STRING && areAllValidRunes(node.runes)) {
       for (int r : node.runes) {
         sb.appendCodePoint(r);
       }
@@ -2158,14 +2176,14 @@ final class MultiAnchorCompiler {
       }
       boolean subFold = (sub.flags & ParseFlags.FOLD_CASE) != 0;
       if (sub.op == RegexpOp.LITERAL) {
-        if (subFold && sub.rune > 0x7F) {
+        if (!Utils.isValidRune(sub.rune) || (subFold && sub.rune > 0x7F)) {
           break;
         }
         String part = Character.toString(sub.rune);
         suffixParts.addFirst(part);
         suffixLength += part.length();
         foldCase |= subFold;
-      } else if (sub.op == RegexpOp.LITERAL_STRING && sub.runes != null) {
+      } else if (sub.op == RegexpOp.LITERAL_STRING && areAllValidRunes(sub.runes)) {
         if (subFold && !isAllAscii(sub.runes)) {
           break;
         }
@@ -2184,6 +2202,38 @@ final class MultiAnchorCompiler {
     suffixParts.forEach(suffix::append);
     return new Pattern.SuffixInfo(
         suffix.toString(), wasDollar, (last.flags & ParseFlags.UNIX_LINES) != 0, foldCase);
+  }
+
+  private static boolean areAllValidRunes(int[] runes) {
+    if (runes == null) {
+      return false;
+    }
+    for (int r : runes) {
+      if (!Utils.isValidRune(r)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean canRepresentAsCodePointString(int[] runes) {
+    if (runes == null) {
+      return false;
+    }
+    for (int i = 0; i < runes.length; i++) {
+      int r = runes[i];
+      if (r < Utils.MIN_RUNE || r > Utils.MAX_RUNE) {
+        return false;
+      }
+      if (r >= Character.MIN_HIGH_SURROGATE
+          && r <= Character.MAX_HIGH_SURROGATE
+          && i + 1 < runes.length
+          && runes[i + 1] >= Character.MIN_LOW_SURROGATE
+          && runes[i + 1] <= Character.MAX_LOW_SURROGATE) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static boolean isAllAscii(int[] runes) {
@@ -2262,7 +2312,7 @@ final class MultiAnchorCompiler {
       }
       if ((node.op == RegexpOp.LITERAL_STRING || node.op == RegexpOp.LITERAL)
           && (node.flags & ParseFlags.FOLD_CASE) == 0
-          && node.runes != null
+          && areAllValidRunes(node.runes)
           && node.runes.length >= 2) {
         literals.add(new String(node.runes, 0, node.runes.length));
       }
@@ -2308,7 +2358,7 @@ final class MultiAnchorCompiler {
         }
         case LITERAL_STRING -> {
           if ((node.flags & ParseFlags.FOLD_CASE) == 0
-              && node.runes != null
+              && areAllValidRunes(node.runes)
               && node.runes.length >= 2) {
             String candidate = new String(node.runes, 0, node.runes.length);
             if (!isLiteralSubsumed(candidate, excludePrefixes, excludeSuffix)) {
