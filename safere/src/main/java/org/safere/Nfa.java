@@ -850,31 +850,36 @@ final class Nfa {
       QueueState q, int id, InputScanner text, int pos, int[] t0, boolean consumedInput) {
     AddToThreadqStack stack = addToThreadqStack;
     stack.clear();
-    stack.pushInstruction(id, consumedInput);
 
     int cachedFlags = -1;
 
-    while (!stack.isEmpty()) {
+    // Follow the next instruction directly. Only deferred alternatives and unwind actions need
+    // stack frames; their LIFO order still determines branch priority and register restoration.
+    while (id != 0 || !stack.isEmpty()) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      long frame = stack.pop();
-      int restoreIndex = (int) (frame >> 32);
-      if (restoreIndex != -1) {
-        if (restoreIndex >= 0) {
-          t0[restoreIndex] = (int) frame;
-        } else {
-          // This epsilon expansion is complete; later entries at this position are skipped.
-          markExpansionComplete(q, -2 - restoreIndex, text, pos);
+      if (id == 0) {
+        long frame = stack.pop();
+        int restoreIndex = (int) (frame >> 32);
+        if (restoreIndex != -1) {
+          if (restoreIndex >= 0) {
+            t0[restoreIndex] = (int) frame;
+          } else {
+            // This epsilon expansion is complete; later entries at this position are skipped.
+            markExpansionComplete(q, -2 - restoreIndex, text, pos);
+          }
+          continue;
         }
-        continue;
-      }
-      int instructionId = (int) frame >>> 1;
-      if (instructionId == 0) {
-        continue;
+        id = (int) frame >>> 1;
+        consumedInput = (frame & 1) != 0;
+        if (id == 0) {
+          continue;
+        }
       }
 
-      boolean frameConsumedInput = (frame & 1) != 0;
+      int instructionId = id;
+      id = 0;
       Inst ip = prog.inst(instructionId);
       // Loop instructions are excluded from the visited set: progress registers terminate
       // zero-width iterations, while fresh entries reset only their own loop's register.
@@ -914,27 +919,25 @@ final class Nfa {
         case FAIL -> {}
 
         case ALT -> {
-          stack.pushInstruction(ip.out1, frameConsumedInput);
-          stack.pushInstruction(ip.out, frameConsumedInput);
+          stack.pushInstruction(ip.out1, consumedInput);
+          id = ip.out;
         }
 
         case ALT_MATCH -> {
           q.threads[q.size++] = allocThread(instructionId, t0, -1);
-          stack.pushInstruction(ip.out, frameConsumedInput);
-          stack.pushInstruction(ip.out1, frameConsumedInput);
+          stack.pushInstruction(ip.out, consumedInput);
+          id = ip.out1;
         }
 
-        case NOP -> stack.pushInstruction(ip.out, frameConsumedInput);
+        case NOP -> id = ip.out;
 
         case CAPTURE -> {
           if (ip.arg < ncapture) {
             int opos = t0[ip.arg];
             t0[ip.arg] = pos;
             stack.pushRestore(ip.arg, opos);
-            stack.pushInstruction(ip.out, frameConsumedInput);
-          } else {
-            stack.pushInstruction(ip.out, frameConsumedInput);
           }
+          id = ip.out;
         }
 
         case EMPTY_WIDTH -> {
@@ -947,10 +950,10 @@ final class Nfa {
                     context.graphemeContext(),
                     t0[0],
                     context.boundaryRegionStart(),
-                    frameConsumedInput,
+                    consumedInput,
                     context.emptyAnchorStartPos(),
                     context.emptyAnchorEndPos(),
-                    context.effectiveBoundaryEndPos(frameConsumedInput),
+                    context.effectiveBoundaryEndPos(consumedInput),
                     prog.hasWordBoundary(),
                     prog.hasTextAnchor());
           }
@@ -958,7 +961,7 @@ final class Nfa {
             if (prog.numLoopRegs() > 0) {
               stack.pushCompletion(instructionId);
             }
-            stack.pushInstruction(ip.out, frameConsumedInput);
+            id = ip.out;
           } else if (prog.numLoopRegs() > 0) {
             // A failed assertion has no continuation; its expansion is already complete.
             markExpansionComplete(q, instructionId, text, pos);
@@ -981,7 +984,7 @@ final class Nfa {
           t0[regIdx] = -1;
           stack.pushCompletion(instructionId);
           stack.pushRestore(regIdx, saved);
-          stack.pushInstruction(ip.out, frameConsumedInput);
+          id = ip.out;
         }
 
         case PROGRESS_CHECK -> {
@@ -991,18 +994,18 @@ final class Nfa {
           if (saved == -1) {
             t0[regIdx] = pos;
             stack.pushRestore(regIdx, -1);
-            stack.pushInstruction(ip.out, frameConsumedInput);
+            id = ip.out;
           } else if (saved == pos) {
-            stack.pushInstruction(ip.out1, frameConsumedInput);
+            id = ip.out1;
           } else {
             t0[regIdx] = pos;
             stack.pushRestore(regIdx, saved);
             if (ip.foldCase) {
-              stack.pushInstruction(ip.out, frameConsumedInput);
-              stack.pushInstruction(ip.out1, frameConsumedInput);
+              stack.pushInstruction(ip.out, consumedInput);
+              id = ip.out1;
             } else {
-              stack.pushInstruction(ip.out1, frameConsumedInput);
-              stack.pushInstruction(ip.out, frameConsumedInput);
+              stack.pushInstruction(ip.out1, consumedInput);
+              id = ip.out;
             }
           }
         }
