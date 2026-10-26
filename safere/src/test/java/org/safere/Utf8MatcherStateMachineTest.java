@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledForJreRange;
@@ -18,6 +19,35 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8MatcherStateMachineTest {
+  @Test
+  @DisabledForCrosscheck("Opaque grapheme regions follow the independent-substring model")
+  void graphemeContextFollowsOpaqueUtf8RegionChanges() {
+    String input = "x\uD83C\uDDE6\uD83C\uDDE7\uD83C\uDDE8y";
+    byte[] bytes = input.getBytes(UTF_8);
+    for (String regex : List.of("\\b{g}\\X\\b{g}", "\\b{g}\\X\\b{g}($)?")) {
+      Pattern pattern = Pattern.compile(regex);
+      Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(bytes));
+      for (int start : new int[] {0, 1, 5, 9, 13}) {
+        for (int end : new int[] {start, 13, 14}) {
+          matcher.region(start, end);
+          Utf8Matcher substring =
+              pattern.matcher(Utf8Input.validated(Arrays.copyOfRange(bytes, start, end)));
+          List<Integer> expected = new ArrayList<>();
+          while (substring.find()) {
+            expected.add(substring.start());
+            expected.add(substring.end());
+          }
+          List<Integer> actual = new ArrayList<>();
+          while (matcher.find()) {
+            actual.add(matcher.start() - start);
+            actual.add(matcher.end() - start);
+          }
+          assertThat(actual).as("region %s:%s", start, end).isEqualTo(expected);
+        }
+      }
+    }
+  }
+
   @Test
   void failedFindPreservesEmptyAnchoredMatchEnd() {
     Utf8Matcher matcher = matcher("^[ab]*", "😀!a");

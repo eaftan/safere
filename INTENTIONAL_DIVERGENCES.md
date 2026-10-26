@@ -589,22 +589,24 @@ positive and negated categories: `\p{Cs}` accepts the exposed high surrogate,
 while `\P{Cs}` rejects it. Transparent bounds can affect assertions, but do
 not change the decoding limit for consuming atoms.
 
-Opaque word- and grapheme-boundary assertions retain the region edge after
-ordinary atoms consume the exposed high surrogate, even when another alternative
-contains `\X`. A path that actually completes `\X` beyond the scalar region
-end uses the completed grapheme edge for following assertions. Before the region
-end, grapheme assertions classify the complete next code point in their grapheme
-context, independently of which atoms may consume it. This preserves
-regional-indicator checks after consuming a region-local low surrogate without
-making those checks depend on the presence of a `\X` alternative.
+Opaque execution uses the corresponding independent region text for character
+classification, word boundaries, and grapheme segmentation. `\X` follows the same
+consumption limit as other constructs; it cannot complete a surrogate pair beyond
+the region. With anchoring enabled, match results and captures equal matching the
+substring, with translated offsets. With anchoring disabled, only line and text
+anchors retain original-input context. The precise contract is in
+[Opaque String region bounds](docs/OPAQUE_REGION_BOUNDS.md).
 
 The JDK 26 Matcher Javadoc defines the region as the searched range but does
-not specify surrogate decoding at its edges. Observed JDK behavior rejects a
-split high surrogate for selected unquantified atoms, while greedy quantified
-wrappers such as `.*` can consume it. SafeRE deliberately uses the region-local
-rule for both forms so ordinary consumption does not depend on text outside
-the searched region or on quantifier spelling. This is a compatibility choice
-where the Javadoc is silent, and preserves linear-time matching.
+not explicitly specify surrogate decoding at its edges. Observed JDK behavior
+rejects a split high surrogate for selected unquantified atoms, while greedy
+quantified wrappers such as `.*` can consume it; `\X` can instead extend beyond
+the region. SafeRE chooses consistent region-local semantics. Upstream identifies
+the reported behaviors as inconsistencies requiring fixes or clarification and
+specifically identifies grapheme consumption beyond the region as a bug;
+[JDK-8394894](https://bugs.openjdk.org/browse/JDK-8394894) tracks that investigation.
+The implementation preserves linear-time matching by reusing the independent
+region input and its segmentation context across successive searches.
 
 The zero-width region sweep still reports
 `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a separate JDK

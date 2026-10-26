@@ -13,7 +13,6 @@ record EngineContext(
     int searchStart,
     int searchLimit,
     int endPos,
-    int graphemeConsumeEndPos,
     int consumeRegionStart,
     int boundaryRegionStart,
     int boundaryEndPos,
@@ -33,7 +32,6 @@ record EngineContext(
       int searchStart,
       int searchLimit,
       int endPos,
-      int graphemeConsumeEndPos,
       int consumeRegionStart,
       int boundaryRegionStart,
       int boundaryEndPos,
@@ -50,7 +48,6 @@ record EngineContext(
         searchStart,
         searchLimit,
         endPos,
-        graphemeConsumeEndPos,
         consumeRegionStart,
         boundaryRegionStart,
         boundaryEndPos,
@@ -58,15 +55,5 @@ record EngineContext(
         emptyAnchorStartPos,
         emptyAnchorEndPos,
         context);
-  }
-
-  int engineEndPos() {
-    return Math.max(endPos, graphemeConsumeEndPos);
-  }
-
-  int effectiveBoundaryEndPos(boolean consumedInput) {
-    return consumedInput && graphemeConsumeEndPos > boundaryEndPos
-        ? graphemeConsumeEndPos
-        : boundaryEndPos;
   }
 }

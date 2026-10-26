@@ -76,37 +76,9 @@ class GraphemeRegionCompatibilityMatrixTest {
   }
 
   private static List<Scenario> scenarios() {
+    // Split-surrogate cases use the independent substring oracle in OpaqueRegionContractTest.
+    // JDK-8394894 identifies the JDK's region overrun as a bug, not a compatibility requirement.
     return List.of(
-        new Scenario(
-            "split trailing surrogate scalar completion",
-            "\\X may complete the scalar for lookingAt/find, while matches() remains region-end"
-                + " strict.",
-            "\uD83D\uDE00",
-            0,
-            1,
-            false,
-            true,
-            List.of("\\X", "^\\X$", "\\X\\b{g}", "\\b{g}\\X")),
-        new Scenario(
-            "split trailing regional indicator uses completed boundary edge",
-            "A trailing \\b{g} after \\X sees the effective grapheme consume end when an opaque"
-                + " region ends inside a regional-indicator surrogate pair.",
-            "\uD83C\uDDE6\uD83C\uDDE6",
-            0,
-            1,
-            false,
-            true,
-            List.of("\\X\\b{g}", "\\b{g}\\X\\b{g}", "^\\X\\b{g}$")),
-        new Scenario(
-            "split trailing surrogate with non-anchoring bounds",
-            "Non-anchoring bounds do not make region edges anchors, but text anchors can still"
-                + " match when scalar completion reaches the real input end.",
-            "\uD83D\uDE00",
-            0,
-            1,
-            false,
-            false,
-            List.of("^\\X$", "\\X$", "\\A\\X\\z")),
         new Scenario(
             "interior non-anchoring bounds do not satisfy anchors",
             "With non-anchoring bounds, region edges are not anchor positions for ^ or $ even when"
@@ -166,27 +138,8 @@ class GraphemeRegionCompatibilityMatrixTest {
             3,
             true,
             true,
-            List.of("\\X\\b{g}", "\\b{g}", "\\b{g}\\X\\b{g}")),
-        new Scenario(
-            "opaque low surrogate is region local",
-            "Opaque bounds make the region edge a local grapheme context edge without adopting the"
-                + " full-text cluster.",
-            "\uD83D\uDC4D\uD83C\uDFFB",
-            1,
-            3,
-            false,
-            true,
-            List.of("\\X", "\\X\\b{g}", "\\b{g}")),
-        new Scenario(
-            "opaque low surrogate before regional indicator keeps contextual boundary rules",
-            "A region-local low surrogate can start consumption, but the following boundary must"
-                + " still obey regional-indicator parity instead of becoming unconditional.",
-            "\uD83C\uDDE6\uD83C\uDDE6",
-            1,
-            3,
-            false,
-            true,
-            List.of("\\X\\b{g}", ".\\b{g}.")),
+            // \X\b{g} is covered by the bounded-consumption model, since the JDK overruns.
+            List.of("\\b{g}", "\\b{g}\\X\\b{g}")),
         new Scenario(
             "opaque non-surrogate cluster edge",
             "Opaque region edges are grapheme-boundary context edges even when they split a"

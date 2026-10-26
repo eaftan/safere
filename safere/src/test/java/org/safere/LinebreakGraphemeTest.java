@@ -355,25 +355,32 @@ class LinebreakGraphemeTest {
 
     @Test
     @DisplayName("\\X treats standalone low surrogates as separate from following extenders")
+    @DisabledForCrosscheck("Opaque region behavior uses the independent substring contract")
     void treatsStandaloneLowSurrogatesAsSeparateFromFollowingExtenders() {
       assertTraceSameAsJdk("\\X", "\uDE00\u0301", 0, 2);
-      assertTraceSameAsJdk("\\b{g}", "\uD83D\u0600\uD83D\uDE00", 1, 3);
-      assertTraceSameAsJdk("\\b{g}", "#\uDE00\u200D\u0301$", 1, 4);
-      assertTraceSameAsJdk("\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
-      assertFindGroupsSameAsJdk("(\\b{g})", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uDE00", 1, 4);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\uD83C\uDDFA", 1, 5);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uD83C\uDDFA", 1, 6);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\uD83D\uDE00", 1, 6);
+      OpaqueRegionChecks.assertMatchesSubstring("\\b{g}", "\uD83D\u0600\uD83D\uDE00", 1, 3);
+      OpaqueRegionChecks.assertMatchesSubstring("\\b{g}", "#\uDE00\u200D\u0301$", 1, 4);
+      OpaqueRegionChecks.assertMatchesSubstring("\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
+      OpaqueRegionChecks.assertMatchesSubstring("(\\b{g})", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uDE00", 1, 4);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\b{g}", "\uD83D\uDE00\u200D\uD83C\uDDFA", 1, 5);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uD83C\uDDFA", 1, 6);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\uD83D\uDE00", 1, 6);
       assertTransparentTraceSameAsJdk("\\X\\b{g}", "#\u0301$", 1, 2);
       assertTransparentTraceSameAsJdk(
           "\\X\\b{g}", "\uD83D\u0000\u200D\u1100\u0600\uD83D\uDC69\u0903", 1, 7);
       assertTraceSameAsJdk("\\X\\X", "\r\uDE00\u0301", 0, 3);
       assertTraceSameAsJdk("\\X\\X", "\uDE00\uDE00\u0301", 0, 3);
-      assertTraceSameAsJdk("\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u0301$", 1, 8);
-      assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00\r\r\uDE00", 1, 4);
-      assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00a\u0903\r\n\uDE00", 1, 6);
+      OpaqueRegionChecks.assertMatchesSubstring(
+          "\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u0301$", 1, 8);
+      OpaqueRegionChecks.assertMatchesSubstring("^\\X\\X$", "\uD83D\uDE00\r\r\uDE00", 1, 4);
+      OpaqueRegionChecks.assertMatchesSubstring("^\\X\\X$", "\uD83D\uDE00a\u0903\r\n\uDE00", 1, 6);
     }
 
     @Test

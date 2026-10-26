@@ -24,6 +24,11 @@ class DfaStartStateContextTest {
           "1foo2 _foo_ \u0661foo",
           "foo\u0301 foo\u200Dfoo",
           "\uD835\uDC00foo foo\uD835\uDC00",
+          "\uD801\uDC00b",
+          "\uD801\uDC00",
+          "\uDC00b",
+          "\uD801b",
+          "\uD801\uDC00b\uD801\uDC00",
           "");
 
   @ParameterizedTest
@@ -39,6 +44,10 @@ class DfaStartStateContextTest {
         "(?U)\\Bo",
         "\\b",
         "\\B",
+        "(?U)\\b",
+        "(?U)\\B",
+        "(?U)\\ba?",
+        "(?U).\\b",
         "[a-z]+",
         "o+"
       })
@@ -66,6 +75,28 @@ class DfaStartStateContextTest {
       found = matcher.find();
     }
     return out;
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"(?U)\\b", "(?U)\\ba?", "(?U).\\b"})
+  void wordAssertionsAfterSplitSurrogateCursorsMatchInputContext(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+    for (String input :
+        List.of("\uD801\uDC00b", "\uD801\uDC00", "\uDC00b", "\uD801b", "\uD83D\uDE00b")) {
+      for (int from = 0; from <= input.length(); from++) {
+        java.util.regex.Matcher expected = jdk.matcher(input);
+        List<String> bounds = new ArrayList<>();
+        boolean found = expected.find(from);
+        while (found) {
+          bounds.add(expected.start() + ":" + expected.end());
+          found = expected.find();
+        }
+        assertThat(trace(pattern.matcher(input), from))
+            .as("/%s/ input=%s from=%s", regex, input, from)
+            .isEqualTo(bounds);
+      }
+    }
   }
 
   private static List<String> trace(Utf8Matcher matcher) {

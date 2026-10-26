@@ -486,6 +486,7 @@ class BoundaryMatcherTest {
 
     @Test
     @DisplayName("\\b{g} and \\X respect regions split inside surrogate pairs")
+    @DisabledForCrosscheck("Grapheme consumption stays inside the region; JDK-8394894")
     void graphemeBoundariesRespectRegionsSplitInsideSurrogatePairs() {
       String splitBeforeZwj = "\uD83D\uDC69\u200D\uD83D\uDCBB";
       assertTraceSameAsJdk("\\b{g}", splitBeforeZwj, 1, 5);
@@ -501,8 +502,17 @@ class BoundaryMatcherTest {
       assertTraceSameAsJdk("\\b{g}", lowSurrogateThenZwj, 1, 3);
 
       String splitLowSurrogateBeforeModifier = "\uD83D\uDC4D\uD83C\uDFFB";
-      assertTransparentTraceSameAsJdk("\\X\\b{g}", splitLowSurrogateBeforeModifier, 1, 3);
-      assertTransparentTraceSameAsJdk("\\b{g}\\X\\b{g}", splitLowSurrogateBeforeModifier, 1, 3);
+      // JDK-8394894: a transparent assertion cannot justify consuming outside the region.
+      for (String regex : List.of("\\X\\b{g}", "\\b{g}\\X\\b{g}")) {
+        assertThat(
+                Pattern.compile(regex)
+                    .matcher(splitLowSurrogateBeforeModifier)
+                    .region(1, 3)
+                    .useTransparentBounds(true)
+                    .find())
+            .as(regex)
+            .isFalse();
+      }
 
       String splitBeforeExtender = "\uD83D\uDE00\uD83D\u0301";
       assertTraceSameAsJdk("\\b{g}", splitBeforeExtender, 1, 3);
@@ -511,14 +521,14 @@ class BoundaryMatcherTest {
     }
 
     @Test
-    @DisplayName(
-        "\\X preserves full code points when an opaque region ends inside a surrogate pair")
-    void graphemeClustersPreserveCodePointsAtOpaqueRegionEnd() {
+    @DisplayName("\\X decodes only the visible text when an opaque region splits a surrogate pair")
+    @DisabledForCrosscheck("Region-local grapheme consumption differs from the JDK overrun bug")
+    void graphemeClustersDecodeWithinTheOpaqueRegion() {
       String emoji = "\uD83D\uDE00";
-      assertTraceSameAsJdk("\\X", emoji, 0, 1);
-      assertTraceSameAsJdk("^\\X$", emoji, 0, 1);
-      assertTraceSameAsJdk("\\b{g}\\X", emoji, 0, 1);
-      assertTraceSameAsJdk("\\X\\b{g}", emoji, 0, 1);
+      OpaqueRegionChecks.assertMatchesSubstring("\\X", emoji, 0, 1);
+      OpaqueRegionChecks.assertMatchesSubstring("^\\X$", emoji, 0, 1);
+      OpaqueRegionChecks.assertMatchesSubstring("\\b{g}\\X", emoji, 0, 1);
+      OpaqueRegionChecks.assertMatchesSubstring("\\X\\b{g}", emoji, 0, 1);
     }
 
     @Test

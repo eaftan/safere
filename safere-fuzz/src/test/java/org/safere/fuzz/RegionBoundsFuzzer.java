@@ -59,12 +59,32 @@ public final class RegionBoundsFuzzer {
 
   private static final List<MixedGraphemeScalarPattern> MIXED_GRAPHEME_SCALAR_ATOMS =
       List.of(
-          new MixedGraphemeScalarPattern("(?:\\X|.)", 2),
+          new MixedGraphemeScalarPattern("(?:\\X|.)", 1),
           new MixedGraphemeScalarPattern("(?:.|\\X)", 1),
-          new MixedGraphemeScalarPattern("(?:\\X|[\\s\\S])", 2),
+          new MixedGraphemeScalarPattern("(?:\\X|[\\s\\S])", 1),
           new MixedGraphemeScalarPattern("(?:\\b{g}|.)", 0));
 
   private static final List<String> SCALAR_CONTEXTS = List.of("", "x", "\uD83D", "\uDC4D");
+
+  private static final List<String> OPAQUE_CONSUMERS =
+      List.of(
+          "",
+          ".",
+          "(.)?",
+          "(.)*",
+          "[\\s\\S]",
+          "\\p{Cs}",
+          "\\P{Cs}",
+          "\\uD83D",
+          "(\\uDE00)",
+          "a\\uD83D",
+          "\\X",
+          "(\\X)*",
+          "(\\X)|(.)",
+          "(.)|(\\X)");
+  private static final List<String> OPAQUE_LOCAL_ASSERTIONS =
+      List.of("", "\\b", "\\B", "(?U:\\b)", "(?U:\\B)", "\\b{g}");
+  private static final List<String> OPAQUE_RIGHT_ATOMS = List.of("", ".", "(.)?", "a?");
 
   // Same bounded pattern grammar as RegionAssertionCompositionTest. Fuzzing extends its curated
   // corpus by concatenating Unicode/context fragments and choosing arbitrary regions within them.
@@ -92,11 +112,13 @@ public final class RegionBoundsFuzzer {
   private static final List<String> ASSERTION_INPUT_FRAGMENTS =
       List.of(
           "a",
+          "b",
           " ",
           "\r",
           "\u0085",
           "\n",
           "\uD83D\uDC4D",
+          "\uD83D\uDE00",
           "\uD801\uDC00",
           "\uD83C\uDDE6",
           "a\u0301",
@@ -122,8 +144,9 @@ public final class RegionBoundsFuzzer {
           new SafeReModelCase("\\b{g}\\X\\b{g}", "ab", 0, 2, List.of("0-1", "1-2")),
           new SafeReModelCase(
               "\\X\\b{g}", "\uD83D\uDC69\u200D\uD83D\uDC69", 2, 5, List.of("2-3", "3-5")),
-          new SafeReModelCase(".\\b{g}.", "\uD83C\uDDE6".repeat(2), 1, 3, List.of()),
-          new SafeReModelCase("(?:.\\b{g}.)|(?:\\Xz)", "\uD83C\uDDE6".repeat(2), 1, 3, List.of()),
+          new SafeReModelCase(".\\b{g}.", "\uD83C\uDDE6".repeat(2), 1, 3, List.of("1-3")),
+          new SafeReModelCase(
+              "(?:.\\b{g}.)|(?:\\Xz)", "\uD83C\uDDE6".repeat(2), 1, 3, List.of("1-3")),
           new SafeReModelCase("\\X\\X", "\u0915\u094D\u0937", 0, 3, List.of("1-3")));
 
   @FuzzTest(maxDuration = "30s")
@@ -134,6 +157,75 @@ public final class RegionBoundsFuzzer {
   @FuzzTest(maxDuration = "30s")
   void assertionComposition(FuzzedDataProvider data) {
     compareGeneratedAssertionComposition(data);
+  }
+
+  @FuzzTest(maxDuration = "30s")
+  void opaqueSubstring(FuzzedDataProvider data) {
+    boolean anchoring = data.consumeBoolean();
+    String regex =
+        data.pickValue(OPAQUE_CONSUMERS)
+            + data.pickValue(anchoring ? ASSERTION_PREDICATES : OPAQUE_LOCAL_ASSERTIONS)
+            + data.pickValue(OPAQUE_RIGHT_ATOMS);
+    StringBuilder builder = new StringBuilder();
+    int fragments = data.consumeInt(0, 8);
+    for (int i = 0; i < fragments; i++) {
+      builder.append(data.pickValue(ASSERTION_INPUT_FRAGMENTS));
+    }
+    String input = builder.toString();
+    int start = data.consumeInt(0, input.length());
+    int end = data.consumeInt(start, input.length());
+    Pattern pattern = Pattern.compile(regex);
+    for (int operation = 0; operation < 3; operation++) {
+      Matcher region = pattern.matcher(input).region(start, end).useAnchoringBounds(anchoring);
+      Matcher substring = pattern.matcher(input.substring(start, end));
+      List<String> expected = opaqueTrace(substring, operation, 0, input.length());
+      List<String> actual = opaqueTrace(region, operation, start, input.length());
+      if (!actual.equals(expected)) {
+        throw new AssertionError(
+            "Opaque substring mismatch: "
+                + regex
+                + " input="
+                + input.codePoints().mapToObj(Integer::toHexString).toList()
+                + " region="
+                + start
+                + ":"
+                + end
+                + " anchoring="
+                + anchoring
+                + " operation="
+                + operation
+                + " expected="
+                + expected
+                + " actual="
+                + actual);
+      }
+    }
+  }
+
+  private static List<String> opaqueTrace(
+      Matcher matcher, int operation, int offset, int inputLength) {
+    List<String> trace = new ArrayList<>();
+    for (int step = 0; step <= inputLength + 1; step++) {
+      boolean matched =
+          switch (operation) {
+            case 0 -> matcher.matches();
+            case 1 -> matcher.lookingAt();
+            default -> matcher.find();
+          };
+      trace.add(Boolean.toString(matched));
+      if (matched) {
+        for (int group = 0; group <= matcher.groupCount(); group++) {
+          int start = matcher.start(group);
+          int end = matcher.end(group);
+          trace.add((start < 0 ? start : start - offset) + ":" + (end < 0 ? end : end - offset));
+          trace.add(matcher.group(group));
+        }
+      }
+      if (!matched || operation != 2) {
+        return trace;
+      }
+    }
+    throw new AssertionError("Opaque substring search did not exhaust: " + matcher.pattern());
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
@@ -383,12 +475,6 @@ public final class RegionBoundsFuzzer {
     String input = inputBuilder.toString();
     int start = data.consumeInt(0, input.length());
     int end = data.consumeInt(start, input.length());
-    // CRLF-sliced compositions with grapheme assertions are a separate pre-existing bug (#1038).
-    // As in the matrix, restrict the input domain without waiving individual patterns.
-    if (input.contains("\r\n")) {
-      start = 0;
-      end = input.length();
-    }
     boolean transparent = data.consumeBoolean();
     boolean anchoring = data.consumeBoolean();
     Pattern ordinary = Pattern.compile(regex);
@@ -565,6 +651,55 @@ public final class RegionBoundsFuzzer {
 
   private static void compareGraphemeRegion(
       FuzzSupport.CompiledPattern pattern, GraphemeRegion region, boolean transparentBounds) {
+    if (!transparentBounds) {
+      for (int operation = 0; operation < 3; operation++) {
+        Matcher actual =
+            pattern.safeRePattern().matcher(region.input()).region(region.start(), region.end());
+        Matcher expected =
+            pattern.safeRePattern().matcher(region.input().substring(region.start(), region.end()));
+        if (!opaqueTrace(actual, operation, region.start(), region.input().length())
+            .equals(opaqueTrace(expected, operation, 0, region.input().length()))) {
+          throw new AssertionError(
+              "Opaque grapheme region differs from substring: " + pattern.regex());
+        }
+      }
+      return;
+    }
+    if (region.end() > 0
+        && region.end() < region.input().length()
+        && Character.isHighSurrogate(region.input().charAt(region.end() - 1))
+        && Character.isLowSurrogate(region.input().charAt(region.end()))) {
+      // JDK-8394894: the JDK can consume beyond this region. Its answers are not a
+      // consumption oracle here. The explicit unit matrix checks transparent assertion results;
+      // this matrix checks confinement for all operations, captures, and successive searches.
+      for (int operation = 0; operation < 3; operation++) {
+        Matcher bounded =
+            pattern
+                .safeRePattern()
+                .matcher(region.input())
+                .region(region.start(), region.end())
+                .useTransparentBounds(true);
+        boolean matched;
+        do {
+          matched =
+              switch (operation) {
+                case 0 -> bounded.matches();
+                case 1 -> bounded.lookingAt();
+                default -> bounded.find();
+              };
+          if (matched) {
+            for (int group = 0; group <= bounded.groupCount(); group++) {
+              if (bounded.start(group) >= 0
+                  && (bounded.start(group) < region.start() || bounded.end(group) > region.end())) {
+                throw new AssertionError(
+                    "Transparent match escaped its region: " + pattern.regex());
+              }
+            }
+          }
+        } while (operation == 2 && matched);
+      }
+      return;
+    }
     FuzzSupport.MatcherPair matcher = pattern.matcher(region.input());
     matcher.region(region.start(), region.end()).useTransparentBounds(transparentBounds);
     while (matcher.find()) {

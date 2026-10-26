@@ -113,6 +113,10 @@ public final class Matcher implements MatchResult {
   private CharSequence inputSequence;
   private String text;
   private InputScanner textScanner;
+  // Reuse the independent region input across successive searches and repeated region resets.
+  private InputScanner cachedRegionScanner;
+  private int cachedRegionStart;
+  private int cachedRegionEnd;
   private int[] groups;
   private int[] matchOffsets;
   private boolean hasMatch;
@@ -418,7 +422,9 @@ public final class Matcher implements MatchResult {
    */
   private long startBackoff;
 
-  private String graphemeContextText;
+  private InputScanner graphemeContextInput;
+  private int graphemeContextStart;
+  private int graphemeContextEnd;
   private GraphemeSupport.Context graphemeContext;
 
   /**
@@ -564,7 +570,8 @@ public final class Matcher implements MatchResult {
     if (inputSequence != null) {
       if (!(inputSequence instanceof String)) {
         textScanner = null;
-        graphemeContextText = null;
+        cachedRegionScanner = null;
+        graphemeContextInput = null;
         graphemeContext = null;
       }
       text = charSequenceToString(inputSequence);
@@ -601,18 +608,19 @@ public final class Matcher implements MatchResult {
       cachedNfa = null;
     }
     bitStateResult = null;
-    graphemeContextText = null;
+    graphemeContextInput = null;
     graphemeContext = null;
   }
 
   private void invalidateInputDependentCaches() {
     textScanner = null;
+    cachedRegionScanner = null;
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
     nfaBorrowed = false;
     cachedNfa = null;
-    graphemeContextText = null;
+    graphemeContextInput = null;
     graphemeContext = null;
   }
 
@@ -1025,16 +1033,11 @@ public final class Matcher implements MatchResult {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyFailedMatchResult();
       }
-      if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
-        return matchesTransparentRegion();
+      if (needsFullTextRegionContext(regionActive)) {
+        return matchesFullTextRegion();
       }
       if (regionActive) {
-        if (text != null) {
-          text = savedText.substring(regionStart, regionEnd);
-          textScanner = null;
-        } else {
-          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
-        }
+        useRegionInput(savedTextScanner);
         regionSubstituted = true;
       }
       return parentPattern.preparedMatchRunner(regionActive).matches(this);
@@ -1204,7 +1207,6 @@ public final class Matcher implements MatchResult {
             0,
             scanner.length(),
             scanner.length(),
-            scanner.length(),
             true,
             false,
             true,
@@ -1220,7 +1222,6 @@ public final class Matcher implements MatchResult {
           searchNfa(
               prog,
               0,
-              scanner.length(),
               scanner.length(),
               scanner.length(),
               prog.numCaptures(),
@@ -1271,16 +1272,11 @@ public final class Matcher implements MatchResult {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyFailedMatchResult();
       }
-      if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
-        return lookingAtTransparentRegion();
+      if (needsFullTextRegionContext(regionActive)) {
+        return lookingAtFullTextRegion();
       }
       if (regionActive) {
-        if (text != null) {
-          text = savedText.substring(regionStart, regionEnd);
-          textScanner = null;
-        } else {
-          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
-        }
+        useRegionInput(savedTextScanner);
         regionSubstituted = true;
       }
       return parentPattern.preparedMatchRunner(regionActive).lookingAt(this);
@@ -1348,7 +1344,6 @@ public final class Matcher implements MatchResult {
             prog,
             scanner,
             0,
-            scanner.length(),
             scanner.length(),
             scanner.length(),
             true,
@@ -1422,7 +1417,8 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean endedAfterCrLf(int pos) {
-    if (pos < 2) {
+    int visibleStart = transparentBounds ? 0 : regionStart;
+    if (pos < visibleStart + 2) {
       return false;
     }
     InputScanner scanner = activeScanner();
@@ -1430,11 +1426,22 @@ public final class Matcher implements MatchResult {
   }
 
   private GraphemeSupport.Context graphemeContext() {
-    if (graphemeContext == null || !Objects.equals(graphemeContextText, text)) {
-      graphemeContextText = text;
+    InputScanner scanner = activeScanner();
+    boolean bounded = fullTextRegionContext && !transparentBounds;
+    int start = bounded ? regionStart : 0;
+    int end = bounded ? regionEnd : scanner.length();
+    if (graphemeContext == null
+        || graphemeContextInput != scanner
+        || graphemeContextStart != start
+        || graphemeContextEnd != end) {
+      graphemeContextInput = scanner;
+      graphemeContextStart = start;
+      graphemeContextEnd = end;
       graphemeContext =
-          GraphemeSupport.Context.create(
-              activeScanner(), parentPattern.prog().hasGraphemeSemantics());
+          bounded
+              ? GraphemeSupport.Context.createRegion(scanner, start, end)
+              : GraphemeSupport.Context.create(
+                  scanner, parentPattern.prog().hasGraphemeSemantics());
     }
     return graphemeContext;
   }
@@ -1578,16 +1585,11 @@ public final class Matcher implements MatchResult {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyFailedMatchResult();
       }
-      if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
-        return doFindTransparentRegion();
+      if (needsFullTextRegionContext(regionActive)) {
+        return doFindFullTextRegion();
       }
       if (regionActive) {
-        if (text != null) {
-          text = savedText.substring(regionStart, regionEnd);
-          textScanner = null;
-        } else {
-          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
-        }
+        useRegionInput(savedTextScanner);
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
       }
@@ -1610,12 +1612,39 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
+  private boolean needsFullTextRegionContext(boolean regionActive) {
+    Prog prog = parentPattern.prog();
     return regionActive
         && ((!anchoringBounds && prog.hasTextAnchor())
             || transparentBounds
-            || regionEndsInsideSurrogatePair()
-            || prog.hasGraphemeSemantics());
+            || (text != null && (regionEndsInsideSurrogatePair() || prog.hasGraphemeSemantics())));
+  }
+
+  private boolean regionEndsInsideSurrogatePair() {
+    return regionEnd > 0
+        && regionEnd < getTextLength()
+        && !activeScanner().isCodePointBoundary(regionEnd);
+  }
+
+  /** Installs one independent input view for every opaque region operation. */
+  private void useRegionInput(InputScanner savedScanner) {
+    if (cachedRegionScanner == null
+        || cachedRegionStart != regionStart
+        || cachedRegionEnd != regionEnd) {
+      if (WorkCounterConfig.ENABLED && text != null) {
+        WorkCounter.record(regionEnd - regionStart);
+      }
+      cachedRegionScanner =
+          text != null
+              ? new StringInputScanner(text.substring(regionStart, regionEnd))
+              : ((Utf8InputScanner) savedScanner).slice(regionStart, regionEnd);
+      cachedRegionStart = regionStart;
+      cachedRegionEnd = regionEnd;
+    }
+    if (text != null) {
+      text = ((StringInputScanner) cachedRegionScanner).text();
+    }
+    textScanner = cachedRegionScanner;
   }
 
   /**
@@ -1635,9 +1664,6 @@ public final class Matcher implements MatchResult {
     if (regionEnd == textLength) {
       return true;
     }
-    if (prog.hasGraphemeSemantics() && regionEndsInsideSurrogatePair()) {
-      return true;
-    }
     if (!prog.dollarAnchorEnd()) {
       return false;
     }
@@ -1646,30 +1672,10 @@ public final class Matcher implements MatchResult {
     return dollarEndPos >= regionStart && dollarEndPos <= regionEnd;
   }
 
-  private boolean regionEndsInsideSurrogatePair() {
-    if (regionEnd <= 0 || regionEnd >= getTextLength()) {
-      return false;
-    }
-    return !activeScanner().isCodePointBoundary(regionEnd);
-  }
-
-  private int graphemeConsumeEndPos(Prog prog, int endPos) {
-    if (!prog.hasGraphemeClusterInstruction()
-        || endPos <= 0
-        || endPos >= getTextLength()
-        || activeScanner().isCodePointBoundary(endPos)) {
-      return endPos;
-    }
-    // \X may complete the scalar that starts inside the region; ordinary atoms and full-match
-    // checks still use endPos.
-    return endPos + 1;
-  }
-
-  private boolean matchesTransparentRegion() {
+  private boolean matchesFullTextRegion() {
     capturesResolved = true;
     fullTextRegionContext = true;
     Prog prog = parentPattern.prog();
-    int graphemeConsumeEndPos = graphemeConsumeEndPos(prog, regionEnd);
     int[] result =
         searchWithBitStateOrNfa(
             prog,
@@ -1677,7 +1683,6 @@ public final class Matcher implements MatchResult {
             regionStart,
             regionStart,
             regionEnd,
-            graphemeConsumeEndPos,
             true,
             false,
             true,
@@ -1687,11 +1692,10 @@ public final class Matcher implements MatchResult {
     return applyFullMatchResult(result);
   }
 
-  private boolean lookingAtTransparentRegion() {
+  private boolean lookingAtFullTextRegion() {
     capturesResolved = true;
     fullTextRegionContext = true;
     Prog prog = parentPattern.prog();
-    int graphemeConsumeEndPos = graphemeConsumeEndPos(prog, regionEnd);
     int[] result =
         searchWithBitStateOrNfa(
             prog,
@@ -1699,7 +1703,6 @@ public final class Matcher implements MatchResult {
             regionStart,
             regionStart,
             regionEnd,
-            graphemeConsumeEndPos,
             true,
             false,
             false,
@@ -1709,7 +1712,7 @@ public final class Matcher implements MatchResult {
     return applyFullMatchResult(result);
   }
 
-  private boolean doFindTransparentRegion() {
+  private boolean doFindFullTextRegion() {
     if (searchFrom > regionEnd) {
       return applyFailedMatchResult();
     }
@@ -1719,7 +1722,6 @@ public final class Matcher implements MatchResult {
     if (prog.anchorStart() && searchFrom > regionStart) {
       return applyFailedMatchResult();
     }
-    int graphemeConsumeEndPos = graphemeConsumeEndPos(prog, regionEnd);
     int[] result =
         searchWithBitStateOrNfa(
             prog,
@@ -1727,7 +1729,6 @@ public final class Matcher implements MatchResult {
             searchFrom,
             regionEnd,
             regionEnd,
-            graphemeConsumeEndPos,
             false,
             false,
             false,
@@ -1912,7 +1913,6 @@ public final class Matcher implements MatchResult {
               scanner,
               effectiveStart,
               captureSearchLimit,
-              scanner.length(),
               scanner.length(),
               false,
               false,
@@ -2117,7 +2117,6 @@ public final class Matcher implements MatchResult {
             prog,
             scanner,
             effectiveStart,
-            scanner.length(),
             scanner.length(),
             scanner.length(),
             false,
@@ -2577,7 +2576,6 @@ public final class Matcher implements MatchResult {
         startPos,
         searchLimit,
         endPos,
-        endPos,
         anchored,
         longest,
         endMatch,
@@ -2592,7 +2590,6 @@ public final class Matcher implements MatchResult {
       int startPos,
       int searchLimit,
       int endPos,
-      int graphemeConsumeEndPos,
       boolean anchored,
       boolean longest,
       boolean endMatch,
@@ -2605,7 +2602,6 @@ public final class Matcher implements MatchResult {
         startPos,
         searchLimit,
         endPos,
-        graphemeConsumeEndPos,
         anchored,
         longest,
         endMatch,
@@ -2621,7 +2617,6 @@ public final class Matcher implements MatchResult {
       int startPos,
       int searchLimit,
       int endPos,
-      int graphemeConsumeEndPos,
       boolean anchored,
       boolean longest,
       boolean endMatch,
@@ -2726,7 +2721,6 @@ public final class Matcher implements MatchResult {
         startPos,
         searchLimit,
         endPos,
-        graphemeConsumeEndPos,
         nsubmatch,
         nfaAnchor,
         nfaKind,
@@ -2739,7 +2733,6 @@ public final class Matcher implements MatchResult {
       int startPos,
       int searchLimit,
       int endPos,
-      int graphemeConsumeEndPos,
       int nsubmatch,
       Nfa.Anchor nfaAnchor,
       Nfa.MatchKind nfaKind,
@@ -2787,7 +2780,6 @@ public final class Matcher implements MatchResult {
             startPos,
             searchLimit,
             endPos,
-            graphemeConsumeEndPos,
             consumeRegionStart,
             boundaryRegionStart,
             boundaryEndPos,
@@ -3329,7 +3321,6 @@ public final class Matcher implements MatchResult {
                     prog,
                     text,
                     matchStart,
-                    matchEnd,
                     matchEnd,
                     matchEnd,
                     true,
@@ -4390,7 +4381,6 @@ public final class Matcher implements MatchResult {
                 prog,
                 scanner,
                 deferredMatchStart,
-                deferredMatchEnd,
                 deferredMatchEnd,
                 deferredMatchEnd,
                 true,

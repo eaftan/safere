@@ -27,6 +27,7 @@ Commands in these guides run from the repository root unless stated otherwise.
 | [Architecture](ARCHITECTURE.md) | Compilation, execution, input representations, and design rationale |
 | [Semantic invariants](INVARIANTS.md) | Capture, engine, parser, and matcher state contracts |
 | [Graphemes and regions](GRAPHEME_REGIONS.md) | Consumption, boundary visibility, and Unicode coordinates |
+| [Opaque String region bounds](OPAQUE_REGION_BOUNDS.md) | Target contract for opaque regions with anchoring enabled or disabled |
 | [Releasing](RELEASING.md) | Maven Central releases and snapshot publication |
 | [Performance work](../safere-benchmarks/PERFORMANCE_GUIDE.md) | Profiling, optimization, measurement, and reporting rules |
 | [Running benchmarks](../safere-benchmarks/README.md) | Collection, targeted comparisons, and cross-runtime runners |

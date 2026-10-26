@@ -146,6 +146,7 @@
                         <include name="*Test.java"/>
                         <include name="DisabledForCrosscheck.java"/>
                         <include name="ExhaustiveUtils.java"/>
+                        <include name="OpaqueRegionChecks.java"/>
                         <excludesfile name="${project.build.directory}/crosscheck-selection/crosscheck-excludes.txt"/>
                       </fileset>
                       <filterchain>

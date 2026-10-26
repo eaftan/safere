@@ -4079,7 +4079,8 @@
       "axes": {
         "size": [
           256,
-          4096
+          4096,
+          65536
         ]
       },
       "recipe": {
@@ -4172,6 +4173,20 @@
         "kind": "suffixToLength",
         "prefixUnit": "a",
         "suffix": "\ud801\udc00",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.wordUtf16.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u00e9",
         "length": "{size}"
       }
     }
@@ -17134,6 +17149,317 @@
             "jdk-string"
           ],
           "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
+        }
+      ]
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 256
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.65536",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.65536"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 65536
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 256
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.65536",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.65536"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 65536
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodeWordBoundary.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?U)\\b"
+      ],
+      "inputs": [
+        "regionDecoding.wordUtf16.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 2
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "This control uses Java Unicode word-boundary flag semantics"
         }
       ]
     }

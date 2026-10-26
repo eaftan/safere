@@ -128,11 +128,13 @@ class ScalarRegionModelTest {
   }
 
   @Test
-  void interiorRegionalIndicatorAssertionUsesCompleteCharacterContext() {
+  void interiorRegionalIndicatorAssertionUsesVisibleCharacterContext() {
     String input = "\uD83C\uDDE6".repeat(2);
     for (String regex : List.of(".\\b{g}", ".\\b{g}.", "\\X\\b{g}")) {
-      assertThat(Pattern.compile(regex).matcher(input).region(1, 3).lookingAt()).isFalse();
-      assertThat(java.util.regex.Pattern.compile(regex).matcher(input).region(1, 3).lookingAt())
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.matcher(input).region(1, 3).lookingAt()).isTrue();
+      assertThat(pattern.matcher(input.substring(1, 3)).lookingAt()).isTrue();
+      assertThat(pattern.matcher(input).region(1, 3).useTransparentBounds(true).lookingAt())
           .isFalse();
     }
   }

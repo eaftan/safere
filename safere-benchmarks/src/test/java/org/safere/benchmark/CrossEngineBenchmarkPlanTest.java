@@ -372,6 +372,80 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void matcherLifecycleControlsCursorConstruction() {
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+    for (BenchmarkOperation operation :
+        List.of(BenchmarkOperation.MATCHER_REGION_FIND, BenchmarkOperation.MATCHER_RESET_FIND)) {
+      for (DeclarativeBenchmarkPlan.MatcherReuse reuse :
+          List.of(
+              DeclarativeBenchmarkPlan.MatcherReuse.RETAINED,
+              DeclarativeBenchmarkPlan.MatcherReuse.NEW_PER_INVOCATION)) {
+        List<RegexEngineVariant.MatchCursor> created = new ArrayList<>();
+        RegexEngineVariant.CompiledRegex pattern =
+            new RegexEngineVariant.CompiledRegex() {
+              @Override
+              public RegexEngineVariant.MatchCursor matcher(RegexEngineVariant.RegexInput input) {
+                RegexEngineVariant.MatchCursor cursor =
+                    new RegexEngineVariant.MatchCursor() {
+                      private boolean found;
+
+                      @Override
+                      public boolean find() {
+                        boolean result = !found;
+                        found = true;
+                        return result;
+                      }
+
+                      @Override
+                      public void reset() {
+                        found = false;
+                      }
+
+                      @Override
+                      public void region(int start, int end) {
+                        assertThat(start).isEqualTo(1);
+                        assertThat(end).isEqualTo(3);
+                        found = false;
+                      }
+                    };
+                created.add(cursor);
+                return cursor;
+              }
+            };
+        List<DeclarativeBenchmarkPlan.LifecycleStep> steps =
+            operation == BenchmarkOperation.MATCHER_REGION_FIND
+                ? List.of(
+                    new DeclarativeBenchmarkPlan.LifecycleStep(
+                        DeclarativeBenchmarkPlan.LifecycleStepKind.REGION, 1, 3, null))
+                : List.of(
+                    new DeclarativeBenchmarkPlan.LifecycleStep(
+                        DeclarativeBenchmarkPlan.LifecycleStepKind.RESET, null, null, null));
+        BenchmarkOperation.BenchmarkTask task =
+            operation.bind(
+                RegexEngineVariant.SAFERE_STRING,
+                List.of("x"),
+                List.of(pattern),
+                List.of(new RegexEngineVariant.StringRegexInput("abcd")),
+                new int[0],
+                null,
+                0,
+                new DeclarativeBenchmarkPlan.MatcherLifecycle(reuse, steps),
+                null,
+                0,
+                0);
+        boolean retained = reuse == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED;
+        assertThat(created).as("%s %s binding", operation, reuse).hasSize(retained ? 1 : 0);
+        task.run(blackhole);
+        task.run(blackhole);
+        assertThat(created).as("%s %s invocations", operation, reuse).hasSize(retained ? 1 : 2);
+      }
+    }
+  }
+
+  @Test
   void boundTaskReusesInputPreparedBeforeTimedInvocation() {
     RegexEngineVariant.RegexInput preparedInput =
         new RegexEngineVariant.StringRegexInput("materialized before binding");

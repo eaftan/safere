@@ -40,7 +40,7 @@ final class GraphemeSupport {
    * <p>UAX #29 boundary checks are finite-state, but some rules need state from earlier code
    * points. Keep that state here so engines can answer boundary questions in O(1) while scanning.
    */
-  static final class Context {
+  static class Context {
     private static final Context EMPTY = new Context(null);
 
     private final InputScanner text;
@@ -54,11 +54,27 @@ final class GraphemeSupport {
       this.text = text;
     }
 
-    static Context create(String text, boolean includeGraphemeClusterBoundary) {
+    static Context createRegion(InputScanner text, int start, int end) {
+      Objects.checkFromToIndex(start, end, text.length());
+      if (text instanceof StringInputScanner stringInput) {
+        return new StringRegionContext(stringInput, start, end);
+      }
+      return new RegionContext(((Utf8InputScanner) text).slice(start, end), start);
+    }
+
+    int length() {
+      return text.length();
+    }
+
+    long decodeForward(int pos) {
+      return text.decodeForward(pos);
+    }
+
+    static Context create(CharSequence text, boolean includeGraphemeClusterBoundary) {
       if (!includeGraphemeClusterBoundary) {
         return EMPTY;
       }
-      return new Context(new StringInputScanner(text));
+      return new Context(new StringInputScanner(text.toString()));
     }
 
     static Context create(InputScanner text, boolean includeGraphemeClusterBoundary) {
@@ -72,8 +88,8 @@ final class GraphemeSupport {
       if (text == null) {
         return true;
       }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
+      int start = Math.max(0, Math.min(regionStart, length()));
+      if (pos <= start || pos > length()) {
         return true;
       }
       ensureRegionalIndicatorRunData();
@@ -88,8 +104,8 @@ final class GraphemeSupport {
       if (text == null) {
         return false;
       }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
+      int start = Math.max(0, Math.min(regionStart, length()));
+      if (pos <= start || pos > length()) {
         return false;
       }
       ensureExtendedPictographicData();
@@ -104,8 +120,8 @@ final class GraphemeSupport {
       if (text == null) {
         return false;
       }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
+      int start = Math.max(0, Math.min(regionStart, length()));
+      if (pos <= start || pos > length()) {
         return false;
       }
       ensureIndicConjunctData();
@@ -116,8 +132,8 @@ final class GraphemeSupport {
       if (text == null) {
         return false;
       }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
+      int start = Math.max(0, Math.min(regionStart, length()));
+      if (pos <= start || pos > length()) {
         return false;
       }
       ensureIndicConjunctData();
@@ -128,16 +144,16 @@ final class GraphemeSupport {
       if (regionalIndicatorStartsBefore != null) {
         return;
       }
-      regionalIndicatorStartsBefore = new int[text.length() + 1];
-      regionalIndicatorRunStartBefore = new int[text.length() + 1];
+      regionalIndicatorStartsBefore = new int[length() + 1];
+      regionalIndicatorRunStartBefore = new int[length() + 1];
       int runStart = 0;
       int runLength = 0;
       int pos = 0;
-      while (pos < text.length()) {
+      while (pos < length()) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        long decoded = text.decodeForward(pos);
+        long decoded = decodeForward(pos);
         int cp = InputScanner.codePoint(decoded);
         int next = InputScanner.position(decoded);
         if (isRegionalIndicator(cp)) {
@@ -160,19 +176,19 @@ final class GraphemeSupport {
       if (indicConjunctLinkerStartBefore != null) {
         return;
       }
-      indicConjunctSequenceStartBefore = new int[text.length() + 1];
-      indicConjunctLinkerStartBefore = new int[text.length() + 1];
+      indicConjunctSequenceStartBefore = new int[length() + 1];
+      indicConjunctLinkerStartBefore = new int[length() + 1];
       Arrays.fill(indicConjunctSequenceStartBefore, -1);
       Arrays.fill(indicConjunctLinkerStartBefore, -1);
 
       int sequenceStart = -1;
       boolean linkerSeen = false;
       int pos = 0;
-      while (pos < text.length()) {
+      while (pos < length()) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        long decoded = text.decodeForward(pos);
+        long decoded = decodeForward(pos);
         int cp = InputScanner.codePoint(decoded);
         int next = InputScanner.position(decoded);
         if (isIndicConjunctConsonant(cp)) {
@@ -200,16 +216,16 @@ final class GraphemeSupport {
       if (extendedPictographicStartBefore != null) {
         return;
       }
-      extendedPictographicStartBefore = new int[text.length() + 1];
+      extendedPictographicStartBefore = new int[length() + 1];
       Arrays.fill(extendedPictographicStartBefore, -1);
 
       int visiblePictographicStart = -1;
       int pos = 0;
-      while (pos < text.length()) {
+      while (pos < length()) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        long decoded = text.decodeForward(pos);
+        long decoded = decodeForward(pos);
         int cp = InputScanner.codePoint(decoded);
         int next = InputScanner.position(decoded);
         if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
@@ -227,19 +243,89 @@ final class GraphemeSupport {
     }
   }
 
+  /** A region context uses local coordinates while execution keeps original-input positions. */
+  private static class RegionContext extends Context {
+    final int offset;
+
+    RegionContext(InputScanner text, int offset) {
+      super(text);
+      this.offset = offset;
+    }
+  }
+
+  /** Immutable String region view; segmentation never copies or reads outside the region. */
+  private static final class StringRegionContext extends RegionContext implements CharSequence {
+    private final String input;
+    private final int regionLength;
+
+    StringRegionContext(StringInputScanner text, int start, int end) {
+      super(text, start);
+      input = text.text();
+      regionLength = end - start;
+    }
+
+    @Override
+    public int length() {
+      return regionLength;
+    }
+
+    @Override
+    public char charAt(int index) {
+      Objects.checkIndex(index, regionLength);
+      return input.charAt(offset + index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+      Objects.checkFromToIndex(start, end, regionLength);
+      return input.subSequence(offset + start, offset + end);
+    }
+
+    @Override
+    public String toString() {
+      return input.substring(offset, offset + regionLength);
+    }
+
+    @Override
+    long decodeForward(int pos) {
+      int cp = graphemeCodePointAt(this, pos, regionLength);
+      return InputScanner.decoded(cp, pos + Character.charCount(cp));
+    }
+  }
+
+  private static int codePointAt(CharSequence text, int pos) {
+    return text instanceof String string
+        ? string.codePointAt(pos)
+        : Character.codePointAt(text, pos);
+  }
+
+  private static int codePointBefore(CharSequence text, int pos) {
+    return text instanceof String string
+        ? string.codePointBefore(pos)
+        : Character.codePointBefore(text, pos);
+  }
+
+  private static int codePointAt(InputScanner text, int pos) {
+    return text.codePointAt(pos);
+  }
+
+  private static int codePointBefore(InputScanner text, int pos) {
+    return text.codePointBefore(pos);
+  }
+
   static int visitKeyVariantBits() {
     return VISIT_KEY_VARIANT_BITS;
   }
 
   static int visitVariant(
-      String text,
+      CharSequence text,
       int pos,
       int graphemeStart,
       int consumeRegionStart,
-      int graphemeConsumeEndPos,
+      int endPos,
       Context graphemeContext) {
     int start = Math.max(consumeRegionStart, graphemeStart);
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
       return 0;
     }
 
@@ -252,9 +338,9 @@ final class GraphemeSupport {
     if (graphemeContext.hasExtendedPictographicBefore(pos, start)) {
       variant |= EXTENDED_PICTOGRAPHIC_VISIBLE;
     }
-    int cp = graphemeCodePointAt(text, pos, graphemeConsumeEndPos);
-    int scalarEnd = nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
-    int nextCp = graphemeCodePointAt(text, scalarEnd, graphemeConsumeEndPos);
+    int cp = graphemeCodePointAt(text, pos, endPos);
+    int scalarEnd = nextRegionLocalScalarEnd(text, pos, endPos);
+    int nextCp = graphemeCodePointAt(text, scalarEnd, endPos);
     if (graphemeContext.hasIndicConjunctSequenceBefore(pos, start)) {
       variant |= INDIC_CONJUNCT_SEQUENCE_VISIBLE;
     }
@@ -275,28 +361,39 @@ final class GraphemeSupport {
       int pos,
       int graphemeStart,
       int consumeRegionStart,
-      int graphemeConsumeEndPos,
+      int endPos,
       Context graphemeContext) {
-    if (text instanceof StringInputScanner stringInput) {
+    if (graphemeContext instanceof StringRegionContext view) {
       return visitVariant(
-          stringInput.text(),
-          pos,
-          graphemeStart,
-          consumeRegionStart,
-          graphemeConsumeEndPos,
+          view,
+          pos - view.offset,
+          graphemeStart - view.offset,
+          consumeRegionStart - view.offset,
+          endPos - view.offset,
           graphemeContext);
     }
+    if (graphemeContext instanceof RegionContext view) {
+      text = graphemeContext.text;
+      pos -= view.offset;
+      graphemeStart -= view.offset;
+      consumeRegionStart -= view.offset;
+      endPos -= view.offset;
+    }
+    if (text instanceof StringInputScanner stringInput) {
+      return visitVariant(
+          stringInput.text(), pos, graphemeStart, consumeRegionStart, endPos, graphemeContext);
+    }
     int start = Math.max(consumeRegionStart, graphemeStart);
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
       return 0;
     }
     int variant = 0;
     if (graphemeContext.hasExtendedPictographicBefore(pos, start)) {
       variant |= EXTENDED_PICTOGRAPHIC_VISIBLE;
     }
-    int codePoint = inputCodePointAt(text, pos, graphemeConsumeEndPos, true);
-    int scalarEnd = inputNextPos(text, pos, graphemeConsumeEndPos, true);
-    int nextCodePoint = inputCodePointAt(text, scalarEnd, graphemeConsumeEndPos, true);
+    int codePoint = inputCodePointAt(text, pos, endPos);
+    int scalarEnd = inputNextPos(text, pos, endPos);
+    int nextCodePoint = inputCodePointAt(text, scalarEnd, endPos);
     if (graphemeContext.hasIndicConjunctSequenceBefore(pos, start)) {
       variant |= INDIC_CONJUNCT_SEQUENCE_VISIBLE;
     }
@@ -313,10 +410,9 @@ final class GraphemeSupport {
     return variant;
   }
 
-  static int inputCodePointAt(InputScanner text, int pos, int endPos, boolean graphemeSensitive) {
+  private static int inputCodePointAt(InputScanner text, int pos, int endPos) {
     return switch (text) {
-      case StringInputScanner stringInput ->
-          inputCodePointAt(stringInput.text(), pos, endPos, graphemeSensitive);
+      case StringInputScanner stringInput -> graphemeCodePointAt(stringInput.text(), pos, endPos);
       case Utf8InputScanner utf8Input -> {
         if (pos < 0 || pos >= endPos || pos >= utf8Input.length()) {
           yield -1;
@@ -327,10 +423,9 @@ final class GraphemeSupport {
     };
   }
 
-  static int inputNextPos(InputScanner text, int pos, int endPos, boolean graphemeSensitive) {
+  private static int inputNextPos(InputScanner text, int pos, int endPos) {
     return switch (text) {
-      case StringInputScanner stringInput ->
-          inputNextPos(stringInput.text(), pos, endPos, graphemeSensitive);
+      case StringInputScanner stringInput -> graphemeNextPos(stringInput.text(), pos, endPos);
       case Utf8InputScanner utf8Input -> {
         if (pos < 0 || pos >= endPos || pos >= utf8Input.length()) {
           yield endPos + 1;
@@ -342,15 +437,12 @@ final class GraphemeSupport {
   }
 
   static int graphemeNextPos(InputScanner text, int pos, int endPos) {
-    return inputNextPos(text, pos, endPos, true);
+    return inputNextPos(text, pos, endPos);
   }
 
-  static int inputCodePointAt(String text, int pos, int endPos, boolean graphemeSensitive) {
+  static int graphemeCodePointAt(CharSequence text, int pos, int endPos) {
     if (pos < 0 || pos >= endPos || pos >= text.length()) {
       return -1;
-    }
-    if (!graphemeSensitive) {
-      return text.codePointAt(pos);
     }
     char ch = text.charAt(pos);
     if (Character.isHighSurrogate(ch)
@@ -359,53 +451,17 @@ final class GraphemeSupport {
         && Character.isLowSurrogate(text.charAt(pos + 1))) {
       return Character.toCodePoint(ch, text.charAt(pos + 1));
     }
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return -1;
-    }
     return ch;
   }
 
-  static int inputNextPos(String text, int pos, int endPos, boolean graphemeSensitive) {
+  static int graphemeNextPos(CharSequence text, int pos, int endPos) {
     if (pos < 0 || pos >= endPos || pos >= text.length()) {
       return endPos + 1;
     }
-    if (!graphemeSensitive) {
-      return pos + Character.charCount(text.codePointAt(pos));
-    }
-    int cp = inputCodePointAt(text, pos, endPos, true);
-    if (cp < 0) {
-      return endPos + 1;
-    }
-    if (Character.isSupplementaryCodePoint(cp)) {
-      return pos + 2;
-    }
-    return pos + 1;
+    return nextRegionLocalScalarEnd(text, pos, endPos);
   }
 
-  static int graphemeCodePointAt(String text, int pos, int graphemeConsumeEndPos) {
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
-      return -1;
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < graphemeConsumeEndPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    return ch;
-  }
-
-  static int graphemeNextPos(String text, int pos, int graphemeConsumeEndPos) {
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
-      return graphemeConsumeEndPos + 1;
-    }
-    return nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
-  }
-
-  static int nextRegionLocalScalarEnd(String text, int pos, int endPos) {
+  static int nextRegionLocalScalarEnd(CharSequence text, int pos, int endPos) {
     if (pos < 0 || pos >= endPos || pos >= text.length()) {
       return endPos + 1;
     }
@@ -427,9 +483,26 @@ final class GraphemeSupport {
       int regionStart,
       boolean consumedInput,
       int boundaryEndPos) {
+    if (graphemeContext instanceof StringRegionContext view) {
+      return boundaryFlags(
+          view,
+          pos - view.offset,
+          graphemeContext,
+          matchStart - view.offset,
+          regionStart - view.offset,
+          consumedInput,
+          boundaryEndPos - view.offset);
+    }
+    if (graphemeContext instanceof RegionContext view) {
+      text = graphemeContext.text;
+      pos -= view.offset;
+      matchStart -= view.offset;
+      regionStart -= view.offset;
+      boundaryEndPos -= view.offset;
+    }
     if (text instanceof Utf8InputScanner) {
       if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)
-          || isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext)) {
+          || isGraphemeClusterBoundaryLocal(text, pos, regionStart, graphemeContext)) {
         return EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       }
       return 0;
@@ -445,7 +518,7 @@ final class GraphemeSupport {
   }
 
   static int boundaryFlags(
-      String text,
+      CharSequence text,
       int pos,
       Context graphemeContext,
       int matchStart,
@@ -515,11 +588,25 @@ final class GraphemeSupport {
     return flags;
   }
 
-  static boolean isGraphemeClusterBoundary(String text, int pos) {
+  static boolean isGraphemeClusterBoundary(CharSequence text, int pos) {
     return isGraphemeClusterBoundary(text, pos, 0, Context.create(text, true));
   }
 
   static boolean isGraphemeClusterBoundary(
+      InputScanner text, int pos, int regionStart, Context graphemeContext) {
+    if (graphemeContext instanceof StringRegionContext view) {
+      return isGraphemeClusterBoundary(
+          view, pos - view.offset, regionStart - view.offset, graphemeContext);
+    }
+    if (graphemeContext instanceof RegionContext view) {
+      text = graphemeContext.text;
+      pos -= view.offset;
+      regionStart -= view.offset;
+    }
+    return isGraphemeClusterBoundaryLocal(text, pos, regionStart, graphemeContext);
+  }
+
+  private static boolean isGraphemeClusterBoundaryLocal(
       InputScanner text, int pos, int regionStart, Context graphemeContext) {
     if (text instanceof StringInputScanner stringInput) {
       return isGraphemeClusterBoundary(stringInput.text(), pos, regionStart, graphemeContext);
@@ -533,8 +620,8 @@ final class GraphemeSupport {
     if (pos == 0 || pos == text.length()) {
       return true;
     }
-    int previous = text.codePointBefore(pos);
-    int next = text.codePointAt(pos);
+    int previous = codePointBefore(text, pos);
+    int next = codePointAt(text, pos);
     if (previous == '\r' && next == '\n') {
       return false;
     }
@@ -563,12 +650,12 @@ final class GraphemeSupport {
     return true;
   }
 
-  static boolean isGraphemeClusterBoundary(String text, int pos, Context graphemeContext) {
+  static boolean isGraphemeClusterBoundary(CharSequence text, int pos, Context graphemeContext) {
     return isGraphemeClusterBoundary(text, pos, 0, graphemeContext);
   }
 
   static boolean isGraphemeClusterBoundary(
-      String text, int pos, int regionStart, Context graphemeContext) {
+      CharSequence text, int pos, int regionStart, Context graphemeContext) {
     if (WorkCounterConfig.ENABLED) {
       WorkCounter.record();
     }
@@ -593,8 +680,8 @@ final class GraphemeSupport {
         && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
       return true;
     }
-    int prev = text.codePointBefore(pos);
-    int next = text.codePointAt(pos);
+    int prev = codePointBefore(text, pos);
+    int next = codePointAt(text, pos);
     if (isGraphemeControl(prev) || isGraphemeControl(next)) {
       return true;
     }
@@ -622,14 +709,14 @@ final class GraphemeSupport {
     return true;
   }
 
-  static boolean hasGraphemeExtendAt(String text, int pos) {
-    return pos >= 0 && pos < text.length() && isGraphemeExtend(text.codePointAt(pos));
+  static boolean hasGraphemeExtendAt(CharSequence text, int pos) {
+    return pos >= 0 && pos < text.length() && isGraphemeExtend(codePointAt(text, pos));
   }
 
-  static boolean isExtendedPictographicAt(String text, int pos) {
+  static boolean isExtendedPictographicAt(CharSequence text, int pos) {
     return pos >= 0
         && pos < text.length()
-        && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos));
+        && containsCodePoint(EXTENDED_PICTOGRAPHIC, codePointAt(text, pos));
   }
 
   private static boolean isGraphemeBoundaryContextEdge(
@@ -637,7 +724,7 @@ final class GraphemeSupport {
     return pos == boundaryStart || pos == boundaryEnd;
   }
 
-  private static boolean isLowHighSurrogateBoundary(String text, int pos) {
+  private static boolean isLowHighSurrogateBoundary(CharSequence text, int pos) {
     return pos > 0
         && pos < text.length()
         && Character.isLowSurrogate(text.charAt(pos - 1))
@@ -645,7 +732,7 @@ final class GraphemeSupport {
   }
 
   private static boolean isRegionStartSplitSurrogateBoundary(
-      String text, int pos, int regionStart) {
+      CharSequence text, int pos, int regionStart) {
     return pos == regionStart
         && regionStart > 0
         && regionStart < text.length()
@@ -654,12 +741,13 @@ final class GraphemeSupport {
   }
 
   private static boolean isAfterRegionStartSplitLowSurrogateBoundary(
-      String text, int pos, int regionStart) {
+      CharSequence text, int pos, int regionStart) {
     return pos == regionStart + 1
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
-  private static boolean isRegionEndSplitSurrogateBoundary(String text, int pos, int regionEnd) {
+  private static boolean isRegionEndSplitSurrogateBoundary(
+      CharSequence text, int pos, int regionEnd) {
     return pos == regionEnd
         && regionEnd > 0
         && regionEnd < text.length()
@@ -668,7 +756,7 @@ final class GraphemeSupport {
   }
 
   private static boolean suppressesConsumedSplitLowSurrogateExplicitBoundary(
-      String text, int pos, int boundaryEndPos, boolean consumedInput) {
+      CharSequence text, int pos, int boundaryEndPos, boolean consumedInput) {
     if (!consumedInput || pos >= boundaryEndPos) {
       return false;
     }
@@ -677,11 +765,11 @@ final class GraphemeSupport {
     }
     // Region edges are handled before this interior assertion. Classify the next scalar in
     // the grapheme context, as for Extend above, independently of which atoms may consume it.
-    return isRegionalIndicator(text.codePointAt(pos));
+    return isRegionalIndicator(codePointAt(text, pos));
   }
 
   private static boolean isLowSurrogateBeforeZwjBoundary(
-      String text, int pos, int matchStart, int regionStart) {
+      CharSequence text, int pos, int matchStart, int regionStart) {
     return pos == matchStart
         && pos > 0
         && pos < text.length()
@@ -691,14 +779,14 @@ final class GraphemeSupport {
   }
 
   private static boolean suppressesRegionStartSplitExplicitBoundary(
-      String text, int regionStart, int matchStart, boolean consumedInput) {
+      CharSequence text, int regionStart, int matchStart, boolean consumedInput) {
     return consumedInput
         && matchStart == regionStart + 1
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
   private static boolean isStandaloneZwjAfterLowSurrogateBoundary(
-      String text, int pos, int matchStart, int regionStart) {
+      CharSequence text, int pos, int matchStart, int regionStart) {
     return pos == matchStart
         && pos > 1
         && pos < text.length()
@@ -708,18 +796,18 @@ final class GraphemeSupport {
   }
 
   private static boolean isStandaloneZwjBeforePictographicBoundary(
-      String text, int pos, int regionStart, Context graphemeContext) {
+      CharSequence text, int pos, int regionStart, Context graphemeContext) {
     Context context = graphemeContext != null ? graphemeContext : Context.create(text, true);
     return pos > 0
         && pos < text.length()
         && text.charAt(pos - 1) == 0x200D
-        && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos))
+        && containsCodePoint(EXTENDED_PICTOGRAPHIC, codePointAt(text, pos))
         && !isAfterRegionStartSplitLowSurrogate(text, pos - 1, regionStart)
         && !context.hasExtendedPictographicBefore(pos - 1, regionStart);
   }
 
   private static boolean isAfterPairedExtendedPictographicZwj(
-      String text, int pos, int regionStart, Context graphemeContext) {
+      CharSequence text, int pos, int regionStart, Context graphemeContext) {
     Context context = graphemeContext != null ? graphemeContext : Context.create(text, true);
     int lowSurrogatePos = pos - 2;
     if (regionStart <= lowSurrogatePos && regionStart > 0) {
@@ -733,25 +821,25 @@ final class GraphemeSupport {
   }
 
   private static boolean isAfterRegionStartSplitLowSurrogate(
-      String text, int pos, int regionStart) {
+      CharSequence text, int pos, int regionStart) {
     return pos == regionStart + 1
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
   private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(
-      String text, int lowSurrogatePos, int regionStart) {
+      CharSequence text, int lowSurrogatePos, int regionStart) {
     return lowSurrogatePos > regionStart
         && lowSurrogatePos > 0
         && Character.isHighSurrogate(text.charAt(lowSurrogatePos - 1));
   }
 
-  private static boolean startsAtLowSurrogate(String text, int matchStart) {
+  private static boolean startsAtLowSurrogate(CharSequence text, int matchStart) {
     return matchStart >= 0
         && matchStart < text.length()
         && Character.isLowSurrogate(text.charAt(matchStart));
   }
 
-  private static boolean startsAtStandaloneZwj(String text, int matchStart, int regionStart) {
+  private static boolean startsAtStandaloneZwj(CharSequence text, int matchStart, int regionStart) {
     return matchStart >= 0
         && matchStart < text.length()
         && text.charAt(matchStart) == 0x200D
@@ -768,7 +856,7 @@ final class GraphemeSupport {
         || containsCodePoint(GCB_SPACING_MARK, c);
   }
 
-  private static boolean isUnpairedSurrogateAt(String text, int pos) {
+  private static boolean isUnpairedSurrogateAt(CharSequence text, int pos) {
     char c = text.charAt(pos);
     if (Character.isLowSurrogate(c)) {
       return true;

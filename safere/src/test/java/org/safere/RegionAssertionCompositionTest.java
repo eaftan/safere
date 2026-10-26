@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -86,21 +85,20 @@ class RegionAssertionCompositionTest {
             new Rule("ordinary exposed low", ".", EMOJI, 1, 2, true, 2, 2),
             new Rule("surrogate category", "\\p{Cs}", EMOJI, 0, 1, true, 1, 1),
             new Rule("non-surrogate category", "\\P{Cs}", EMOJI, 0, 1, true, -1, -1),
-            new Rule("grapheme completion", "\\X", EMOJI, 0, 1, true, 2, 2),
-            new Rule("assertion after completion", "\\X\\b{g}", EMOJI, 0, 1, true, 2, 2),
+            new Rule("bounded grapheme", "\\X", EMOJI, 0, 1, true, 1, 1),
+            new Rule("assertion at region end", "\\X\\b{g}", EMOJI, 0, 1, true, 1, -1),
             new Rule("scalar grapheme endpoint", ".\\b{g}", EMOJI, 0, 1, true, 1, -1),
             new Rule("opaque start edge", "\\b{g}.", EMOJI, 1, 2, true, 2, -1),
             new Rule("empty region inside pair", "\\b{g}", EMOJI, 1, 1, true, 1, -1),
             new Rule("Unicode word category", "(?U:\\b).", LETTER, 0, 1, true, -1, 1),
             new Rule("Unicode non-word category", "(?U:\\B).", LETTER, 0, 1, true, 1, -1),
-            new Rule(
-                "word context after completion", "\\X(?U:\\b)", LETTER + "a", 0, 1, true, 2, -1),
-            new Rule("RI context after completion", "\\X\\b{g}", RI.repeat(2), 0, 1, true, 2, -1),
-            new Rule("interior RI context", ".\\b{g}.", RI.repeat(2), 1, 3, true, -1, -1),
+            new Rule("word context at region end", "\\X(?U:\\b)", LETTER + "a", 0, 1, true, -1, -1),
+            new Rule("bounded RI context", "\\X\\b{g}", RI.repeat(2), 0, 1, true, 1, -1),
+            new Rule("interior RI context", ".\\b{g}.", RI.repeat(2), 1, 3, true, 3, -1),
             new Rule("region end anchor", ".$", EMOJI, 0, 1, true, 1, 1),
             new Rule("input end anchor", ".$", EMOJI, 0, 1, false, -1, -1),
-            new Rule("completed region end anchor", "\\X$", EMOJI, 0, 1, true, 2, 2),
-            new Rule("completed input end anchor", "\\X$", EMOJI, 0, 1, false, 2, 2),
+            new Rule("grapheme region end anchor", "\\X$", EMOJI, 0, 1, true, 1, 1),
+            new Rule("grapheme input end anchor", "\\X$", EMOJI, 0, 1, false, -1, -1),
             new Rule("strict region end", ".\\z", EMOJI, 0, 1, true, 1, 1),
             new Rule("strict input end", ".\\z", EMOJI, 0, 1, false, -1, -1),
             new Rule("region start anchor", "^.", "a" + EMOJI, 1, 2, true, 2, 2),
@@ -139,9 +137,7 @@ class RegionAssertionCompositionTest {
   @Test
   void lineAssertionCompositionIncludesSlicedRegions() {
     checkGeneratedComposition(List.of("\n", "a\n", "\u0085a", "a\u0085"), true);
-    // CRLF-sliced compositions containing grapheme assertions are tracked in #1038.
-    // Keep this restriction on the input domain, not on individual patterns.
-    checkGeneratedComposition(List.of("\r\na"), false);
+    checkGeneratedComposition(List.of("\r\na"), true);
   }
 
   private static void checkGeneratedComposition(List<String> inputs, boolean everyRegion) {
@@ -219,7 +215,7 @@ class RegionAssertionCompositionTest {
 
     for (boolean transparent : new boolean[] {false, true}) {
       for (Map.Entry<String, Integer> row :
-          Map.of(".", 1, "(?:.|\\X)", 1, "(?:\\X|.)", 2, "\\X", 2).entrySet()) {
+          Map.of(".", 1, "(?:.|\\X)", 1, "(?:\\X|.)", 1, "\\X", 1).entrySet()) {
         Matcher consuming = Pattern.compile(row.getKey()).matcher(EMOJI).region(0, 1);
         consuming.useTransparentBounds(transparent);
         assertThat(consuming.find()).as(row.getKey()).isTrue();
@@ -270,7 +266,6 @@ class RegionAssertionCompositionTest {
   }
 
   @Test
-  @Disabled("Pre-existing split-CRLF grapheme/line assertion inconsistency; #1038")
   void unreachableGraphemeBranchPreservesSplitCrlfGraphemeAndLineAssertions() {
     for (String regex :
         List.of("(.)?\\b{g}$", "(?:(.)?\\b{g}$)|(?:\\Xz)", "(?:\\Xz)|(?:(.)?\\b{g}$)")) {

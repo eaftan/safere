@@ -139,6 +139,13 @@ enum BenchmarkOperation {
             }
           };
       case MATCHER_RESET_FIND -> {
+        if (lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.NEW_PER_INVOCATION) {
+          yield blackhole -> {
+            RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+            matcher.reset();
+            blackhole.consume(findAllCount(matcher));
+          };
+        }
         RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
         yield blackhole -> {
           matcher.reset();
@@ -146,8 +153,15 @@ enum BenchmarkOperation {
         };
       }
       case MATCHER_REGION_FIND -> {
-        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
         DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
+        if (lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.NEW_PER_INVOCATION) {
+          yield blackhole -> {
+            RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+            matcher.region(region.start(), region.end());
+            blackhole.consume(matcher.find());
+          };
+        }
+        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
         yield blackhole -> {
           matcher.region(region.start(), region.end());
           blackhole.consume(matcher.find());
