@@ -49,7 +49,8 @@ final class SpecializedTrialRunner implements AutoCloseable {
       case ANALYZE_PATTERN -> new SpecializedTrialRunner(analyze(workload), false);
       case CACHED_ANALYSIS -> new SpecializedTrialRunner(cachedAnalysis(workload), false);
       case COMPILE_AND_ANALYZE -> new SpecializedTrialRunner(compileAndAnalyze(workload), false);
-      case DIAGNOSTICS_FIND -> new SpecializedTrialRunner(diagnostics(workload), true);
+      case DIAGNOSTICS_FIND ->
+          new SpecializedTrialRunner(diagnostics(workload, trial.variant()), true);
       default ->
           throw new IllegalArgumentException(
               "Unsupported specialized operation: " + workload.operation());
@@ -166,7 +167,8 @@ final class SpecializedTrialRunner implements AutoCloseable {
     return blackhole -> blackhole.consume(Pattern.compile(regex).analysis());
   }
 
-  private static Task diagnostics(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
+  private static Task diagnostics(
+      DeclarativeBenchmarkPlan.ExpandedWorkload workload, RegexEngineVariant variant) {
     String listener = stringArgument(workload, "listener", "disabled");
     Pattern.setDiagnostics(
         switch (listener) {
@@ -177,8 +179,18 @@ final class SpecializedTrialRunner implements AutoCloseable {
               throw new IllegalArgumentException("Unknown diagnostics listener: " + listener);
         });
     Pattern pattern = Pattern.compile(workload.patterns().getFirst());
-    String input = inputString(workload);
     String action = stringArgument(workload, "action", "find");
+    if (variant != RegexEngineVariant.SAFERE_STRING) {
+      Utf8Input input = utf8Input(workload);
+      return switch (action) {
+        case "find" -> blackhole -> blackhole.consume(pattern.matcher(input).find());
+        case "booleanFind" -> blackhole -> blackhole.consume(pattern.find(input));
+        case "matches" -> blackhole -> blackhole.consume(pattern.matcher(input).matches());
+        default ->
+            throw new IllegalArgumentException("Unknown UTF-8 diagnostics action: " + action);
+      };
+    }
+    String input = inputString(workload);
     String replacement = stringArgument(workload, "replacement", "");
     return switch (action) {
       case "find" -> blackhole -> blackhole.consume(pattern.matcher(input).find());

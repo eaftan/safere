@@ -27,6 +27,15 @@ class Utf8ReplacementTest {
         .isEqualTo("xé-😀-é😀 é--éy");
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"EMAIL", "<$0>", "$0$0", "$2", "${user}@$2", "\\$1", "x\\\\y"})
+  void replacementsMatchStringReplaceAllWithInnerGroups(String replacement) {
+    String regex = "(?<user>\\w+)@(\\w+)";
+    String source = "a@b café@hôte 😀 x@y";
+    assertThat(replace(regex, source, replacement))
+        .isEqualTo(Pattern.compile(regex).matcher(source).replaceAll(replacement));
+  }
+
   @Test
   void escapedReplacementCharactersAreLiteral() {
     assertThat(replace("a", "a", "\\$0\\\\")).isEqualTo("$0\\");

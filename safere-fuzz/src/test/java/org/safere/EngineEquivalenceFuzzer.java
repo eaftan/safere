@@ -31,9 +31,27 @@ public final class EngineEquivalenceFuzzer {
 
   /** Shared local and standalone entry point. */
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
-    String atom = data.pickValue(List.of("a", ".", "[ab]", "[^a]", "é", "😀"));
+    // Keep surrogate AST runes distinct from supplementary characters in literal plans (#1043).
+    String high = "\\x{" + Integer.toHexString(data.consumeInt(0xD800, 0xDBFF)) + "}";
+    String low = "\\x{" + Integer.toHexString(data.consumeInt(0xDC00, 0xDFFF)) + "}";
+    String atom =
+        data.pickValue(
+            List.of(
+                "a",
+                ".",
+                "[ab]",
+                "[^a]",
+                "é",
+                "😀",
+                high,
+                low,
+                high + low,
+                high + "(?:" + low + ")"));
     String boundaryAtom =
         data.pickValue(List.of(atom, "\\p{Cs}", "\\p{So}", "[\\uDC00-\\uDFFF]", "\\uDC4D"));
+    String leadingRepeat =
+        boundaryAtom + data.pickValue(List.of("*", "*?", "+", "+?", "?", "??", "{0,2}", "{1,2}?"));
+    String suffix = data.pickValue(List.of("[ab]", "a", "(a|b)"));
     String regex =
         data.pickValue(
             List.of(
@@ -42,9 +60,15 @@ public final class EngineEquivalenceFuzzer {
                 "(?:" + atom + ")+",
                 "(" + atom + ")?b",
                 "^" + atom + "+$",
+                "a" + atom + "b",
+                "(?iu)k" + atom,
+                ".*" + atom + "$",
+                "(?:" + atom + "|banana)",
                 boundaryAtom + "\\b{g}",
                 "(" + boundaryAtom + ")(\\b{g})",
                 "\\b{g}(" + boundaryAtom + ")",
+                leadingRepeat + suffix + "\\b{g}",
+                "(" + leadingRepeat + ")(" + suffix + ")(\\b{g})",
                 "(?:(" + boundaryAtom + ")\\b{g}|(a))"));
     StringBuilder input = new StringBuilder();
     int length = data.consumeInt(0, 32);
@@ -52,7 +76,8 @@ public final class EngineEquivalenceFuzzer {
       input.append(
           data.pickValue(
               List.of(
-                  "a", "b", "é", "中", "😀", "👍", "\ud800", "\udc00", "\uDC4D", "\n", "\u0301")));
+                  "a", "b", "?", "é", "中", "😀", "👍", "\ud800", "\udc00", "\uDC4D", "\uDBFB",
+                  "\uDDBD", "\n", "\u0301")));
     }
     check(regex, input.toString(), data.consumeInt(0, input.length()));
     int start = data.consumeInt(0, input.length());

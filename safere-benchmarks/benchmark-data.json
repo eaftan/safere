@@ -841,6 +841,67 @@
       "shared": true
     },
     {
+      "id": "leadingExpansion.spaces.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": " ",
+        "count": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingExpansion.noqa.{outcome}.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "leadingExpansion.spaces.{size}",
+        "suffix": "{outcome}"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingExpansion.longRun.{size}",
+      "axes": {
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "leadingExpansion.spaces.{size}",
+        "suffix": "\uff3bx"
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -3171,6 +3232,21 @@
       }
     },
     {
+      "id": "diagnostics.length.{size}",
+      "axes": {
+        "size": [
+          200,
+          800,
+          1000
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "a",
+        "count": "{size}"
+      }
+    },
+    {
       "id": "diagnostics.tinyLiteralMatches",
       "recipe": {
         "kind": "literal",
@@ -3658,15 +3734,6 @@
         "prefixUnit": "a",
         "suffix": "\"",
         "length": "{size}"
-      },
-      "shared": true
-    },
-    {
-      "id": "rebar.boundedRepeatContext.rustSource",
-      "recipe": {
-        "kind": "file",
-        "path": "data/rust-src-tools-3b0d4813.txt",
-        "sha256": "7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36"
       },
       "shared": true
     },
@@ -5166,6 +5233,127 @@
       "axes": {
         "size": [
           65536
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.find.{outcome}.{size}",
+      "operation": "find",
+      "patterns": [
+        "\\s*# noqa[0-9]"
+      ],
+      "inputs": [
+        "leadingExpansion.noqa.{outcome}.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.replaceAll.{outcome}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\s*# noqa[0-9]"
+      ],
+      "inputs": [
+        "leadingExpansion.noqa.{outcome}.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          16384
+        ],
+        "outcome": [
+          {
+            "id": "failed",
+            "value": "# noqaX"
+          },
+          {
+            "id": "matched",
+            "value": "# noqa1"
+          },
+          {
+            "id": "absent",
+            "value": "# nopeX"
+          }
+        ]
+      },
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "requirements": [],
+      "arguments": {
+        "replacement": "X"
+      }
+    },
+    {
+      "id": "StartAccelerationBenchmark.leadingExpansion.longRun.{repetition}.{size}",
+      "operation": "find",
+      "patterns": [
+        " {repetition}[\\[\uff3b]x"
+      ],
+      "inputs": [
+        "leadingExpansion.longRun.{size}"
+      ],
+      "axes": {
+        "repetition": [
+          {
+            "id": "star",
+            "value": "*"
+          },
+          {
+            "id": "plus",
+            "value": "+"
+          }
+        ],
+        "size": [
+          1024,
+          16384,
+          262144
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
         ]
       },
       "requirements": []
@@ -13064,6 +13252,35 @@
       }
     },
     {
+      "id": "ByteReplacementBenchmark.wholeMatch",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "([A-Za-z]+)=([^&]+)"
+      ],
+      "inputs": [
+        "utf8.replacement.numbered"
+      ],
+      "arguments": {
+        "replacement": {
+          "java": "[$0]",
+          "alternates": {
+            "re2-cpp": {
+              "replacement": "[\\0]",
+              "reason": "C++ RE2 uses backslash-number capture references"
+            }
+          }
+        }
+      },
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "PatternAnalysisBenchmark.cachedAnalysis",
       "operation": "cachedAnalysis",
       "patterns": [
@@ -13183,6 +13400,48 @@
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "DiagnosticsLengthBenchmark.{action}.{listener}.{size}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[ab]{1000}\\z"
+      ],
+      "inputs": [
+        "diagnostics.length.{size}"
+      ],
+      "axes": {
+        "action": [
+          "booleanFind",
+          "find"
+        ],
+        "listener": [
+          "disabled",
+          "noop"
+        ],
+        "size": [
+          200,
+          800,
+          1000
+        ]
+      },
+      "arguments": {
+        "action": "{action}",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Compare direct and matcher-based UTF-8 length rejection with diagnostics enabled and disabled, with an exact-length match as a control.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     },
     {
@@ -15358,34 +15617,6 @@
       "expected": {
         "type": "boolean",
         "value": true
-      }
-    },
-    {
-      "id": "RebarBenchmark.boundedRepeatContext",
-      "operation": "findAllCount",
-      "patterns": [
-        "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}"
-      ],
-      "inputs": [
-        "rebar.boundedRepeatContext.rustSource"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8"
-      ],
-      "inputRepresentationReason": "Reproduces the exact rebar count workload on Java String and preexisting UTF-8 bytes.",
-      "requirements": [],
-      "resultConsumption": "integer",
-      "measurement": {
-        "mode": "averageTime",
-        "timingUnit": "nanoseconds",
-        "constraints": [
-          "prematerializedInput"
-        ]
-      },
-      "expected": {
-        "type": "integer",
-        "value": 53
       }
     },
     {

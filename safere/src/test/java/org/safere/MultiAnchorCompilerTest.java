@@ -880,6 +880,31 @@ class MultiAnchorCompilerTest {
         .isInstanceOf(StartPlan.LeadingExpansion.class);
   }
 
+  @Test
+  void surrogateLiteralsDoNotProduceStringFastPaths() {
+    for (String regex :
+        List.of(
+            "\"\\uDBFB",
+            "\\uDBFB",
+            "\\x{D800}\\x{DC00}",
+            "\\uD800(?:\\uDC00)",
+            "\\uDC00[a-z]",
+            "[a-z]+\\x{D800}\\x{DC00}[a-z]+",
+            ".*a\\uDBFB$")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.matchDescriptor().literalMatch()).as(regex).isNull();
+      assertThat(pattern.prefix()).as(regex).isNull();
+      assertThat(pattern.anchoredPrefix()).as(regex).isNull();
+      assertThat(pattern.startPlan()).as(regex).isNotInstanceOf(StartPlan.Literal.class);
+      assertThat(pattern.rejectPlan())
+          .as(regex)
+          .isNotInstanceOfAny(RejectPlan.RequiredLiteral.class, RejectPlan.EndAnchoredSuffix.class);
+    }
+
+    assertThat(Pattern.compile("(?:a\\x{D800}\\x{DC00}|za\uD800\uDC00|banana)").rejectPlan())
+        .isNotInstanceOf(RejectPlan.DisjointLiterals.class);
+  }
+
   /**
    * Returns the {@link CharClassScanInfo} a leading {@code [ranges]} character class compiles to.
    */

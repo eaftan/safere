@@ -124,8 +124,10 @@ The helper script records each fuzzer's combined stdout/stderr stream under
 `safere-fuzz/target/fuzz-logs/<run-id>/<Fuzzer>.log`. Use these logs alongside
 Surefire XML reports when triaging `jazzer.keep_going` runs, since the XML does
 not always preserve every console detail needed to map findings to crash inputs.
-When one fuzzer exits with findings, the helper still runs the remaining
-requested fuzzers and reports the failed targets at the end.
+The helper checks each target's current-run log, semantic finding JSON, and raw
+reproducer directory regardless of its process exit status. It still runs the
+remaining requested fuzzers after findings or failures. Python 3 is required for
+selection and reporting; the runner does not require `rg`.
 
 ## Findings
 
@@ -142,10 +144,35 @@ from similarity to a known finding.
 - A new failure in an enrolled target needs investigation, not automatic demotion
   or suppression. Document any corrected domain/property and preserve coverage.
 
-The runner retains nonzero status for failures and labels logs with observed
-finding evidence versus execution failure. The label is diagnostic, not a claim
-that a semantic finding is the only failure in the run. No automatic similarity
-classification or known-finding suppression is performed.
+Per-target and final summaries report independent dimensions:
+
+- `process=SUCCEEDED/FAILED` records the Maven exit status. A nonzero exit can
+  result from findings, an execution failure, or both; evidence of findings does
+  not hide the process failure.
+- `findings=NONE/UNTRIAGED` records whether finding evidence was observed, including
+  unexpected exceptions without semantic JSON. `UNTRIAGED` may include known
+  intentional differences and does not mean every difference is a new bug. Use
+  the divergence workflow and intentional reproduction registry to classify exact
+  cases; execution signals alone do not establish an exemption.
+- `reporting=FAILED` means evidence or its summary could not be read or written
+  reliably. `findings=UNKNOWN` marks unavailable inspection, for example because
+  the reporter or log capture failed. Observed findings are retained when only
+  appending the target summary or saving the result JSON fails. A reporting
+  failure is never treated as an absence of findings or as a failure of the fuzz
+  process itself.
+
+Any finding evidence, nonzero process exit, or reporting failure makes the runner
+exit nonzero. In particular, Jazzer `keep_going` runs that exit zero with findings
+are still flagged for review. No automatic similarity classification or
+known-finding suppression is performed.
+
+The run directory also contains per-target `*-result.json` reports with evidence
+filenames and a final `summary.txt`. The same target statuses appear in the
+GitHub Actions step summary. Raw evidence remains available for triage if
+reporting fails.
+Archive-write failures do not stop remaining targets or console/Actions
+summaries; failures to write either final summary are reported where possible
+and make the runner exit nonzero.
 
 Validate the manifest and exporter independently of Java:
 

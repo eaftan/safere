@@ -35,6 +35,7 @@ public final class Utf8InputFuzzer {
     assertMultiOffsetLiteralOccurrencesMatchString(data);
     assertFinalLineTerminatorEndAnchorsMatchJdk(data);
     assertPositionDependentStartAccelerationMatchesJdk(data);
+    assertLeadingExpansionMatchesJdk(data);
     RepresentationChecks.assertGraphemeSearchMatchesString(data);
     RepresentationChecks.assertMultibyteMultiAnchorReverseWindowMatchesString(data);
     assertCaseInsensitivePrefixSliceBounds(data);
@@ -91,6 +92,26 @@ public final class Utf8InputFuzzer {
         || pattern.find(utf8) != found
         || (found && (actual.start() != expected.start() || actual.end() != expected.end()))) {
       throw new AssertionError("case-insensitive prefix search crossed UTF-8 slice bounds");
+    }
+  }
+
+  private static void assertLeadingExpansionMatchesJdk(FuzzedDataProvider data) {
+    String leading = data.pickValue(List.of("\\s", "[é😀]", "[ab]"));
+    String regex =
+        leading
+            + data.pickValue(List.of("*", "*?", "+", "{0,3}", "{1,3}"))
+            + "# noqa"
+            + data.pickValue(List.of("[0-9]", "\\b"));
+    String input =
+        data.pickValue(List.of(" ", "é😀", "ab")).repeat(data.consumeInt(0, 64))
+            + data.pickValue(List.of("# noqaX", "# noqa1", "# nopeX"))
+            + data.pickValue(List.of("", "    # noqa2", "é😀# noqa3"));
+    Pattern pattern = Pattern.compile(regex);
+    Utf8Input utf8 = Utf8Input.validated(input.getBytes(StandardCharsets.UTF_8));
+    boolean expected = java.util.regex.Pattern.compile(regex).matcher(input).find();
+    if (pattern.find(utf8) != expected || pattern.matcher(utf8).find() != expected) {
+      throw new AssertionError(
+          "leading expansion search differs from JDK: " + regex + " on " + input);
     }
   }
 

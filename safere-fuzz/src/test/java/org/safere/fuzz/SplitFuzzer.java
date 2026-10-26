@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.safere.Pattern;
 
@@ -82,6 +83,31 @@ public final class SplitFuzzer {
       pattern.split(input, limit);
       pattern.splitWithDelimiters(input, limit);
     }
+  }
+
+  @FuzzTest(maxDuration = "30s")
+  void literalPrefixSplits(FuzzedDataProvider data) {
+    // Refs #1050. Generate short matching prefixes as well as complete and longer inputs.
+    String literal = data.pickValue(List.of("a", "Ab", "a😀b")).repeat(data.consumeInt(1, 16));
+    String anchor = data.pickValue(List.of("^", "\\A", ""));
+    int flags =
+        data.pickValue(
+            List.of(Pattern.CASE_INSENSITIVE, 0, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE));
+    int prefixLength = data.consumeInt(0, literal.codePointCount(0, literal.length()));
+    String input = literal.substring(0, literal.offsetByCodePoints(0, prefixLength));
+    if (data.consumeBoolean()) {
+      input = input.toUpperCase(Locale.ROOT);
+    }
+    input += data.pickValue(List.of("", "~", literal));
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(anchor + literal, flags);
+    if (pattern == null) {
+      return;
+    }
+    int limit = data.consumeInt(-2, 8);
+    pattern.split(input);
+    pattern.split(input, limit);
+    pattern.splitWithDelimiters(input);
+    pattern.splitWithDelimiters(input, limit);
   }
 
   @FuzzTest(maxDuration = "30s")

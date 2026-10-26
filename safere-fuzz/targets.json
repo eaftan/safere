@@ -143,6 +143,7 @@
     "methods": [
       "unassignedControlSplits",
       "repeatedClassSplits",
+      "literalPrefixSplits",
       "split"
     ]
   },

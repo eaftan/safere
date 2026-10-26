@@ -205,6 +205,61 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  void leadingExpansionPreservesExplicitStartsAndRegionTraces() {
+    EnginePathOptions unaccelerated = EnginePathOptions.builder().startAcceleration(false).build();
+    for (String scalar : List.of("\\uDC4D", "[\\uDC00-\\uDFFF]", "\\p{Cs}", ".")) {
+      for (String quantifier : List.of("*", "*?", "+", "+?", "?", "??", "{0,2}", "{1,2}?")) {
+        for (String regex :
+            List.of(
+                scalar + quantifier + "[ab]\\b{g}",
+                "(" + scalar + ")" + quantifier + "([ab])\\b{g}",
+                "(" + scalar + quantifier + ")([ab])(\\b{g})")) {
+          Pattern accelerated = Pattern.compile(regex);
+          Pattern control = Pattern.compile(regex, 0, unaccelerated);
+          for (String input :
+              List.of(
+                  "\uD83D\uDC4Da",
+                  "\uD83D\uDC4D\uDC4D\uDC4Da",
+                  "\uDC4Da\uD83D\uDC4Db\uDC4Da\uD83D",
+                  "\uD83D\uDC4Da\uD83D\uDC4Db",
+                  "\uD83D\uDC4Da\u0301\uDC4Db")) {
+            for (int start = 0; start <= input.length(); start++) {
+              Matcher fast = accelerated.matcher(input);
+              Matcher slow = control.matcher(input);
+              assertThat(snapshot(fast, fast.find(start)))
+                  .as("/%s/ find(%s) on %s", regex, start, input.chars().boxed().toList())
+                  .isEqualTo(snapshot(slow, slow.find(start)));
+              assertThat(findTrace(fast)).isEqualTo(findTrace(slow));
+              if (start < input.length()) {
+                fast = Pattern.compile("").matcher(input);
+                slow = Pattern.compile("").matcher(input);
+                assertThat(fast.find(start)).isTrue();
+                assertThat(slow.find(start)).isTrue();
+                fast.usePattern(accelerated);
+                slow.usePattern(control);
+                assertThat(findTrace(fast))
+                    .as("/%s/ after empty match at %s", regex, start)
+                    .isEqualTo(findTrace(slow));
+              }
+              for (int end = start; end <= input.length(); end++) {
+                for (boolean transparent : new boolean[] {false, true}) {
+                  for (boolean anchoring : new boolean[] {false, true}) {
+                    assertThat(regionTrace(accelerated, input, start, end, transparent, anchoring))
+                        .as(
+                            "/%s/ region [%s,%s), transparent=%s, anchoring=%s",
+                            regex, start, end, transparent, anchoring)
+                        .isEqualTo(regionTrace(control, input, start, end, transparent, anchoring));
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   @DisplayName("DFA-loop start acceleration preserves position-dependent state across inputs")
   void dfaLoopStartAccelerationPreservesPositionDependentStateAcrossInputs() {
     String regex = "(b|(?m:^a))c[0-9]";
