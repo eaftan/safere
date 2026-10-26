@@ -95,16 +95,10 @@ final class Nfa {
   }
 
   private static final class AddToThreadqStack {
-    private int[] ids = new int[32];
-    private boolean[] consumedInputs = new boolean[32];
-    private int[] restoreIndexes = filledArray(32, -1);
-    private int[] restoreValues = new int[32];
+    // High word: -1 for an instruction, a nonnegative restore slot, or an encoded completion.
+    // Low word: instruction ID plus consumed-input bit, or the saved register value.
+    private long[] frames = new long[32];
     private int size;
-
-    int id;
-    boolean consumedInput;
-    int restoreIndex;
-    int restoreValue;
 
     void clear() {
       size = 0;
@@ -116,50 +110,32 @@ final class Nfa {
 
     void pushInstruction(int id, boolean consumedInput) {
       ensureCapacity(size + 1);
-      ids[size] = id;
-      consumedInputs[size] = consumedInput;
-      restoreIndexes[size] = -1;
-      restoreValues[size] = -1;
-      size++;
+      frames[size++] = (-1L << 32) | ((long) id << 1) | (consumedInput ? 1 : 0);
     }
 
     void pushRestore(int restoreIndex, int restoreValue) {
       ensureCapacity(size + 1);
-      ids[size] = 0;
-      consumedInputs[size] = false;
-      restoreIndexes[size] = restoreIndex;
-      restoreValues[size] = restoreValue;
-      size++;
+      frames[size++] = ((long) restoreIndex << 32) | Integer.toUnsignedLong(restoreValue);
     }
 
-    void pop() {
-      size--;
-      id = ids[size];
-      consumedInput = consumedInputs[size];
-      restoreIndex = restoreIndexes[size];
-      restoreValue = restoreValues[size];
+    void pushCompletion(int instructionId) {
+      ensureCapacity(size + 1);
+      frames[size++] = (long) (-2 - instructionId) << 32;
+    }
+
+    long pop() {
+      return frames[--size];
     }
 
     private void ensureCapacity(int minCapacity) {
-      if (minCapacity <= ids.length) {
+      if (minCapacity <= frames.length) {
         return;
       }
-      int newCapacity = ids.length * 2;
+      int newCapacity = frames.length * 2;
       while (newCapacity < minCapacity) {
         newCapacity *= 2;
       }
-      ids = Arrays.copyOf(ids, newCapacity);
-      consumedInputs = Arrays.copyOf(consumedInputs, newCapacity);
-      int oldLength = restoreIndexes.length;
-      restoreIndexes = Arrays.copyOf(restoreIndexes, newCapacity);
-      Arrays.fill(restoreIndexes, oldLength, restoreIndexes.length, -1);
-      restoreValues = Arrays.copyOf(restoreValues, newCapacity);
-    }
-
-    private static int[] filledArray(int length, int value) {
-      int[] result = new int[length];
-      Arrays.fill(result, value);
-      return result;
+      frames = Arrays.copyOf(frames, newCapacity);
     }
   }
 
@@ -882,22 +858,23 @@ final class Nfa {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      stack.pop();
-      if (stack.restoreIndex >= 0) {
-        t0[stack.restoreIndex] = stack.restoreValue;
+      long frame = stack.pop();
+      int restoreIndex = (int) (frame >> 32);
+      if (restoreIndex != -1) {
+        if (restoreIndex >= 0) {
+          t0[restoreIndex] = (int) frame;
+        } else {
+          // This epsilon expansion is complete; later entries at this position are skipped.
+          markExpansionComplete(q, -2 - restoreIndex, text, pos);
+        }
         continue;
       }
-      if (stack.restoreIndex < -1) {
-        // This epsilon expansion is complete; later entries at this position are skipped.
-        markExpansionComplete(q, -2 - stack.restoreIndex, text, pos);
-        continue;
-      }
-      if (stack.id == 0) {
+      int instructionId = (int) frame >>> 1;
+      if (instructionId == 0) {
         continue;
       }
 
-      int instructionId = stack.id;
-      boolean frameConsumedInput = stack.consumedInput;
+      boolean frameConsumedInput = (frame & 1) != 0;
       Inst ip = prog.inst(instructionId);
       // Loop instructions are excluded from the visited set: progress registers terminate
       // zero-width iterations, while fresh entries reset only their own loop's register.
@@ -928,7 +905,9 @@ final class Nfa {
         if (isExpansionComplete(q, instructionId, text, pos)) {
           continue;
         }
-        stack.pushRestore(-2 - instructionId, 0);
+        if (ip.op == InstOp.NOP) {
+          stack.pushCompletion(instructionId);
+        }
       }
 
       switch (ip.op) {
@@ -976,7 +955,13 @@ final class Nfa {
                     prog.hasTextAnchor());
           }
           if ((ip.arg & ~cachedFlags) == 0) {
+            if (prog.numLoopRegs() > 0) {
+              stack.pushCompletion(instructionId);
+            }
             stack.pushInstruction(ip.out, frameConsumedInput);
+          } else if (prog.numLoopRegs() > 0) {
+            // A failed assertion has no continuation; its expansion is already complete.
+            markExpansionComplete(q, instructionId, text, pos);
           }
         }
 
@@ -994,7 +979,7 @@ final class Nfa {
           int regIdx = ncapture + ip.arg;
           int saved = t0[regIdx];
           t0[regIdx] = -1;
-          stack.pushRestore(-2 - instructionId, 0);
+          stack.pushCompletion(instructionId);
           stack.pushRestore(regIdx, saved);
           stack.pushInstruction(ip.out, frameConsumedInput);
         }

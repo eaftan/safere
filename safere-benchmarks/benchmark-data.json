@@ -4073,6 +4073,20 @@
         "input": "endAnchoredReplace.noLiteral.16384",
         "suffix": " foo"
       }
+    },
+    {
+      "id": "nfaEpsilon.words.{size}",
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "word,",
+        "count": "{size}"
+      }
     }
   ],
   "workloads": [
@@ -16364,6 +16378,198 @@
           "prematerializedInput"
         ]
       }
+    },
+    {
+      "id": "NfaEpsilonBenchmark.wordBoundaries.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:\\b(?:[a-z]+|[a-z]{2,})\\b[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.nullableAlternatives.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "^((?:[a-z]?(?:|[,;]))+)$"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.nullableAssertions.{size}",
+      "operation": "matches",
+      "patterns": [
+        "(?:[a-z]?(?:\\b?|[,;]))+"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.optionalBoundaries.{count}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:(?:\\b?){{count}}(?:[a-z]+|[a-z]{2,})[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.32768"
+      ],
+      "axes": {
+        "count": [
+          8,
+          24
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.optionalEmptyBranches.{count}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:(?:(?:|x)?){{count}}(?:[a-wy-z]+|[a-wy-z]{2,})[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.32768"
+      ],
+      "axes": {
+        "count": [
+          8,
+          24
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
     }
   ]
 }
