@@ -492,7 +492,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void abandonedCaptureSpeculationPreservesEarlierReplacementBoundary() {
+  void captureHistoryPreservesDfaBoundaryAcrossReplacementRejection() {
     Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
     Matcher priming = pattern.matcher("error:[C] code:500");
     assertThat(priming.find()).isTrue();
@@ -508,7 +508,9 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+              assertThat(event.forwardDfaSearchCount()).isPositive();
               assertThat(event.matchCount()).isEqualTo(1);
             });
   }
