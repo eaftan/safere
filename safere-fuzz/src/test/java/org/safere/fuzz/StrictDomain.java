@@ -33,7 +33,7 @@ final class StrictDomain {
 
   // Recursion is statically bounded by MAX_DEPTH, independent of fuzz input.
   private static Sample generate(IntUnaryOperator choice, int depth) {
-    int operation = depth == 0 ? 0 : choice.applyAsInt(4);
+    int operation = depth == 0 ? 0 : choice.applyAsInt(5);
     if (operation == 0) {
       int atom = choice.applyAsInt(ATOMS.size());
       return new Sample(
@@ -49,6 +49,12 @@ final class StrictDomain {
       return new Sample(quantify(left.regex(), quantifier), left.witness().repeat(copies));
     }
     Sample right = generate(choice, depth - 1);
+    if (operation == 4) {
+      // Exercise the final empty iteration after a consuming iteration, with a lower-priority
+      // consuming alternative. In particular, NFA epsilon deduplication must retain the exit.
+      String body = concatenate(quantify(left.regex(), "?"), alternate("", right.regex()));
+      return new Sample(quantify(body, List.of("+", "*", "+?").get(choice.applyAsInt(3))), "");
+    }
     if (operation == 1) {
       return new Sample(concatenate(left.regex(), right.regex()), left.witness() + right.witness());
     }
