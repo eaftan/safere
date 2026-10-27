@@ -11,7 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Substring and original-input anchor models from docs/OPAQUE_REGION_BOUNDS.md. */
 @DisabledForCrosscheck("Opaque substring semantics intentionally differ from JDK region behavior")
@@ -126,6 +130,49 @@ class OpaqueRegionContractTest {
                 .bitState(false)
                 .build())) {
       checkSubstrings(LOCAL_PATTERNS, true, options);
+    }
+  }
+
+  private static Stream<Arguments> graphemeCandidateCases() {
+    Stream.Builder<Arguments> cases = Stream.builder();
+    for (String regex :
+        List.of(
+            "\\uDE00\\X?",
+            "\\p{Cs}\\X?",
+            "(\\uDE00)(\\X?)",
+            "\\X?\\uDE00",
+            "(?:\\p{Cs})|(?:\\Xz)",
+            "(?:\\Xz)|(?:\\p{Cs})",
+            "(?:\\uDE00\\X?)|(?m:^Q)",
+            "(?:\\p{Cs}\\X?)|(?m:^Q)",
+            "(?:\\X?\\uDE00)|(?m:^Q)")) {
+      for (String visible : List.of("😀", "😀😀", "😀\uDE00", "\uDE00😀", "x😀y", "\uDE00")) {
+        for (String prefix : List.of("", "a", "ab", "\uD83D")) {
+          for (boolean anchoring : List.of(false, true)) {
+            cases.add(Arguments.of(regex, visible, prefix, anchoring));
+          }
+        }
+      }
+    }
+    return cases.build();
+  }
+
+  @ParameterizedTest
+  @MethodSource("graphemeCandidateCases")
+  void opaqueGraphemeRegionsPreserveSubstringCandidateStarts(
+      String regex, String visible, String prefix, boolean anchoring) {
+    Pattern pattern = Pattern.compile(regex);
+    String input = prefix + visible + "!";
+    int start = prefix.length();
+    for (int operation = 0; operation < 3; operation++) {
+      Matcher region =
+          pattern
+              .matcher(input)
+              .region(start, start + visible.length())
+              .useAnchoringBounds(anchoring);
+      assertThat(OpaqueRegionChecks.trace(region, operation, start))
+          .as("%s regionStart=%s anchoring=%s operation=%s", regex, start, anchoring, operation)
+          .isEqualTo(OpaqueRegionChecks.trace(pattern.matcher(visible), operation, 0));
     }
   }
 

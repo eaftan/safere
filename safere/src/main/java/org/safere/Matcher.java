@@ -1739,11 +1739,45 @@ public final class Matcher implements MatchResult {
     if (prog.anchorStart() && searchFrom > regionStart) {
       return applyFailedMatchResult();
     }
+    int effectiveStart = searchFrom;
+    if (!transparentBounds && text != null && prog.hasGraphemeClusterInstruction()) {
+      EnginePathOptions options = enginePathOptions();
+      // Scalar class scans advance over complete pairs. Reuse that candidate policy in the
+      // opaque region without changing the NFA's intentional low-surrogate starts otherwise.
+      RejectPrefilter rejection = parentPattern.findRejectPrefilter();
+      if (rejection != null) {
+        MatchStrategy strategy =
+            rejection.regionCharClassRejectionStrategy(
+                activeScanner(), searchFrom, regionEnd, options);
+        if (strategy != null) {
+          diagnosticParticipation(strategy, StrategyRole.REJECT_PREFILTER);
+          diagnosticBoundary(strategy);
+          return applyFailedMatchResult();
+        }
+      }
+      if (options.startAcceleration()
+          && !prog.anchorStart()
+          && parentPattern.stringStartAccelerator() instanceof StringStartAccelerator.CharClass cc
+          && startAccelerationAllowed(searchFrom - regionStart, cc.policy())) {
+        diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
+        int candidate = cc.findCandidate(text, searchFrom, regionEnd);
+        if (candidate < 0) {
+          diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return applyFailedMatchResult();
+        }
+        chargeStartAcceleration(
+            searchFrom - regionStart,
+            candidate - regionStart,
+            regionEnd - regionStart,
+            cc.policy());
+        effectiveStart = candidate;
+      }
+    }
     int[] result =
         searchWithBitStateOrNfa(
             prog,
             activeScanner(),
-            searchFrom,
+            effectiveStart,
             regionEnd,
             regionEnd,
             false,

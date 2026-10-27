@@ -432,12 +432,27 @@ sealed interface StringStartAccelerator {
       return indexOfCharClass(text, asciiTable, scanInfo.ranges(), scanInfo.isAscii(), fromIndex);
     }
 
+    /** Scans a bounded region without allocating a substring or decoding beyond its end. */
+    int findCandidate(String text, int fromIndex, int end) {
+      return indexOfCharClass(
+          text, asciiTable, scanInfo.ranges(), scanInfo.isAscii(), fromIndex, end);
+    }
+
     private static int indexOfCharClass(
         String text, boolean[] asciiTable, int[] ranges, boolean isAscii, int fromIndex) {
-      int length = text.length();
+      return indexOfCharClass(text, asciiTable, ranges, isAscii, fromIndex, text.length());
+    }
+
+    private static int indexOfCharClass(
+        String text,
+        boolean[] asciiTable,
+        int[] ranges,
+        boolean isAscii,
+        int fromIndex,
+        int length) {
       int index = fromIndex;
       while (index < length) {
-        int asciiResult = scanAsciiRun(text, asciiTable, index);
+        int asciiResult = scanAsciiRun(text, asciiTable, index, length);
         if (asciiResult >= 0) {
           return asciiResult;
         }
@@ -449,7 +464,13 @@ sealed interface StringStartAccelerator {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        int cp = text.codePointAt(index);
+        char first = text.charAt(index);
+        int cp =
+            Character.isHighSurrogate(first)
+                    && index + 1 < length
+                    && Character.isLowSurrogate(text.charAt(index + 1))
+                ? Character.toCodePoint(first, text.charAt(index + 1))
+                : first;
         if (!isAscii && Matcher.binarySearchRanges(ranges, cp)) {
           return index;
         }
@@ -464,8 +485,7 @@ sealed interface StringStartAccelerator {
      * Unicode decoding and range lookup outside this loop allows HotSpot to optimize the common
      * ASCII path independently.
      */
-    private static int scanAsciiRun(String text, boolean[] asciiTable, int fromIndex) {
-      int length = text.length();
+    private static int scanAsciiRun(String text, boolean[] asciiTable, int fromIndex, int length) {
       for (int i = fromIndex; i < length; i++) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
