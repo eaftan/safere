@@ -258,8 +258,8 @@ public final class SafeReDiagnostics {
     json.append(',');
     appendBooleanField(json, "unixLines", prog.unixLines());
     json.append(',');
-    appendBooleanField(
-        json, "requiresPikeNfaCaptureSemantics", prog.requiresPikeNfaCaptureSemantics());
+    // Retain this required v1 schema field after removing capture-restoration lowering.
+    appendBooleanField(json, "requiresPikeNfaCaptureSemantics", false);
     json.append(',');
     appendBooleanField(json, "hasGraphemeSemantics", prog.hasGraphemeSemantics());
     json.append(',');
