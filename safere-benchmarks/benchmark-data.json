@@ -666,7 +666,7 @@
       "id": "vectorScan.multi.nonascii.32768",
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "é",
+        "unit": "\u00e9",
         "length": 32768
       },
       "shared": true
@@ -947,7 +947,7 @@
       },
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "See ［1.2.3］ and ［4.5.6, 7.8.9］ for version 2.4.1 details. ",
+        "unit": "See \uff3b1.2.3\uff3d and \uff3b4.5.6, 7.8.9\uff3d for version 2.4.1 details. ",
         "length": "{size}"
       },
       "shared": true
@@ -962,7 +962,7 @@
       },
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "v1.0 这是一个［注釋］测试句子，参见［附录］。 ",
+        "unit": "v1.0 \u8fd9\u662f\u4e00\u4e2a\uff3b\u6ce8\u91cb\uff3d\u6d4b\u8bd5\u53e5\u5b50\uff0c\u53c2\u89c1\uff3b\u9644\u5f55\uff3d\u3002 ",
         "length": "{size}"
       },
       "shared": true
@@ -976,8 +976,8 @@
       },
       "recipe": {
         "kind": "periodicAlternationToLength",
-        "hitUnit": "这是一个测试句子，参见附录。［1.2.3］",
-        "missUnit": "这是一个测试句子，参见附录。",
+        "hitUnit": "\u8fd9\u662f\u4e00\u4e2a\u6d4b\u8bd5\u53e5\u5b50\uff0c\u53c2\u89c1\u9644\u5f55\u3002\uff3b1.2.3\uff3d",
+        "missUnit": "\u8fd9\u662f\u4e00\u4e2a\u6d4b\u8bd5\u53e5\u5b50\uff0c\u53c2\u89c1\u9644\u5f55\u3002",
         "hitInterval": 64,
         "length": "{size}"
       },
@@ -1040,7 +1040,7 @@
       "recipe": {
         "kind": "appendInput",
         "input": "leadingExpansion.spaces.{size}",
-        "suffix": "［x"
+        "suffix": "\uff3bx"
       },
       "shared": true
     },
@@ -1165,12 +1165,7 @@
     {
       "id": "searchScaling.unicodeEnd.{size}",
       "axes": {
-        "size": [
-          1024,
-          10240,
-          102400,
-          1048576
-        ]
+        "size": [1024, 10240, 102400, 1048576]
       },
       "recipe": {
         "kind": "suffixToLength",
@@ -2080,7 +2075,7 @@
       },
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "é😀 words without digits ",
+        "unit": "\u00e9\ud83d\ude00 words without digits ",
         "length": "{size}"
       },
       "shared": true
@@ -2096,7 +2091,7 @@
       },
       "recipe": {
         "kind": "suffixToLength",
-        "prefixUnit": "é😀 words without digits ",
+        "prefixUnit": "\u00e9\ud83d\ude00 words without digits ",
         "suffix": " 2026x",
         "length": "{size}"
       },
@@ -2901,7 +2896,7 @@
       },
       "recipe": {
         "kind": "delimitedRepeatToLength",
-        "value": "いくつもの　中国語と日本語の文字　がここにあります　そして　いくつかのスペース　があります",
+        "value": "\u3044\u304f\u3064\u3082\u306e\u3000\u4e2d\u56fd\u8a9e\u3068\u65e5\u672c\u8a9e\u306e\u6587\u5b57\u3000\u304c\u3053\u3053\u306b\u3042\u308a\u307e\u3059\u3000\u305d\u3057\u3066\u3000\u3044\u304f\u3064\u304b\u306e\u30b9\u30da\u30fc\u30b9\u3000\u304c\u3042\u308a\u307e\u3059",
         "delimiterAlphabet": " ",
         "seed": 42,
         "length": "{size}"
@@ -2919,7 +2914,7 @@
       },
       "recipe": {
         "kind": "delimitedRepeatToLength",
-        "value": "いくつもの中国語と日本語の文字がここにありますそしていくつかのスペースがあります",
+        "value": "\u3044\u304f\u3064\u3082\u306e\u4e2d\u56fd\u8a9e\u3068\u65e5\u672c\u8a9e\u306e\u6587\u5b57\u304c\u3053\u3053\u306b\u3042\u308a\u307e\u3059\u305d\u3057\u3066\u3044\u304f\u3064\u304b\u306e\u30b9\u30da\u30fc\u30b9\u304c\u3042\u308a\u307e\u3059",
         "delimiterAlphabet": " ",
         "seed": 42,
         "length": "{size}"
@@ -2937,7 +2932,7 @@
       },
       "recipe": {
         "kind": "delimitedRepeatToLength",
-        "value": "这是一个中文测试句子",
+        "value": "\u8fd9\u662f\u4e00\u4e2a\u4e2d\u6587\u6d4b\u8bd5\u53e5\u5b50",
         "delimiterAlphabet": " ",
         "seed": 42,
         "length": "{size}"
@@ -2973,7 +2968,7 @@
       },
       "recipe": {
         "kind": "delimitedRepeatToLength",
-        "value": "Today is a beautiful day 😇 with warm sunshine.",
+        "value": "Today is a beautiful day \ud83d\ude07 with warm sunshine.",
         "delimiterAlphabet": " ",
         "seed": 42,
         "length": "{size}"
@@ -3285,21 +3280,21 @@
       "id": "utf8.captureFree.multibyteEarly",
       "recipe": {
         "kind": "literal",
-        "text": "错误：请求失败"
+        "text": "\u9519\u8bef\uff1a\u8bf7\u6c42\u5931\u8d25"
       }
     },
     {
       "id": "utf8.captureFree.multibyteLate",
       "recipe": {
         "kind": "literal",
-        "text": "请求处理结束：错误"
+        "text": "\u8bf7\u6c42\u5904\u7406\u7ed3\u675f\uff1a\u9519\u8bef"
       }
     },
     {
       "id": "utf8.captureFree.multibyteNoMatch",
       "recipe": {
         "kind": "literal",
-        "text": "请求处理成功"
+        "text": "\u8bf7\u6c42\u5904\u7406\u6210\u529f"
       }
     },
     {
@@ -3313,7 +3308,7 @@
       "id": "utf8.repeatedFind.multibyte",
       "recipe": {
         "kind": "literal",
-        "text": "one café 東京 naïve"
+        "text": "one caf\u00e9 \u6771\u4eac na\u00efve"
       }
     },
     {
@@ -3327,7 +3322,7 @@
       "id": "utf8.captureBounds.named",
       "recipe": {
         "kind": "literal",
-        "text": "city=東京&name=Renée"
+        "text": "city=\u6771\u4eac&name=Ren\u00e9e"
       }
     },
     {
@@ -3341,42 +3336,42 @@
       "id": "utf8.emptyMatch",
       "recipe": {
         "kind": "literal",
-        "text": "a💰有"
+        "text": "a\ud83d\udcb0\u6709"
       }
     },
     {
       "id": "utf8.window",
       "recipe": {
         "kind": "literal",
-        "text": "sentinel-before-city=東京&name=Renée-sentinel-after"
+        "text": "sentinel-before-city=\u6771\u4eac&name=Ren\u00e9e-sentinel-after"
       }
     },
     {
       "id": "utf8.construction",
       "recipe": {
         "kind": "literal",
-        "text": "one café 東京 naïve"
+        "text": "one caf\u00e9 \u6771\u4eac na\u00efve"
       }
     },
     {
       "id": "utf8.replacement.literal",
       "recipe": {
         "kind": "literal",
-        "text": "错误 then 错误"
+        "text": "\u9519\u8bef then \u9519\u8bef"
       }
     },
     {
       "id": "utf8.replacement.numbered",
       "recipe": {
         "kind": "literal",
-        "text": "city=東京&name=Renée"
+        "text": "city=\u6771\u4eac&name=Ren\u00e9e"
       }
     },
     {
       "id": "utf8.replacement.named",
       "recipe": {
         "kind": "literal",
-        "text": "city=東京&name=Renée"
+        "text": "city=\u6771\u4eac&name=Ren\u00e9e"
       }
     },
     {
@@ -3599,7 +3594,7 @@
       "recipe": {
         "kind": "suffixToLength",
         "prefixUnit": "0123456789 9876543210 1357924680 ",
-        "suffix": "é123",
+        "suffix": "\u00e9123",
         "length": "{size}"
       },
       "shared": true
@@ -3632,7 +3627,7 @@
       "recipe": {
         "kind": "suffixToLength",
         "prefixUnit": "The quick brown fox jumps over the lazy dog. Standard English prose without CJK characters. ",
-        "suffix": "你好123",
+        "suffix": "\u4f60\u597d123",
         "length": "{size}"
       },
       "shared": true
@@ -3647,7 +3642,7 @@
       },
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "这是一个中文测试句子，不包含任何阿拉伯数字。 ",
+        "unit": "\u8fd9\u662f\u4e00\u4e2a\u4e2d\u6587\u6d4b\u8bd5\u53e5\u5b50\uff0c\u4e0d\u5305\u542b\u4efb\u4f55\u963f\u62c9\u4f2f\u6570\u5b57\u3002 ",
         "length": "{size}"
       },
       "shared": true
@@ -3912,7 +3907,7 @@
       },
       "recipe": {
         "kind": "repeatToLength",
-        "unit": "é中😀",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
         "length": "{size}"
       },
       "shared": true
@@ -3947,7 +3942,7 @@
       "recipe": {
         "kind": "surroundToLength",
         "prefix": "",
-        "unit": "é中😀",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
         "suffix": "Z",
         "length": "{size}"
       },
@@ -5241,53 +5236,31 @@
     {
       "id": "SearchScalingBenchmark.endAnchoredUnicodeSuccess.{size}",
       "axes": {
-        "size": [
-          1024,
-          10240,
-          102400,
-          1048576
-        ]
+        "size": [1024, 10240, 102400, 1048576]
       },
       "operation": "find",
-      "patterns": [
-        "終点😀$"
-      ],
-      "inputs": [
-        "searchScaling.unicodeEnd.{size}"
-      ],
+      "patterns": ["終点😀$"],
+      "inputs": ["searchScaling.unicodeEnd.{size}"],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "microseconds",
-        "constraints": [
-          "prematerializedInput"
-        ]
+        "constraints": ["prematerializedInput"]
       }
     },
     {
       "id": "SearchScalingBenchmark.endAnchoredGreedySuccess.{size}",
       "axes": {
-        "size": [
-          1024,
-          10240,
-          102400,
-          1048576
-        ]
+        "size": [1024, 10240, 102400, 1048576]
       },
       "operation": "find",
-      "patterns": [
-        "(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
-      ],
-      "inputs": [
-        "searchScaling.success.{size}"
-      ],
+      "patterns": ["(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"],
+      "inputs": ["searchScaling.success.{size}"],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "microseconds",
-        "constraints": [
-          "prematerializedInput"
-        ]
+        "constraints": ["prematerializedInput"]
       }
     },
     {
@@ -5991,14 +5964,14 @@
       "operation": "replaceAll",
       "patterns": [
         {
-          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
           "alternates": {
             "rust-regex": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": "Rust regex gives \\d Unicode semantics"
             },
             "dotnet": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
             }
           }
@@ -6036,14 +6009,14 @@
       "operation": "replaceAll",
       "patterns": [
         {
-          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
           "alternates": {
             "rust-regex": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": "Rust regex gives \\d Unicode semantics"
             },
             "dotnet": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
             }
           }
@@ -6076,14 +6049,14 @@
       "operation": "replaceAll",
       "patterns": [
         {
-          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
           "alternates": {
             "rust-regex": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": "Rust regex gives \\d Unicode semantics"
             },
             "dotnet": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
             }
           }
@@ -6116,14 +6089,14 @@
       "operation": "replaceAll",
       "patterns": [
         {
-          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
           "alternates": {
             "rust-regex": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": "Rust regex gives \\d Unicode semantics"
             },
             "dotnet": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
             }
           }
@@ -6156,14 +6129,14 @@
       "operation": "replaceAll",
       "patterns": [
         {
-          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
           "alternates": {
             "rust-regex": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": "Rust regex gives \\d Unicode semantics"
             },
             "dotnet": {
-              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
               "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
             }
           }
@@ -6275,7 +6248,7 @@
       "id": "StartAccelerationBenchmark.leadingExpansion.longRun.{repetition}.{size}",
       "operation": "find",
       "patterns": [
-        " {repetition}[\\[［]x"
+        " {repetition}[\\[\uff3b]x"
       ],
       "inputs": [
         "leadingExpansion.longRun.{size}"
@@ -7143,7 +7116,7 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.cjkSearch.{matchLabel}.{size}",
       "operation": "find",
       "patterns": [
-        "[一-龥]{3,}"
+        "[\u4e00-\u9fa5]{3,}"
       ],
       "inputs": [
         "realWorldRegex.cjkSearch.{matchLabel}.{size}"
@@ -7173,7 +7146,7 @@
       "operation": "find",
       "patterns": [
         {
-          "java": "[😀-😇]",
+          "java": "[\ud83d\ude00-\ud83d\ude07]",
           "alternates": {
             "dotnet": {
               "pattern": "\\uD83D[\\uDE00-\\uDE07]",
@@ -7926,7 +7899,7 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.recitation.{matchLabel}.{size}",
       "operation": "replaceAll",
       "patterns": [
-        "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]"
+        "\\s*[\\[\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\uff3d]"
       ],
       "inputs": [
         "realWorldRegex.recitation.{matchLabel}.{size}"
@@ -11879,18 +11852,9 @@
             "value": {
               "java": "\\p{IsAlphabetic}+",
               "alternates": {
-                "re2": {
-                  "unsupported": true,
-                  "reason": "RE2 and Go regexp do not expose Java's IsAlphabetic property"
-                },
-                "pcre2": {
-                  "pattern": "\\p{Alphabetic}+",
-                  "reason": "PCRE2 omits Java's Is prefix"
-                },
-                "rust-regex": {
-                  "pattern": "\\p{Alphabetic}+",
-                  "reason": "Rust regex omits Java's Is prefix"
-                }
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's IsAlphabetic property"},
+                "pcre2": {"pattern": "\\p{Alphabetic}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Alphabetic}+", "reason": "Rust regex omits Java's Is prefix"}
               }
             }
           },
@@ -11899,18 +11863,9 @@
             "value": {
               "java": "\\p{IsEmoji}+",
               "alternates": {
-                "re2": {
-                  "unsupported": true,
-                  "reason": "RE2 and Go regexp do not expose Java's IsEmoji property"
-                },
-                "pcre2": {
-                  "pattern": "\\p{Emoji}+",
-                  "reason": "PCRE2 omits Java's Is prefix"
-                },
-                "rust-regex": {
-                  "pattern": "\\p{Emoji}+",
-                  "reason": "Rust regex omits Java's Is prefix"
-                }
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's IsEmoji property"},
+                "pcre2": {"pattern": "\\p{Emoji}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Emoji}+", "reason": "Rust regex omits Java's Is prefix"}
               }
             }
           },
@@ -11919,18 +11874,9 @@
             "value": {
               "java": "\\p{IsExtended_Pictographic}+",
               "alternates": {
-                "re2": {
-                  "unsupported": true,
-                  "reason": "RE2 and Go regexp do not expose Java's Extended_Pictographic property"
-                },
-                "pcre2": {
-                  "pattern": "\\p{Extended_Pictographic}+",
-                  "reason": "PCRE2 omits Java's Is prefix"
-                },
-                "rust-regex": {
-                  "pattern": "\\p{Extended_Pictographic}+",
-                  "reason": "Rust regex omits Java's Is prefix"
-                }
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's Extended_Pictographic property"},
+                "pcre2": {"pattern": "\\p{Extended_Pictographic}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Extended_Pictographic}+", "reason": "Rust regex omits Java's Is prefix"}
               }
             }
           },
@@ -11998,9 +11944,7 @@
                 "rust-regex": {
                   "pattern": "[A-Za-z0-9_]+",
                   "reason": "Rust regex gives Unicode semantics to \\w by default",
-                  "flagSets": [
-                    "0"
-                  ]
+                  "flagSets": ["0"]
                 }
               }
             }
@@ -12724,7 +12668,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteEarly",
       "operation": "utf8DecodeFind",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteEarly"
@@ -12743,7 +12687,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteLate",
       "operation": "utf8DecodeFind",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteLate"
@@ -12762,7 +12706,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteNoMatch",
       "operation": "utf8DecodeFind",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteNoMatch"
@@ -12850,7 +12794,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteEarly",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteEarly"
@@ -12873,7 +12817,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteLate",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteLate"
@@ -12896,7 +12840,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteNoMatch",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteNoMatch"
@@ -12988,7 +12932,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeString.multibyteEarly",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteEarly"
@@ -13011,7 +12955,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeString.multibyteLate",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteLate"
@@ -13034,7 +12978,7 @@
       "id": "Utf8MatchingBenchmark.captureFreeString.multibyteNoMatch",
       "operation": "find",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.captureFree.multibyteNoMatch"
@@ -13066,18 +13010,7 @@
         "groups": [
           0
         ],
-        "expectedBounds": [
-          0,
-          3,
-          4,
-          7,
-          8,
-          13,
-          14,
-          18,
-          19,
-          23
-        ]
+        "expectedBounds": [0, 3, 4, 7, 8, 13, 14, 18, 19, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13105,16 +13038,7 @@
         "groups": [
           0
         ],
-        "expectedBounds": [
-          0,
-          3,
-          4,
-          9,
-          10,
-          16,
-          17,
-          23
-        ]
+        "expectedBounds": [0, 3, 4, 9, 10, 16, 17, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13144,20 +13068,7 @@
           1,
           2
         ],
-        "expectedBounds": [
-          0,
-          12,
-          0,
-          4,
-          5,
-          12,
-          13,
-          25,
-          13,
-          18,
-          19,
-          25
-        ]
+        "expectedBounds": [0, 12, 0, 4, 5, 12, 13, 25, 13, 18, 19, 25]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13199,20 +13110,7 @@
           1,
           2
         ],
-        "expectedBounds": [
-          0,
-          11,
-          0,
-          4,
-          5,
-          11,
-          12,
-          23,
-          12,
-          16,
-          17,
-          23
-        ]
+        "expectedBounds": [0, 11, 0, 4, 5, 11, 12, 23, 12, 16, 17, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13242,14 +13140,7 @@
           1,
           2
         ],
-        "expectedBounds": [
-          0,
-          3,
-          -1,
-          -1,
-          0,
-          3
-        ]
+        "expectedBounds": [0, 3, -1, -1, 0, 3]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13278,16 +13169,7 @@
           0
         ],
         "bounds": "start",
-        "expectedBounds": [
-          0,
-          0,
-          1,
-          1,
-          5,
-          5,
-          8,
-          8
-        ]
+        "expectedBounds": [0, 0, 1, 1, 5, 5, 8, 8]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -13306,7 +13188,7 @@
       "id": "Utf8MatchingBenchmark.window",
       "operation": "findInWindow",
       "patterns": [
-        "東京"
+        "\u6771\u4eac"
       ],
       "inputs": [
         "utf8.window"
@@ -13389,7 +13271,7 @@
       "id": "Utf8MatchingBenchmark.requiredClassNonmatchBytes",
       "operation": "find",
       "patterns": [
-        "[一-龥]{3,}"
+        "[\u4e00-\u9fa5]{3,}"
       ],
       "inputs": [
         "utf8Matching.requiredClassNonmatch.text"
@@ -13987,7 +13869,7 @@
       "id": "Utf8MatchingBenchmark.requiredClassNonmatchMatcher",
       "operation": "find",
       "patterns": [
-        "[一-龥]{3,}"
+        "[\u4e00-\u9fa5]{3,}"
       ],
       "inputs": [
         "utf8Matching.requiredClassNonmatch.text"
@@ -14013,7 +13895,7 @@
       "id": "Utf8MatchingBenchmark.requiredClassNonmatchString",
       "operation": "find",
       "patterns": [
-        "[一-龥]{3,}"
+        "[\u4e00-\u9fa5]{3,}"
       ],
       "inputs": [
         "utf8Matching.requiredClassNonmatch.text"
@@ -14220,7 +14102,7 @@
       "id": "ByteReplacementBenchmark.literal",
       "operation": "utf8Replacement",
       "patterns": [
-        "错误"
+        "\u9519\u8bef"
       ],
       "inputs": [
         "utf8.replacement.literal"
