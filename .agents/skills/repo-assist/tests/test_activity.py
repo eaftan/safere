@@ -17,7 +17,7 @@ AFTER = "2026-10-03T00:00:00Z"
 class Source:
   repository = "o/r"
 
-  def __init__(self, author="writer", state="OPEN", updated=BEFORE):
+  def __init__(self, author="writer", state="OPEN", updated=AFTER):
     self.issue = {
       "number": 1,
       "url": "https://github.com/o/r/issues/1",
@@ -57,7 +57,7 @@ class Source:
     return {
       "trusted": [],
       "untrusted": [],
-      "drafts": [{"number": 2, "isDraft": True}] if self.draft else [],
+      "drafts": [{"number": 2, "isDraft": True, "updatedAt": AFTER}] if self.draft else [],
     }
 
   def pull_request_closing_issues(self, number):
@@ -118,11 +118,41 @@ def run(source, previous=None, since: str | None = SINCE, **scope):
   return collect_activity(source, since, AFTER, previous or {}, **scope)
 
 
-def test_baseline_reports_open_backlog_without_calling_it_new():
+def test_baseline_reports_recent_activity_without_calling_it_new():
   output, checkpoint = run(Source(), since=None)
   assert output["baseline"]
   assert not output["issues"][0]["new"]
   assert checkpoint["1"]["comments"]["trusted-comment"]["updatedAt"] == BEFORE
+
+
+def test_inactive_open_issue_never_fetches_context_or_prose_and_keeps_checkpoint():
+  source = Source()
+  _, previous = run(source)
+  source.reads.clear()
+  source._linked_items = lambda *args: pytest.fail("inactive issue context must not be fetched")
+  source.issue_state_events = lambda *args: pytest.fail("inactive issue events must not be fetched")
+  source._trusted_nodes = lambda *args: pytest.fail("inactive comment prose must not be fetched")
+  output, checkpoint = collect_activity(
+    source, "2026-10-04T00:00:00Z", "2026-10-05T00:00:00Z", previous,
+  )
+  assert not output["issues"] and not source.reads
+  assert checkpoint == previous
+
+
+def test_first_run_does_not_inventory_old_open_issues():
+  source = Source(updated="2026-01-01T00:00:00Z")
+  source.issue["createdAt"] = "2026-01-01T00:00:00Z"
+  source.comments.clear()
+  output, _ = run(source, since=None)
+  assert output["baseline"] and not output["issues"]
+  assert output["scope"] == {"mode": "activity", "since": "2026-09-26T00:00:00Z"}
+
+
+def test_recent_closing_pr_supplies_coverage_even_when_issue_is_inactive():
+  source = Source(updated=BEFORE)
+  source.draft = True
+  output, _ = run(source)
+  assert output["issues"][0]["pullRequests"][0]["relationship"] == "fixes"
 
 
 def test_closed_issue_new_since_cutoff_is_included():

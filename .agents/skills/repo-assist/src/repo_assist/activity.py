@@ -26,6 +26,8 @@ def collect_activity(
   """Return a report input and pending checkpoint without modifying persistent state."""
   assessments = assessments or {}
   lower = timestamp(since) if since else None
+  # First runs cover recent activity, rather than expanding into an open backlog audit.
+  activity_lower = lower or timestamp(cutoff) - timedelta(days=7)
   if lower is not None and lower > timestamp(cutoff):
     raise ValueError("activity cutoff precedes the last successful run")
   if recent_days is not None and recent_days <= 0:
@@ -56,8 +58,13 @@ def collect_activity(
       "recentDays": recent_days,
       "since": recent_lower.astimezone(UTC).isoformat().replace("+00:00", "Z"),
     }
-  # A limited run must not erase checkpoints for issues it deliberately excludes.
-  checkpoint: dict[str, Any] = dict(previous) if recent_lower is not None else {}
+  else:
+    output["scope"] = {
+      "mode": "activity",
+      "since": activity_lower.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+    }
+  # Inactive issues retain their checkpoints without entering the report or prose pulls.
+  checkpoint: dict[str, Any] = dict(previous)
   repositories = {github.repository: github}
   pr_cache: dict[tuple[str, int], dict[str, Any]] = {}
   for meta in issues:
@@ -75,6 +82,23 @@ def collect_activity(
     ):
       continue
     old = previous.get(str(number))
+    old_comments = (old or {}).get("comments", {})
+    # Check comment metadata even when the root timestamp is unchanged. Detect deletions
+    # against the previous checkpoint, but do not fetch old issue links or text merely
+    # because an issue remains open. Active closing PRs can supply new coverage context.
+    active = (
+      number in reassess
+      or timestamp(meta["updatedAt"]) >= activity_lower
+      or timestamp(meta["createdAt"]) >= activity_lower
+      or any(timestamp(node["updatedAt"]) >= activity_lower for node in comments)
+      or bool(old and comment_state != old_comments)
+      or any(
+        timestamp(pr["updatedAt"]) >= activity_lower
+        for pr in closing.get((github.repository, number), [])
+      )
+    )
+    if recent_lower is None and not active:
+      continue
     events = github.issue_state_events(number)
     links = github._linked_items("issue", number)
     # Closing-only links can disappear from open-PR discovery after merging or closing.
@@ -188,15 +212,6 @@ def collect_activity(
     )
     if old and old.get("evidenceFingerprint") and old["evidenceFingerprint"] != evidence:
       changed = True
-    # Establish a baseline on the first run; include open backlog plus all recent activity.
-    selected = (
-      recent_lower is not None or meta["state"] == "OPEN" or new or recent or changed
-      or number in reassess
-    )
-    if not selected:
-      if old and "contentFingerprint" in old:
-        current["contentFingerprint"] = old["contentFingerprint"]
-      continue
     item = {
       "metadata": meta,
       "trustedIssueAuthor": meta["author"]["login"] in trusted,

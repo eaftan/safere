@@ -82,10 +82,11 @@ def context(args):
       or activity["cutoff"] != metadata["startedAt"]
       or pending["cutoff"] != metadata["startedAt"]):
     raise ValueError("activity artifact is not the latest successful collection for this run")
-  path = report_path(root, metadata["reportPath"])
-  report = path.read_text(encoding="utf-8")
-  if "\nStatus: running\n" not in report:
+  main_path = report_path(root, metadata["reportPath"])
+  if "\nStatus: running\n" not in main_path.read_text(encoding="utf-8"):
     raise ValueError("issue updates require the active running report")
+  path = report_path(root, metadata.get("issueReportPath", metadata["reportPath"]))
+  report = path.read_text(encoding="utf-8")
   state = read_json(root / "state.json")
   items = {}
   for item in activity["issues"]:

@@ -206,43 +206,20 @@ undermines the layer's assigned role, its consumers, or a material claimed benef
 
 ## Self-Contained Report Scope
 
-Every run report is a current decision-support snapshot of all open trusted non-draft contributor
-PRs, not only a log of PRs reviewed during that run. The human reviewer may not have read any
-earlier scout report.
+Follow [report-format.md](report-format.md): each eligible contributor gets a short explanation in
+this run’s main report and a linked complete review at `reports/<runId>/pr-N.md`. Include blocked
+and deferred items. Carry still-valid reasoning, fixes and evidence into the current supporting
+record after freshness/stack checks, using lastDetailReport or the legacy inline lastReport as its
+source; do not require the maintainer to read a previous sweep.
 
-- Include every trusted non-draft PR returned by discovery whose author is not the repository owner
-  in the report summary and in a detailed PR section.
-- When a PR is eligible for review, assess its delta and update the prior assessment only where
-  that delta changes the decision. Keep still-valid findings and evidence self-contained.
-- When a PR is fresh enough to skip, carry forward and consolidate its most recent still-valid
-  assessment, recommendation, copy/paste review text, local-fix references, and benchmark evidence
-  into the new report. Do not merely link to or tell the human to read an older report.
-- Carry evidence forward after discovery confirms the PR remains open and non-draft and delta
-  triage establishes that the evidence still applies. A freshness-key change alone does not
-  invalidate prior code review, tests, or benchmarks; a relevant code, workload, runner, dependency,
-  or discussion change does. State which evidence was reused and why.
-- Exclude merged, closed, draft, and repository-owner PRs. Include open deferred contributor PRs
-  with their defer reason.
-- Keep carried-forward author-facing text coherent from the public PR discussion and human-review
-  cutoff. Do not describe it as old, carried forward, or unchanged in the copy/paste comment unless
-  that history is meaningful in the public discussion.
+The main explanation gives enough context to understand the change and decide the next action.
+Put detailed methods, exact revisions, command results and historical evidence in the linked record.
+Keep the author’s standalone review self-contained under the separate author-copy rules.
 
-Make an unfinished review-fix loop impossible to miss when scanning the report. If review or
-validation began for a PR but did not reach a clean no-P2+ finding result, including unresolved
-findings at the cycle limit or an incomplete final pass:
-
-- add a bold alert immediately below the PR summary table listing every affected PR number;
-- begin that PR's summary assessment with **REVIEW-FIX LOOP INCOMPLETE**; and
-- add the same bold callout at the start of its detailed `Review Fix Loop` section, followed by a
-  concise statement of why it stopped and any remaining findings.
-
-Do not use this alert for benchmark-evidence gaps or ordinary human-review focus after a completed
-clean loop. A dependent PR blocked before its own review begins is `blocked`, not an unfinished
-review-fix loop; state its blocker clearly in the summary.
-
-The report may identify internally which sections were reviewed in this run and which reused valid
-evidence, but it must contain all information the human needs to decide and comment without opening
-an earlier scout report.
+An unfinished review/fix loop must remain prominent in the main summary and explanation: begin the
+assessment with **REVIEW-FIX LOOP INCOMPLETE**, add a bold alert below the summary, and identify the
+unresolved findings and reason. Repeat the alert in the linked Review Fix Loop section. Do not use
+this alert for an evidence request after a clean loop or a dependency blocked before review began.
 
 ## Merge Ordering Assessment
 
@@ -637,7 +614,7 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      or "refreshed against main" unless the public discussion makes that history meaningful to the
      author. When the author has not been told about a finding, introduce it directly: "I noticed
      that ... I've pushed a commit that fixes it."
-9. Update the durable report and state after each PR, not only at the end. Update that PR's row in
+9. Update the durable report and state after each PR, not only at the end. Update that PR's short explanation and linked record, and its row in
    the report's PR Summary table at the same checkpoint while preserving its reviewer-owned `Done`
    value. If the sweep is interrupted, completed PRs should still be discoverable.
 
@@ -665,165 +642,32 @@ exact paired wrapper runs and native-unit evidence extraction when compare-branc
 
 ## Contributor Report Format
 
-After the repository activity overview, include a compact decision-oriented summary of every open trusted non-draft contributor
-PR. Keep each assessment to one brief sentence or phrase. Make the PR text in each row an
-internal link to that PR's detailed section. Use an explicit `pr-<number>` HTML anchor immediately
-before every detailed PR heading so the link remains stable regardless of punctuation or Unicode
-in the PR title. Include reviewed, blocked, and deferred PRs; do not include untrusted PRs because
-they were not inspected and therefore have no assessment. Make `Done` the first column. Leave it
-empty when creating a row so the human reviewer can enter `Y` after handling the PR. The column is
-reviewer-owned: never fill it in or infer completion, and preserve any existing value when updating
-a row in the same report.
+Use [report-format.md](report-format.md) for the short main report and
+[reusable-tools.md](reusable-tools.md) for the linked checkpoint/audit interface. Each main PR
+explanation has a `pr-N` anchor and `## PR #N: <title>` heading. Preserve Done cells and include an
+explicit next action in every summary row. Briefly explain dependencies and material merge conflicts;
+exact merge-tree results belong in supporting evidence. List untrusted candidates as metadata-only
+items near the summary when a maintainer allowlist decision is needed.
 
-```markdown
-## PR Summary
+Write the complete supporting assessment to `reports/<runId>/pr-N.md`. It should cover:
 
-| Done | PR | Brief Assessment | Recommendation |
-|---|---|---|---|
-|  | [PR #123: Optimize matching](#pr-123) | Correct after local fixes; claimed gains reproduced. | Can merge |
-|  | [PR #124: Revise parser API](#pr-124) | The public API shape needs a maintainer decision. | Focus human review |
-```
+- PR URL, classification and rationale, exact trunk/base/prepared/final SHAs, stack context,
+  post-update/pre-fix marker, worktree, correction commits, artifacts and human-review cutoff.
+- `### PR Intent Review`: intended behavior and benefit, design costs, evidence, stack role and
+  downstream assumptions when applicable. State material compatibility/linear-time concerns.
+- `### Review Fix Loop`: all findings, coherent correction batches, final pass, relevant checks
+  and their outcomes, outstanding concerns and any incomplete-loop alert.
+- `### Benchmark Reproduction` for optimization work: exact claimed comparisons, native-unit
+  results/ratios, uncertainty, controlled revisions/definitions, mismatch diagnosis and any ablation.
+  Keep missing or author-reported evidence explicitly attributed.
+- `### Assessment And Recommendation`: the decision, remaining concerns and precise next action.
+- `### Copy/Paste PR Review`: the complete first-person author review in a Markdown fence, following
+  all author-copy and numeric-evidence rules above.
 
-Update the summary row whenever its detailed PR section changes. The summary is an index and a
-quick decision aid, not a substitute for the evidence in the detailed section.
-
-Immediately after the PR Summary, include a `Merge Ordering` section covering only eligible
-contributor PRs that remain open and non-draft when the report is finalized. State whether any hard dependencies exist, give a
-recommended sequence or independent groups when useful, and explain the specific semantic or
-conflict rationale. Also identify branches that already need current main merged independently of
-the recommended inter-PR order.
-
-If any open non-draft PRs are skipped because the author is not trusted, include this section near
-the top of the run report:
-
-```markdown
-## Untrusted Contributor Candidates
-
-These PRs were not inspected because the author is not on the trusted contributor allowlist.
-
-| PR | Author | URL | Action Needed |
-|---:|---|---|---|
-| #<number> | `<login>` | <url> | Human decides whether to add this contributor to the allowlist. |
-```
-
-Use this structure:
-
-````markdown
-<a id="pr-<number>"></a>
-## PR #<number>: <title>
-
-URL: <url>
-Classification: optimization | other
-Classification evidence: <short reason>
-Trunk: origin/<trunk> @ <sha>
-Declared base: origin/<baseRefName> @ <sha>
-Prepared review base: <sha>
-Stack: none | #<stack-number>, position <position> of <size>
-PR head: <sha>
-Base update: yes | blocked | already up to date
-Post-update/pre-fix head: <sha or none>
-Experiment branch: codex/review/pr-<number>/<short-sha>
-Artifacts: <path>
-Human review cutoff: <timestamp and comment/review summary, or "none; first-review perspective">
-
-### PR Intent Review
-
-Claimed goal:
-- ...
-
-Stack context:
-- Stack objective: ...
-- This layer's role: ...
-- Downstack contracts consumed: ...
-- Upstack consumers enabled: ...
-- End-to-end evidence: ...
-
-Central benefit and evidence:
-- Intended observable benefit: ...
-- Evidence that directly measures it: ...
-- Material costs or tradeoffs: ...
-- Simpler alternatives considered: ...
-- Effect of local fixes on the benefit: unchanged | narrowed | removed | not applicable
-
-Assessment:
-- Makes sense for SafeRE: yes | partial | no
-- Performs its stack role: yes | partial | no | not applicable
-- Benefit justifies complexity: yes | partial | no | evidence needed
-- Implementation matches stated goal: yes | partial | no
-- Linear-time/design concerns: ...
-- Compatibility concerns: ...
-- Test evidence: ...
-- Scope concerns: ...
-
-Recommendation:
-- ...
-
-### Review Fix Loop
-
-**REVIEW-FIX LOOP INCOMPLETE:** <why it stopped and any remaining findings, only when applicable>
-
-Result: no P2+ findings | fixes committed locally | findings for author | blocked | false positive documented
-
-Fixed:
-- ...
-
-Verification:
-- `<command>`: passed | failed | not run (<reason>)
-
-Final reviewer pass:
-- ...
-
-Local artifacts:
-- Fix branch: `<branch>`
-- Fix commit: `<sha or none>`
-- Patch: `<path or none>`
-
-### Benchmark Reproduction
-
-Only include this section for optimization PRs.
-
-Claimed result:
-- ...
-
-Commands run:
-- `./run-java-benchmarks.sh ...`
-
-| Benchmark | baseline | PR+fixes | PR/baseline | Interpretation |
-|---|---:|---:|---:|---|
-| ... | ... | ... | ... | ... |
-
-Summary:
-- Reproduced: yes | partial | no | inconclusive
-- Notes: ...
-
-Mismatch diagnostics:
-- Correctness-fix ablation: not needed | run | blocked
-- Result: <whether local fixes explain the benchmark mismatch>
-- Hypothesis if not explained by fixes: <best-supported explanation or "unknown">
-- Ablation artifacts: <path or none>
-
-### Assessment And Recommendation
-
-Recommendation: can merge | focus human review | blocked
-
-Assessment:
-- PR intent is reasonable: yes | partial | no
-- Implementation matches intent: yes | partial | no
-- Major correctness/design concerns: none | <concerns>
-- Review-fix-loop status: clean | fixes committed locally | blocked | unresolved findings
-- Verification status: passed | failed | incomplete
-- Benchmark status: matches claim | roughly matches claim | does not match claim | inconclusive | not applicable
-- Benefit/cost status: justified | partially justified | evidence needed | not justified
-
-Human review focus:
-- <specific issues to inspect, or "No major concerns found.">
-
-### Copy/Paste PR Review
-
-```markdown
-<the complete first-person review addressed to the author; this fenced content is the only part of the report the author will see. Include every material finding, pushed fix, benchmark conclusion, tradeoff, rationale, requested action, and recommendation needed to understand the review without any other report section. For resolved scout fixes, explain each distinct problem and impact, say the reviewer pushed a fixing commit, explain the material fix, and conclude LGTM only when appropriate. Keep only reviewer-internal validation status, commands, test counts, shell checks, worktree paths, artifacts, and automated-review status outside this comment. Use plain, concrete language and state requests in terms of the code, behavior, tests, or measurements wanted. Keep the tone respectful and collaborative: explain impact without blame and use genuine questions where design judgment is involved. Make the text self-contained from the public discussion; never rely on the author knowing about earlier scout runs or unposted local work. Whenever benchmark measurements are included, present every numeric result and ratio in this review's own Markdown table rather than only in prose, define the normalization direction, and give each row a concise interpretation. Do not hard-wrap prose: put each prose paragraph on one physical line and use additional line breaks only for required Markdown structure, especially the benchmark table. Before finalizing, read only this fenced content and rewrite it if any conclusion, evidence, rationale, request, or recommendation depends on another report section.>
-```
-````
+Write each material explanation once within the supporting record rather than repeating it in every
+subsection. Omit irrelevant boilerplate (for example, a standalone PR needs one dependency sentence,
+not an empty stack questionnaire). Raw logs remain artifacts; summarize routine successful checks.
+The author copy remains independently complete even when that necessarily repeats a finding.
 
 ## Contributor Review State
 
@@ -840,6 +684,8 @@ authored-feedback state. A record has this shape:
   "lastReviewedAt": "2026-07-04T18:00:00Z",
   "classification": "optimization",
   "lastReport": "/home/eaftan/.codex/safere-pr-review/reports/2026-07-04T170000Z.md",
+  "lastDetailReport": "/home/eaftan/.codex/safere-pr-review/reports/2026-07-04T170000Z/pr-123.md",
+  "nextAction": "Push correction, then post review",
   "lastFixBranch": "codex/review/pr-123/abc1234",
   "lastFixCommit": "def456",
   "status": "reviewed"

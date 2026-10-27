@@ -85,24 +85,24 @@ an explicit user request. The local repair commit is authorized by this feedback
 
 ## Report And State
 
-Include `Your PRs With Review Feedback` in every run report, even when there is no new feedback.
-Use a separate summary table with the reviewer-owned empty `Done` column:
+Follow [report-format.md](report-format.md). Keep `Your PRs With Review Feedback` in the main
+brief, with concise current actions and grouped routine approvals. Preserve reviewer-owned Done
+cells. Surface blocked agreed repairs, disagreements and draft holds explicitly.
 
-| Done | Your PR | Feedback Assessment | Local Repairs | Action Needed |
-|---|---|---|---|---|
-|  | [PR #123](#authored-pr-123) | One agreed request; one disagreement | Local commit available | Publish fix; decide on disputed request |
-
-Give every listed PR a stable `<a id="authored-pr-<number>"></a>` detail anchor. Include its URL,
-draft status, published head, original worktree and branch (or blocker), local head/commits, and a
-per-request table with reviewer, comment/review ID and URL, request, agreement decision, evidence,
-action taken, and remaining work. Explain partial agreement and disagreements precisely. Include
-verification and a concise description of each local fix. Carry still-valid prior assessments into
-this report so the maintainer never needs an earlier report to understand what remains.
+Write complete per-request assessments in the path printed as `authoredFeedbackReportPath` by
+begin-run (`reports/<runId>/authored-feedback.md`). Use stable `authored-pr-N` anchors. Include URLs,
+draft/published/local heads, original worktree or blocker, each request’s decision and rationale,
+local repairs/commits and verification, and remaining work. Carry still-valid decisions into this
+current-run record, reading lastDetailReport (or legacy lastReport) only after fresh trust checks
+permit reuse. The main briefing links here instead of repeating request history, exact SHAs,
+worktree errors and approval-only verification paragraphs for every PR.
 
 Maintain these fields separately from contributor review state in
 `state.json.authoredPrFeedback["<number>"]`: `fingerprint`, `lastRemoteHeadSha`, `lastLocalHeadSha`,
-`worktree`, `branch`, `lastAssessedAt`, `lastReport`, `status`, and `decisions`. Each decision records
-the stable comment/review ID, observed update time, assessment, rationale, and local commit if any.
+`worktree`, `branch`, `lastAssessedAt`, `lastReport`, `lastDetailReport`, `status`, and `decisions`.
+`lastReport` identifies the main briefing; `lastDetailReport` identifies the complete per-request
+record. Each decision records the stable comment/review ID, observed update time, assessment,
+rationale, and local commit if any.
 Use `assessed`, `blocked`, or `defer` as the PR status; an assessed disagreement is a completed
 assessment, while unfinished agreed work remains blocked. Never advance the fingerprint for
 unassessed feedback. These fields record results; current API author checks remain authoritative.

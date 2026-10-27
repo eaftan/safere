@@ -59,6 +59,9 @@ def test_recent_issue_scope_is_opt_in_and_passed_to_the_collector(tmp_path, caps
 def test_run_lifecycle_updates_state_and_releases_lock(tmp_path, capsys):
   assert begin(Namespace(root=tmp_path)) == 0
   metadata = json.loads(capsys.readouterr().out)
+  assert metadata['reportFormat'] == 'brief'
+  assert Path(metadata['issueReportPath']).exists()
+  assert Path(metadata['authoredFeedbackReportPath']).exists()
   state = json.loads((tmp_path / "state.json").read_text())
   assert state["lastRunStartedAt"] == metadata["startedAt"]
   with pytest.raises(RuntimeError, match="issue activity collection"):
