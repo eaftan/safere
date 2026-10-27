@@ -1,13 +1,13 @@
 ---
 name: repo-assist
-description: "Prepare one self-contained SafeRE maintainer report over trusted contributor PRs: exclude repository-owner PRs, review stacked PRs in whole-stack context, preserve the PR scout's bounded fix-loop, benchmark, and ordering behavior, summarize new issues and issue activity since the last successful run with PR coverage including drafts, and assess feedback on the authenticated user's PRs with local commits in their original worktrees, and enforce a fail-closed content trust boundary before text reaches the model."
+description: "Review trusted SafeRE contributor PRs and feedback on the maintainer’s PRs, repair agreed findings locally, and produce a short action report with linked reviews and evidence. Summarize new and changed issue activity without an open-issue backlog."
 ---
 
 # Repo Assist
 
 ## Goal
 
-Prepare the data needed for a human SafeRE repository review while the reviewer is away:
+Prepare a short maintainer briefing with linked review records and evidence:
 
 - which open non-draft contributor PRs need attention;
 - new issues and comments/updates on any issue since the last successful run, including closed
@@ -69,8 +69,8 @@ the same time.
 
 ## Run To Completion
 
-Complete the issue assessment, authored-feedback assessment and agreed repairs, and every eligible
-contributor PR's assessment before finalizing a successful run. Long runtime and per-item crash
+Complete recent issue-activity assessment, authored-feedback assessment and agreed repairs, and
+every eligible contributor PR's assessment before finalizing a successful run. Long runtime and per-item crash
 recovery checkpoints are not reasons to end a healthy sweep early. The workflow references define
 terminal states, blockers, and the contributor review/fix-cycle limit.
 
@@ -104,11 +104,10 @@ Read each relevant reference in full before starting that workflow. A complete r
 requires all three:
 
 1. After acquiring the run lock, read
-   [references/issue-activity.md](references/issue-activity.md) and collect issue activity across all
-   states with `issue-activity`. Assess new issues and discussion/updates since the last successful
-   run, with PR coverage including drafts. Refresh metadata for every eligible issue, assess only
-   changed evidence or premises, and use the issue report helper to carry unchanged assessments
-   and reviewer `Done` values forward in full.
+   [references/issue-activity.md](references/issue-activity.md) and collect new and changed issue
+   activity since the last successful run. Do not inventory the open backlog or carry inactive
+   issue assessments forward. Keep active-issue evidence in the linked issue-activity record and
+   include only meaningful changes or maintainer actions in the main briefing.
 2. Read [references/authored-pr-feedback.md](references/authored-pr-feedback.md), collect
    `authored-feedback`, and assess feedback on the authenticated user's PRs, including drafts.
    Before contributor reviews, commit agreed repairs locally in the existing original worktree
@@ -126,25 +125,32 @@ categories' worktrees, assessments, and state separate as their references speci
 
 ## Reusable Scripts
 
-Use [references/issue-activity.md](references/issue-activity.md) for incremental issue checkpoints
-and report carry-forward. Use [references/reusable-tools.md](references/reusable-tools.md) for
-contributor checkpoints, trusted freshness refreshes, merge-conflict evidence, report audits, and paired wrapper benchmark
-collection/extraction. The scripts take explicit run inputs and preserve category separation;
+Use [references/issue-activity.md](references/issue-activity.md) for active-issue checkpoints
+and selected-assessment reuse. Use [references/reusable-tools.md](references/reusable-tools.md) for
+contributor checkpoints, trusted freshness refreshes, merge-conflict evidence, report audits, and
+paired wrapper benchmark collection/extraction. The scripts take explicit run inputs and preserve category separation;
 review judgment and the final semantic reading of author-facing copies remain required.
 
 ## Report Format
 
-Write one self-contained report at the run's `reportPath`. Include the repository activity overview
-first, then the contributor PR summary and merge ordering, issue summary/details, and
-`Your PRs With Review Feedback` summary/details. Use the category-specific tables, stable anchors,
-and detailed formats in the references. Include every eligible current item, carrying forward
-still-valid assessments and evidence in full so the maintainer never needs an earlier report.
-Preserve reviewer-owned `Done` values and leave newly created cells empty.
+Read [references/report-format.md](references/report-format.md) before writing the report.
+The main `reportPath` is a short action briefing: decisions first, plain-language PR explanations,
+explicit next actions, and links to complete supporting records for this run. For a typical small
+queue, aim for 600–900 words; scale with genuinely actionable work. Preserve reviewer-owned Done
+cells. Never turn a word target into omitted findings or unprocessed work.
 
-Record failed or skipped verification and unresolved work explicitly. Perform the contributor
-reference's final author-copy audit before finalizing the successful run with `end-run`. The helper
-updates `$HOME/.codex/safere-pr-review/LATEST.md` only after successful completion. For an
-interrupted report, list unprocessed items and preserve the prior successful issue cutoff/checkpoint.
+Store full contributor reviews at `reports/<runId>/pr-<number>.md`, authored-feedback assessments at
+`reports/<runId>/authored-feedback.md`, and active-issue assessments at
+`reports/<runId>/issue-activity.md`. `begin-run` prints the latter paths. Copy/paste author reviews
+remain standalone artifacts linked directly from each short PR explanation. Carry still-valid
+PR reasoning into these current-run supporting records, so no decision requires an earlier report.
+There is no open-issue backlog inventory in the briefing or its supporting records.
+
+Keep exact SHAs, worktree paths, commands, repeated historical requests, and routine validation
+bookkeeping in supporting records. Surface any unresolved finding, failure, blocker, dependency,
+unpublished correction, or evidence limitation that affects the maintainer’s action in the brief.
+Audit linked records and standalone author copies before successful `end-run`. Only successful
+completion updates LATEST and the issue-activity cutoff.
 
 ## State Format
 
@@ -189,8 +195,9 @@ worktrees. Report disagreements and blocked repairs. Then process every eligible
 in stack dependency order and increasing PR number among independent PRs, following the reference's
 bounded repair, verification, benchmark, evidence reuse, and merge-ordering rules.
 
-Produce one self-contained report with the repository overview and separate category summaries and
-details. Store state, reports, and artifacts under ~/.codex/safere-pr-review and update LATEST.md.
+Produce a short action report with linked PR explanations, full review records, and copy/paste
+reviews. Read references/report-format.md. Include new/changed issue activity; omit the open backlog.
+Store state, reports, and artifacts under ~/.codex/safere-pr-review and update LATEST.md.
 Run to completion even if the sweep takes many hours. Stop early only for an explicit user stop
 request, a concrete sweep-wide blocker, or an execution environment that cannot continue. Preserve
 the previous successful issue checkpoint on interruption and release the lock. Do not push
@@ -199,7 +206,8 @@ branches, post comments or reviewer replies, close issues, or publish review tex
 
 ## Discipline
 
-- Do not hide failed verification. Failed or skipped commands belong in the report.
+- Do not hide failed verification. Record commands in linked evidence and surface material failures
+  in the main report.
 - Do not stop early merely because the sweep is taking a long time. A healthy run continues until
   all categories have been assessed and every eligible contributor PR is reviewed, blocked, or
   deferred.

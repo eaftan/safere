@@ -7,6 +7,7 @@ import argparse
 from datetime import UTC, datetime
 import itertools
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -151,6 +152,10 @@ def checkpoint(args):
     raise ValueError("record fingerprint does not match sanitized snapshot")
   section = args.section.read_text(encoding="utf-8").strip()
   author_copy = args.author_copy.read_text(encoding="utf-8").strip()
+  brief_path = getattr(args, "brief", None)
+  brief_format = metadata.get("reportFormat") == "brief"
+  if brief_format and brief_path is None:
+    raise ValueError("brief reports require --brief with the maintainer-facing PR explanation")
   if not section.startswith(f"## PR #{number}:") or ANCHOR.search(section):
     raise ValueError("section must start with its PR heading and contain no PR anchors")
   if "### Copy/Paste PR Review" in section:
@@ -161,6 +166,22 @@ def checkpoint(args):
     f"{fence}markdown\n{author_copy}\n{fence}\n\n"
   )
   copy_text(replacement)
+  full_section = replacement
+  detail_path = None
+  if brief_format:
+    if not spec.get("nextAction"):
+      raise ValueError("brief reports require an explicit nextAction")
+    brief = brief_path.read_text(encoding="utf-8").strip()
+    if not brief or ANCHOR.search(brief) or re.search(r"^#{1,2} ", brief, re.M):
+      raise ValueError("brief must be nonempty prose without PR anchors or top-level headings")
+    detail_path = report_path.with_suffix("") / f"pr-{number}.md"
+    detail_link = Path(os.path.relpath(detail_path, report_path.parent)).as_posix()
+    copy_path = root / "artifacts" / metadata["runId"] / f"pr-{number}" / "copy-paste-review.md"
+    copy_link = Path(os.path.relpath(copy_path, report_path.parent)).as_posix()
+    replacement = (
+      f'<a id="pr-{number}"></a>\n{section.splitlines()[0]}\n\n{brief}\n\n'
+      f"[Copy/paste review]({copy_link}) · [Full review and evidence]({detail_link})\n\n"
+    )
   span = section_span(report, number)
   report = report[:span[0]] + replacement + report[span[1]:] if span else report.rstrip() + "\n\n" + replacement
   start, end = summary_span(report)
@@ -173,9 +194,12 @@ def checkpoint(args):
     if "\n" in value or "\r" in value:
       raise ValueError("summary cells must be single-line text")
     return value.replace("|", "\\|")
+  label = f"PR #{number}"
+  if brief_format:
+    label += " — " + spec.get("title", pr.get("title", "Review"))
   new_row = (
-    f"|{rows[0][1]}| [PR #{number}](#pr-{number}) | {cell(spec['assessment'])} | "
-    f"{cell(spec['recommendation'])} |"
+    f"|{rows[0][1]}| [{cell(label)}](#pr-{number}) | {cell(spec['assessment'])} | "
+    f"{cell(spec['nextAction'] if brief_format else spec['recommendation'])} |"
   )
   table = table[:rows[0].start()] + new_row + table[rows[0].end():]
   report = report[:start] + table + report[end:]
@@ -184,6 +208,9 @@ def checkpoint(args):
   previous = state.setdefault("prs", {}).get(str(number), {})
   state["prs"][str(number)] = {
     **previous, **record, "lastReport": str(report_path),
+    "lastDetailReport": str(detail_path) if detail_path else None,
+    "recommendation": spec["recommendation"],
+    "nextAction": spec.get("nextAction"),
     "lastReviewedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
   }
   artifact = root / "artifacts" / metadata["runId"] / f"pr-{number}"
@@ -191,6 +218,9 @@ def checkpoint(args):
   # it does not append duplicates and can recover a report/state write interrupted mid-checkpoint.
   write_json(artifact / "checkpoint.json", {"spec": spec, "reportPath": str(report_path), "record": state["prs"][str(number)]})
   atomic_text(artifact / "copy-paste-review.md", author_copy + "\n")
+  if brief_format:
+    atomic_text(detail_path, full_section)
+    atomic_text(artifact / "brief.md", brief + "\n")
   atomic_text(report_path, report)
   write_json(state_path, state)
   return {"number": number, "status": record["status"], "report": str(report_path)}
@@ -231,18 +261,48 @@ def audit(args):
       continue
     if span is None:
       continue
+    section = report[span[0]:span[1]]
+    if entry.get("lastDetailReport"):
+      expected = args.report.with_suffix("") / f"pr-{number}.md"
+      detail = Path(entry["lastDetailReport"])
+      if detail.resolve() != expected.resolve():
+        problems.append(f"PR #{number}: linked detail is outside this report bundle")
+        continue
+      try:
+        detail_link = Path(os.path.relpath(expected, args.report.parent)).as_posix()
+        if f"]({detail_link})" not in section:
+          raise ValueError("brief lacks its detail link")
+        if "### Copy/Paste PR Review" in section:
+          raise ValueError("brief embeds the full author review")
+        full = detail.read_text(encoding="utf-8")
+        detail_span = section_span(full, number)
+        if detail_span is None:
+          raise ValueError("detail lacks matching PR identity")
+        section = full[detail_span[0]:detail_span[1]]
+      except (OSError, ValueError) as error:
+        problems.append(f"PR #{number}: {error}")
+        continue
     try:
-      text = copy_text(report[span[0]:span[1]])
+      text = copy_text(section)
     except ValueError as error:
       problems.append(f"PR #{number}: {error}")
       continue
     copies[str(number)] = text
+    if entry.get("lastDetailReport"):
+      copy_path = args.root / "artifacts" / args.report.stem / f"pr-{number}" / "copy-paste-review.md"
+      copy_link = Path(os.path.relpath(copy_path, args.report.parent)).as_posix()
+      try:
+        if f"]({copy_link})" not in report[span[0]:span[1]]:
+          raise ValueError("brief lacks its author-copy link")
+        if copy_path.read_text(encoding="utf-8").strip() != text.strip():
+          raise ValueError("linked author copy differs from the full review")
+      except (OSError, ValueError) as error:
+        problems.append(f"PR #{number}: {error}")
     if re.search(r"\b(?:worktrees?|artifact (?:directory|path)|review[- ]agent|mvn)\b|local[- ]only", text, re.I):
       problems.append(f"PR #{number}: author review includes internal bookkeeping")
     for paragraph in outside_fences(text).split("\n\n"):
       if paragraph.strip() and "\n" in paragraph and not re.match(r"\s*(?:\||[-*] |\d+[.)] |```)", paragraph):
         problems.append(f"PR #{number}: author prose is hard-wrapped")
-    section = report[span[0]:span[1]]
     measured = re.search(r"^### Benchmark Reproduction\n(.*?)(?=^### |\Z)", section, re.M | re.S)
     if measured and re.search(r"^\|[^\n]*\d", measured[1], re.M):
       if not re.search(r"^\|\s*:?-", text, re.M):
@@ -338,6 +398,7 @@ def main():
   save = commands.add_parser("checkpoint", help="Idempotently checkpoint one eligible contributor assessment")
   for name in ("discovery", "snapshot", "spec", "section", "author-copy"):
     save.add_argument("--" + name, type=Path, required=True)
+  save.add_argument("--brief", type=Path, help="Short PR explanation for new brief-format runs")
   save.add_argument("--token", required=True)
   save.set_defaults(func=checkpoint)
   check = commands.add_parser("audit", help="Check structure/state and extract author reviews for semantic reading")

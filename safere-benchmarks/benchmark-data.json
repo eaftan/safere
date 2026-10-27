@@ -147,6 +147,116 @@
   },
   "inputs": [
     {
+      "id": "captureDemand.nullable.primer",
+      "recipe": {
+        "kind": "literal",
+        "text": "ay"
+      }
+    },
+    {
+      "id": "captureDemand.nullable.early.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaay",
+        "unit": "z",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.nullable.late.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "z",
+        "suffix": "aaaaaaaaaaaaaaaaaaaay",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.nullable.reject.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.accelerated.primer",
+      "recipe": {
+        "kind": "literal",
+        "text": "error:[C] code:500"
+      }
+    },
+    {
+      "id": "captureDemand.accelerated.early.{size}",
+      "axes": {
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "error:[C] code:500",
+        "unit": "error:[x] code:500 ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.accelerated.late.{size}",
+      "axes": {
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "error:[x] code:500 ",
+        "suffix": "error:[C] code:500",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.accelerated.reject.{size}",
+      "axes": {
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "error:[x] code:500 ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
       "id": "captureFallback.early.{size}",
       "axes": {
         "size": [
@@ -4295,6 +4405,662 @@
     }
   ],
   "workloads": [
+    {
+      "id": "CaptureDemandBenchmark.nullable.boolean.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.boolean.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.groupZero.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.groupZero.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.captures.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.captures.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.mixed.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.nullable.mixed.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          128,
+          1024
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a?)*y"
+      ],
+      "inputs": [
+        "captureDemand.nullable.{shape}.{size}",
+        "captureDemand.nullable.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.boolean.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.boolean.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.groupZero.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.groupZero.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 0,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.captures.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.captures.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.mixed.newPerInvocation.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.accelerated.mixed.retained.{shape}.{size}",
+      "axes": {
+        "shape": [
+          "early",
+          "late",
+          "reject"
+        ],
+        "size": [
+          512,
+          4096
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "captureDemand.accelerated.{shape}.{size}",
+        "captureDemand.accelerated.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      }
+    },
     {
       "id": "CaptureFallbackBenchmark.earlyCapture.{size}",
       "operation": "findGroupPresent",

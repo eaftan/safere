@@ -366,6 +366,7 @@ The schema uses generic concepts for every current family:
 |---|---|
 | Regex, Application, RealWorld, HTTP, search scaling, fanout | Ordinary operations, axes, recipes, and average-time modes |
 | Capture scaling | Capture operations and `captureText` requirement |
+| Capture demand | `findSampledGroup`, sampled group participation, fresh/retained matcher lifecycle |
 | Compile and Unicode compile | `compile` plus compile-only or cold-start mode |
 | Replace, Issue488, scrubber | Replace operations, flags, recipes, and expected strings |
 | Issue481 | Find, split, replace, and scaling axes |
@@ -378,3 +379,13 @@ The schema uses generic concepts for every current family:
 
 The generic runners execute these declarations. Workload-specific Java
 benchmark classes and data adapters have been removed.
+
+`findSampledGroup` performs one search per invocation. Its `mode` is `boolean`
+or `capture`; capture mode reads `start(group)` once every `count` invocations,
+including the first. The returned boolean includes participation when a group
+is read. A second input, when supplied in capture mode, primes the compiled
+Pattern through a successful full match and group access outside timed work.
+Group zero therefore primes no inner-capture history. Retained matchers reset
+between invocations; fresh matchers share only their compiled Pattern. This
+operation compares String and UTF-8 capture consumption without decoding group
+text in timed work.

@@ -387,12 +387,10 @@ public final class Matcher implements MatchResult {
   private boolean deferredEndMatch;
 
   /**
-   * Whether later fallback {@code find()} calls in this matcher should capture all groups eagerly.
-   * Starts false so find-all loops that only need group 0 avoid capture extraction; flips true
-   * after the caller asks for inner captures or a snapshot, which is a strong signal that future
-   * matches will need captures too.
+   * Whether the current String replacement requires inner captures during exact fallback search.
+   * Scoped to that invocation; historical consumption belongs to the Pattern, not this matcher.
    */
-  private boolean eagerFallbackCaptures;
+  private boolean replacementNeedsCaptures;
 
   /**
    * Cached DFA references to avoid repeated ThreadLocal lookups in find-all loops. Populated on
@@ -645,10 +643,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void recordInnerCaptureDemand() {
-    if (!eagerFallbackCaptures) {
-      parentPattern.recordInnerCaptureAccess();
-      eagerFallbackCaptures = true;
-    }
+    parentPattern.recordInnerCaptureAccess();
   }
 
   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
@@ -993,9 +988,7 @@ public final class Matcher implements MatchResult {
    */
   private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
     if (templateNeedsCaptures(template)) {
-      if (!capturesResolved) {
-        recordInnerCaptureDemand();
-      }
+      recordInnerCaptureDemand();
       resolveCaptures();
     }
     for (ReplacementSegment seg : template) {
@@ -2123,16 +2116,15 @@ public final class Matcher implements MatchResult {
           StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
     }
 
-    // Fallback: DFA bailed out or reverse DFA unavailable. Unless earlier group access established
-    // capture demand, search only for group 0 first and defer inner capture extraction. Once exact
-    // search is necessary, collecting known-demand captures here avoids a second exact search
-    // without bypassing DFA rejection on long inputs.
+    // Fallback: an exact search is already necessary. If an operation requires inner captures or
+    // callers have consumed them before, collect them in this pass rather than replaying it on
+    // group access. Otherwise group-zero-only loops can still defer capture tracking.
     //
     // Region searches keep eager capture extraction: deferred resolution runs on the full input,
     // while the fallback below sees the substituted region substring.
     boolean lazyFallbackCaptures =
         !regionActive
-            && !eagerFallbackCaptures
+            && !replacementNeedsCaptures
             && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
             && options.lazyCaptureExtraction()
@@ -2923,11 +2915,7 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        if (!capturesResolved) {
-          recordInnerCaptureDemand();
-        } else {
-          eagerFallbackCaptures = true;
-        }
+        recordInnerCaptureDemand();
       }
       resolveCaptures();
     }
@@ -2962,11 +2950,7 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        if (!capturesResolved) {
-          recordInnerCaptureDemand();
-        } else {
-          eagerFallbackCaptures = true;
-        }
+        recordInnerCaptureDemand();
       }
       resolveCaptures();
     }
@@ -3142,16 +3126,19 @@ public final class Matcher implements MatchResult {
     // An optimized attempt may have published earlier matches before a later DFA bailout.
     // Restart once so the authoritative fallback also replaces those earlier matches.
     reset();
-    if (replacement.indexOf('$') >= 0) {
-      eagerFallbackCaptures = true;
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
+    boolean savedRequirement = replacementNeedsCaptures;
+    replacementNeedsCaptures = template.needsCaptures();
+    try {
+      return replaceFallback(replacement, limit, template);
+    } finally {
+      replacementNeedsCaptures = savedRequirement;
     }
+  }
 
+  private String replaceFallback(String replacement, int limit, LazyTemplate template) {
     if (!find()) {
       return text;
-    }
-    LazyTemplate template = new LazyTemplate(replacement, groupCount());
-    if (template.needsCaptures()) {
-      parentPattern.recordInnerCaptureAccess();
     }
     diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
@@ -3306,7 +3293,7 @@ public final class Matcher implements MatchResult {
 
     boolean needsCaptures = template.needsCaptures();
     if (needsCaptures) {
-      parentPattern.recordInnerCaptureAccess();
+      recordInnerCaptureDemand();
     }
     boolean useOnePass =
         needsCaptures
@@ -4273,7 +4260,7 @@ public final class Matcher implements MatchResult {
       clearCurrentResult();
     }
     invalidatePatternCaches();
-    eagerFallbackCaptures = false;
+    replacementNeedsCaptures = false;
     if (preservedGroupZero) {
       Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.USE_PATTERN_GROUP_ZERO);
     }
@@ -4335,12 +4322,10 @@ public final class Matcher implements MatchResult {
    *     operation failed
    */
   public MatchResult toMatchResult() {
-    if (parentPattern.numGroups() > 0 && !capturesResolved) {
-      recordInnerCaptureDemand();
-    } else {
-      eagerFallbackCaptures = true;
-    }
     if (hasMatch) {
+      if (parentPattern.numGroups() > 0) {
+        recordInnerCaptureDemand();
+      }
       resolveCaptures();
     }
     return new SnapshotMatchResult(

@@ -90,6 +90,25 @@ def test_carry_preserves_full_assessment_done_and_review_time(setup):
   assert current.read_text() == text  # Repeating a copy never appends another section/note.
 
 
+def test_activity_record_is_separate_from_brief_and_uses_main_run_status(setup):
+  args, _, _, current, _ = setup
+  metadata_path = args.root / 'locks/run.lockdir/metadata.json'
+  metadata = json.loads(metadata_path.read_text())
+  detail = args.root / 'reports/current/issue-activity.md'
+  detail.parent.mkdir(); detail.write_text('## Issues\n\n' + HEADER + '\n' + SEPARATOR + '\n')
+  metadata['issueReportPath'] = str(detail); write(metadata_path, metadata)
+  before = current.read_bytes()
+  update(args)
+  assert current.read_bytes() == before
+  assert 'full historical assessment' in detail.read_text()
+  assert audit(args)['mechanicalChecksPassed']
+  state = json.loads((args.root / 'state.json').read_text())
+  assert state['issues']['1']['lastReport'] == str(detail)
+  current.write_text(current.read_text().replace('Status: running', 'Status: completed'))
+  with pytest.raises(ValueError, match='running report'):
+    update(args)
+
+
 def test_current_done_cell_and_other_categories_are_preserved(setup):
   args, _, _, current, _ = setup
   current.write_text(report(done="", running=True))

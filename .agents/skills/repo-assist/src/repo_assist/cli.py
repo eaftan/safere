@@ -69,7 +69,20 @@ def begin(args: argparse.Namespace) -> int:
     "startedAt": iso(started),
     "pid": os.getpid(),
     "reportPath": str(args.root / "reports" / f"{run_id}.md"),
+    "reportFormat": "brief",
+    "issueReportPath": str(args.root / "reports" / run_id / "issue-activity.md"),
+    "authoredFeedbackReportPath": str(args.root / "reports" / run_id / "authored-feedback.md"),
   }
+  details = args.root / "reports" / run_id
+  details.mkdir(parents=True, exist_ok=True)
+  Path(metadata["issueReportPath"]).write_text(
+    "# Issue activity\n\n## Issues\n\n"
+    "| Done | Issue | Activity | Addressing PRs / Coverage | Action Needed |\n"
+    "|---|---|---|---|---|\n", encoding="utf-8",
+  )
+  Path(metadata["authoredFeedbackReportPath"]).write_text(
+    "# Your PRs With Review Feedback\n", encoding="utf-8",
+  )
   (lock / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
   report = Path(metadata["reportPath"])
   report.write_text(

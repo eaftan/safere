@@ -252,7 +252,7 @@ class GitHub:
 
   def discover_items(self, kind: str, trusted: frozenset[str], limit: int = 1000) -> dict[str, Any]:
     if kind == "pr":
-      fields = "number,isDraft,headRefName,headRefOid,baseRefName,updatedAt,url,author"
+      fields = "number,isDraft,headRefName,headRefOid,baseRefName,createdAt,updatedAt,url,author"
       command = [
         "gh",
         "pr",
