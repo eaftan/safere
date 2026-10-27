@@ -285,6 +285,34 @@ class BitStateTest {
   @DisplayName("Budget")
   class Budget {
     @Test
+    void cachedWorkspaceGrowsCapturesWithoutDiscardingSearchBuffers() {
+      for (String regex : new String[] {"(a?){20}a{20}", "((a)(a?)){2}", "((a)|b)+"}) {
+        Prog prog = Compiler.compile(Parser.parse(regex, FLAGS));
+        String text = "a".repeat(1024);
+        int fullNcap = 2 * prog.numCaptures();
+        BitState cached = BitState.getOrCreate(null, prog, text, 0, text.length(), 2, false, false);
+        for (int iteration = 0; iteration < 3; iteration++) {
+          BitState bounds =
+              BitState.getOrCreate(cached, prog, text, 0, text.length(), 2, false, false);
+          assertThat(bounds).isSameAs(cached);
+          int[] match = bounds.doSearch(0, text.length(), false);
+          assertThat(match).isNotNull();
+          BitState captures =
+              BitState.getOrCreate(cached, prog, text, match[0], match[1], fullNcap, false, false);
+          assertThat(captures).as("capture growth for /%s/", regex).isSameAs(cached);
+          assertThat(captures.doSearch(match[0], match[1], true))
+              .isEqualTo(
+                  Nfa.search(
+                      prog,
+                      text,
+                      Nfa.Anchor.UNANCHORED,
+                      Nfa.MatchKind.FIRST_MATCH,
+                      prog.numCaptures()));
+        }
+      }
+    }
+
+    @Test
     void tooLargeReturnsNull() {
       Regexp re = Parser.parse("abc", FLAGS);
       Prog prog = Compiler.compile(re);

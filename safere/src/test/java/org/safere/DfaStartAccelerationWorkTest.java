@@ -176,7 +176,9 @@ class DfaStartAccelerationWorkTest {
 
   private static WorkCounter.StartAccelerationWork findWork(
       String regex, String match, String input, boolean utf8) {
-    Pattern pattern = Pattern.compile(regex);
+    // Exercise DFA backoff independently of literal-guided narrowing before the engine search.
+    Pattern pattern =
+        Pattern.compile(regex, 0, EnginePathOptions.builder().literalFastPaths(false).build());
     java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
     assertThat(jdk.find()).isTrue();
     assertThat(jdk.group()).isEqualTo(match);

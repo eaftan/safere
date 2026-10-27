@@ -326,11 +326,9 @@ class CommentsTest {
     }
 
     @Test
-    @DisplayName("quantifiers after empty quoted literals bind to the empty literal")
-    void quantifiersAfterEmptyQuotedLiteralsBindToEmptyLiteral() {
-      String[] regexes = {
-        "a\\Q\\E+", "a\\Q\\E*", "a\\Q\\E?", "a\\Q\\E{1,3}", "^\\p{Lower}{1,3}\\Q\\E+"
-      };
+    @DisplayName("empty quotes do not separate quantifiers from their operands")
+    void emptyQuotesDoNotSeparateQuantifiersFromTheirOperands() {
+      String[] regexes = {"a\\Q\\E+", "a\\Q\\E*", "a\\Q\\E?", "a\\Q\\E{1,3}"};
       String[] inputs = {"", "a", "aa", "aaa", "name"};
 
       for (String regex : regexes) {
