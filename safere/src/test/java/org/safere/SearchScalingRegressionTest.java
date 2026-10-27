@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntSupplier;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -527,6 +528,46 @@ class SearchScalingRegressionTest {
     assertThat(pattern.innerCapturesObserved())
         .as("Replacement with capture references must mark inner captures as observed")
         .isTrue();
+  }
+
+  @Test
+  void observedCaptureDemandAvoidsRepeatingExactFallbackSearch() {
+    String input = "a".repeat(1_024) + "y";
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.allEnabled(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      for (boolean utf8 : new boolean[] {false, true}) {
+        Pattern pattern = Pattern.compile("(a?)*y", 0, options);
+        Matcher priming = pattern.matcher(input);
+        assertThat(priming.find()).isTrue();
+        assertThat(priming.group(1)).isEmpty();
+
+        IntSupplier captureStart;
+        IntSupplier captureEnd;
+        if (utf8) {
+          Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        } else {
+          Matcher matcher = pattern.matcher(input);
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        }
+        long captureWork =
+            WorkCounter.countForTesting(
+                () -> {
+                  assertThat(captureStart.getAsInt()).isEqualTo(1_024);
+                  assertThat(captureEnd.getAsInt()).isEqualTo(1_024);
+                });
+        assertThat(captureWork)
+            .as("Known-demand captures should already be available after exact fallback")
+            .isZero();
+      }
+    }
   }
 
   @Test

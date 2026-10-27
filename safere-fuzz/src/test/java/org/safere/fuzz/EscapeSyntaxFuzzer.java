@@ -71,8 +71,8 @@ public final class EscapeSyntaxFuzzer {
   };
   private static final List<String> INPUTS =
       List.of(
-          "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "🙀", "\u0000",
-          "\u0140", "\uD800", "\uD840", "\uf57f");
+          "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "𠀀", "🙀",
+          "\u0000", "\u0140", "\uD800", "\uD840", "\uf57f");
   // Reviewed intentional differences have separate expected-outcome tests, not fixed agreement
   // probes. FuzzSupportTest pins unsupported backreference outcomes. Prefix/escape/suffix
   // generation still explores those spellings and the ambiguous class-range spellings.
@@ -127,5 +127,20 @@ public final class EscapeSyntaxFuzzer {
 
     String regex = prefix + data.pickValue(ESCAPES) + suffix;
     FuzzSupport.assertFullMatchesJdk(regex, FuzzSupport.consumeParserFlags(data), INPUTS);
+    String introducer = data.pickValue(List.of("\\p", "\\P", "\\c", "\\x", "\\u"));
+    String gap = data.pickValue(List.of("", "\\Q\\E", "\\Q\\E\\Q\\E", " ", "#c\n"));
+    String component = data.pickValue(List.of("L", "{L}", "{ L}", "{L }", "a", "41", "0041"));
+    if (data.consumeBoolean()) component = "\\Q" + component + "\\E";
+    String expression = introducer + gap + component;
+    if (data.consumeBoolean()) expression = "[" + expression + "]";
+    FuzzSupport.assertFullMatchesJdk(expression, FuzzSupport.consumeParserFlags(data), INPUTS);
+    String high = data.pickValue(List.of("\\uD83D", "\\uD840", "\\uD800"));
+    String low = data.pickValue(List.of("DE00", "DC00", "D800", "0041"));
+    String between = data.pickValue(List.of("", " ", "\\Q\\E", "#c\n"));
+    String digitGap = data.pickValue(List.of("", " ", "\\Q\\E", "#c\n"));
+    String pair = high + between + "\\u" + low.substring(0, 2) + digitGap + low.substring(2);
+    if (data.consumeBoolean()) pair += "\\uDE00";
+    if (data.consumeBoolean()) pair = "[" + pair + "]";
+    FuzzSupport.assertFullMatchesJdk(pair, FuzzSupport.consumeParserFlags(data), INPUTS);
   }
 }

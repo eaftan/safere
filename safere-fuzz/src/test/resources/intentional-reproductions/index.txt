@@ -7,3 +7,7 @@ vertical-whitespace-range-start
 vertical-whitespace-range-end
 vertical-whitespace-range-empty-quote
 vertical-whitespace-range-comments
+range-trivia-closing-bracket
+range-trivia-opening-bracket
+range-trivia-compile
+range-trivia-empty-quote-compile

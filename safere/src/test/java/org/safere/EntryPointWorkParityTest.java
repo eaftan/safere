@@ -131,6 +131,37 @@ class EntryPointWorkParityTest {
     assertThat(failures).isEmpty();
   }
 
+  @Test
+  void guardedGapEntryPointsAvoidScanningDensePrefixCandidates() {
+    String regex = "record:[^\\r\\n;]*val=200";
+    String noise = "record:x;";
+    for (int size : SIZES) {
+      String input = noise.repeat(size / noise.length()) + "record:target_val=200";
+      Pattern pattern = Pattern.compile(regex);
+      Pattern forwardOnly =
+          Pattern.compile(regex, 0, EnginePathOptions.builder().literalFastPaths(false).build());
+      assertThat(
+              WorkCounter.countForwardDfaStepsForTesting(
+                  () -> consume(forwardOnly.matcher(input).find())))
+          .as("the control must scan the dense prefix candidates")
+          .isGreaterThan(input.length() / 4L);
+
+      BiConsumer<String, Runnable> check =
+          (name, task) -> {
+            task.run(); // Prepare lazy engines outside the counted operation.
+            long steps = WorkCounter.countForwardDfaStepsForTesting(task);
+            assertThat(steps)
+                .as("%s must narrow the guarded gap at %d chars", name, input.length())
+                .isLessThan(input.length() / 16L);
+          };
+      check.accept("Matcher.find", () -> consume(pattern.matcher(input).find()));
+      FIRST_MATCH.forEach(
+          (name, operation) -> check.accept(name, () -> operation.accept(pattern, input)));
+      ALL_MATCHES.forEach(
+          (name, operation) -> check.accept(name, () -> operation.accept(pattern, input)));
+    }
+  }
+
   private static void check(
       List<String> failures,
       Scenario scenario,

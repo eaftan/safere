@@ -309,6 +309,22 @@ final class Dfa {
    */
   private long lastStartBackoff;
 
+  // Per-search narrowing state. Kept out of the scalar loop's live local variables; this DFA
+  // is thread-confined and no search calls another search before it returns.
+  private static final int INNER_PROBE_DISABLED = 0;
+  private static final int INNER_PROBE_WAITING = 1;
+  private static final int INNER_PROBE_READY = 2;
+  private static final int INNER_PROBE_USED = 3;
+
+  private int innerProbeState;
+  private long innerProbeResumePos;
+
+  // Notifications removed after a probe are rearmed at the next unanchored search. A slot is
+  // queued only when its negative notification is visited, so maintenance is charged to DFA work.
+  private int[] pausedFailureTransitions = EMPTY_INSTS;
+  private int pausedFailureTransitionCount;
+  private int pendingFailureTransitionIndex = -1;
+
   /**
    * Whether the current cache generation has already been penalized for exhausting its state budget
    * before covering {@link #MIN_PROGRESS_PER_CACHED_STATE} positions per state, so repeated hits on
@@ -335,6 +351,7 @@ final class Dfa {
 
   private final Utf8StartAccelerator utf8StartAccelerator;
   private final StringStartAccelerator stringStartAccelerator;
+  private final InnerLiteralSearch innerLiteralSearch;
   private final boolean hasStartAcceleration;
 
   // ---------------------------------------------------------------------------
@@ -391,11 +408,23 @@ final class Dfa {
       boolean longest,
       Utf8StartAccelerator utf8StartAccelerator,
       StringStartAccelerator stringStartAccelerator) {
+    this(prog, maxStates, setup, longest, utf8StartAccelerator, stringStartAccelerator, null);
+  }
+
+  Dfa(
+      Prog prog,
+      int maxStates,
+      Setup setup,
+      boolean longest,
+      Utf8StartAccelerator utf8StartAccelerator,
+      StringStartAccelerator stringStartAccelerator,
+      InnerLiteralSearch innerLiteralSearch) {
     this.prog = prog;
     this.maxStates = maxStates;
     this.longest = longest;
     this.utf8StartAccelerator = utf8StartAccelerator;
     this.stringStartAccelerator = stringStartAccelerator;
+    this.innerLiteralSearch = innerLiteralSearch;
     this.hasStartAcceleration = utf8StartAccelerator != null || stringStartAccelerator != null;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
     this.hasCrLfContext = hasStandardLineBoundary(prog);
@@ -451,12 +480,39 @@ final class Dfa {
   private void setTransition(int fromId, int cls, int toId) {
     int fromBase = fromId * numClasses;
     State toState = offsetToState[toId * numClasses];
-    boolean isMatch = toState.isMatch();
+    // Negative entries already leave the hot loop for match handling. On DFAs with inner
+    // narrowing, also flag failure frontiers so observing failure adds no per-character test.
+    boolean needsAttention =
+        toState.isMatch() || (innerLiteralSearch != null && toState.isStartState);
     int storedId = toId * numClasses;
-    if (isMatch) {
+    if (needsAttention) {
       storedId = -storedId;
     }
     transitions[fromBase + cls] = storedId;
+  }
+
+  private void pauseFailureTransition(int index, int offset) {
+    if (pausedFailureTransitionCount == pausedFailureTransitions.length) {
+      pausedFailureTransitions =
+          Arrays.copyOf(pausedFailureTransitions, Math.max(8, pausedFailureTransitionCount * 2));
+    }
+    pausedFailureTransitions[pausedFailureTransitionCount++] = index;
+    // This positive entry cannot be queued again before it is restored.
+    transitions[index] = offset;
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
+    }
+  }
+
+  private void restoreFailureTransitions() {
+    for (int i = 0; i < pausedFailureTransitionCount; i++) {
+      int index = pausedFailureTransitions[i];
+      transitions[index] = -transitions[index];
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+    }
+    pausedFailureTransitionCount = 0;
   }
 
   private void addTransition(State from, int cls, State to) {
@@ -949,6 +1005,8 @@ final class Dfa {
     currentGenerationPenalized = false;
     int used = Math.min(nextStateId * numClasses, transitions.length);
     Arrays.fill(transitions, 0, used, 0);
+    pausedFailureTransitionCount = 0;
+    pendingFailureTransitionIndex = -1;
     Arrays.fill(offsetToState, 0, used, null);
     Arrays.fill(isAcceleratedStateOffset, 0, used, false);
     // The dead state outlives the reset, so clear the transitions recorded on it by hand.
@@ -1757,6 +1815,44 @@ final class Dfa {
       int pos,
       int posDepThreshold,
       State startState,
+      Utf8StartAccelerator.SearchCursor utf8Cursor,
+      boolean allowInnerProbe) {
+    int candidate = findStartCandidate(text, pos, posDepThreshold, startState, utf8Cursor);
+    if (candidate < 0 || !allowInnerProbe) {
+      return candidate;
+    }
+    if (innerProbeState == INNER_PROBE_WAITING) {
+      innerProbeResumePos += Math.max(0, candidate - pos);
+      return candidate;
+    }
+    if (innerProbeState != INNER_PROBE_READY) {
+      return candidate;
+    }
+    innerProbeState = INNER_PROBE_USED;
+    int narrowed = innerLiteralSearch.searchStart(text, candidate);
+    if (narrowed <= candidate) {
+      return narrowed;
+    }
+    // Preserve the ordinary accelerator's terminal context boundary. The DFA evaluates
+    // position-dependent transitions from there rather than skipping over that boundary.
+    if (hasPositionDependentTransitions && narrowed >= posDepThreshold - 1) {
+      return Math.max(candidate, posDepThreshold - 1);
+    }
+    return findStartCandidate(text, narrowed, posDepThreshold, startState, utf8Cursor);
+  }
+
+  private void updateInnerProbeState(int pos) {
+    if (innerProbeState == INNER_PROBE_WAITING && pos >= innerProbeResumePos) {
+      innerProbeState = INNER_PROBE_READY;
+      innerProbeResumePos = 0;
+    }
+  }
+
+  private int findStartCandidate(
+      InputScanner text,
+      int pos,
+      int posDepThreshold,
+      State startState,
       Utf8StartAccelerator.SearchCursor utf8Cursor) {
     if (text instanceof Utf8InputScanner utf8Scanner && utf8StartAccelerator != null) {
       int idx =
@@ -1886,6 +1982,21 @@ final class Dfa {
         canAccelerate ? AdaptiveBackoff.resumePos(backoff) : Integer.MAX_VALUE;
     // A preselected start position is never re-scanned; -1 when there is none.
     int preselectedPos = startPositionPreselected ? startPos : -1;
+    // A successful first candidate pays no suffix scan or backward probe. Returning to the
+    // unanchored start state after consuming input proves that every earlier candidate failed.
+    // A small native-work budget avoids probing for isolated short failures. Only ordinary
+    // prefix-scan skips move its threshold; input consumed by native matching pays the budget.
+    // Probe at most once per search, independently of ordinary prefix-scan quarantine. A failed
+    // bounded backward probe falls back to this same DFA pass; it is never retried at each start.
+    innerProbeState =
+        canAccelerate && innerLiteralSearch != null && !longest
+            ? INNER_PROBE_WAITING
+            : INNER_PROBE_DISABLED;
+    innerProbeResumePos = (long) startPos + InnerLiteralSearch.MIN_FAILED_INPUT_UNITS;
+    pendingFailureTransitionIndex = -1;
+    if (innerProbeState == INNER_PROBE_WAITING && pausedFailureTransitionCount != 0) {
+      restoreFailureTransitions();
+    }
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
@@ -1893,11 +2004,11 @@ final class Dfa {
     int[] asciiClassMap = this.asciiClassMap;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
-      if (pos >= accelerationResumePos
-          && s.isStartState
-          && pos != preselectedPos
-          && (textLen - pos >= minSkip)) {
-        int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor);
+      updateInnerProbeState(pos);
+      if (s.isStartState
+          && ((pos >= accelerationResumePos && pos != preselectedPos && textLen - pos >= minSkip)
+              || (!matched && innerProbeState == INNER_PROBE_READY))) {
+        int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor, !matched);
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
         }
@@ -1957,16 +2068,26 @@ final class Dfa {
           }
         }
       }
-      boolean breakOnAcceleratedState = pos >= accelerationResumePos || hasStateAccelerators;
+      boolean breakOnAcceleratedState =
+          innerProbeState == INNER_PROBE_READY
+              || pos >= accelerationResumePos
+              || hasStateAccelerators;
       boolean hitAcceleratedState = false;
       int limit =
           hasPositionDependentTransitions ? Math.min(textLen, posDepThreshold - 1) : textLen;
+      if (innerProbeState == INNER_PROBE_WAITING) {
+        // Reuse the scan limit to pay the budget without polling a long threshold in the loop.
+        limit = (int) Math.min(limit, innerProbeResumePos);
+      }
       int sId = s.id * numClasses;
       if (breakOnAcceleratedState) {
         while (pos < limit) {
           int ch = text.asciiAt(pos);
           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
             break;
+          }
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.recordForwardDfaStep();
           }
           int cls = asciiClassMap[ch];
           int nsId = transitions[sId + cls];
@@ -1986,6 +2107,16 @@ final class Dfa {
               matched = true;
               matchEnd = endPos;
             }
+            if (ns.isStartState
+                && (innerProbeState == INNER_PROBE_READY || innerProbeState == INNER_PROBE_USED)) {
+              if (innerProbeState == INNER_PROBE_USED) {
+                pendingFailureTransitionIndex = sId + cls;
+              }
+              sId = nsId;
+              pos++;
+              hitAcceleratedState = true;
+              break;
+            }
           }
           if (nsId == sId && isAcceleratedStateOffset[sId]) {
             sId = nsId;
@@ -2001,6 +2132,9 @@ final class Dfa {
           int ch = text.asciiAt(pos);
           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
             break;
+          }
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.recordForwardDfaStep();
           }
           int cls = asciiClassMap[ch];
           int nsId = transitions[sId + cls];
@@ -2026,6 +2160,11 @@ final class Dfa {
         }
       }
       s = offsetToState[sId];
+      if (pendingFailureTransitionIndex >= 0) {
+        // Keep all transition-table writes outside the cached scalar loop.
+        pauseFailureTransition(pendingFailureTransitionIndex, sId);
+        pendingFailureTransitionIndex = -1;
+      }
 
       if (pos >= textLen) {
         break;
@@ -2078,11 +2217,11 @@ final class Dfa {
     // sentinel
     generalLoop:
     while (pos <= textLen) {
-      if (pos >= accelerationResumePos
-          && s.isStartState
-          && pos != preselectedPos
-          && (textLen - pos >= minSkip)) {
-        int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor);
+      updateInnerProbeState(pos);
+      if (s.isStartState
+          && ((pos >= accelerationResumePos && pos != preselectedPos && textLen - pos >= minSkip)
+              || (!matched && innerProbeState == INNER_PROBE_READY))) {
+        int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor, !matched);
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
         }
@@ -2126,6 +2265,10 @@ final class Dfa {
       }
       // Step the DFA until it may call the start accelerator again. Making that test the exit of
       // this inner loop keeps the accelerator path out of the hot per-character loop.
+      int stepLimit =
+          innerProbeState == INNER_PROBE_WAITING
+              ? (int) Math.min(Integer.MAX_VALUE, innerProbeResumePos)
+              : Integer.MAX_VALUE;
       do {
         if (s.accelerator != null && (textLen - pos >= 16) && (!s.isStartState || anchored)) {
           int nextPos = StateAccelerator.findNextEscape(s.accelerator, text, pos, textLen);
@@ -2140,6 +2283,7 @@ final class Dfa {
         }
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
+          WorkCounter.recordForwardDfaStep();
         }
         int cp;
         int nextPos;
@@ -2226,7 +2370,9 @@ final class Dfa {
           break generalLoop;
         }
         pos = nextPos;
-      } while (pos < accelerationResumePos || !s.isStartState);
+      } while (pos < stepLimit
+          && (!s.isStartState
+              || (pos < accelerationResumePos && innerProbeState != INNER_PROBE_READY)));
     }
 
     return completeForwardSearch(new SearchResult(matched, matchEnd), pos, backoff);

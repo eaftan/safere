@@ -327,6 +327,14 @@ Supported steps are `reset`, `region`, `transparentBounds`, and
 `anchoringBounds`. Lifecycle is part of workload identity and determines
 whether construction and mutation happen inside or outside the timed task.
 
+For `matcherRegionFind` and `matcherResetFind`, `retained` constructs one matcher
+when the task is bound, while `newPerInvocation` constructs a matcher inside
+every timed invocation. Both policies apply the region or reset inside every
+invocation. The region operation performs one `find()`; the reset operation
+counts all matches. The checked-in `MatcherApiBenchmark.regionFind` and
+`MatcherApiBenchmark.resetAndFind` workloads declare `retained` and keep matcher
+construction outside timing.
+
 ## Measurement policy
 
 The current modes are:
