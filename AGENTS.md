@@ -189,10 +189,11 @@ reports or raw-data archives to a performance PR unless explicitly requested.
 - **Keep PR descriptions focused on the change.** Explain the problem, the
   resulting behavior, and any design decision or compatibility tradeoff
   reviewers need to assess it.
-- **Do not include a routine Validation section.** Rely on GitHub CI for
-  standard checks. Mention validation only when it provides evidence CI does
-  not cover, such as required before/after benchmarks, or when a material
-  limitation affects review.
+- **Omit routine validation reporting.** Do not list local checks run or
+  skipped, or their results, even inline. Omit statements such as "the full
+  library suite was not run." Keep routine execution reporting in chat and
+  rely on GitHub CI for standard checks. Include required before/after
+  benchmark evidence and unresolved limitations that materially affect review.
 - **Omit work history.** Do not recount investigation steps, tool commands,
   intermediate failures, retries, or local environment problems unless they
   reveal an unresolved risk relevant to the change.
