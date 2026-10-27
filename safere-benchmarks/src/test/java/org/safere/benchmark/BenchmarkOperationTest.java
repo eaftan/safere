@@ -76,7 +76,8 @@ class BenchmarkOperationTest {
             new DeclarativeBenchmarkPlan.MatcherLifecycle(reuse, List.of(step)),
             null,
             0,
-            0);
+            0,
+            "boolean");
     boolean retained = reuse == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED;
     assertThat(matcherInputs).hasSize(retained ? 1 : 0);
     assertThat(calls).isEmpty();
