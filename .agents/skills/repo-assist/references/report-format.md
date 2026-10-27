@@ -54,7 +54,9 @@ original-worktree blockers and historical feedback belong here.
   routine approvals omitted or grouped in the main brief.
 - `reports/<runId>/issue-activity.md`: assessments and coverage for active issues only, with the
   existing issue helper’s summary rows/anchors. No unchanged open-issue inventory.
-- `artifacts/<runId>/pr-N/copy-paste-review.md`: standalone paste-ready author comment.
+- `artifacts/<runId>/pr-N/copy-paste-review.md`: the standalone author comment inside one fenced
+  `markdown` block, so its rendered view offers the raw Markdown to copy. Use a longer outer fence
+  when the comment includes code fences. Extracted `author-copy-N.md` files use the same format.
 - Existing raw artifacts retain exact verification and benchmark evidence.
 
 The main report and full contributor record both use the same `pr-N` identity. Keep `lastReport`
