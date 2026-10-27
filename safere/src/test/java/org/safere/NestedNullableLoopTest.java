@@ -70,6 +70,44 @@ class NestedNullableLoopTest {
     return cases.stream();
   }
 
+  private static Stream<String> nestedNullableEpsilonCases() {
+    List<String> cases = new ArrayList<>();
+    for (String body : List.of("(?:a?(?:|.))", "(?:a?(?:\\b|.))")) {
+      for (String firstQuantifier : List.of("+", "+?")) {
+        String regex = body;
+        String quantifier = firstQuantifier;
+        for (int depth = 1; depth <= 7; depth++) {
+          regex = "(?:" + regex + ")" + quantifier;
+          cases.add(regex);
+          quantifier = quantifier.equals("+") ? "+?" : "+";
+        }
+      }
+    }
+    return cases.stream();
+  }
+
+  @ParameterizedTest(name = "[{index}] /{0}/")
+  @MethodSource("nestedNullableEpsilonCases")
+  void nestedNullableEpsilonFindSequencesMatchJdk(String regex) {
+    String input = "!a!".repeat(300) + "z";
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = pattern.matcher(input);
+    Utf8Matcher utf8 = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    // The ASCII input gives both representations the same offsets and empty-match advancement.
+    while (jdk.find()) {
+      assertThat(safere.find()).isTrue();
+      assertGroupsMatch(jdk, safere);
+      assertThat(utf8.find()).isTrue();
+      assertThat(utf8.start()).isEqualTo(jdk.start());
+      assertThat(utf8.end()).isEqualTo(jdk.end());
+    }
+    assertThat(safere.find()).isFalse();
+    assertThat(utf8.find()).isFalse();
+  }
+
   @ParameterizedTest(name = "[{index}] /{0}/ on {1}")
   @MethodSource("nestedNullableLoopCases")
   void freshLoopEntriesMatchJdkAcrossEngines(String regex, String input) {

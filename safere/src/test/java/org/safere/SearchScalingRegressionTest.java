@@ -51,6 +51,31 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void nestedNullableEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String body : new String[] {"(?:a?(?:|.))", "(?:a?(?:\\b|.))"}) {
+      for (String firstQuantifier : new String[] {"+", "+?"}) {
+        String regex = body;
+        String quantifier = firstQuantifier;
+        for (int depth = 1; depth <= 7; depth++) {
+          regex = "(?:" + regex + ")" + quantifier;
+          quantifier = quantifier.equals("+") ? "+?" : "+";
+          Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+          assertFindAllWorkIsLinear(
+              size -> pattern.matcher("!a!".repeat(size) + "z")::find,
+              "String nested epsilon revisits " + regex);
+          assertFindAllWorkIsLinear(
+              size ->
+                  pattern.matcher(Utf8Input.trusted(("!a!".repeat(size) + "z").getBytes(UTF_8)))
+                      ::find,
+              "UTF-8 nested epsilon revisits " + regex);
+        }
+      }
+    }
+  }
+
+  @Test
   void optionalEpsilonChainsKeepWorkLinearInPatternSize() {
     for (String template : new String[] {"(?:\\b?){%d}a", "(?:(?:|b)?){%d}a"}) {
       long[] work = new long[2];
