@@ -7,6 +7,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.safere.PatternFeature.BOUNDED_REPEAT;
+import static org.safere.PatternFeature.CAPTURES_IN_QUANTIFIER;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -384,8 +386,7 @@ class RE2ExhaustiveTest {
     try {
       org.safere.Pattern safeRePattern = org.safere.Pattern.compile(pattern);
       var features = safeRePattern.analysis().features();
-      if (!features.contains(org.safere.PatternFeature.BOUNDED_REPEAT)
-          || !features.contains(org.safere.PatternFeature.CAPTURES_IN_QUANTIFIER)) {
+      if (!features.contains(BOUNDED_REPEAT) || !features.contains(CAPTURES_IN_QUANTIFIER)) {
         return false;
       }
       org.safere.Matcher safeReMatcher = safeRePattern.matcher(text);
