@@ -5,7 +5,8 @@
 
 package org.safere;
 
-sealed interface InputScanner permits StringInputScanner, Utf8InputScanner {
+sealed interface InputScanner
+    permits StringInputScanner, StringRegionInputScanner, Utf8InputScanner {
   int END_OF_INPUT = -1;
 
   /** Returns the length of the input in index units (chars for String, bytes for byte[]). */

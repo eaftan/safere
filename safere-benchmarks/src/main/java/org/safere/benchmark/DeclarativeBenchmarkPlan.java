@@ -1627,6 +1627,20 @@ final class DeclarativeBenchmarkPlan {
     MATCHER_RESET_FIND("matcherResetFind", true, true, Feature.FIND, Feature.MATCHER_STATE),
     MATCHER_REGION_FIND(
         "matcherRegionFind", true, true, Feature.FIND, Feature.MATCHER_STATE, Feature.REGIONS),
+    MATCHER_REGION_MATCHES(
+        "matcherRegionMatches",
+        true,
+        true,
+        Feature.MATCHES,
+        Feature.MATCHER_STATE,
+        Feature.REGIONS),
+    MATCHER_REGION_TOKENIZE(
+        "matcherRegionTokenize",
+        true,
+        true,
+        Feature.LOOKING_AT,
+        Feature.MATCHER_STATE,
+        Feature.REGIONS),
     FIND_IN_WINDOW("findInWindow", true, true, Feature.FIND, Feature.MATCHER_STATE),
     PATTERN_SET_COMPILE("patternSetCompile", false, false, Feature.PATTERN_SET),
     PATTERN_SET_FIND("patternSetFind", false, true, Feature.PATTERN_SET),
@@ -1737,6 +1751,7 @@ final class DeclarativeBenchmarkPlan {
             FIND_ROTATING_UTF16,
             COMPILE_AND_FIND_ROTATING_UTF16,
             MATCHER_REGION_FIND,
+            MATCHER_REGION_MATCHES,
             FIND_IN_WINDOW,
             UTF8_DECODE_FIND ->
             consumption == ResultConsumption.BOOLEAN;
@@ -1752,6 +1767,7 @@ final class DeclarativeBenchmarkPlan {
             MATCHES_CORPUS,
             MATCHES_GROUP_LENGTH_SUM,
             MATCHER_RESET_FIND,
+            MATCHER_REGION_TOKENIZE,
             REPLACE_ALL_LENGTH_SUM,
             SPLIT_LENGTH_SUM,
             UTF8_CAPTURE_BOUNDS,

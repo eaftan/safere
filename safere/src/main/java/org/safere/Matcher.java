@@ -1084,6 +1084,10 @@ public final class Matcher implements MatchResult {
           }
           return true;
         }
+      } else if (textScanner instanceof StringRegionInputScanner regionScanner) {
+        if (!regionScanner.startsWith(parentPattern.prefix(), searchFrom, false)) {
+          return true;
+        }
       } else if (textScanner instanceof Utf8InputScanner utf8Scanner) {
         if (!utf8Scanner.startsWith(parentPattern.prefixUtf8(), searchFrom)) {
           return true;
@@ -1122,6 +1126,10 @@ public final class Matcher implements MatchResult {
           if (WorkCounterConfig.ENABLED) {
             WorkCounter.record(parentPattern.anchoredPrefix().length());
           }
+          return true;
+        }
+      } else if (textScanner instanceof StringRegionInputScanner regionScanner) {
+        if (!regionScanner.startsWith(parentPattern.anchoredPrefix(), searchFrom, false)) {
           return true;
         }
       } else if (textScanner instanceof Utf8InputScanner utf8Scanner) {
@@ -1171,7 +1179,8 @@ public final class Matcher implements MatchResult {
 
     RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
     MatchStrategy rejectionStrategy = null;
-    if (rejectPrefilter != null && text != null) {
+    if (rejectPrefilter != null
+        && (text != null || textScanner instanceof StringRegionInputScanner)) {
       rejectionStrategy =
           rejectPrefilter instanceof RejectPrefilter.Composite composite
               ? composite.rejectionStrategy(activeScanner(), text, 0, enginePathOptions())
@@ -1592,7 +1601,7 @@ public final class Matcher implements MatchResult {
     if (cannotMatchLength(regionEnd - searchFrom)) {
       return applyFailedMatchResult();
     }
-    // --- Region setup: temporarily substitute text with the region substring ---
+    // --- Region setup: temporarily substitute a bounded region view ---
     String savedText = text;
     InputScanner savedTextScanner = textScanner;
     int savedSearchFrom = searchFrom;
@@ -1648,18 +1657,16 @@ public final class Matcher implements MatchResult {
     if (cachedRegionScanner == null
         || cachedRegionStart != regionStart
         || cachedRegionEnd != regionEnd) {
-      if (WorkCounterConfig.ENABLED && text != null) {
-        WorkCounter.record(regionEnd - regionStart);
-      }
       cachedRegionScanner =
           text != null
-              ? new StringInputScanner(text.substring(regionStart, regionEnd))
+              ? new StringRegionInputScanner(text, regionStart, regionEnd)
               : ((Utf8InputScanner) savedScanner).slice(regionStart, regionEnd);
       cachedRegionStart = regionStart;
       cachedRegionEnd = regionEnd;
     }
     if (text != null) {
-      text = ((StringInputScanner) cachedRegionScanner).text();
+      // Raw String fast paths require zero-based storage; bounded paths use the scanner.
+      text = null;
     }
     textScanner = cachedRegionScanner;
   }
@@ -1815,7 +1822,7 @@ public final class Matcher implements MatchResult {
     }
 
     RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
-    if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
+    if (rejectPrefilter != null) {
       MatchStrategy rejectionStrategy =
           rejectPrefilter instanceof RejectPrefilter.Composite composite
               ? composite.rejectionStrategy(scanner, text, searchFrom, options)
@@ -1968,7 +1975,7 @@ public final class Matcher implements MatchResult {
     // programs whose end may be wrong; resolveCaptures() corrects the end position using the
     // submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
-    // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
+    // DFA ran on the region view, causing empty-width assertion mismatches at boundaries.
     if (options.dfa()
         && !regionActive
         && parentPattern.dfaGroupZeroReliable()
@@ -2090,7 +2097,7 @@ public final class Matcher implements MatchResult {
     // group access. Otherwise group-zero-only loops can still defer capture tracking.
     //
     // Region searches keep eager capture extraction: deferred resolution runs on the full input,
-    // while the fallback below sees the substituted region substring.
+    // while the fallback below sees the substituted region view.
     boolean lazyFallbackCaptures =
         !regionActive
             && !replacementNeedsCaptures
@@ -5090,10 +5097,14 @@ public final class Matcher implements MatchResult {
 
     @Override
     public boolean find(Matcher matcher, boolean regionActive) {
-      if (matcher.text == null) {
+      long result;
+      if (matcher.text != null) {
+        result = alternation.find(matcher.text, matcher.searchFrom);
+      } else if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
+        result = alternation.find(regionScanner, matcher.searchFrom);
+      } else {
         return fallback.find(matcher, regionActive);
       }
-      long result = alternation.find(matcher.text, matcher.searchFrom);
       if (result == LiteralAlternation.FALLBACK) {
         return fallback.find(matcher, regionActive);
       }
@@ -5200,13 +5211,22 @@ public final class Matcher implements MatchResult {
       if (isStartAnchored) {
         return matchLiteral(matcher, false);
       }
-      if (foldCase && matcher.text == null) {
+      if (foldCase
+          && matcher.text == null
+          && !(matcher.textScanner instanceof StringRegionInputScanner)) {
         return fallback.find(matcher, regionActive);
       }
       matcher.diagnosticBoundary(MatchStrategy.LITERAL);
       int idx;
       int matchLength;
-      if (foldCase) {
+      if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
+        idx =
+            foldCase
+                ? regionScanner.indexOfIgnoreCase(
+                    literal, anchorOffset, anchorLow, anchorHigh, matcher.searchFrom)
+                : regionScanner.indexOf(literal, matcher.searchFrom, regionScanner.length());
+        matchLength = matchLengthChars;
+      } else if (foldCase) {
         idx =
             indexOfIgnoreCase(
                 matcher.text,
@@ -5251,11 +5271,21 @@ public final class Matcher implements MatchResult {
     }
 
     private boolean matchLiteral(Matcher matcher, boolean fullMatch) {
-      if (foldCase && matcher.text == null) {
+      if (foldCase
+          && matcher.text == null
+          && !(matcher.textScanner instanceof StringRegionInputScanner)) {
         return fullMatch ? fallback.matches(matcher) : fallback.lookingAt(matcher);
       }
       matcher.capturesResolved = true;
-      if (matcher.text != null) {
+      if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
+        matcher.diagnosticBoundary(MatchStrategy.LITERAL);
+        boolean matched =
+            (!fullMatch || regionScanner.length() == matchLengthChars)
+                && regionScanner.startsWith(literal, 0, foldCase);
+        return matched
+            ? matcher.applyGroupZeroMatchResult(0, matchLengthChars)
+            : matcher.applyFailedMatchResult();
+      } else if (matcher.text != null) {
         matcher.diagnosticBoundary(MatchStrategy.LITERAL);
         boolean matched;
         if (foldCase) {
@@ -5340,9 +5370,17 @@ public final class Matcher implements MatchResult {
 
     private boolean matchSingleCharClass(Matcher matcher, boolean fullMatch) {
       matcher.capturesResolved = true;
-      if (charClassMatch != null && fullMatch && matcher.text != null) {
-        matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
-        return matcher.charClassMatchFastPath(charClassMatch);
+      if (charClassMatch != null && fullMatch) {
+        if (matcher.text != null) {
+          matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return matcher.charClassMatchFastPath(charClassMatch);
+        }
+        if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
+          matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return regionScanner.matchesCharClass(charClassMatch)
+              ? matcher.applyGroupZeroMatchResult(0, regionScanner.length())
+              : matcher.applyFailedMatchResult();
+        }
       }
       if (singleCharClass != null) {
         matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
@@ -5363,10 +5401,11 @@ public final class Matcher implements MatchResult {
             }
           }
           return matcher.applyFailedMatchResult();
-        } else if (matcher.activeScanner() instanceof Utf8InputScanner utf8Scanner) {
-          int len = utf8Scanner.length();
+        } else {
+          InputScanner scanner = matcher.activeScanner();
+          int len = scanner.length();
           if (len > 0) {
-            long decoded = utf8Scanner.decodeForward(0);
+            long decoded = scanner.decodeForward(0);
             int cp = InputScanner.codePoint(decoded);
             int nextPos = InputScanner.position(decoded);
             if ((!fullMatch || len == nextPos) && singleCharClass.contains(cp)) {

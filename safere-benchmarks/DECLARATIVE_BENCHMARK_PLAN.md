@@ -264,7 +264,7 @@ Supported operations are grouped below. Names are exact JSON values.
 |---|---|
 | Matching | `matches`, `find`, `lookingAt`, `findAllCount`, `findAllLengthSum`, `findAllGroupLengthSum`, `matchesCorpus`, `matchesGroupLengthSum`, `findGroupPresent`, `findGroup`, `captureGroups` |
 | Replacement and splitting | `replaceFirst`, `replaceAll`, `replaceAllLengthSum`, `appendReplacement`, `manualReplaceAll`, `split`, `splitLengthSum` |
-| Compilation and matcher state | `compile`, `compileAndFind`, `compileAndMatches`, `findRotatingUtf16`, `compileAndFindRotatingUtf16`, `matcherConstruction`, `matcherResetFind`, `matcherRegionFind`, `findInWindow` |
+| Compilation and matcher state | `compile`, `compileAndFind`, `compileAndMatches`, `findRotatingUtf16`, `compileAndFindRotatingUtf16`, `matcherConstruction`, `matcherResetFind`, `matcherRegionFind`, `matcherRegionMatches`, `matcherRegionTokenize`, `findInWindow` |
 | Pattern collections | `patternSetCompile`, `patternSetFind`, `patternSetMatches` |
 | UTF-8 | `utf8CaptureBounds`, `utf8DecodeFind`, `utf8Replacement` |
 | Diagnostics and memory | `analyzePattern`, `cachedAnalysis`, `compileAndAnalyze`, `dfaCacheGrowth`, `diagnosticsFind` |
@@ -327,13 +327,19 @@ Supported steps are `reset`, `region`, `transparentBounds`, and
 `anchoringBounds`. Lifecycle is part of workload identity and determines
 whether construction and mutation happen inside or outside the timed task.
 
-For `matcherRegionFind` and `matcherResetFind`, `retained` constructs one matcher
+For `matcherRegionFind`, `matcherRegionMatches`, and `matcherResetFind`, `retained` constructs one matcher
 when the task is bound, while `newPerInvocation` constructs a matcher inside
 every timed invocation. Both policies apply the region or reset inside every
-invocation. The region operation performs one `find()`; the reset operation
+invocation. The region operations perform one `find()` or `matches()`; the reset operation
 counts all matches. The checked-in `MatcherApiBenchmark.regionFind` and
 `MatcherApiBenchmark.resetAndFind` workloads declare `retained` and keep matcher
 construction outside timing.
+
+`matcherRegionTokenize` repeatedly sets the region to the unconsumed suffix and
+calls `lookingAt()`, advancing to the match end and counting tokens. Each token
+must consume input, and the pattern must cover the complete subject. The
+`retained` policy constructs its matcher during binding; `newPerInvocation`
+constructs it inside the timed task. Region mutation and matching are timed.
 
 ## Measurement policy
 

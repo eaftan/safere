@@ -77,6 +77,35 @@ final class LiteralAlternation {
     return match >= 0 ? match : searchGrowingWindows(text, PROBE_LENGTH, PROBE_LENGTH * 2);
   }
 
+  /** Searches an opaque String region without inspecting text beyond its bounds. */
+  long find(StringRegionInputScanner text, int from) {
+    if (from != 0) {
+      return FALLBACK;
+    }
+    int length = text.length();
+    for (int start = 0; start < length; ) {
+      int limit = start + Math.min(WINDOW_LENGTH, length - start);
+      int bestStart = limit;
+      int bestEnd = -1;
+      for (String literal : literals) {
+        int end = bestStart + Math.min(literal.length() - 1, length - bestStart);
+        int candidate = text.indexOf(literal, start, end);
+        if (candidate >= 0 && candidate < bestStart) {
+          bestStart = candidate;
+          bestEnd = candidate + literal.length();
+          if (candidate == start) {
+            break;
+          }
+        }
+      }
+      if (bestEnd >= 0) {
+        return ((long) bestStart << 32) | bestEnd;
+      }
+      start = limit;
+    }
+    return NO_MATCH;
+  }
+
   private long searchGrowingWindows(String text, int start, int windowLength) {
     int length = text.length();
     while (start < length) {
