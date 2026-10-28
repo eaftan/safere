@@ -14,8 +14,8 @@
     "oss_fuzz": false,
     "seeds": "src/test/resources/org/safere/fuzz/CaptureSemanticsFuzzerInputs",
     "methods": [
-      "nestedBoundedCaptures",
-      "quantifiedCaptures"
+      "quantifiedCaptures",
+      "nestedBoundedCaptures"
     ]
   },
   {
