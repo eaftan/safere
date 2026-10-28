@@ -5,26 +5,12 @@
 
 package org.safere;
 
-import java.util.Arrays;
-
 final class StringInputScanner implements InputScanner {
   private static final int SMALL_SET_SCALAR_PROLOGUE = 16;
   private static final int SMALL_SET_INITIAL_SEARCH_WINDOW = 64;
   private static final int SMALL_SET_SEARCH_WINDOW = 4096;
 
   private final String text;
-
-  // Allocated only for code-point-class scans, leaving ordinary scanner state small.
-  private ClassSearchMemo classSearchMemo;
-
-  private static final class ClassSearchMemo {
-    int[] ranges;
-    long bitmap0;
-    long bitmap1;
-    int start;
-    int limit;
-    int hit;
-  }
 
   StringInputScanner(String text) {
     this.text = text;
@@ -276,38 +262,16 @@ final class StringInputScanner implements InputScanner {
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start, int limit) {
     int position = Math.max(0, start);
     int bound = Math.min(limit, text.length());
-    ClassSearchMemo memo = classSearchMemo;
-    if (memo != null
-        && Arrays.equals(memo.ranges, ranges)
-        && bitmap0 == memo.bitmap0
-        && bitmap1 == memo.bitmap1
-        && bound == memo.limit
-        && position >= memo.start
-        && (position == memo.start || isCodePointBoundary(position))
-        && (memo.hit < 0 || memo.hit >= position)) {
-      return memo.hit;
-    }
-    if (memo == null) {
-      memo = new ClassSearchMemo();
-      classSearchMemo = memo;
-    }
-    memo.ranges = ranges;
-    memo.bitmap0 = bitmap0;
-    memo.bitmap1 = bitmap1;
-    memo.start = position;
-    memo.limit = bound;
     while (position < bound) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      int codePoint = InputScanner.codePoint(decodeForward(position, bound));
+      int codePoint = text.codePointAt(position);
       if (InputScanner.classContains(ranges, bitmap0, bitmap1, codePoint)) {
-        memo.hit = position;
         return position;
       }
       position += Character.charCount(codePoint);
     }
-    memo.hit = -1;
     return -1;
   }
 

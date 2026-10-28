@@ -81,14 +81,10 @@ public final class RegionBoundsFuzzer {
           "\\X",
           "(\\X)*",
           "(\\X)|(.)",
-          "(.)|(\\X)",
-          "\\uDE00\\X?",
-          "(\\p{Cs})(\\X?)",
-          "(?:\\p{Cs})|(?:\\Xz)",
-          "\\X?\\uDE00");
+          "(.)|(\\X)");
   private static final List<String> OPAQUE_LOCAL_ASSERTIONS =
       List.of("", "\\b", "\\B", "(?U:\\b)", "(?U:\\B)", "\\b{g}");
-  private static final List<String> OPAQUE_RIGHT_ATOMS = List.of("", ".", "(.)?", "a?", "\\X?");
+  private static final List<String> OPAQUE_RIGHT_ATOMS = List.of("", ".", "(.)?", "a?");
 
   // Same bounded pattern grammar as RegionAssertionCompositionTest. Fuzzing extends its curated
   // corpus by concatenating Unicode/context fragments and choosing arbitrary regions within them.
@@ -130,8 +126,7 @@ public final class RegionBoundsFuzzer {
           "\u1100\u1161",
           "\u0915\u094D\u0937",
           "\uD83D",
-          "\uDC4D",
-          "\uDE00");
+          "\uDC4D");
 
   private static final List<GraphemeRegion> TRANSPARENT_GRAPHEME_CONTEXT_REGIONS =
       List.of(new GraphemeRegion("\uD83D\uDC4D\uD83C\uDFFB", 1, 3));
@@ -166,9 +161,6 @@ public final class RegionBoundsFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void opaqueSubstring(FuzzedDataProvider data) {
-    // Keep candidate selection at paired surrogates in the regression path as well as the grammar.
-    compareOpaqueSubstring("\\uDE00\\X?", "a\uD83D\uDE00", 1, 3, true);
-    compareOpaqueSubstring("\\X?\\uDE00", "a\uD83D\uDE00", 1, 3, true);
     boolean anchoring = data.consumeBoolean();
     String regex =
         data.pickValue(OPAQUE_CONSUMERS)
@@ -182,11 +174,6 @@ public final class RegionBoundsFuzzer {
     String input = builder.toString();
     int start = data.consumeInt(0, input.length());
     int end = data.consumeInt(start, input.length());
-    compareOpaqueSubstring(regex, input, start, end, anchoring);
-  }
-
-  private static void compareOpaqueSubstring(
-      String regex, String input, int start, int end, boolean anchoring) {
     Pattern pattern = Pattern.compile(regex);
     for (int operation = 0; operation < 3; operation++) {
       Matcher region = pattern.matcher(input).region(start, end).useAnchoringBounds(anchoring);

@@ -52,27 +52,6 @@ sealed interface RejectPrefilter
 
   MatchStrategy strategy();
 
-  /** Applies only scalar-class rejection to an opaque region in original-input coordinates. */
-  default MatchStrategy regionCharClassRejectionStrategy(
-      InputScanner scanner, int searchFrom, int end, EnginePathOptions options) {
-    if (!options.charClassMatchFastPaths()) {
-      return null;
-    }
-    if (this instanceof CharClass cc) {
-      return cc.indexOf(scanner, searchFrom, end) < 0 ? cc.strategy() : null;
-    }
-    if (this instanceof Composite composite) {
-      // Composite construction flattens children; literal and text-anchor filters retain their
-      // existing full-text engine context. Only scalar-class scans skip paired surrogate starts.
-      for (RejectPrefilter filter : composite.filters()) {
-        if (filter instanceof CharClass cc && cc.indexOf(scanner, searchFrom, end) < 0) {
-          return cc.strategy();
-        }
-      }
-    }
-    return null;
-  }
-
   /** Checks only terminal filters, whose work is bounded by the pattern rather than the input. */
   default MatchStrategy endAnchoredRejectionStrategy(
       InputScanner scanner, int searchFrom, EnginePathOptions options) {

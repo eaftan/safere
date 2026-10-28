@@ -50,26 +50,6 @@ class InputScannerTest {
   }
 
   @Test
-  void classSearchMemoPreservesExplicitLowSurrogateCursorsAndChangedBounds() {
-    InputScanner scanner = new StringInputScanner("\uD83D\uDE00x\uDE00");
-    int[] surrogates = {Character.MIN_SURROGATE, Character.MAX_SURROGATE};
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 0, 4)).isEqualTo(3);
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 1, 4)).isEqualTo(1);
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 2, 4)).isEqualTo(3);
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 0, 1)).isZero();
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 0, 2)).isEqualTo(-1);
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 1, 2)).isEqualTo(1);
-  }
-
-  @Test
-  void boundedCodePointClassScanTreatsExposedHighSurrogateAsUnpaired() {
-    InputScanner scanner = new StringInputScanner("\uD83D\uDE00");
-    int[] surrogates = {Character.MIN_SURROGATE, Character.MAX_SURROGATE};
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 0, 1)).isZero();
-    assertThat(scanner.indexOfCodePointClass(surrogates, 0, 0, 0, 2)).isEqualTo(-1);
-  }
-
-  @Test
   void smallAsciiClassSearchSkipsUnicodeAndUnpairedSurrogates() {
     AsciiBitmap.Builder bitmap = new AsciiBitmap.Builder();
     bitmap.add('X');

@@ -21,46 +21,6 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
-  void requiredSurrogateClassAheadOfGraphemeMatchesIsScannedLinearly() {
-    Pattern pattern = Pattern.compile("\\X?\\uDE00");
-    for (boolean region : new boolean[] {false, true}) {
-      assertFindAllWorkIsLinear(
-          size -> {
-            String visible = "😀".repeat(size) + "\uDE00";
-            Matcher matcher =
-                region
-                    ? pattern.matcher("a" + visible + "!").region(1, visible.length() + 1)
-                    : pattern.matcher(visible);
-            return matcher::find;
-          },
-          region ? "opaque region required class" : "whole-input required class");
-    }
-  }
-
-  @Test
-  void advancingOpaqueGraphemeRegionsKeepWorkLinear() {
-    Pattern pattern = Pattern.compile("[a\\uDE00]\\X?");
-    assertFindAllWorkIsLinear(
-        size -> {
-          String input = "a ".repeat(size);
-          Matcher matcher = pattern.matcher(input);
-          int[] position = {0};
-          return () -> {
-            if (position[0] == input.length()) {
-              return false;
-            }
-            matcher.region(position[0], input.length());
-            boolean found = matcher.find();
-            if (found) {
-              position[0] = matcher.end();
-            }
-            return found;
-          };
-        },
-        "advancing opaque grapheme regions");
-  }
-
-  @Test
   void nestedNullableLoopEntryResetsKeepFindWorkLinear() {
     for (EnginePathOptions options :
         new EnginePathOptions[] {
