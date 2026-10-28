@@ -170,6 +170,34 @@ public final class ParserCompatibilityFuzzer {
     // Append consumers to preserve the interpretation of the existing corpus.
     assertOperandFreePossessiveCountedRepeatMatchesJdk(data);
     assertQuantifierBoundaryFindsMatchJdk(data);
+    assertCountedRepeatQuoteGapsMatchJdk(data);
+  }
+
+  private static void assertCountedRepeatQuoteGapsMatchJdk(FuzzedDataProvider data) {
+    // Generate gaps inside the token, rather than only between a quantifier and its modifier.
+    String count =
+        data.pickValue(List.of("{1}", "{01,03}", "{1,}", "{0}", "{12}", "{,2}", "{2,1}", "{1,2"));
+    String gap = data.pickValue(List.of("\\Q\\E", "\\Q\\E\\Q\\E", " \\Q\\E#c\n", "\\Q1\\E"));
+    int gapPosition = data.consumeInt(1, count.length() - 1);
+    boolean allGaps = data.consumeBoolean();
+    StringBuilder quotedCount = new StringBuilder("{");
+    for (int i = 1; i < count.length(); i++) {
+      if (allGaps || i == gapPosition) quotedCount.append(gap);
+      quotedCount.append(count.charAt(i));
+    }
+    String operand = data.pickValue(List.of("a", "(a)", "[a]", "😀", "()", ""));
+    String modifier = data.pickValue(List.of("", "?", "\\Q\\E?", "?+"));
+    int flags = data.consumeBoolean() ? Pattern.COMMENTS : 0;
+    String regex = operand + quotedCount + modifier;
+    FuzzSupport.CompiledPattern compiled = FuzzSupport.compileCompatibleOrSkip(regex, flags);
+    if (compiled == null) return;
+    for (String input : List.of("", "a", "aa", "aaa", "baaaabaaa", "😀😀😀")) {
+      compiled.matcher(input).matches();
+      var pair = compiled.matcher(input);
+      while (pair.find()) {
+        // find() compares bounds and every capture on each successful step.
+      }
+    }
   }
 
   private static void assertQuantifierBoundaryFindsMatchJdk(FuzzedDataProvider data) {
