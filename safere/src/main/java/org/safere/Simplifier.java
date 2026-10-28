@@ -211,6 +211,11 @@ final class Simplifier {
         return re;
       }
 
+      Regexp repeatedAtom = coalesceGreedyAtomRepeat(re, childArgs.getFirst());
+      if (repeatedAtom != null) {
+        return repeatedAtom;
+      }
+
       if (re.op != RegexpOp.CONCAT) {
         if (!childArgsChanged(re, childArgs)) {
           return re;
@@ -256,6 +261,42 @@ final class Simplifier {
       }
       return Regexp.concat(newSubs, re.flags);
     }
+  }
+
+  /**
+   * Removes unobservable chunk boundaries around a greedily repeated consuming atom.
+   *
+   * <p>With inner minimum zero or one, every remaining atom can start another chunk, so both greedy
+   * loops try the same distinct consumed prefixes in descending order. Captures around the atom are
+   * written at the same positions regardless of partition. A capture around a chunk, nullable or
+   * ambiguous operands, reluctant ordering, or a higher inner minimum invalidates that argument:
+   * for example, {@code (?:a{3,4})*} first consumes four characters on six a's.
+   */
+  private static Regexp coalesceGreedyAtomRepeat(Regexp outer, Regexp sub) {
+    if ((outer.op != RegexpOp.STAR && outer.op != RegexpOp.PLUS) || outer.nonGreedy()) {
+      return null;
+    }
+    while (sub.op == RegexpOp.NON_CAPTURE) {
+      sub = sub.sub();
+    }
+    if (sub.op != RegexpOp.REPEAT || sub.nonGreedy() || sub.min > 1 || sub.max == 0) {
+      return null;
+    }
+    Regexp atom = sub.sub();
+    Regexp leaf = atom;
+    while (leaf.op == RegexpOp.NON_CAPTURE || leaf.op == RegexpOp.CAPTURE) {
+      leaf = leaf.sub();
+    }
+    boolean consumingAtom =
+        leaf.op == RegexpOp.LITERAL
+            || (leaf.op == RegexpOp.LITERAL_STRING && leaf.runes.length > 0)
+            || leaf.op == RegexpOp.CHAR_CLASS
+            || leaf.op == RegexpOp.ANY_CHAR;
+    if (!consumingAtom) {
+      return null;
+    }
+    RegexpOp op = outer.op == RegexpOp.PLUS && sub.min == 1 ? RegexpOp.PLUS : RegexpOp.STAR;
+    return Regexp.rawQuantifier(op, atom, outer.flags);
   }
 
   /** Returns true if the child args differ from the original subs. */

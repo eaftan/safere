@@ -375,6 +375,11 @@ final class BitState {
    */
   private final byte[] altKind;
 
+  /** Straight-line capture/consumer/capture sequences, or null when none exist. */
+  private final CaptureRune[] captureRunes;
+
+  private record CaptureRune(Inst rune, int endRegister, int out) {}
+
   private static final byte NOT_ALT = 0;
   private static final byte ALT = 1;
   private static final byte CYCLE_ALT = 2;
@@ -428,16 +433,31 @@ final class BitState {
 
     boolean[] cycleAlts = prog.epsilonCycleAlts();
     this.altKind = new byte[progSize];
+    CaptureRune[] fused = null;
     for (int i = 0; i < progSize; i++) {
+      Inst instruction = prog.inst(i);
       if (cycleAlts[i]) {
         altKind[i] = CYCLE_ALT;
       } else {
-        int op = prog.inst(i).opCode;
+        int op = instruction.opCode;
         if (op == InstOp.OP_ALT || op == InstOp.OP_ALT_MATCH) {
           altKind[i] = ALT;
         }
       }
+      if (instruction.opCode == InstOp.OP_CAPTURE) {
+        Inst rune = prog.inst(instruction.out);
+        if (rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS) {
+          Inst end = prog.inst(rune.out);
+          if (end.opCode == InstOp.OP_CAPTURE) {
+            if (fused == null) {
+              fused = new CaptureRune[progSize];
+            }
+            fused[i] = new CaptureRune(rune, end.arg, end.out);
+          }
+        }
+      }
     }
+    this.captureRunes = fused;
 
     int totalBits = progSize * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -549,6 +569,18 @@ final class BitState {
     jobCount++;
   }
 
+  /** Charges every logical instruction, including instructions executed without a stack job. */
+  private boolean stepWithinBudget() {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
+    }
+    if (++stepCount > stepBudget) {
+      budgetExceeded = true;
+      return false;
+    }
+    return true;
+  }
+
   /**
    * Attempts a search starting from the given instruction and position. Returns true if a match is
    * found (stored in {@link #bestMatch}).
@@ -572,195 +604,252 @@ final class BitState {
     }
 
     while (jobCount > 0) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      if (++stepCount > stepBudget) {
-        budgetExceeded = true;
-        return false;
-      }
       jobCount--;
       int id = jobInstId[jobCount];
       int pos = jobPos[jobCount];
-
-      // Negative IDs are restore sentinels: cap or loopReg restore on backtrack.
-      // Capture sentinels use -(reg+1) where reg < ncap.
-      // Loop-reg sentinels use -(ncap+reg+1) where reg is the loop register index.
-      if (id < 0) {
-        int idx = -id - 1;
-        if (idx < ncap) {
-          cap[idx] = pos;
-        } else {
-          loopRegs[idx - ncap] = pos;
-        }
-        continue;
-      }
-
-      Inst ip = prog.inst(id);
-      switch (ip.opCode) {
-        case InstOp.OP_FAIL -> {}
-
-        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
-          // Push second alternative first (it will be tried if first fails).
-          if (shouldVisit(ip.out1, pos)) {
-            push(ip.out1, pos);
-          }
-          // Then push first alternative (tried first due to stack LIFO).
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
-          }
+      // Keep immediate continuations local. The stack contains deferred alternatives and
+      // register restores; every instruction still consumes the same logical work budget.
+      while (true) {
+        if (!stepWithinBudget()) {
+          return false;
         }
 
-        case InstOp.OP_NOP -> {
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
+        // Negative IDs are restore sentinels: cap or loopReg restore on backtrack.
+        // Capture sentinels use -(reg+1) where reg < ncap.
+        // Loop-reg sentinels use -(ncap+reg+1) where reg is the loop register index.
+        if (id < 0) {
+          int idx = -id - 1;
+          if (idx < ncap) {
+            cap[idx] = pos;
+          } else {
+            loopRegs[idx - ncap] = pos;
           }
+          break;
         }
 
-        case InstOp.OP_CAPTURE -> {
-          int reg = ip.arg;
-          if (reg < ncap) {
-            // Push restore sentinel: if we backtrack past this, undo the capture.
-            push(-(reg + 1), cap[reg]);
-            cap[reg] = pos;
-          }
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
-          }
-        }
+        Inst ip = prog.inst(id);
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
 
-        case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags = Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext);
-          if ((ip.arg & ~curFlags) == 0) {
-            if (shouldVisit(ip.out, pos)) {
-              push(ip.out, pos);
-            }
-          }
-        }
-
-        case InstOp.OP_LOOP_ENTER -> {
-          int reg = ip.arg;
-          push(-(ncap + reg + 1), loopRegs[reg]);
-          loopRegs[reg] = -1;
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
-          }
-        }
-
-        case InstOp.OP_PROGRESS_CHECK -> {
-          int reg = ip.arg;
-          int saved = loopRegs[reg];
-          if (saved == -1) {
-            // First visit: must enter body at least once (plus semantics).
-            push(-(ncap + reg + 1), saved);
-            loopRegs[reg] = pos;
-            if (shouldVisit(ip.out, pos)) {
-              push(ip.out, pos);
-            }
-          } else if (saved == pos) {
-            // Zero-width body match: only exit.
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+            // Push second alternative first (it will be tried if first fails).
             if (shouldVisit(ip.out1, pos)) {
               push(ip.out1, pos);
             }
-          } else {
-            // Progress: save and push both paths like ALT.
-            push(-(ncap + reg + 1), saved);
-            loopRegs[reg] = pos;
-            boolean nonGreedy = ip.foldCase;
-            if (nonGreedy) {
-              // Non-greedy: prefer exit. Push body first (lower pri), exit second (higher pri).
-              if (shouldVisit(ip.out, pos)) {
-                push(ip.out, pos);
+            // Follow the first alternative immediately at higher priority.
+            if (shouldVisit(ip.out, pos)) {
+              id = ip.out;
+              continue;
+            }
+          }
+
+          case InstOp.OP_NOP -> {
+            if (shouldVisit(ip.out, pos)) {
+              id = ip.out;
+              continue;
+            }
+          }
+
+          case InstOp.OP_CAPTURE -> {
+            int reg = ip.arg;
+            if (reg < ncap) {
+              // Push restore sentinel: if we backtrack past this, undo the capture.
+              push(-(reg + 1), cap[reg]);
+              cap[reg] = pos;
+            }
+            CaptureRune fused = captureRunes == null ? null : captureRunes[id];
+            if (fused != null) {
+              // These two successors are not alternatives, assertions, or loop instructions.
+              // Execute the same writes/restores and budget charges without redispatching them.
+              if (!stepWithinBudget()) {
+                return false;
               }
+              if (pos < endPos) {
+                int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
+                int nextPos = pos + 1;
+                if (cp < 0) {
+                  long decoded = text.decodeForward(pos);
+                  cp = InputScanner.codePoint(decoded);
+                  nextPos = InputScanner.position(decoded);
+                  if (speculative && nextPos > endPos) {
+                    windowExceeded = true;
+                    return false;
+                  }
+                }
+                Inst rune = fused.rune();
+                boolean matches =
+                    rune.opCode == InstOp.OP_CHAR_RANGE
+                        ? rune.matchesChar(cp)
+                        : rune.matchesCharClass(cp);
+                if (matches) {
+                  if (!stepWithinBudget()) {
+                    return false;
+                  }
+                  int endRegister = fused.endRegister();
+                  if (endRegister < ncap) {
+                    push(-(endRegister + 1), cap[endRegister]);
+                    cap[endRegister] = nextPos;
+                  }
+                  if (shouldVisit(fused.out(), nextPos)) {
+                    id = fused.out();
+                    pos = nextPos;
+                    continue;
+                  }
+                }
+              } else if (speculative && endPos < textLen) {
+                windowExceeded = true;
+                return false;
+              }
+            } else if (shouldVisit(ip.out, pos)) {
+              id = ip.out;
+              continue;
+            }
+          }
+
+          case InstOp.OP_EMPTY_WIDTH -> {
+            int curFlags = Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext);
+            if ((ip.arg & ~curFlags) == 0) {
+              if (shouldVisit(ip.out, pos)) {
+                id = ip.out;
+                continue;
+              }
+            }
+          }
+
+          case InstOp.OP_LOOP_ENTER -> {
+            int reg = ip.arg;
+            push(-(ncap + reg + 1), loopRegs[reg]);
+            loopRegs[reg] = -1;
+            if (shouldVisit(ip.out, pos)) {
+              id = ip.out;
+              continue;
+            }
+          }
+
+          case InstOp.OP_PROGRESS_CHECK -> {
+            int reg = ip.arg;
+            int saved = loopRegs[reg];
+            if (saved == -1) {
+              // First visit: must enter body at least once (plus semantics).
+              push(-(ncap + reg + 1), saved);
+              loopRegs[reg] = pos;
+              if (shouldVisit(ip.out, pos)) {
+                id = ip.out;
+                continue;
+              }
+            } else if (saved == pos) {
+              // Zero-width body match: only exit.
               if (shouldVisit(ip.out1, pos)) {
-                push(ip.out1, pos);
+                id = ip.out1;
+                continue;
               }
             } else {
-              // Greedy: prefer body. Push exit first (lower pri), body second (higher pri).
-              if (shouldVisit(ip.out1, pos)) {
-                push(ip.out1, pos);
-              }
-              if (shouldVisit(ip.out, pos)) {
-                push(ip.out, pos);
+              // Save progress and defer the lower-priority path, as for ALT.
+              push(-(ncap + reg + 1), saved);
+              loopRegs[reg] = pos;
+              boolean nonGreedy = ip.foldCase;
+              if (nonGreedy) {
+                // Non-greedy: defer the body and immediately follow the preferred exit.
+                if (shouldVisit(ip.out, pos)) {
+                  push(ip.out, pos);
+                }
+                if (shouldVisit(ip.out1, pos)) {
+                  id = ip.out1;
+                  continue;
+                }
+              } else {
+                // Greedy: defer the exit and immediately follow the preferred body.
+                if (shouldVisit(ip.out1, pos)) {
+                  push(ip.out1, pos);
+                }
+                if (shouldVisit(ip.out, pos)) {
+                  id = ip.out;
+                  continue;
+                }
               }
             }
           }
+
+          case InstOp.OP_CHAR_RANGE -> {
+            if (pos < endPos) {
+              int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
+              int nextPos = pos + 1;
+              if (cp < 0) {
+                long decoded = text.decodeForward(pos);
+                cp = InputScanner.codePoint(decoded);
+                nextPos = InputScanner.position(decoded);
+                if (speculative && nextPos > endPos) {
+                  windowExceeded = true;
+                  return false;
+                }
+              }
+              if (ip.matchesChar(cp)) {
+                if (shouldVisit(ip.out, nextPos)) {
+                  id = ip.out;
+                  pos = nextPos;
+                  continue;
+                }
+              }
+            } else if (speculative && endPos < textLen) {
+              windowExceeded = true;
+              return false;
+            }
+          }
+
+          case InstOp.OP_CHAR_CLASS -> {
+            if (pos < endPos) {
+              int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
+              int nextPos = pos + 1;
+              if (cp < 0) {
+                long decoded = text.decodeForward(pos);
+                cp = InputScanner.codePoint(decoded);
+                nextPos = InputScanner.position(decoded);
+                if (speculative && nextPos > endPos) {
+                  windowExceeded = true;
+                  return false;
+                }
+              }
+              if (ip.matchesCharClass(cp)) {
+                if (shouldVisit(ip.out, nextPos)) {
+                  id = ip.out;
+                  pos = nextPos;
+                  continue;
+                }
+              }
+            } else if (speculative && endPos < textLen) {
+              windowExceeded = true;
+              return false;
+            }
+          }
+
+          case InstOp.OP_MATCH -> {
+            if (endMatch && pos != endPos) {
+              // $ (dollarAnchorEnd) allows ending before a trailing line terminator at the actual
+              // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
+              // the text boundary, not the search range.
+              if (!prog.dollarAnchorEnd()
+                  || !Nfa.isAtTrailingLineTerminator(text, pos, prog.dollarAnchorUnixLines())) {
+                break; // must match at the end boundary
+              }
+            }
+            if (ncap > 1) {
+              cap[1] = pos; // match end
+            }
+
+            if (!matched || (longest && pos > bestMatch[1])) {
+              matched = true;
+              System.arraycopy(cap, 0, matchResult, 0, ncap);
+              bestMatch = matchResult;
+            }
+
+            if (!longest) {
+              return true; // first match is sufficient
+            }
+          }
+
+          default -> {}
         }
-
-        case InstOp.OP_CHAR_RANGE -> {
-          if (pos < endPos) {
-            int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
-            int nextPos = pos + 1;
-            if (cp < 0) {
-              long decoded = text.decodeForward(pos);
-              cp = InputScanner.codePoint(decoded);
-              nextPos = InputScanner.position(decoded);
-              if (speculative && nextPos > endPos) {
-                windowExceeded = true;
-                return false;
-              }
-            }
-            if (ip.matchesChar(cp)) {
-              if (shouldVisit(ip.out, nextPos)) {
-                push(ip.out, nextPos);
-              }
-            }
-          } else if (speculative && endPos < textLen) {
-            windowExceeded = true;
-            return false;
-          }
-        }
-
-        case InstOp.OP_CHAR_CLASS -> {
-          if (pos < endPos) {
-            int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
-            int nextPos = pos + 1;
-            if (cp < 0) {
-              long decoded = text.decodeForward(pos);
-              cp = InputScanner.codePoint(decoded);
-              nextPos = InputScanner.position(decoded);
-              if (speculative && nextPos > endPos) {
-                windowExceeded = true;
-                return false;
-              }
-            }
-            if (ip.matchesCharClass(cp)) {
-              if (shouldVisit(ip.out, nextPos)) {
-                push(ip.out, nextPos);
-              }
-            }
-          } else if (speculative && endPos < textLen) {
-            windowExceeded = true;
-            return false;
-          }
-        }
-
-        case InstOp.OP_MATCH -> {
-          if (endMatch && pos != endPos) {
-            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at the actual
-            // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
-            // the text boundary, not the search range.
-            if (!prog.dollarAnchorEnd()
-                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.dollarAnchorUnixLines())) {
-              break; // must match at the end boundary
-            }
-          }
-          if (ncap > 1) {
-            cap[1] = pos; // match end
-          }
-
-          if (!matched || (longest && pos > bestMatch[1])) {
-            matched = true;
-            System.arraycopy(cap, 0, matchResult, 0, ncap);
-            bestMatch = matchResult;
-          }
-
-          if (!longest) {
-            return true; // first match is sufficient
-          }
-        }
-
-        default -> {}
+        break;
       }
     }
 

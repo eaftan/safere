@@ -48,7 +48,8 @@ public final class CaptureSemanticsFuzzer {
   @FuzzTest(maxDuration = "30s")
   void nestedBoundedCaptures(FuzzedDataProvider data) {
     // Model oracle: the JDK can restore an earlier capture depending on redundant wrappers.
-    String atom = pick(data, "a", "é", "😀");
+    String unit = pick(data, "a", "é", "😀", "ab");
+    String atom = data.consumeBoolean() && unit.equals("a") ? "[ab]" : unit;
     int min = data.consumeInt(0, 2);
     int max = data.consumeInt(Math.max(2, min + 1), 5);
     int length = max * data.consumeInt(2, 16);
@@ -57,14 +58,14 @@ public final class CaptureSemanticsFuzzer {
       String capture = "(?<word>" + atom + ")";
       String operand = wrapped ? "(?:" + capture + ")" : capture;
       String regex = "(?:" + operand + "{" + min + "," + max + "})" + outer + "b";
-      String input = atom.repeat(length) + "b";
+      String input = unit.repeat(length) + "b";
       var pattern = org.safere.Pattern.compile(regex);
       var matcher = pattern.matcher(input);
       assertThat(matcher.matches()).as("/%s/ on %s", regex, input).isTrue();
-      assertThat(matcher.start("word")).isEqualTo((length - 1) * atom.length());
-      assertThat(matcher.end("word")).isEqualTo(length * atom.length());
-      assertThat(matcher.toMatchResult().group(1)).isEqualTo(atom);
-      assertThat(pattern.matcher(input).replaceAll("${word}")).isEqualTo(atom);
+      assertThat(matcher.start("word")).isEqualTo((length - 1) * unit.length());
+      assertThat(matcher.end("word")).isEqualTo(length * unit.length());
+      assertThat(matcher.toMatchResult().group(1)).isEqualTo(unit);
+      assertThat(pattern.matcher(input).replaceAll("${word}")).isEqualTo(unit);
     }
   }
 
