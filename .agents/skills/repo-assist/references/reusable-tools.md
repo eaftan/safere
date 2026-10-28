@@ -1,7 +1,7 @@
 # Reusable Review Scripts
 
-Use these helpers for repeated mechanics in the contributor workflow. For incremental issue
-assessment checkpoints and full report carry-forward, use `scripts/issue-tools.py` as described in
+Use these helpers for repeated mechanics in the contributor workflow. For active-issue
+assessment checkpoints, use `scripts/issue-tools.py` as described in
 [issue-activity.md](issue-activity.md). They accept explicit inputs
 rather than embedding PR numbers, run IDs, workload lists, or repository/worktree paths. Run them
 from the SafeRE repository using the **loaded** skill directory:
@@ -39,11 +39,14 @@ separate collectors and state.
 ## Checkpoint one contributor assessment
 
 Prepare the detailed section (starting with `## PR #N: ...`, without its anchor or author-copy
-subsection), the unfenced author review, a full sanitized snapshot, and a JSON spec:
+subsection), a separate short maintainer explanation, the unfenced author review, a full sanitized
+snapshot, and a JSON spec:
 
 ```json
 {
   "number": 123,
+  "title": "Faster compilation",
+  "nextAction": "Push correction, then post review",
   "assessment": "Invariant preserved; relevant verification passed.",
   "recommendation": "Can merge",
   "record": {
@@ -72,15 +75,23 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
   "$REPO_ASSIST_SKILL_DIR/scripts/review-tools.py" --root "$REVIEW_ROOT" \
   checkpoint --token "$RUN_TOKEN" --discovery "$RUN_ARTIFACTS/discovery.json" \
   --snapshot "$RUN_ARTIFACTS/pr-snapshot.json" --spec "$RUN_ARTIFACTS/assessment.json" \
-  --section "$RUN_ARTIFACTS/pr-section.md" --author-copy "$RUN_ARTIFACTS/pr-review.md"
+  --section "$RUN_ARTIFACTS/pr-section.md" --brief "$RUN_ARTIFACTS/pr-brief.md" \
+  --author-copy "$RUN_ARTIFACTS/pr-review.md"
 ```
 
 Requires the current lock token and running report. The PR must be in sanitized contributor
 `discovery.trusted`, with matching head and discussion data; owner/authenticated-user/draft entries
 are rejected. Use `snapshot --force` when an unchanged snapshot omits its full PR object. A single
-summary row must already exist in the report. The script inserts or replaces the stable detailed
-section, updates that row while preserving its `Done` cell, and merges the supplied record into
-`state.prs`. It never writes issue checkpoints, authored-feedback state, `LATEST.md`, or completion.
+summary row must already exist in the report. For new brief-format runs, the script writes the full
+assessment at `reports/<runId>/pr-N.md` and the standalone author comment under artifacts. It inserts
+the short explanation and relative links into the main report, updates the summary assessment/next
+action while preserving its `Done` cell, and records both main and detail paths in `state.prs`.
+Brief-format runs require `--brief` and spec.nextAction. Legacy inline reports remain readable.
+It never writes issue checkpoints, authored-feedback state, `LATEST.md`, or completion.
+
+The `--author-copy` source is unfenced comment text. Saved standalone comments and audit extracts
+wrap that text in a fenced `markdown` block; nested code examples use a longer outer fence. The
+audit compares the contents of that block with the author review in the full assessment.
 
 The proposed record and author copy are saved under `artifacts/<runId>/pr-<number>/` before the
 report/state writes. Each file is replaced atomically; the pair is not a database transaction.
@@ -114,8 +125,9 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
   --repository "$REPO" --check-worktrees --output-dir "$RUN_ARTIFACTS/author-copies"
 ```
 
-Checks queue/summary/detail agreement, terminal contributor state with head/discussion freshness
-against the supplied discovery, author-review fences, obvious
+Checks queue/summary/brief and linked-detail agreement, terminal contributor head/discussion
+freshness against discovery, current-bundle detail identities and standalone-copy links/content,
+author-review fences, obvious
 internal bookkeeping and hard-wrapped prose. A detailed benchmark results table requires a table in the
 author-facing review as well; documentation-only advice needs no invented benchmark table. Optional worktree checks require a clean checkout at each
 reviewed final head and ancestry from its **recorded** trunk. Output is diagnostic: exit `1` means

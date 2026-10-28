@@ -1599,6 +1599,13 @@ final class DeclarativeBenchmarkPlan {
     MATCHES_CORPUS("matchesCorpus", false, true, Feature.MATCHES),
     MATCHES_GROUP_LENGTH_SUM(
         "matchesGroupLengthSum", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
+    FIND_SAMPLED_GROUP(
+        "findSampledGroup",
+        true,
+        true,
+        Feature.FIND,
+        Feature.CAPTURE_PARTICIPATION,
+        Feature.MATCHER_STATE),
     FIND_GROUP_PRESENT(
         "findGroupPresent", false, true, Feature.FIND, Feature.CAPTURE_PARTICIPATION),
     FIND_GROUP("findGroup", false, true, Feature.FIND, Feature.CAPTURE_TEXT),
@@ -1613,6 +1620,7 @@ final class DeclarativeBenchmarkPlan {
     SPLIT_LENGTH_SUM("splitLengthSum", false, true, Feature.SPLIT),
     COMPILE("compile", false, false),
     COMPILE_AND_FIND("compileAndFind", false, true, Feature.FIND),
+    COMPILE_AND_MATCHES("compileAndMatches", false, true, Feature.MATCHES),
     FIND_ROTATING_UTF16("findRotatingUtf16", false, false, Feature.FIND),
     COMPILE_AND_FIND_ROTATING_UTF16("compileAndFindRotatingUtf16", false, false, Feature.FIND),
     MATCHER_CONSTRUCTION("matcherConstruction", false, true, Feature.UTF8_INPUT),
@@ -1723,7 +1731,9 @@ final class DeclarativeBenchmarkPlan {
             FIND,
             LOOKING_AT,
             FIND_GROUP_PRESENT,
+            FIND_SAMPLED_GROUP,
             COMPILE_AND_FIND,
+            COMPILE_AND_MATCHES,
             FIND_ROTATING_UTF16,
             COMPILE_AND_FIND_ROTATING_UTF16,
             MATCHER_REGION_FIND,
@@ -1770,6 +1780,14 @@ final class DeclarativeBenchmarkPlan {
                 "groups", RecipeValueType.INTEGER_LIST,
                 "bounds", RecipeValueType.STRING,
                 "expectedBounds", RecipeValueType.INTEGER_LIST);
+        case FIND_SAMPLED_GROUP ->
+            Map.of(
+                "group",
+                RecipeValueType.INTEGER,
+                "count",
+                RecipeValueType.INTEGER,
+                "mode",
+                RecipeValueType.STRING);
         case FIND_GROUP_PRESENT, FIND_GROUP -> Map.of("group", RecipeValueType.INTEGER);
         case REPLACE_FIRST,
             REPLACE_ALL,
@@ -1803,6 +1821,7 @@ final class DeclarativeBenchmarkPlan {
         case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
             Set.of("groups");
         case UTF8_CAPTURE_BOUNDS -> Set.of("groups", "expectedBounds");
+        case FIND_SAMPLED_GROUP -> Set.of("group", "count", "mode");
         case FIND_GROUP_PRESENT, FIND_GROUP -> Set.of("group");
         case REPLACE_FIRST,
             REPLACE_ALL,
@@ -1818,6 +1837,12 @@ final class DeclarativeBenchmarkPlan {
     }
 
     void validateArguments(String id, Map<String, RecipeValue> arguments) {
+      if (this == FIND_SAMPLED_GROUP) {
+        String mode = ((RecipeString) arguments.get("mode")).value();
+        if (!mode.equals("boolean") && !mode.equals("capture")) {
+          throw new IllegalArgumentException(id + " mode must be boolean or capture");
+        }
+      }
       RecipeValue group = arguments.get("group");
       if (group != null && ((RecipeInteger) group).value() < 0) {
         throw new IllegalArgumentException(id + " group argument must not be negative");

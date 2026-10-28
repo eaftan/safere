@@ -226,6 +226,41 @@ consume the whole input on their successful path.
 Compilation preserves capture writes in every repeat copy. The fix uses the
 existing prioritized engines, without retries or capture-history rescans.
 
+## Empty Captures in Nullable Counted Repetitions
+
+Issue reference: #1051.
+
+SafeRE preserves its existing counted-repeat expansion when the repeated
+operand can match the empty string. An empty iteration can be followed by a
+consuming iteration in a later copy. Observed JDK behavior can instead terminate
+the repetition after an empty iteration and reconsider earlier alternatives,
+selecting a different successful path and different inner capture boundaries.
+
+For `(?:()|\W+){0,2}y` on `" y"`, both implementations match the entire input at
+`[0,2)` and return `""` for group 1. SafeRE reports group 1 at `[0,0)`: the first
+iteration captures empty and the second consumes the space. JDK 26 reports
+`[1,1)`: the successful path consumes the space before capturing empty. The same
+difference occurs with `{1,2}`. The corresponding unbounded `*` form reports
+`[1,1)` in both implementations.
+
+The [JDK 26 capture specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+says that a group retains its most recent successful capture, but does not fully
+specify path selection for nullable counted repetitions. Both results describe
+successful paths consistent with the documented repetition bounds. SafeRE does
+not claim that the JDK violates its specification or that reproducing its
+behavior is impossible in linear time. This is an approved compatibility
+tradeoff: preserving the simpler expansion avoids additional repeat state and
+matching overhead solely to reproduce this underspecified path choice.
+
+`NullableCountedCaptureDivergenceTest` pins the capture boundaries for fresh
+`find()`, `matches()`, and `lookingAt()` operations, repeated finds, and snapshots,
+along with unbounded and reversed-alternative controls. This boundary concerns
+successful-path selection; it is separate from failed-path capture leakage.
+
+The evaluated compatibility implementation and its performance optimizations are
+preserved at [commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
+for possible future work.
+
 ## ASCII Word Boundaries around Combining Marks
 
 Sweep names:
@@ -279,6 +314,52 @@ boundary: characters <= 0xFF leak from `BitClass` into the outer match set (caus
 leak (so `[\u0100&&[a]&]` fails to match `\u0100`). SafeRE treats all Unicode code
 points uniformly according to boolean set algebra rather than reproducing JDK parser
 bugs and implementation accidents.
+
+## Bracket Roles after Ignored Range Trivia
+
+Issue reference: [#1070](https://github.com/eaftan/safere/issues/1070), which tracks
+considering an upstream JDK bug report.
+
+The [JDK 26 `COMMENTS` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#COMMENTS)
+says whitespace and line comments are ignored, including whitespace inside
+character classes. SafeRE preserves bracket roles when skipping that trivia.
+An unescaped closing bracket after a range hyphen still closes the class, and
+an unescaped opening bracket still begins a nested class. A hyphen before
+either delimiter remains literal, as in the corresponding unspaced spelling.
+
+With comments mode enabled, SafeRE therefore gives these pairs identical meanings:
+
+| Patterns | SafeRE meaning |
+| --- | --- |
+| `[!-]]` and `[!- ]]` | Two characters: `!]` or `-]`. |
+| `[!-[A]]` and `[!- [A]]` | One character: `!`, `-`, or `A`. |
+| `[a-]` and `[a- ]` | One character: `a` or `-`. |
+| `[a-[z]]` and `[a- [z]]` | One character: `a`, `-`, or `z`. |
+
+Observed JDK 26.0.2 behavior instead treats a bracket reached after trivia as
+a scalar range endpoint. For example, `(?x)[!- ]]` matches one character in
+the inclusive range from `!` to `]`, and `(?x)[!- [A]]` matches a character
+from `!` to `[` followed by a literal `]`. The JDK rejects `(?x)[a- ]` and
+`(?x)[a- [z]]` as illegal ranges, although it accepts their unspaced forms.
+Line comments before the bracket produce the same inconsistencies.
+
+SafeRE intentionally follows the documented insignificance of trivia, with
+the project owner's approval, rather than reproducing those JDK parsing quirks.
+The documentation does not fully formalize hyphen fallback before nested
+classes; SafeRE preserves the established unspaced Java interpretation and
+the documented precedence of grouping over ranges. Nested classes remain
+expressions even when they contain a single character.
+
+Escaped and quoted brackets remain scalar endpoints: `(?x)[!- \]]` is a
+real range ending at `]`. Escaped or quoted spaces remain significant, and
+without comments mode ordinary spaces remain significant. Set-valued escapes
+such as `\d` do not become valid scalar endpoints.
+
+`CharacterClassRangeTriviaTest` pins these meanings, nesting, flag scopes,
+quoted and escaped endpoints, and malformed forms. The class-expression fuzz
+generator checks the same invariant against unspaced references. Exact JDK
+differences are retained in the intentional reproduction registry, and broad
+differential fuzzing continues to report them.
 
 ## `\v` next to a Range Hyphen in Character Classes
 

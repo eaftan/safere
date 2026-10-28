@@ -24,6 +24,7 @@ record CrossEngineWorkload(
     String flagSet,
     int seed,
     int count,
+    String mode,
     DeclarativeBenchmarkPlan.Measurement measurement,
     TimingGroup timingGroup) {
 

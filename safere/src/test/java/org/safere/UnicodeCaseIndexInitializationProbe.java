@@ -5,12 +5,15 @@
 
 package org.safere;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 /** Compiles one pattern in a fresh JVM for the Unicode index initialization test. */
 public final class UnicodeCaseIndexInitializationProbe {
   private UnicodeCaseIndexInitializationProbe() {}
 
-  /** Compiles the pattern supplied as the first command-line argument. */
+  /** Compiles the Base64-encoded UTF-8 pattern supplied as the first command-line argument. */
   public static void main(String[] args) {
-    Pattern.compile(args[0]);
+    Pattern.compile(new String(Base64.getDecoder().decode(args[0]), StandardCharsets.UTF_8));
   }
 }

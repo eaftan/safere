@@ -202,7 +202,7 @@ final class BitState {
 
     int ncap = 2 * Math.max(nsubmatch, 1);
     BitState bs;
-    if (cached != null && cached.canReuse(prog, text, startPos, textLen, ncap)) {
+    if (cached != null && cached.canReuse(prog, text, startPos, textLen)) {
       bs = cached;
       bs.reset(text, startPos, textLen, ncap, longest, endMatch);
     } else {
@@ -242,7 +242,7 @@ final class BitState {
       int ncap,
       boolean longest,
       boolean endMatch) {
-    if (cached != null && cached.canReuse(prog, text, startPos, endPos, ncap)) {
+    if (cached != null && cached.canReuse(prog, text, startPos, endPos)) {
       cached.reset(text, startPos, endPos, ncap, longest, endMatch);
       return cached;
     }
@@ -385,7 +385,7 @@ final class BitState {
   private static final byte CYCLE_ALT = 2;
 
   /** Current capture registers. */
-  private final int[] cap;
+  private int[] cap;
 
   /** Current loop progress-check registers. */
   private final int[] loopRegs;
@@ -873,18 +873,17 @@ final class BitState {
 
   /**
    * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
-   * the program is the same and the pre-allocated arrays are large enough for the full text.
+   * the program is the same and the search buffers are large enough for the requested range.
+   * Capture storage can grow separately when a group-zero search is followed by capture extraction.
    */
-  boolean canReuse(Prog prog, InputScanner text, int startPos, int endPos, int ncap) {
+  boolean canReuse(Prog prog, InputScanner text, int startPos, int endPos) {
     if (this.prog != prog) {
       return false;
     }
     int newTextSlots = (endPos - startPos) + 2;
     int totalBits = prog.size() * newTextSlots;
     int requiredVisitedLen = (totalBits + 63) / 64;
-    return visited.length >= requiredVisitedLen
-        && cap.length >= ncap
-        && jobInstId.length >= Math.min(totalBits, 4096);
+    return visited.length >= requiredVisitedLen && jobInstId.length >= Math.min(totalBits, 4096);
   }
 
   /** Clears input-dependent references before this object enters the Pattern-level reuse cache. */
@@ -895,7 +894,8 @@ final class BitState {
 
   /**
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
-   * reallocating. The caller must verify {@link #canReuse} first.
+   * reallocating search buffers. Capture storage grows on demand. The caller must verify {@link
+   * #canReuse} first.
    */
   private void reset(
       InputScanner text, int startPos, int endPos, int ncap, boolean longest, boolean endMatch) {
@@ -919,6 +919,9 @@ final class BitState {
       Arrays.fill(dead, deadLo, deadHi + 1, 0L);
       deadLo = Integer.MAX_VALUE;
       deadHi = -1;
+    }
+    if (cap.length < ncap) {
+      cap = new int[ncap];
     }
     Arrays.fill(cap, 0, ncap, -1);
     if (loopRegs.length > 0) {

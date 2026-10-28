@@ -8,6 +8,7 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -22,11 +23,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
@@ -158,6 +163,21 @@ class DiagnosticsTest {
   }
 
   @Test
+  void asPredicateReportsOneFindOperation() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("[0-9]+x");
+
+    assertThat(pattern.asPredicate().test("ab 12x cd")).isTrue();
+    assertThat(pattern.asPredicate().test("ab 12 cd")).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .extracting(OperationDiagnostics::operation, OperationDiagnostics::outcome)
+        .containsExactly(
+            tuple(MatchOperation.FIND, MatchOutcome.MATCH),
+            tuple(MatchOperation.FIND, MatchOutcome.NO_MATCH));
+  }
+
+  @Test
   void literalAlternationSearchesReportADistinctStrategy() {
     Pattern.setDiagnostics(diagnostics);
     for (String regex : List.of("apple|banana|cherry", "foo|barfoo")) {
@@ -211,7 +231,7 @@ class DiagnosticsTest {
             foldedUtf8LookingAt.matcher(Utf8Input.validated("FOObar".getBytes(UTF_8))).lookingAt())
         .isTrue();
     assertThat(operationsFor(foldedUtf8LookingAt).getLast().boundaryStrategy())
-        .isEqualTo(MatchStrategy.DFA);
+        .isEqualTo(MatchStrategy.ONE_PASS);
 
     Pattern foldedUtf8Matches = Pattern.compile("(?i)foo");
     assertThat(foldedUtf8Matches.matcher(Utf8Input.validated("FOO".getBytes(UTF_8))).matches())
@@ -224,6 +244,41 @@ class DiagnosticsTest {
         .isTrue();
     assertThat(operationsFor(foldedUtf8Find).getLast().boundaryStrategy())
         .isEqualTo(MatchStrategy.DFA);
+  }
+
+  @ParameterizedTest
+  @MethodSource("lazyShiftDfaSearchCases")
+  void lazyShiftDfaSearchesRetainOnePassFallback(
+      String regex, String input, MatchOperation operation, boolean utf8) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+
+    boolean matched;
+    if (utf8) {
+      Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+      matched = operation == MatchOperation.FIND ? matcher.find() : matcher.lookingAt();
+    } else {
+      Matcher matcher = pattern.matcher(input);
+      matched = operation == MatchOperation.FIND ? matcher.find() : matcher.lookingAt();
+    }
+
+    assertThat(matched).isTrue();
+    assertThat(operationsFor(pattern).getLast().boundaryStrategy())
+        .isEqualTo(MatchStrategy.ONE_PASS);
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+  }
+
+  private static Stream<Arguments> lazyShiftDfaSearchCases() {
+    Stream.Builder<Arguments> cases = Stream.builder();
+    for (boolean utf8 : List.of(false, true)) {
+      for (MatchOperation operation : List.of(MatchOperation.FIND, MatchOperation.LOOKING_AT)) {
+        cases.add(Arguments.of("^a[é]*", "aéé", operation, utf8));
+        cases.add(Arguments.of("^a{9}b?c?", "aaaaaaaaabc", operation, utf8));
+        cases.add(Arguments.of("^a[bc]*", "abcbc", operation, utf8));
+      }
+    }
+    return cases.build();
   }
 
   @Test
@@ -258,6 +313,43 @@ class DiagnosticsTest {
 
     assertThat(nfa.matcher("aaab").matches()).isTrue();
     assertThat(operationsFor(nfa).getLast().boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+  }
+
+  private static Stream<Arguments> reverseCandidateVerificationCases() {
+    return Stream.of(false, true)
+        .flatMap(
+            bitState ->
+                Stream.of(
+                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo"),
+                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo\r\n"),
+                    Arguments.of(bitState, "(?:foo|fax)\\z", "x".repeat(1400) + "fax"),
+                    Arguments.of(bitState, "foo[ab]*$", "zzfoo" + "a".repeat(2048))));
+  }
+
+  @ParameterizedTest
+  @MethodSource("reverseCandidateVerificationCases")
+  void utf8ReverseCandidateReportsItsExactEngine(boolean bitState, String regex, String input) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern =
+        Pattern.compile(regex, 0, EnginePathOptions.builder().bitState(bitState).build());
+
+    assertThat(pattern.find(Utf8Input.validated(input.getBytes(UTF_8)))).isTrue();
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.reverseDfaSearchCount()).isPositive();
+              assertThat(event.boundaryStrategy())
+                  .isEqualTo(bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA);
+              assertThat(event.auxiliaryStrategies())
+                  .contains(
+                      new StrategyParticipation(
+                          bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA,
+                          StrategyRole.CANDIDATE_VERIFICATION));
+              if (regex.equals("foo[ab]*$")) {
+                assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
+              }
+            });
   }
 
   @Test
@@ -578,6 +670,39 @@ class DiagnosticsTest {
               assertThat(event.forwardDfaSearchCount()).isEqualTo(1);
               assertThat(event.reverseDfaSearchCount()).isEqualTo(1);
             });
+  }
+
+  @Test
+  void captureHistoryFromEagerResultsPreservesAcceleratedDfaRejection() {
+    Pattern.setDiagnostics(diagnostics);
+    for (boolean utf8 : new boolean[] {false, true}) {
+      Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
+      String successful = "error:[C] code:500";
+      String rejected = "error:[x] code:500 ".repeat(20);
+      if (utf8) {
+        Utf8Matcher primer = pattern.matcher(Utf8Input.trusted(successful.getBytes(UTF_8)));
+        assertThat(primer.matches()).isTrue();
+        assertThat(primer.start(1)).isZero();
+      } else {
+        Matcher primer = pattern.matcher(successful);
+        assertThat(primer.matches()).isTrue();
+        assertThat(primer.start(1)).isZero();
+      }
+      assertThat(pattern.innerCapturesObserved()).isTrue();
+      if (utf8) {
+        assertThat(pattern.matcher(Utf8Input.trusted(rejected.getBytes(UTF_8))).find()).isFalse();
+      } else {
+        assertThat(pattern.matcher(rejected).find()).isFalse();
+      }
+      assertThat(operationsFor(pattern))
+          .last()
+          .satisfies(
+              event -> {
+                assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+                assertThat(event.forwardDfaSearchCount()).isPositive();
+              });
+    }
   }
 
   @Test

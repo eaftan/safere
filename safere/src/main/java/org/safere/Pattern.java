@@ -149,7 +149,9 @@ public final class Pattern implements Serializable {
   private final transient StringStartAccelerator stringStartAccelerator;
   private final transient EnginePathOptions enginePathOptions;
   private final transient LiteralAlternation literalAlternation;
-  private final transient Matcher.PreparedMatchRunner defaultPreparedMatchRunner;
+  private final transient InnerLiteralSearch innerLiteralSearch;
+  // Not final: a lazy ShiftDfa runner replaces itself once its analysis resolves.
+  private transient Matcher.PreparedMatchRunner defaultPreparedMatchRunner;
   private final transient Matcher.PreparedMatchRunner regionPreparedMatchRunner;
   private final long patternId;
   private transient volatile PatternAnalysis patternAnalysis;
@@ -171,9 +173,11 @@ public final class Pattern implements Serializable {
   private transient volatile OnePassAnalysis onePassAnalysis;
 
   /**
-   * Whether a matcher created from this pattern has requested an inner capture. This adaptive
-   * signal lets later small-input match operations avoid a redundant DFA pass when capture
-   * extraction is demonstrably part of the workload.
+   * Whether a matcher has consumed inner captures, including already resolved captures and
+   * successful snapshots. Shared for this Pattern's lifetime across matchers, inputs and threads;
+   * independent of any matcher's current result. Exact fallback searches can reuse this hint to
+   * collect captures in a required pass; small-input heuristics may also avoid a redundant DFA
+   * pass. Internal resolution and group-zero-only access must not set it.
    */
   private transient volatile boolean innerCapturesObserved;
 
@@ -226,6 +230,17 @@ public final class Pattern implements Serializable {
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {
     static final OnePassAnalysis DISABLED = new OnePassAnalysis(null, false, false, false);
+  }
+
+  /**
+   * ShiftDfa analysis result, computed on first {@code matches()} request for eligible group-0
+   * patterns.
+   */
+  private transient volatile ShiftDfaAnalysis shiftDfaAnalysis;
+
+  /** Holder for ShiftDfa analysis results. */
+  private record ShiftDfaAnalysis(ShiftDfa shiftDfa) {
+    static final ShiftDfaAnalysis DISABLED = new ShiftDfaAnalysis(null);
   }
 
   private Pattern(
@@ -287,6 +302,16 @@ public final class Pattern implements Serializable {
         StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    this.innerLiteralSearch =
+        enginePathOptions.startAcceleration()
+                && enginePathOptions.literalFastPaths()
+                && this.matchDescriptor.literalMatch() == null
+                && !prog.anchorStart()
+                && this.multiAnchor.startPlan()
+                    instanceof MultiAnchorDescriptor.StartPlan.Literal lit
+                && !lit.foldCase()
+            ? InnerLiteralSearch.compile(ast, rejectPrefilter)
+            : null;
     // The literal-alternation runner skips canReject on its initial String find().
     // The filter's type still selects its window policy; fallback operations retain the filter.
     this.literalAlternation =
@@ -330,31 +355,20 @@ public final class Pattern implements Serializable {
   }
 
   private static MatchDescriptor extractMatchDescriptor(
-      Regexp metadataAst,
-      Regexp sourceAst,
-      int flags,
-      Prog prog,
-      EnginePathOptions enginePathOptions) {
+      Regexp metadataAst, AstAnalysis astAnalysis, int flags) {
     LiteralResult literalMatchResult = extractLiteralMatch(metadataAst);
     String literalMatch = literalMatchResult.literal();
     boolean literalFoldCase = literalMatchResult.foldCase();
-    CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
+    boolean hasUserCaptures = astAnalysis.hasUserCaptures();
+    CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst, hasUserCaptures);
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
-    CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
-    int minMatchLength = extractMinMatchLength(sourceAst);
-    // A case-sensitive literal runner handles both String and UTF-8 without a ShiftDfa fallback.
-    // Folded literals can still use ShiftDfa through createLiteralFallbackRunner for UTF-8.
-    boolean literalSupersedesShiftDfa =
-        canUseLiteralPreparedRunner(literalMatch, prog.numCaptures(), enginePathOptions)
-            && !literalFoldCase;
-    ShiftDfa shiftDfa =
-        enginePathOptions.shiftDfa() && !literalSupersedesShiftDfa ? ShiftDfa.compile(prog) : null;
+    CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst, hasUserCaptures);
+    int minMatchLength = astAnalysis.minMatchLength();
     if (literalMatch == null
         && singleCharClass == null
         && keywordAlternation == null
         && ccMatch == null
-        && minMatchLength <= 0
-        && shiftDfa == null) {
+        && minMatchLength <= 0) {
       return MatchDescriptor.NONE;
     }
     return new MatchDescriptor(
@@ -363,8 +377,7 @@ public final class Pattern implements Serializable {
         singleCharClass,
         keywordAlternation,
         ccMatch,
-        minMatchLength,
-        shiftDfa);
+        minMatchLength);
   }
 
   private static long nextPatternId() {
@@ -449,10 +462,11 @@ public final class Pattern implements Serializable {
     Regexp metadataAst = prepared.simplifiedSource();
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
-    MatchDescriptor matchDescriptor =
-        extractMatchDescriptor(metadataAst, re, flags, compiled, enginePathOptions);
-    boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
-    boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
+    MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, astAnalysis, flags);
+    boolean startsWithGcb =
+        compiled.hasGraphemeSemantics() && startsWithGraphemeClusterBoundary(metadataAst);
+    boolean hasInternalGcb =
+        compiled.hasGraphemeSemantics() && hasInternalExplicitGraphemeBoundary(re);
     // The constructor eagerly prepares the applicable engine analysis and setup.
     return new Pattern(
         regex,
@@ -551,7 +565,7 @@ public final class Pattern implements Serializable {
    */
   public boolean find(Utf8Input input) {
     ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
-    if (!canFindUtf8Directly()) {
+    if (!canFindWithoutMatcher()) {
       return new Utf8Matcher(this, arrayInput).find();
     }
     Utf8InputScanner scanner = arrayInput.scanner();
@@ -563,13 +577,14 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns whether the matcher-free {@link #find(Utf8Input)} path can answer for this pattern.
+   * Returns whether the matcher-free existence searches ({@link #find(Utf8Input)} and {@link
+   * #asPredicate()}) can answer for this pattern.
    *
-   * <p>That path uses cheap checks followed by the forward first-match DFA or an end-anchored
+   * <p>Those paths use cheap checks followed by the forward first-match DFA or an end-anchored
    * reverse search, with exact NFA verification and fallback. Patterns with grapheme semantics or
-   * loop registers use the matcher instead, so they get its full strategy sequence.
+   * loop registers use a matcher instead, so they get its full strategy sequence.
    */
-  private boolean canFindUtf8Directly() {
+  private boolean canFindWithoutMatcher() {
     return enginePathOptions.dfa() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
@@ -633,7 +648,9 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    if (rejectPrefilter != null && rejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -656,13 +673,13 @@ public final class Pattern implements Serializable {
         return true;
       }
     }
-    if (!prog.anchorEnd()) {
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        return result.matched();
-      }
+    // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
+    // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      return result.matched();
     }
     return Nfa.search(
             prog,
@@ -720,12 +737,13 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart == -1) {
       return false;
     }
-    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
-      diagnostics.boundary(MatchStrategy.NFA);
+    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
       return true;
     }
-    if (rejectPrefilter != null
-        && rejectPrefilter.canRejectWithDiagnostics(scanner, 0, enginePathOptions, diagnostics)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && findRejectPrefilter.canRejectWithDiagnostics(
+            scanner, 0, enginePathOptions, diagnostics)) {
       return false;
     }
     int searchStart = 0;
@@ -744,24 +762,21 @@ public final class Pattern implements Serializable {
       if (endAnchoredStart == -1) {
         return false;
       }
-      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
-        diagnostics.boundary(MatchStrategy.NFA);
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
         return true;
       }
     }
-    if (!prog.anchorEnd()) {
-      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      diagnostics.incrementForwardDfaSearchCount();
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        diagnostics.boundary(MatchStrategy.DFA);
-        return result.matched();
-      }
-      diagnostics.decision(
-          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+    diagnostics.incrementForwardDfaSearchCount();
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      diagnostics.boundary(MatchStrategy.DFA);
+      return result.matched();
     }
+    diagnostics.decision(
+        MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
     boolean matched =
         Nfa.search(
                 prog,
@@ -958,19 +973,61 @@ public final class Pattern implements Serializable {
     return start;
   }
 
-  private boolean findAt(Utf8InputScanner scanner, int start) {
-    return Nfa.search(
-            prog,
-            scanner,
-            start,
-            scanner.length(),
-            scanner.length(),
-            0,
-            Nfa.Anchor.ANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
-            0,
-            null)
-        != null;
+  /**
+   * Returns whether a match starts at {@code start}. Uses BitState when the remaining input fits
+   * its bitmap, as {@code Matcher}'s end-anchored verification does, and the NFA otherwise or when
+   * BitState exceeds its work budget.
+   */
+  private boolean findAt(InputScanner scanner, int start) {
+    return findAt(scanner, start, null);
+  }
+
+  private boolean findAt(InputScanner scanner, int start, DiagnosticAccumulator diagnostics) {
+    int length = scanner.length();
+    int maxBitStateLen = BitState.maxTextSize(prog);
+    if (enginePathOptions.bitState() && maxBitStateLen >= 0 && length - start <= maxBitStateLen) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.BIT_STATE, StrategyRole.CANDIDATE_VERIFICATION);
+      }
+      ThreadCache cache = getOrCreateThreadCache();
+      BitState bitState =
+          BitState.getOrCreate(
+              borrowBitState(cache), prog, scanner, start, length, 2, false, prog.anchorEnd());
+      int[] result = bitState.doSearch(start, start, true);
+      returnBitState(cache, bitState);
+      if (!bitState.budgetExceeded()) {
+        if (result != null && diagnostics != null) {
+          diagnostics.boundary(MatchStrategy.BIT_STATE);
+        }
+        return result != null;
+      }
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.BIT_STATE,
+            StrategyDisposition.FALLBACK,
+            StrategyReason.WORK_BUDGET_EXCEEDED);
+      }
+    }
+    if (diagnostics != null) {
+      diagnostics.participate(MatchStrategy.NFA, StrategyRole.CANDIDATE_VERIFICATION);
+    }
+    boolean matched =
+        Nfa.search(
+                prog,
+                scanner,
+                start,
+                scanner.length(),
+                scanner.length(),
+                0,
+                Nfa.Anchor.ANCHORED,
+                Nfa.MatchKind.FIRST_MATCH,
+                0,
+                null)
+            != null;
+    if (matched && diagnostics != null) {
+      diagnostics.boundary(MatchStrategy.NFA);
+    }
+    return matched;
   }
 
   static int[] literalFailure(byte[] literal) {
@@ -1178,7 +1235,132 @@ public final class Pattern implements Serializable {
    * @return a predicate for partial matching
    */
   public Predicate<String> asPredicate() {
-    return input -> matcher(input).find();
+    return this::findInString;
+  }
+
+  /**
+   * Returns whether this pattern occurs in {@code input}, with the same result as {@code
+   * matcher(input).find()} but without creating a matcher or computing match bounds. Follows the
+   * same strategy sequence as {@link #findWithoutDiagnostics(Utf8InputScanner)}, with the String
+   * literal, prefix and start-accelerator data. With diagnostics enabled, delegates to a matcher so
+   * the reported operation is unchanged.
+   */
+  private boolean findInString(String input) {
+    if (!canFindWithoutMatcher() || SafeReMatchDiagnostics.isEnabled(diagnostics())) {
+      return matcher(input).find();
+    }
+    int length = input.length();
+    if (matchDescriptor.minMatchLength() > 0 && length < matchDescriptor.minMatchLength()) {
+      return false;
+    }
+    // literalMatchUtf8 is non-null only when literal fast paths are enabled.
+    if (literalMatchUtf8 != null && !literalFoldCase()) {
+      String literal = matchDescriptor.literalMatch();
+      return prog.anchorStart() ? input.startsWith(literal) : input.indexOf(literal) >= 0;
+    }
+    StringInputScanner scanner = new StringInputScanner(input);
+    if (enginePathOptions.keywordAlternationFastPath()
+        && matchDescriptor.keywordAlternation() != null) {
+      return matchDescriptor.keywordAlternation().find(scanner, 0) >= 0;
+    }
+    if (prog.anchorStart()) {
+      if (anchoredPrefixUtf8 != null) {
+        if (!input.startsWith(anchoredPrefix)) {
+          return false;
+        }
+      } else if (anchoredCharClassPrefix != null) {
+        if (length == 0 || !anchoredCharClassPrefix.contains(input.codePointAt(0))) {
+          return false;
+        }
+      }
+    }
+    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, null);
+    if (endAnchoredStart == -1) {
+      return false;
+    }
+    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+      return true;
+    }
+    if (rejectPrefilter != null
+        && rejectPrefilter.canReject(scanner, input, 0, enginePathOptions)) {
+      return false;
+    }
+    int searchStart = 0;
+    boolean startPositionPreselected = false;
+    if (enginePathOptions.startAcceleration()
+        && stringStartAccelerator != null
+        && !prog.anchorStart()) {
+      searchStart = findNextStringStartCandidate(scanner, input);
+      if (searchStart < 0) {
+        return false;
+      }
+      startPositionPreselected = true;
+    }
+    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, null, false);
+      if (endAnchoredStart == -1) {
+        return false;
+      }
+      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+        return true;
+      }
+    }
+    // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
+    // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      return result.matched();
+    }
+    return Nfa.search(
+            prog,
+            scanner,
+            searchStart,
+            length,
+            length,
+            0,
+            Nfa.Anchor.UNANCHORED,
+            Nfa.MatchKind.FIRST_MATCH,
+            0,
+            null)
+        != null;
+  }
+
+  /**
+   * Selects the first String start candidate for {@link #findInString}. Literal scans use UTF-16
+   * indices, so candidates inside a surrogate pair are skipped, as in the matcher. A nullable
+   * leading expansion is first verified at its inner candidate, as in {@link
+   * #findNextUtf8StartCandidate}.
+   */
+  private int findNextStringStartCandidate(StringInputScanner scanner, String text) {
+    boolean unixLines = prog.lineStartUnixLines();
+    if (stringStartAccelerator instanceof StringStartAccelerator.LeadingExpansion le
+        && le.canVerifyAtInner()) {
+      int innerMatch = le.findInnerCandidate(text, 0, unixLines);
+      while (innerMatch > 0 && !scanner.isCodePointBoundary(innerMatch)) {
+        innerMatch = le.findInnerCandidate(text, innerMatch + 1, unixLines);
+      }
+      if (innerMatch < 0) {
+        return -1;
+      }
+      // With zero repetitions and no leading assertions, an unanchored rejection from the inner
+      // candidate also rejects every expanded start.
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa().doSearch(scanner, innerMatch, false, false, true);
+      if (result != null && !result.matched()) {
+        return -1;
+      }
+      return le.expandBackward(text, innerMatch, 0);
+    }
+    int candidate =
+        StringStartAccelerator.findNextCandidate(stringStartAccelerator, text, 0, unixLines);
+    while (candidate > 0 && !scanner.isCodePointBoundary(candidate)) {
+      candidate =
+          StringStartAccelerator.findNextCandidate(
+              stringStartAccelerator, text, candidate + 1, unixLines);
+    }
+    return candidate;
   }
 
   /**
@@ -1207,6 +1389,18 @@ public final class Pattern implements Serializable {
 
   EnginePathOptions enginePathOptions() {
     return enginePathOptions;
+  }
+
+  /**
+   * Replaces the default prepared runner if it is still {@code lazy}, so later operations skip the
+   * resolved lazy wrapper. Runners are immutable, so a racy publication is safe; a lazy runner
+   * nested inside another runner keeps its own cached resolution instead.
+   */
+  void replacePreparedMatchRunner(
+      Matcher.PreparedMatchRunner lazy, Matcher.PreparedMatchRunner resolved) {
+    if (defaultPreparedMatchRunner == lazy) {
+      defaultPreparedMatchRunner = resolved;
+    }
   }
 
   Matcher.PreparedMatchRunner preparedMatchRunner(boolean regionActive) {
@@ -1238,33 +1432,7 @@ public final class Pattern implements Serializable {
           matchDescriptor.classHashChain());
     }
 
-    CharClassScanInfo singleCharClass = matchDescriptor.singleCharClass();
-    Pattern.CharClassMatchInfo charClassMatch = matchDescriptor.charClassMatch();
-    if (enginePathOptions.charClassMatchFastPaths()
-        && (singleCharClass != null || charClassMatch != null)) {
-      return new Matcher.SingleCharClassPreparedRunner(
-          singleCharClass, charClassMatch, prog.anchorStart());
-    }
-
-    if (regionActive) {
-      return Matcher.FallbackPreparedRunner.INSTANCE;
-    }
-
-    Pattern.KeywordAlternation keywordAlternation = matchDescriptor.keywordAlternation();
-    if (enginePathOptions.keywordAlternationFastPath() && keywordAlternation != null) {
-      return new Matcher.KeywordAlternationPreparedRunner(
-          keywordAlternation, prog.numCaptures(), prog.anchorStart());
-    }
-
-    if (enginePathOptions.shiftDfa() && matchDescriptor.shiftDfa() != null && numGroups() == 0) {
-      return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
-    }
-
-    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
-      return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
-    }
-
-    return Matcher.FallbackPreparedRunner.INSTANCE;
+    return createLiteralFallbackRunner(regionActive);
   }
 
   private Matcher.PreparedMatchRunner createLiteralFallbackRunner(boolean regionActive) {
@@ -1286,15 +1454,15 @@ public final class Pattern implements Serializable {
           keywordAlternation, prog.numCaptures(), prog.anchorStart());
     }
 
-    if (enginePathOptions.shiftDfa() && matchDescriptor.shiftDfa() != null && numGroups() == 0) {
-      return new Matcher.ShiftDfaPreparedRunner(matchDescriptor.shiftDfa());
+    Matcher.PreparedMatchRunner fallback =
+        enginePathOptions.onePass() && mayOnePassPrimary()
+            ? new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures())
+            : Matcher.FallbackPreparedRunner.INSTANCE;
+    if (mayUseShiftDfa()) {
+      return new Matcher.LazyShiftDfaPreparedRunner(this, fallback);
     }
 
-    if (enginePathOptions.onePass() && mayOnePassPrimary()) {
-      return new Matcher.OnePassAnchoredPreparedRunner(prog.numCaptures());
-    }
-
-    return Matcher.FallbackPreparedRunner.INSTANCE;
+    return fallback;
   }
 
   boolean innerCapturesObserved() {
@@ -1429,7 +1597,8 @@ public final class Pattern implements Serializable {
               forwardDfaSetup(),
               false,
               enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
+              enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
+              innerLiteralSearch);
       cache.forwardFirstMatchDfa = dfa;
     }
     return dfa;
@@ -1566,6 +1735,56 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Cheap conservative upper bound on {@code shiftDfa() != null}. Uses only properties known
+   * without running {@link ShiftDfa#compile(Prog)} so that choosing a prepared runner does not
+   * build {@link ShiftDfa}; {@link Matcher.LazyShiftDfaPreparedRunner} compiles {@link ShiftDfa}
+   * lazily on the first {@code matches()} call.
+   */
+  private boolean mayUseShiftDfa() {
+    ShiftDfaAnalysis analysis = shiftDfaAnalysis;
+    if (analysis != null) {
+      return analysis.shiftDfa() != null;
+    }
+    boolean literalSupersedesShiftDfa =
+        canUseLiteralPreparedRunner(
+                matchDescriptor.literalMatch(), prog.numCaptures(), enginePathOptions)
+            && !matchDescriptor.literalFoldCase();
+    return enginePathOptions.shiftDfa()
+        && !literalSupersedesShiftDfa
+        && prog.numCaptures() == 1
+        && astAnalysis.minMatchLength() < ShiftDfa.MAX_STATES
+        && !prog.hasGraphemeSemantics()
+        && !prog.hasWordBoundary()
+        && !prog.anchorEnd()
+        && !prog.dollarAnchorEnd()
+        && prog.start() != 0;
+  }
+
+  private ShiftDfaAnalysis shiftDfaAnalysis() {
+    ShiftDfaAnalysis analysis = shiftDfaAnalysis;
+    if (analysis == null) {
+      synchronized (this) {
+        analysis = shiftDfaAnalysis;
+        if (analysis == null) {
+          ShiftDfa compiled = mayUseShiftDfa() ? ShiftDfa.compile(prog) : null;
+          analysis = compiled != null ? new ShiftDfaAnalysis(compiled) : ShiftDfaAnalysis.DISABLED;
+          shiftDfaAnalysis = analysis;
+        }
+      }
+    }
+    return analysis;
+  }
+
+  ShiftDfa shiftDfa() {
+    return shiftDfaAnalysis().shiftDfa();
+  }
+
+  /** Returns whether the ShiftDfa analysis has been computed. For tests. */
+  boolean shiftDfaAnalyzed() {
+    return shiftDfaAnalysis != null;
+  }
+
+  /**
    * Returns whether OnePass can be used for submatch extraction in the sandwich path. This is true
    * when the pattern is OnePass-eligible and has no lazy quantifiers. Nullable patterns are safe
    * here because match bounds are already determined by the DFA.
@@ -1680,6 +1899,11 @@ public final class Pattern implements Serializable {
   /** Returns whole-input rejection prefilter, or {@code null}. */
   RejectPrefilter rejectPrefilter() {
     return rejectPrefilter;
+  }
+
+  /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
+  RejectPrefilter findRejectPrefilter() {
+    return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
   }
 
   MultiAnchorDescriptor multiAnchor() {
@@ -2679,7 +2903,7 @@ public final class Pattern implements Serializable {
    * <p>Sees through the implicit group-0 CAPTURE wrapper. Returns {@code null} if the pattern has
    * any user capture groups (the fast path only produces group 0).
    */
-  private static CharClassMatchInfo extractCharClassMatch(Regexp re) {
+  private static CharClassMatchInfo extractCharClassMatch(Regexp re, boolean hasUserCaptures) {
     Regexp node = re;
 
     // Unwrap implicit group-0 capture.
@@ -2710,7 +2934,7 @@ public final class Pattern implements Serializable {
 
     // Reject if the original pattern has user capture groups — the fast path only produces
     // group 0, so it can't provide group(1) etc.
-    if (hasUserCaptures(re)) {
+    if (hasUserCaptures) {
       return null;
     }
 
@@ -2754,12 +2978,12 @@ public final class Pattern implements Serializable {
    * \p{javaLetter}}. The fast path only produces group 0, so patterns with user capture groups are
    * excluded.
    */
-  private static CharClassScanInfo extractSingleCharClass(Regexp re) {
+  private static CharClassScanInfo extractSingleCharClass(Regexp re, boolean hasUserCaptures) {
     Regexp node = re;
     if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
       node = node.sub();
     }
-    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures(re)) {
+    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures) {
       return null;
     }
     CharClass cc = node.charClass;
@@ -2795,27 +3019,6 @@ public final class Pattern implements Serializable {
       UnicodeCaseFolding.addUnicodeFoldedRange(ccb, cp, cp);
     }
     return ccb.build();
-  }
-
-  /**
-   * Returns {@code true} if the AST contains any CAPTURE node with {@code cap > 0} (user capture
-   * groups, not the implicit group 0).
-   */
-  private static boolean hasUserCaptures(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
   }
 
   private record LiteralResult(String literal, boolean foldCase) {
@@ -2934,70 +3137,6 @@ public final class Pattern implements Serializable {
     }
     return new LiteralResult(
         foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString(), foldCase);
-  }
-
-  private static final class MinMatchLengthWalker extends Walker<Integer> {
-    @Override
-    protected Integer shortVisit(Regexp re, Integer parentArg) {
-      return 0;
-    }
-
-    @Override
-    protected Integer postVisit(
-        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
-      return switch (re.op) {
-        case NO_MATCH -> Integer.MAX_VALUE / 2;
-        case EMPTY_MATCH,
-            BEGIN_LINE,
-            END_LINE,
-            BEGIN_TEXT,
-            END_TEXT,
-            WORD_BOUNDARY,
-            NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY,
-            HAVE_MATCH,
-            QUEST,
-            STAR ->
-            0;
-        case LITERAL -> Character.charCount(re.rune);
-        case LITERAL_STRING -> {
-          int count = 0;
-          if (re.runes != null) {
-            for (int r : re.runes) {
-              count += Character.charCount(r);
-            }
-          }
-          yield count;
-        }
-        case CHAR_CLASS, ANY_CHAR, ANY_BYTE, GRAPHEME_CLUSTER -> 1;
-        case CAPTURE, NON_CAPTURE, PLUS -> childArgs.isEmpty() ? 0 : childArgs.getFirst();
-        case REPEAT -> {
-          int subMin = childArgs.isEmpty() ? 0 : childArgs.getFirst();
-          yield (int) Math.min((long) subMin * Math.max(0, re.min), Integer.MAX_VALUE / 2);
-        }
-        case CONCAT -> {
-          long sum = 0;
-          for (int child : childArgs) {
-            sum += child;
-          }
-          yield (int) Math.min(sum, Integer.MAX_VALUE / 2);
-        }
-        case ALTERNATE -> {
-          int min = Integer.MAX_VALUE / 2;
-          for (int child : childArgs) {
-            min = Math.min(min, child);
-          }
-          yield min == Integer.MAX_VALUE / 2 ? 0 : min;
-        }
-      };
-    }
-  }
-
-  private static int extractMinMatchLength(Regexp re) {
-    if (re == null) {
-      return 0;
-    }
-    return new MinMatchLengthWalker().walk(re, 0);
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */

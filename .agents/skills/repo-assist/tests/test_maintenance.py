@@ -59,8 +59,61 @@ def test_checkpoint_repeat_preserves_done_categories_and_context(assessment):
   assert report.read_text().endswith('## Issues\n\nAn independent category.\n')
 
 
-def test_checkpoint_replay_after_state_write_interruption(assessment, monkeypatch):
+def test_brief_checkpoint_separates_evidence_and_copy_preserving_done_and_audit(assessment):
   args, report = assessment
+  metadata_path = args.root / 'locks/run.lockdir/metadata.json'
+  put(metadata_path, m.read_json(metadata_path) | {'reportFormat': 'brief'})
+  args.brief = args.root / 'brief.md'
+  args.brief.write_text('A useful change. Our fix is ready. **Next:** publish the correction.')
+  put(args.spec, m.read_json(args.spec) | {'title': 'Faster search', 'nextAction': 'Push fix, then review'})
+  m.checkpoint(args); m.checkpoint(args)
+  text = report.read_text()
+  detail = report.with_suffix('') / 'pr-7.md'
+  assert '| Y | [PR #7 — Faster search]' in text
+  assert 'Push fix, then review' in text
+  assert 'A useful change.' in text and 'Accurate source analysis.' not in text
+  assert '### Copy/Paste PR Review' not in text
+  assert 'Accurate source analysis.' in detail.read_text()
+  assert m.copy_text(detail.read_text()) == args.author_copy.read_text()
+  state = m.read_json(args.root / 'state.json')
+  assert state['prs']['7']['lastDetailReport'] == str(detail)
+  assert state['issues'] == {'8': {'keep': True}}
+  check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=None, check_worktrees=False)
+  assert m.audit(check)['mechanicalChecksPassed']
+  copy_path = args.root / 'artifacts/run/pr-7/copy-paste-review.md'
+  assert m.standalone_copy_text(copy_path.read_text()) == args.author_copy.read_text()
+  copy_path.write_text('```markdown\nStale review.\n```\n')
+  assert any('differs' in p for p in m.audit(check)['problems'])
+  copy_path.write_text(args.author_copy.read_text())
+  assert any('fenced Markdown block' in p for p in m.audit(check)['problems'])
+  detail.unlink()
+  assert not m.audit(check)['mechanicalChecksPassed']
+
+
+@pytest.mark.parametrize('missing', ['brief', 'nextAction'])
+def test_brief_checkpoint_rejects_missing_inputs_without_writing(assessment, missing):
+  args, report = assessment
+  metadata_path = args.root / 'locks/run.lockdir/metadata.json'
+  put(metadata_path, m.read_json(metadata_path) | {'reportFormat': 'brief'})
+  args.brief = args.root / 'brief.md'; args.brief.write_text('Next action is review.')
+  spec = m.read_json(args.spec); spec['nextAction'] = 'Review'
+  if missing == 'brief': args.brief = None
+  else: del spec['nextAction']
+  put(args.spec, spec)
+  before = report.read_bytes()
+  with pytest.raises(ValueError): m.checkpoint(args)
+  assert report.read_bytes() == before
+  assert not report.with_suffix('').exists()
+
+
+@pytest.mark.parametrize('brief_format', [False, True])
+def test_checkpoint_replay_after_state_write_interruption(assessment, monkeypatch, brief_format):
+  args, report = assessment
+  if brief_format:
+    metadata_path = args.root / 'locks/run.lockdir/metadata.json'
+    put(metadata_path, m.read_json(metadata_path) | {'reportFormat': 'brief'})
+    args.brief = args.root / 'brief.md'; args.brief.write_text('The change is ready to review.')
+    put(args.spec, m.read_json(args.spec) | {'nextAction': 'Review'})
   original = m.write_json
   def interrupted(path, value):
     if path == args.root / 'state.json': raise OSError('interrupted state write')
@@ -95,7 +148,9 @@ def test_audit_checks_structure_and_keeps_semantic_review_explicit(assessment):
   check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=args.root / 'copies', check_worktrees=False)
   assert m.audit(check)['mechanicalChecksPassed']
   assert 'cannot assess factual completeness' in m.audit(check)['semanticAuditRequired']
-  assert (check.output_dir / 'author-copy-7.md').read_text().endswith('LGTM.\n')
+  extracted = (check.output_dir / 'author-copy-7.md').read_text()
+  assert extracted.startswith('```markdown\n') and extracted.endswith('LGTM.\n```\n')
+  assert m.standalone_copy_text(extracted) == args.author_copy.read_text()
   report.write_text(report.read_text().replace('The change preserves its invariant.', 'Run mvn in my worktree.'))
   assert not m.audit(check)['mechanicalChecksPassed']
   report.write_text(report.read_text().replace('Run mvn in my worktree.', 'The shared compiler artifacts preserve ownership.'))
@@ -129,6 +184,9 @@ def test_checkpoint_and_audit_preserve_nested_code_examples(assessment):
   check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=None, check_worktrees=False)
   assert m.audit(check)['mechanicalChecksPassed']
   assert m.copy_text(report.read_text()) == args.author_copy.read_text()
+  saved = (args.root / 'artifacts/run/pr-7/copy-paste-review.md').read_text()
+  assert saved.startswith('````markdown\n')
+  assert m.standalone_copy_text(saved) == args.author_copy.read_text()
 
 
 def test_audit_benchmark_table_requirement_does_not_invent_measurements(assessment):

@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
@@ -400,10 +401,13 @@ class Utf8DiagnosticsTest {
     }
   }
 
-  @Test
-  void endAnchoredBooleanFindReportsReverseNarrowingAndExactVerification() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void endAnchoredBooleanFindReportsReverseNarrowingAndExactVerification(boolean bitState) {
     Pattern.setDiagnostics(diagnostics);
-    Pattern pattern = Pattern.compile("終点😀$");
+    Pattern pattern =
+        Pattern.compile("終点😀$", 0, EnginePathOptions.builder().bitState(bitState).build());
+    MatchStrategy verification = bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA;
 
     assertThat(pattern.find(input("é😀".repeat(400) + "終点😀\r\n"))).isTrue();
 
@@ -412,12 +416,13 @@ class Utf8DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.boundaryStrategy()).isEqualTo(verification);
               assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
               assertThat(event.forwardDfaSearchCount()).isZero();
               assertThat(event.auxiliaryStrategies())
                   .containsExactly(
-                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER),
+                      new StrategyParticipation(verification, StrategyRole.CANDIDATE_VERIFICATION));
             });
   }
 

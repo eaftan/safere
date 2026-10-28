@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
+import java.util.function.IntSupplier;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,61 @@ class SearchScalingRegressionTest {
       assertFindAllWorkIsLinear(
           size -> pattern.matcher(Utf8Input.trusted("x".repeat(size).getBytes(UTF_8)))::find,
           "UTF-8 loops");
+    }
+  }
+
+  @Test
+  void nullableLoopEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String regex : new String[] {"(?:a?(?:|.))+", "(?:a?(?:\\b|.))+"}) {
+      Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher("!a!".repeat(size))::find, "String epsilon revisits");
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.trusted("!a!".repeat(size).getBytes(UTF_8)))::find,
+          "UTF-8 epsilon revisits");
+    }
+  }
+
+  @Test
+  void nestedNullableEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String body : new String[] {"(?:a?(?:|.))", "(?:a?(?:\\b|.))"}) {
+      for (String firstQuantifier : new String[] {"+", "+?"}) {
+        String regex = body;
+        String quantifier = firstQuantifier;
+        for (int depth = 1; depth <= 7; depth++) {
+          regex = "(?:" + regex + ")" + quantifier;
+          quantifier = quantifier.equals("+") ? "+?" : "+";
+          Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+          assertFindAllWorkIsLinear(
+              size -> pattern.matcher("!a!".repeat(size) + "z")::find,
+              "String nested epsilon revisits " + regex);
+          assertFindAllWorkIsLinear(
+              size ->
+                  pattern.matcher(Utf8Input.trusted(("!a!".repeat(size) + "z").getBytes(UTF_8)))
+                      ::find,
+              "UTF-8 nested epsilon revisits " + regex);
+        }
+      }
+    }
+  }
+
+  @Test
+  void optionalEpsilonChainsKeepWorkLinearInPatternSize() {
+    for (String template : new String[] {"(?:\\b?){%d}a", "(?:(?:|b)?){%d}a"}) {
+      long[] work = new long[2];
+      for (int index = 0; index < work.length; index++) {
+        Pattern pattern = Pattern.compile(template.formatted(8 * (index + 1)));
+        Matcher matcher = pattern.matcher("a!").region(0, 1).useTransparentBounds(true);
+        work[index] = WorkCounter.countForTesting(() -> assertThat(matcher.lookingAt()).isTrue());
+      }
+      assertThat(work[0]).as("epsilon work must be observed for %s", template).isPositive();
+      assertThat(work[1])
+          .as("doubling optional epsilon chains must not enumerate their paths: %s", template)
+          .isLessThan(work[0] * 4);
     }
   }
 
@@ -497,6 +553,46 @@ class SearchScalingRegressionTest {
     assertThat(pattern.innerCapturesObserved())
         .as("Replacement with capture references must mark inner captures as observed")
         .isTrue();
+  }
+
+  @Test
+  void observedCaptureDemandAvoidsRepeatingExactFallbackSearch() {
+    String input = "a".repeat(1_024) + "y";
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.allEnabled(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      for (boolean utf8 : new boolean[] {false, true}) {
+        Pattern pattern = Pattern.compile("(a?)*y", 0, options);
+        Matcher priming = pattern.matcher(input);
+        assertThat(priming.find()).isTrue();
+        assertThat(priming.group(1)).isEmpty();
+
+        IntSupplier captureStart;
+        IntSupplier captureEnd;
+        if (utf8) {
+          Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        } else {
+          Matcher matcher = pattern.matcher(input);
+          assertThat(matcher.find()).isTrue();
+          captureStart = () -> matcher.start(1);
+          captureEnd = () -> matcher.end(1);
+        }
+        long captureWork =
+            WorkCounter.countForTesting(
+                () -> {
+                  assertThat(captureStart.getAsInt()).isEqualTo(1_024);
+                  assertThat(captureEnd.getAsInt()).isEqualTo(1_024);
+                });
+        assertThat(captureWork)
+            .as("Known-demand captures should already be available after exact fallback")
+            .isZero();
+      }
+    }
   }
 
   @Test

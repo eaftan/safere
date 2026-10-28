@@ -86,7 +86,8 @@ final class CrossEngineTrialRunner implements AutoCloseable {
                     workload.lifecycle(),
                     workload.flagSet(),
                     workload.seed(),
-                    workload.count());
+                    workload.count(),
+                    workload.mode());
         trial.validate(actual);
       }
       BenchmarkOperation.BenchmarkTask task =
@@ -103,7 +104,8 @@ final class CrossEngineTrialRunner implements AutoCloseable {
                   workload.lifecycle(),
                   workload.flagSet(),
                   workload.seed(),
-                  workload.count());
+                  workload.count(),
+                  workload.mode());
       return new CrossEngineTrialRunner(List.copyOf(patterns), task);
     } catch (RuntimeException | Error exception) {
       close(patterns);

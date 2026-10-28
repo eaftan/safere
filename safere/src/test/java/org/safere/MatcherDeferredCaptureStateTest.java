@@ -19,8 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Tests internal deferred-capture lifecycle invariants for {@link Matcher}. */
 @DisabledForCrosscheck("uses package-private reflection to assert SafeRE matcher internals")
 class MatcherDeferredCaptureStateTest {
-  private static final Pattern DEFERRED_CAPTURE_PATTERN =
-      Pattern.compile("(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))");
+  private static final String DEFERRED_CAPTURE_REGEX = "(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))";
   private static final String CSV = "id,name\n42,\"Ada Lovelace\"";
 
   @Test
@@ -220,7 +219,8 @@ class MatcherDeferredCaptureStateTest {
   }
 
   private static Matcher matcherWithDeferredCaptures() throws ReflectiveOperationException {
-    Matcher matcher = DEFERRED_CAPTURE_PATTERN.matcher(CSV);
+    // Patterns retain consumption history, so each fixture needs an independent Pattern.
+    Matcher matcher = Pattern.compile(DEFERRED_CAPTURE_REGEX).matcher(CSV);
     assertThat(matcher.find()).isTrue();
     assertThat(matcher.group()).isEqualTo("id");
     assertThat(booleanField(matcher, "capturesResolved")).isFalse();

@@ -28,10 +28,13 @@ enum BenchmarkOperation {
   SPLIT_LENGTH_SUM(EngineCapability.SPLIT),
   COMPILE(EngineCapability.COMPILE),
   COMPILE_AND_FIND(EngineCapability.COMPILE, EngineCapability.FIND),
+  COMPILE_AND_MATCHES(EngineCapability.COMPILE, EngineCapability.MATCHES),
   FIND_ROTATING_UTF16(EngineCapability.FIND),
   COMPILE_AND_FIND_ROTATING_UTF16(EngineCapability.COMPILE, EngineCapability.FIND),
   MATCHER_RESET_FIND(EngineCapability.FIND, EngineCapability.MATCHER_RESET),
   MATCHER_REGION_FIND(EngineCapability.FIND, EngineCapability.REGIONS),
+  FIND_SAMPLED_GROUP(
+      EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION, EngineCapability.MATCHER_RESET),
   FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION),
   FIND_GROUP(EngineCapability.FIND, EngineCapability.GROUP_TEXT);
 
@@ -62,10 +65,12 @@ enum BenchmarkOperation {
       case SPLIT_LENGTH_SUM -> SPLIT_LENGTH_SUM;
       case COMPILE -> COMPILE;
       case COMPILE_AND_FIND -> COMPILE_AND_FIND;
+      case COMPILE_AND_MATCHES -> COMPILE_AND_MATCHES;
       case FIND_ROTATING_UTF16 -> FIND_ROTATING_UTF16;
       case COMPILE_AND_FIND_ROTATING_UTF16 -> COMPILE_AND_FIND_ROTATING_UTF16;
       case MATCHER_RESET_FIND -> MATCHER_RESET_FIND;
       case MATCHER_REGION_FIND -> MATCHER_REGION_FIND;
+      case FIND_SAMPLED_GROUP -> FIND_SAMPLED_GROUP;
       case FIND_GROUP_PRESENT -> FIND_GROUP_PRESENT;
       case FIND_GROUP -> FIND_GROUP;
       default ->
@@ -89,7 +94,8 @@ enum BenchmarkOperation {
       DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
       String flagSet,
       int seed,
-      int count) {
+      int count,
+      String mode) {
     if (this == COMPILE) {
       return blackhole ->
           blackhole.consume(variant.compileForBenchmark(patternSources.getFirst(), flagSet));
@@ -138,19 +144,55 @@ enum BenchmarkOperation {
               blackhole.consume(compiled.find(input));
             }
           };
+      case COMPILE_AND_MATCHES ->
+          blackhole -> {
+            try (RegexEngineVariant.CompiledRegex compiled =
+                variant.compile(patternSources.getFirst())) {
+              blackhole.consume(compiled.matches(input));
+            }
+          };
       case MATCHER_RESET_FIND -> {
-        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
         yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retainedMatcher != null ? retainedMatcher : pattern.matcher(input);
           matcher.reset();
           blackhole.consume(findAllCount(matcher));
         };
       }
       case MATCHER_REGION_FIND -> {
-        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
         DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
         yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retainedMatcher != null ? retainedMatcher : pattern.matcher(input);
           matcher.region(region.start(), region.end());
           blackhole.consume(matcher.find());
+        };
+      }
+      case FIND_SAMPLED_GROUP -> {
+        boolean capture = mode.equals("capture");
+        primeCaptureDemand(pattern, inputs, groups[0], capture);
+        RegexEngineVariant.MatchCursor retained =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
+        int[] invocation = {0};
+        yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retained == null ? pattern.matcher(input) : retained;
+          if (retained != null) {
+            matcher.reset();
+          }
+          boolean readGroup = capture && invocation[0] == 0;
+          invocation[0] = (invocation[0] + 1) % count;
+          blackhole.consume(findSampledGroup(matcher, groups[0], readGroup));
         };
       }
       case FIND_GROUP_PRESENT ->
@@ -173,7 +215,8 @@ enum BenchmarkOperation {
       DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
       String flagSet,
       int seed,
-      int count) {
+      int count,
+      String mode) {
     if (this == COMPILE) {
       return true;
     }
@@ -212,6 +255,12 @@ enum BenchmarkOperation {
           yield compiled.find(input);
         }
       }
+      case COMPILE_AND_MATCHES -> {
+        try (RegexEngineVariant.CompiledRegex compiled =
+            variant.compile(patternSources.getFirst())) {
+          yield compiled.matches(input);
+        }
+      }
       case MATCHER_RESET_FIND -> {
         RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
         matcher.reset();
@@ -222,6 +271,10 @@ enum BenchmarkOperation {
         DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
         matcher.region(region.start(), region.end());
         yield matcher.find();
+      }
+      case FIND_SAMPLED_GROUP -> {
+        primeCaptureDemand(pattern, inputs, groups[0], mode.equals("capture"));
+        yield findSampledGroup(pattern.matcher(input), groups[0], mode.equals("capture"));
       }
       case FIND_GROUP_PRESENT -> findGroupPresent(pattern.matcher(input), groups[0]);
       case FIND_GROUP -> findGroup(pattern.matcher(input), groups[0]);
@@ -368,6 +421,24 @@ enum BenchmarkOperation {
       sum += part.length();
     }
     return sum;
+  }
+
+  private static void primeCaptureDemand(
+      RegexEngineVariant.CompiledRegex pattern,
+      List<RegexEngineVariant.RegexInput> inputs,
+      int group,
+      boolean capture) {
+    if (capture && inputs.size() > 1) {
+      RegexEngineVariant.MatchCursor primer = pattern.matcher(inputs.get(1));
+      if (!primer.matches() || !primer.groupParticipated(group)) {
+        throw new IllegalArgumentException("Capture primer must match and participate");
+      }
+    }
+  }
+
+  private static boolean findSampledGroup(
+      RegexEngineVariant.MatchCursor matcher, int group, boolean readGroup) {
+    return matcher.find() && (!readGroup || matcher.groupParticipated(group));
   }
 
   private static boolean findGroupPresent(RegexEngineVariant.MatchCursor matcher, int group) {

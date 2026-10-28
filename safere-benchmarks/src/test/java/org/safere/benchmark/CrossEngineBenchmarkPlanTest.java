@@ -371,6 +371,70 @@ class CrossEngineBenchmarkPlanTest {
         .hasMessageContaining("engine lacks [flaggedCompile]");
   }
 
+  @ParameterizedTest
+  @CsvSource({
+    "newPerInvocation,capture,5,3",
+    "retained,capture,1,3",
+    "newPerInvocation,boolean,5,0",
+    "retained,boolean,1,0"
+  })
+  void sampledCaptureWorkloadHonorsMatcherLifetimeAndReadFrequency(
+      String reuse, String mode, int expectedMatchers, int expectedReads) {
+    int[] creations = {0};
+    int[] resets = {0};
+    int[] reads = {0};
+    RegexEngineVariant.CompiledRegex pattern =
+        new RegexEngineVariant.CompiledRegex() {
+          @Override
+          public RegexEngineVariant.MatchCursor matcher(RegexEngineVariant.RegexInput input) {
+            creations[0]++;
+            return new RegexEngineVariant.MatchCursor() {
+              @Override
+              public boolean find() {
+                return true;
+              }
+
+              @Override
+              public int start(int group) {
+                assertThat(group).isEqualTo(1);
+                reads[0]++;
+                return 0;
+              }
+
+              @Override
+              public void reset() {
+                resets[0]++;
+              }
+            };
+          }
+        };
+    BenchmarkOperation.BenchmarkTask task =
+        BenchmarkOperation.FIND_SAMPLED_GROUP.bind(
+            RegexEngineVariant.SAFERE_STRING,
+            List.of("(a)"),
+            List.of(pattern),
+            List.of(new RegexEngineVariant.StringRegexInput("a")),
+            new int[] {1},
+            null,
+            0,
+            new DeclarativeBenchmarkPlan.MatcherLifecycle(
+                DeclarativeBenchmarkPlan.MatcherReuse.fromJson(reuse), List.of()),
+            null,
+            0,
+            2,
+            mode);
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+    for (int i = 0; i < 5; i++) {
+      task.run(blackhole);
+    }
+    assertThat(creations[0]).isEqualTo(expectedMatchers);
+    assertThat(reads[0]).isEqualTo(expectedReads);
+    assertThat(resets[0]).isEqualTo(reuse.equals("retained") ? 5 : 0);
+  }
+
   @Test
   void boundTaskReusesInputPreparedBeforeTimedInvocation() {
     RegexEngineVariant.RegexInput preparedInput =
@@ -396,7 +460,8 @@ class CrossEngineBenchmarkPlanTest {
             DeclarativeBenchmarkPlan.MatcherLifecycle.NONE,
             null,
             0,
-            0);
+            0,
+            null);
     Blackhole blackhole =
         new Blackhole(
             "Today's password is swordfish. I understand instantiating Blackholes directly is"
@@ -527,6 +592,7 @@ class CrossEngineBenchmarkPlanTest {
             "",
             0,
             1,
+            null,
             new DeclarativeBenchmarkPlan.Measurement(
                 DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START,
                 DeclarativeBenchmarkPlan.TimingUnit.MILLISECONDS,

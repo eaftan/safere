@@ -56,6 +56,28 @@ final class StrictDifferentialTest {
   }
 
   @Test
+  void nullableRepeatStateSequencesPreserveEmptyBranchPriority() {
+    // OSS-Fuzz 575905869, plus a reduced ASCII case and nearby quantified forms.
+    assertThat(
+            StrictStateChecks.check(
+                "(?:(?:(?:[a-c]){0,2})(?:(?:|.)))+",
+                "...ccéc\udc00c中é中中中cccccccccc",
+                5,
+                20,
+                true,
+                true))
+        .isTrue();
+    for (String atom : List.of("a?", "[a-c]{0,2}", "a*")) {
+      for (String quantifier : List.of("+", "*", "{1,3}")) {
+        assertThat(
+                StrictStateChecks.check(
+                    "(?:" + atom + "(?:|.))" + quantifier, "!a!a!z", 0, 5, true, true))
+            .isTrue();
+      }
+    }
+  }
+
+  @Test
   void rejectsInvalidPatternInsteadOfSkippingBothRejections() {
     assertThatThrownBy(() -> StrictDifferential.check("[", "a"))
         .isInstanceOf(PatternSyntaxException.class);

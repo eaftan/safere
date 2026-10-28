@@ -68,7 +68,7 @@ reuse the same assertions without invoking the broad differential paths.
 | --- | --- | --- |
 | `CompileFuzzer` | Arbitrary syntax and flags; JDK compile acceptance | Broad |
 | `ParserCompatibilityFuzzer` | Grammar-biased syntax and membership | Broad |
-| `CharacterClassExpressionFuzzer` | Class/intersection grammar and membership | Broad |
+| `CharacterClassExpressionFuzzer` | Class/intersection grammar and membership, plus an explicit range-trivia model against unspaced references | Mixed, conservatively broad |
 | `EscapeSyntaxFuzzer` | Escape syntax and membership | Broad |
 | `DialectSyntaxFuzzer` | Dialect boundaries, plus explicit SafeRE extension checks | Mixed, conservatively broad |
 | `ParserStackSafetyFuzzer` | Nested syntax plus JDK matching/captures | Broad; SafeRE-only nesting also exercised by `RobustnessFuzzer` |
@@ -108,6 +108,10 @@ rejection as a visible differential finding. Their rationale is documented under
 and [class intersection](../INTENTIONAL_DIVERGENCES.md#character-class-intersection-and-ampersand-literals).
 The [reviewed reproduction registry](src/test/resources/intentional-reproductions/README.md)
 pins exact SafeRE and JDK outcomes, including comment/quoting behavior.
+It also retains the bracket/range trivia differences tracked in #1070;
+`CharacterClassRangeTriviaTest` pins the approved whitespace-invariant meanings,
+and the class-expression generator checks unspaced references without suppressing
+the subsequent broad differential comparison.
 It also pins the rejected `\v` class-range spellings from `EscapeSyntaxFuzzer`;
 these remain generated exploratory findings but are not unconditional agreement
 probes run for every input. Compatible spellings remain fixed differential probes.

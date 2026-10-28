@@ -76,6 +76,9 @@ class ShiftDfaTest {
     Pattern pattern = Pattern.compile("(?:true|false) ?");
 
     assertThat(pattern.preparedMatchRunner(false))
+        .isInstanceOf(Matcher.LazyShiftDfaPreparedRunner.class);
+    assertThat(pattern.matcher("true ").matches()).isTrue();
+    assertThat(pattern.preparedMatchRunner(false))
         .isInstanceOf(Matcher.ShiftDfaPreparedRunner.class);
   }
 
@@ -224,30 +227,35 @@ class ShiftDfaTest {
   @Test
   void caseSensitiveLiteralSupersedesShiftDfaOnlyWhenEnabled() {
     Pattern literal = Pattern.compile("hello");
-    assertThat(literal.matchDescriptor().shiftDfa()).isNull();
+    assertThat(literal.shiftDfaAnalyzed()).isFalse();
+    assertThat(literal.shiftDfa()).isNull();
     assertThat(literal.preparedMatchRunner(false))
         .isInstanceOf(Matcher.LiteralPreparedRunner.class);
     assertThat(literal.preparedMatchRunner(true)).isInstanceOf(Matcher.LiteralPreparedRunner.class);
 
     Pattern forcedShift =
         Pattern.compile("hello", 0, EnginePathOptions.builder().literalFastPaths(false).build());
-    assertThat(forcedShift.matchDescriptor().shiftDfa()).isNotNull();
+    assertThat(forcedShift.shiftDfaAnalyzed()).isFalse();
     assertThat(forcedShift.preparedMatchRunner(false))
-        .isInstanceOf(Matcher.ShiftDfaPreparedRunner.class);
+        .isInstanceOf(Matcher.LazyShiftDfaPreparedRunner.class);
+    assertThat(forcedShift.shiftDfa()).isNotNull();
+    assertThat(forcedShift.shiftDfaAnalyzed()).isTrue();
   }
 
   @Test
   void foldedLiteralRetainsUtf8Fallback() {
     Pattern folded = Pattern.compile("hello", Pattern.CASE_INSENSITIVE);
-    assertThat(folded.matchDescriptor().shiftDfa()).isNotNull();
+    assertThat(folded.shiftDfaAnalyzed()).isFalse();
     assertThat(folded.matcher(Utf8Input.trusted("HELLO".getBytes(UTF_8))).matches()).isTrue();
+    assertThat(folded.shiftDfaAnalyzed()).isTrue();
+    assertThat(folded.shiftDfa()).isNotNull();
   }
 
   @Test
   void disabledShiftDfaIsNotConstructed() {
     Pattern disabled =
         Pattern.compile("(?:true|false) ?", 0, EnginePathOptions.builder().shiftDfa(false).build());
-    assertThat(disabled.matchDescriptor().shiftDfa()).isNull();
+    assertThat(disabled.shiftDfa()).isNull();
   }
 
   @Test
@@ -269,5 +277,47 @@ class ShiftDfaTest {
 
     Matcher matcherOther = pattern.matcher("other");
     assertThat(matcherOther.matches()).isFalse();
+  }
+
+  @Test
+  void shiftDfaIsCompiledLazilyOnlyOnMatches() {
+    Pattern pattern = Pattern.compile("[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}");
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+
+    Matcher matcher = pattern.matcher("contact user@example.com for details");
+    assertThat(matcher.find()).isTrue();
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+
+    assertThat(matcher.reset("user@example.com rest").lookingAt()).isTrue();
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+
+    assertThat(matcher.reset("user@example.com").matches()).isTrue();
+    assertThat(pattern.shiftDfaAnalyzed()).isTrue();
+    assertThat(pattern.shiftDfa()).isNotNull();
+  }
+
+  @Test
+  void shiftDfaCachesDisabledWhenStateBudgetExceededOnMatches() {
+    Pattern pattern = Pattern.compile("a{9}b?c?");
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+    assertThat(pattern.preparedMatchRunner(false))
+        .isInstanceOf(Matcher.LazyShiftDfaPreparedRunner.class);
+
+    assertThat(pattern.matcher("aaaaaaaaabc").matches()).isTrue();
+    assertThat(pattern.shiftDfaAnalyzed()).isTrue();
+    assertThat(pattern.shiftDfa()).isNull();
+    // The resolved fallback replaces the lazy runner, so later calls skip the wrapper.
+    assertThat(pattern.preparedMatchRunner(false))
+        .isInstanceOf(Matcher.OnePassAnchoredPreparedRunner.class);
+    assertThat(pattern.matcher("aaaaaaaaax").matches()).isFalse();
+  }
+
+  @Test
+  void minMatchLengthAtLeastMaxStatesSkipsShiftDfaRunnerWithoutDeterminization() {
+    Pattern pattern = Pattern.compile("a{10}b*");
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
+    assertThat(pattern.preparedMatchRunner(false))
+        .isNotInstanceOf(Matcher.ShiftDfaPreparedRunner.class);
+    assertThat(pattern.shiftDfaAnalyzed()).isFalse();
   }
 }

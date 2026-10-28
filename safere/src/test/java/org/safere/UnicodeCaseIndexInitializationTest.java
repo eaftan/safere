@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -47,13 +48,19 @@ class UnicodeCaseIndexInitializationTest {
     assertThat(runFreshProcess("(?iu)[K-K]")).contains(INDEX_NAME);
   }
 
-  @Test
-  void fourMemberFoldClassStillBuildsIndexDuringCompilation()
+  @ParameterizedTest
+  @ValueSource(strings = {"C", "C.UTF-8"})
+  void fourMemberFoldClassStillBuildsIndexDuringCompilation(String locale)
       throws IOException, InterruptedException, URISyntaxException {
-    assertThat(runFreshProcess("[Θθϑϴ]")).contains(INDEX_NAME);
+    assertThat(runFreshProcess("[Θθϑϴ]", locale)).contains(INDEX_NAME);
   }
 
   private static String runFreshProcess(String regex)
+      throws IOException, InterruptedException, URISyntaxException {
+    return runFreshProcess(regex, "");
+  }
+
+  private static String runFreshProcess(String regex, String locale)
       throws IOException, InterruptedException, URISyntaxException {
     String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
     String pathSeparator = System.getProperty("path.separator");
@@ -66,11 +73,23 @@ class UnicodeCaseIndexInitializationTest {
                     .getCodeSource()
                     .getLocation()
                     .toURI());
-    Process process =
+    // Process arguments use the platform's native encoding, which may be ASCII in isolation.
+    String encodedRegex =
+        Base64.getEncoder().encodeToString(regex.getBytes(StandardCharsets.UTF_8));
+    ProcessBuilder processBuilder =
         new ProcessBuilder(
-                java, "-Xmx12m", "-Xlog:class+init=info", "-cp", classPath, PROBE_CLASS_NAME, regex)
-            .redirectErrorStream(true)
-            .start();
+                java,
+                "-Xmx12m",
+                "-Xlog:class+init=info",
+                "-cp",
+                classPath,
+                PROBE_CLASS_NAME,
+                encodedRegex)
+            .redirectErrorStream(true);
+    if (!locale.isEmpty()) {
+      processBuilder.environment().put("LC_ALL", locale);
+    }
+    Process process = processBuilder.start();
     String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
     assertThat(process.waitFor()).as(output).isZero();
     return output;
