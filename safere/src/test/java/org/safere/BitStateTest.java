@@ -28,6 +28,49 @@ class BitStateTest {
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
+  @Test
+  void capturesAndLoopRegistersRollBackAcrossNestedRepeatAlternatives() {
+    for (String atom : List.of("(a)", "((a))", "(a|aa)", "(é|😀)")) {
+      for (String inner : List.of("{0,2}", "{1,2}", "+?")) {
+        for (String outer : List.of("*", "+?")) {
+          for (String suffix : List.of("b", "ab")) {
+            String regex = "(?:" + atom + inner + ")" + outer + suffix;
+            for (String input :
+                List.of("", "a", "ab", "aab", "aaaab", "aaaaab", "aaac", "é😀b", "é😀ab")) {
+              assertConsistentAnchored(regex, input, false, false);
+              assertConsistentAnchored(regex, input, true, false);
+              assertConsistentAnchored(regex, input, true, true);
+              assertConsistentUnanchored(regex, input);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void captureBoundariesAndPartialCaptureTrackingSurviveFailedAlternatives() {
+    for (String regex :
+        List.of("(a)b(c)", "(a)b(c)|ab(d)", "(a)b()c", "((a))b(c)", "(é).(😀)", "(?i:(a)b(c))")) {
+      Prog prog = Compiler.compile(Parser.parse(regex, FLAGS));
+      for (String input : List.of("", "ab", "abc", "abd", "abcc", "ABc", "éa😀", "é😀")) {
+        for (int submatches = 0; submatches <= prog.numCaptures(); submatches++) {
+          for (boolean full : new boolean[] {false, true}) {
+            int[] result = BitState.search(prog, input, true, false, full, submatches);
+            int[] expected =
+                Nfa.search(
+                    prog,
+                    input,
+                    Nfa.Anchor.ANCHORED,
+                    full ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH,
+                    submatches);
+            assertCapturesEqual(regex, input, result, expected);
+          }
+        }
+      }
+    }
+  }
+
   /** Asserts BitState and NFA agree on an anchored search. */
   private static void assertConsistentAnchored(
       String pattern, String text, boolean longest, boolean endMatch) {
