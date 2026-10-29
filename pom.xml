@@ -52,12 +52,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
     <junit.version>6.1.3</junit.version>
-    <jacoco.version>0.8.15</jacoco.version>
+    <jacoco.version>0.8.16</jacoco.version>
     <jazzer.version>0.30.0</jazzer.version>
-    <icu4j.version>78.3</icu4j.version>
-    <gson.version>2.14.0</gson.version>
+    <icu4j.version>79.1</icu4j.version>
+    <gson.version>2.15.0</gson.version>
     <jmh.version>1.37</jmh.version>
-    <error-prone.version>2.50.0</error-prone.version>
+    <error-prone.version>2.51.0</error-prone.version>
     <error-prone.checks>-XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/generated-sources/.* -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <!-- Checks for production code only (src/main), not tests. DefaultLocale keeps output such as
          the generated Unicode tables independent of the JVM's default locale. -->
