@@ -432,6 +432,7 @@ final class BitState {
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
 
     boolean[] cycleAlts = prog.epsilonCycleAlts();
+    boolean[] reachable = prog.computeReachableInstructions();
     this.altKind = new byte[progSize];
     CaptureRune[] fused = null;
     for (int i = 0; i < progSize; i++) {
@@ -444,7 +445,8 @@ final class BitState {
           altKind[i] = ALT;
         }
       }
-      if (instruction.opCode == InstOp.OP_CAPTURE) {
+      // Discarded fragments may retain unresolved patch-list links instead of successor IDs.
+      if (reachable[i] && instruction.opCode == InstOp.OP_CAPTURE) {
         Inst rune = prog.inst(instruction.out);
         if (rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS) {
           Inst end = prog.inst(rune.out);

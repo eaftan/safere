@@ -437,7 +437,11 @@ final class Prog {
     return inCycle;
   }
 
-  private boolean[] computeReachableInstructions() {
+  /**
+   * Returns instruction reachability from both entry points. Only reachable instructions are
+   * guaranteed to have patched successor fields; discarded fragments may retain patch-list links.
+   */
+  boolean[] computeReachableInstructions() {
     int n = size();
     boolean[] reachable = new boolean[n];
     ArrayDeque<Integer> stack = new ArrayDeque<>();
@@ -452,7 +456,7 @@ final class Prog {
           addSuccessor(inst.out, reachable, stack);
           addSuccessor(inst.out1, reachable, stack);
         }
-        case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS ->
+        case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER ->
             addSuccessor(inst.out, reachable, stack);
         default -> {
           // MATCH and FAIL terminate.

@@ -29,6 +29,22 @@ class BitStateTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void unreachableCaptureAlternativesDoNotAffectFusion() {
+    for (String alternatives : List.of("(a)|(b)", "(a)|(b)|(c)|(d)|(e)", "((a)|(b))", "(é)|(😀)")) {
+      for (String impossible : List.of("[^\\s\\S]", "[a&&b]")) {
+        String deadBranch = "(?:" + alternatives + ")" + impossible;
+        for (String regex : List.of(deadBranch, deadBranch + "|x|xx", "x|xx|" + deadBranch)) {
+          for (String input : List.of("", "ab", "xxy", "é😀")) {
+            assertConsistentAnchored(regex, input, false, false);
+            assertConsistentAnchored(regex, input, true, true);
+            assertConsistentUnanchored(regex, input);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void capturesAndLoopRegistersRollBackAcrossNestedRepeatAlternatives() {
     for (String atom : List.of("(a)", "((a))", "(a|aa)", "(é|😀)")) {
       for (String inner : List.of("{0,2}", "{1,2}", "+?")) {

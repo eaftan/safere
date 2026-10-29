@@ -26,6 +26,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 class MatcherTest {
   private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
+  @Test
+  void capturesInImpossibleAlternativesRemainUnmatched() {
+    for (String alternatives : List.of("(a)|(b)", "(a)|(b)|(c)|(d)|(e)", "((a)|(b))", "(é)|(😀)")) {
+      for (String impossible : List.of("[^\\s\\S]", "[a&&b]")) {
+        String deadBranch = "(?:" + alternatives + ")" + impossible;
+        for (String regex : List.of(deadBranch + "|x|xx", "x|xx|" + deadBranch)) {
+          Matcher matcher = Pattern.compile(regex).matcher("xxy");
+          for (int start = 0; start < 2; start++) {
+            assertThat(matcher.find()).as(regex).isTrue();
+            assertThat(matcher.group()).isEqualTo("x");
+            assertThat(matcher.start()).isEqualTo(start);
+            for (int group = 1; group <= matcher.groupCount(); group++) {
+              assertThat(matcher.group(group)).as("/%s/ group %s", regex, group).isNull();
+              assertThat(matcher.start(group)).isEqualTo(-1);
+              assertThat(matcher.end(group)).isEqualTo(-1);
+            }
+          }
+          assertThat(matcher.find()).isFalse();
+        }
+      }
+    }
+  }
+
   @Nested
   @DisplayName("matches() and lookingAt()")
   class MatchesTests {
