@@ -1204,6 +1204,74 @@
       "shared": true
     },
     {
+      "id": "fullyAnchoredFind.literal.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "aEND",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.literal.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "!aEND",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.class.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "a5",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.class.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "!a5",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "endAnchoredFind.prose.{length}",
       "axes": {
         "length": [
@@ -5267,6 +5335,106 @@
       "measurement": {
         "mode": "compileOnly",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredLiteral.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)END\\z"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.literal.match.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredLiteral.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)END\\z"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.literal.interiorFailure.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredClass.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)[0-9]$"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.class.match.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredClass.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)[0-9]$"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.class.interiorFailure.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     },
     {

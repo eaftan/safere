@@ -29,6 +29,7 @@ public final class Utf8InputFuzzer {
     RepresentationChecks.assertLiteralSearchMatchesString(
         data.consumeBoolean() ? "^XXXXXX" : "\\AXXXXXX", "..XXXXXX");
     assertStartAnchoredAccelerationMatchesJdk(data);
+    assertStartBoundaryMatchesJdk(data);
     assertBoundarySensitiveRegionCaptures();
     RepresentationChecks.assertKeywordAlternationMatchesString(data);
     RepresentationChecks.assertFixedOffsetAccelerationMatchesString(data);
@@ -172,6 +173,31 @@ public final class Utf8InputFuzzer {
     boolean utf8Found = pattern.find(Utf8Input.validated(input.getBytes(StandardCharsets.UTF_8)));
     if (stringFound != expected || utf8Found != expected) {
       throw new AssertionError("start-anchored acceleration differs from JDK anchor semantics");
+    }
+  }
+
+  private static void assertStartBoundaryMatchesJdk(FuzzedDataProvider data) {
+    String start = data.pickValue(List.of("^", "\\A", "(?m)^", ""));
+    String body = data.pickValue(List.of("(a)*", "([a-z]+)", "([aé😀]+)"));
+    String terminal = data.pickValue(List.of("b", "END", "[0-9]"));
+    String end = data.pickValue(List.of("$", "\\z", "\\Z", ""));
+    String regex = start + body + terminal + end;
+    String repeated = body.contains("é") ? "é😀a" : "a";
+    String text =
+        repeated.repeat(data.consumeInt(0, 256))
+            + data.pickValue(List.of("", "!", "!\n"))
+            + repeated
+            + (terminal.equals("[0-9]") ? "5" : terminal)
+            + data.pickValue(List.of("", "\r\n", "!"));
+    Pattern pattern = Pattern.compile(regex);
+    boolean expected = java.util.regex.Pattern.compile(regex).matcher(text).find();
+    byte[] bytes = ("padding" + text + "outside").getBytes(StandardCharsets.UTF_8);
+    Utf8Input utf8 = Utf8Input.validated(bytes, 7, text.getBytes(StandardCharsets.UTF_8).length);
+    if (pattern.find(utf8) != expected
+        || pattern.matcher(utf8).find() != expected
+        || pattern.asPredicate().test(text) != expected) {
+      throw new AssertionError(
+          "boolean search start boundary differs from JDK: " + regex + " on " + text);
     }
   }
 

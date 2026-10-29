@@ -311,6 +311,34 @@ class Utf8DiagnosticsTest {
             });
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void fullyAnchoredBooleanFindUsesKnownStart(boolean bitState) {
+    Pattern.setDiagnostics(diagnostics);
+    for (String terminal : List.of("END", "[0-9]")) {
+      for (boolean valid : List.of(true, false)) {
+        Pattern pattern =
+            Pattern.compile(
+                "^([a-z]+)" + terminal + "\\z",
+                0,
+                EnginePathOptions.builder().bitState(bitState).build());
+        String text =
+            "a".repeat(61) + (valid ? "" : "!") + "a" + (terminal.equals("END") ? "END" : "5");
+
+        assertThat(pattern.find(input(text))).isEqualTo(valid);
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.outcome())
+                      .isEqualTo(valid ? MatchOutcome.MATCH : MatchOutcome.NO_MATCH);
+                  assertThat(event.reverseDfaSearchCount()).isZero();
+                  assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+                });
+      }
+    }
+  }
+
   @Test
   void directBooleanFindWithCapturesReportsNoCaptureMode() {
     // Without an end anchor, Pattern.find(Utf8Input) stays on its matcher-free path, which never

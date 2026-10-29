@@ -683,7 +683,7 @@ public final class Pattern implements Serializable {
     // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
     Dfa.SearchResult result =
         forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
     if (result != null) {
       return result.matched();
     }
@@ -776,7 +776,7 @@ public final class Pattern implements Serializable {
     diagnostics.incrementForwardDfaSearchCount();
     Dfa.SearchResult result =
         forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
     if (result != null) {
       diagnostics.boundary(MatchStrategy.DFA);
       return result.matched();
@@ -1315,7 +1315,7 @@ public final class Pattern implements Serializable {
     // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
     Dfa.SearchResult result =
         forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
     if (result != null) {
       return result.matched();
     }

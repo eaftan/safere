@@ -9,6 +9,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,20 @@ class Utf8LinearTimeTest {
             () -> assertThat(scanner.indexOfAsciiClass(asciiClass, 0)).isEqualTo(-1));
 
     assertThat(work).isEqualTo(input.length);
+  }
+
+  @Test
+  void fullyAnchoredBooleanFindScalesLinearlyWithInteriorFailures() {
+    for (String terminal : List.of("END", "[0-9]")) {
+      Pattern pattern = Pattern.compile("^([a-z]+)" + terminal + "\\z");
+      String suffix = terminal.equals("END") ? "END" : "5";
+      assertLargeFourXInputStaysNearLinear(
+          size -> {
+            Utf8Input input =
+                Utf8Input.validated(("a".repeat(size) + "!a" + suffix).getBytes(UTF_8));
+            assertThat(pattern.find(input)).isFalse();
+          });
+    }
   }
 
   private static void assertFourXInputStaysNearLinear(Consumer<Integer> task) {

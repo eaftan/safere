@@ -222,6 +222,64 @@ class Utf8EnginePathEquivalenceTest {
     pattern.returnBitState(cached);
   }
 
+  @ParameterizedTest
+  @MethodSource("booleanFindStartBoundaryCases")
+  void booleanFindPreservesStartBoundary(
+      String regex, String repeated, String terminal, boolean reverseDfa) {
+    Pattern pattern =
+        Pattern.compile(regex, 0, EnginePathOptions.builder().reverseDfa(reverseDfa).build());
+    java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+    for (int length : List.of(0, 1, 30, 31, 59, 61, 62, 63, 64, 65, 127)) {
+      String body = repeated.repeat(length);
+      for (String text :
+          List.of(
+              body + terminal,
+              body + "!" + repeated + terminal,
+              "!" + body + terminal,
+              body + terminal + "\r\n",
+              body + "!\n" + repeated + terminal,
+              body + terminal + "!")) {
+        boolean expected = jdk.matcher(text).find();
+        assertThat(pattern.matcher(text).find())
+            .as("String /%s/ length %s", regex, length)
+            .isEqualTo(expected);
+        assertThat(pattern.asPredicate().test(text))
+            .as("String predicate /%s/ length %s", regex, length)
+            .isEqualTo(expected);
+        for (String padding : List.of("", "é😀padding")) {
+          byte[] bytes = (padding + text + "outside").getBytes(UTF_8);
+          Utf8Input input =
+              Utf8Input.validated(
+                  bytes, padding.getBytes(UTF_8).length, text.getBytes(UTF_8).length);
+          assertThat(pattern.matcher(input).find())
+              .as("UTF-8 matcher /%s/ length %s on %s", regex, length, text)
+              .isEqualTo(expected);
+          assertThat(pattern.find(input))
+              .as("UTF-8 boolean /%s/ length %s on %s", regex, length, text)
+              .isEqualTo(expected);
+        }
+      }
+    }
+  }
+
+  private static Stream<Arguments> booleanFindStartBoundaryCases() {
+    List<Arguments> cases = new ArrayList<>();
+    for (String start : List.of("^", "\\A", "(?m)^", "")) {
+      for (String end : List.of("$", "\\z", "\\Z", "")) {
+        for (String terminal : List.of("b", "END", "[0-9]")) {
+          String suffix = terminal.equals("[0-9]") ? "5" : terminal;
+          for (boolean reverseDfa : List.of(true, false)) {
+            cases.add(Arguments.of(start + "(a)*" + terminal + end, "a", suffix, reverseDfa));
+            cases.add(Arguments.of(start + "([a-z]+)" + terminal + end, "a", suffix, reverseDfa));
+            cases.add(
+                Arguments.of(start + "([aé😀]+)" + terminal + end, "é😀a", suffix, reverseDfa));
+          }
+        }
+      }
+    }
+    return cases.stream();
+  }
+
   private static EnginePathOptions canonicalFallback() {
     return EnginePathOptions.builder()
         .literalFastPaths(false)
