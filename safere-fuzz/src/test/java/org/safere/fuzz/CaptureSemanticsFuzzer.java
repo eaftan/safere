@@ -51,9 +51,10 @@ public final class CaptureSemanticsFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void acceptedPaths(FuzzedDataProvider data) {
-    String atom = pick(data, "a", "é", "😀");
+    String atom = pick(data, "a", "ab", "é", "😀");
     int count = data.consumeInt(3, 64);
-    int maximum = data.consumeInt(2, 4);
+    int maximum = data.consumeInt(2, 32);
+    int minimum = data.consumeBoolean() ? 0 : 1;
     String captured = data.consumeBoolean() ? "(?<last>" + atom + ")" : "(?:(?<last>" + atom + "))";
     String outer = data.consumeBoolean() ? "*" : "+";
     String reluctant = data.consumeBoolean() ? "?" : "";
@@ -62,7 +63,7 @@ public final class CaptureSemanticsFuzzer {
     // These oracles describe the accepted path directly. JDK nested-repeat captures can retain
     // an earlier iteration, so a differential oracle cannot establish this invariant (#1079).
     assertAcceptedPath(
-        "(?:" + captured + "{0," + maximum + "})" + outer + reluctant + "!",
+        "(?:" + captured + "{" + minimum + "," + maximum + "})" + outer + reluctant + "!",
         run + "!",
         run.length() - atom.length(),
         run.length());
