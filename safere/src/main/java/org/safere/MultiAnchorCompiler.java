@@ -1340,24 +1340,30 @@ final class MultiAnchorCompiler {
     int minRepetition;
     int maxRepetition;
     Regexp repeated;
-    if (first.op == RegexpOp.STAR) {
-      minRepetition = 0;
-      maxRepetition = Integer.MAX_VALUE;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.PLUS) {
-      minRepetition = 1;
-      maxRepetition = Integer.MAX_VALUE;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.REPEAT) {
-      minRepetition = first.min;
-      maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.QUEST) {
-      minRepetition = 0;
-      maxRepetition = 1;
-      repeated = unwrapCaptures(first.sub());
-    } else {
-      return null;
+    switch (first.op) {
+      case STAR -> {
+        minRepetition = 0;
+        maxRepetition = Integer.MAX_VALUE;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case PLUS -> {
+        minRepetition = 1;
+        maxRepetition = Integer.MAX_VALUE;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case REPEAT -> {
+        minRepetition = first.min;
+        maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case QUEST -> {
+        minRepetition = 0;
+        maxRepetition = 1;
+        repeated = unwrapCaptures(first.sub());
+      }
+      default -> {
+        return null;
+      }
     }
 
     if (repeated == null || repeated.op == RegexpOp.ANY_CHAR || repeated.op == RegexpOp.ANY_BYTE) {
