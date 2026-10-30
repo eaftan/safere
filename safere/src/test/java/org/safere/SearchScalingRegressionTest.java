@@ -596,6 +596,39 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void captureHistoryDoesNotAddWorkToAcceleratedDfaRejection() {
+    for (boolean utf8 : new boolean[] {false, true}) {
+      String regex = "(error:\\[)[A-Z](\\] code:500)";
+      String input = "error:[x] code:500 ".repeat(20);
+      Pattern withoutDemand = Pattern.compile(regex);
+      Pattern withDemand = Pattern.compile(regex);
+      Matcher primer = withDemand.matcher("error:[C] code:500");
+      assertThat(primer.matches()).isTrue();
+      assertThat(primer.start(1)).isZero();
+      assertThat(withDemand.innerCapturesObserved()).isTrue();
+      Utf8Input bytes = Utf8Input.trusted(input.getBytes(UTF_8));
+      Runnable cold =
+          () ->
+              assertThat(
+                      utf8
+                          ? withoutDemand.matcher(bytes).find()
+                          : withoutDemand.matcher(input).find())
+                  .isFalse();
+      Runnable observed =
+          () ->
+              assertThat(utf8 ? withDemand.matcher(bytes).find() : withDemand.matcher(input).find())
+                  .isFalse();
+      cold.run();
+      observed.run();
+      long withoutHistory = WorkCounter.countForTesting(cold);
+      long withHistory = WorkCounter.countForTesting(observed);
+      assertThat(withHistory)
+          .as("UTF-8=%s; capture history must not add a speculative pass", utf8)
+          .isEqualTo(withoutHistory);
+    }
+  }
+
+  @Test
   void observedCaptureDemandDoesNotMakeFindWalkTheInputWithTheCaptureEngine() {
     String regex = "(error:\\[)[A-Z](\\] code:500)";
     String input =
@@ -612,15 +645,15 @@ class SearchScalingRegressionTest {
     assertThat(priming.group(1)).isEqualTo("error:[");
     assertThat(withDemand.innerCapturesObserved()).isTrue();
 
-    long eagerWork =
+    long withDemandWork =
         WorkCounter.countForTesting(() -> assertThat(withDemand.matcher(input).find()).isTrue());
 
     assertThat(deferredWork).isPositive();
-    assertThat(eagerWork)
+    assertThat(withDemandWork)
         .as(
-            "Preferring the capture engine must not cost more than a bounded speculation on the"
-                + " accelerated start, deferredWork=%d eagerWork=%d",
-            deferredWork, eagerWork)
+            "Observed capture demand must preserve scanning from the"
+                + " accelerated start, deferredWork=%d withDemandWork=%d",
+            deferredWork, withDemandWork)
         .isLessThan(deferredWork * 2);
   }
 

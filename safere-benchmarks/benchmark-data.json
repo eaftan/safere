@@ -147,6 +147,84 @@
   },
   "inputs": [
     {
+      "id": "captureDemand.ambiguousRepeat.primer",
+      "recipe": {
+        "kind": "literal",
+        "text": "ab"
+      }
+    },
+    {
+      "id": "captureDemand.ambiguousRepeat.true.{size}",
+      "axes": {
+        "size": [
+          128,
+          512
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "b",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.ambiguousRepeat.false.{size}",
+      "axes": {
+        "size": [
+          128,
+          512
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "xb",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.ambiguousShort.primer",
+      "recipe": {
+        "kind": "literal",
+        "text": "ab"
+      }
+    },
+    {
+      "id": "captureDemand.ambiguousShort.true.{size}",
+      "axes": {
+        "size": [
+          128,
+          512
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "ab",
+        "unit": "!",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureDemand.ambiguousShort.false.{size}",
+      "axes": {
+        "size": [
+          128,
+          512
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "a!",
+        "unit": "!",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
       "id": "captureDemand.nullable.primer",
       "recipe": {
         "kind": "literal",
@@ -4523,6 +4601,267 @@
     }
   ],
   "workloads": [
+    {
+      "id": "CaptureDemandBenchmark.ambiguousRepeat.boolean.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)+b"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousRepeat.{match}.{size}",
+        "captureDemand.ambiguousRepeat.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      },
+      "requirements": [
+        "linearTime"
+      ]
+    },
+    {
+      "id": "CaptureDemandBenchmark.ambiguousRepeat.captures.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)+b"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousRepeat.{match}.{size}",
+        "captureDemand.ambiguousRepeat.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      },
+      "requirements": [
+        "linearTime"
+      ]
+    },
+    {
+      "id": "CaptureDemandBenchmark.ambiguousRepeat.mixed.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)+b"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousRepeat.{match}.{size}",
+        "captureDemand.ambiguousRepeat.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      },
+      "requirements": [
+        "linearTime"
+      ]
+    },
+    {
+      "id": "CaptureDemandBenchmark.ambiguousShort.boolean.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)[a-z]+"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousShort.{match}.{size}",
+        "captureDemand.ambiguousShort.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.ambiguousShort.captures.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)[a-z]+"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousShort.{match}.{size}",
+        "captureDemand.ambiguousShort.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      }
+    },
+    {
+      "id": "CaptureDemandBenchmark.ambiguousShort.mixed.newPerInvocation.{match}.{size}",
+      "axes": {
+        "match": [
+          true,
+          false
+        ],
+        "size": [
+          128,
+          512
+        ]
+      },
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(a|aa)[a-z]+"
+      ],
+      "inputs": [
+        "captureDemand.ambiguousShort.{match}.{size}",
+        "captureDemand.ambiguousShort.primer"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      },
+      "expected": {
+        "type": "boolean",
+        "axis": "match"
+      }
+    },
     {
       "id": "CaptureDemandBenchmark.nullable.boolean.newPerInvocation.{shape}.{size}",
       "axes": {
