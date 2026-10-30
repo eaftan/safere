@@ -7,6 +7,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.safere.PatternFeature.BOUNDED_REPEAT;
+import static org.safere.PatternFeature.CAPTURES_IN_QUANTIFIER;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +44,37 @@ import org.junit.jupiter.api.Test;
 class RE2ExhaustiveTest {
 
   private static final int MAX_FAILURES = 200;
+
+  @Test
+  @DisabledForCrosscheck("checks raw engines and the approved earlier-capture oracle boundary")
+  void earlierCaptureAllowanceRequiresIndependentReferenceAgreement() {
+    String pattern = "(?:(?:(a){1,}){2})";
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(pattern).matcher("aaa");
+    assertThat(jdk.matches()).isTrue();
+    boolean jdkRetainsEarlierCapture = jdk.start(1) == 1 && jdk.end(1) == 2;
+    assertThat(
+            hasKnownJdkEarlierCaptureDivergence(
+                pattern, "aaa", "matches", new int[][] {{0, 3}, {2, 3}}))
+        .isEqualTo(jdkRetainsEarlierCapture);
+    // Neither an incorrect reference capture nor an incorrect whole-match span can be exempted.
+    assertThat(
+            hasKnownJdkEarlierCaptureDivergence(
+                pattern, "aaa", "matches", new int[][] {{0, 3}, {1, 2}}))
+        .isFalse();
+    assertThat(
+            hasKnownJdkEarlierCaptureDivergence(
+                pattern, "aaa", "matches", new int[][] {{0, 2}, {2, 3}}))
+        .isFalse();
+    assertThat(hasKnownJdkEarlierCaptureDivergence(pattern, "aaa", "matches", null)).isFalse();
+    assertThat(
+            hasKnownJdkEarlierCaptureDivergence(
+                "(a){2}", "aa", "matches", new int[][] {{0, 2}, {1, 2}}))
+        .isFalse();
+    assertThat(
+            hasKnownJdkEarlierCaptureDivergence(
+                "(a?){2}", "", "matches", new int[][] {{0, 0}, {0, 0}}))
+        .isFalse();
+  }
 
   @Test
   void testExhaustive() throws IOException {
@@ -166,10 +199,12 @@ class RE2ExhaustiveTest {
                 checkGroupsOrJdk(m, fullExpected, text, pattern, "matches", failures);
               }
             } catch (Exception e) {
-              failures.add(
-                  String.format(
-                      "matches() EXCEPTION pat=\"%s\" text=\"%s\": %s",
-                      escape(pattern), escape(text), e));
+              if (!isGeneratedEarlierCaptureDivergence(e, pattern, text, "matches", fullExpected)) {
+                failures.add(
+                    String.format(
+                        "matches() EXCEPTION pat=\"%s\" text=\"%s\": %s",
+                        escape(pattern), escape(text), e));
+              }
             }
 
             // Test find() against field 1 (partial match, first-match semantics)
@@ -190,10 +225,12 @@ class RE2ExhaustiveTest {
                 checkGroupsOrJdk(m, findExpected, text, pattern, "find", failures);
               }
             } catch (Exception e) {
-              failures.add(
-                  String.format(
-                      "find() EXCEPTION pat=\"%s\" text=\"%s\": %s",
-                      escape(pattern), escape(text), e));
+              if (!isGeneratedEarlierCaptureDivergence(e, pattern, text, "find", findExpected)) {
+                failures.add(
+                    String.format(
+                        "find() EXCEPTION pat=\"%s\" text=\"%s\": %s",
+                        escape(pattern), escape(text), e));
+              }
             }
 
             if (failures.size() >= MAX_FAILURES) {
@@ -325,6 +362,71 @@ class RE2ExhaustiveTest {
 
   private static boolean isGeneratedCrosscheckRun() {
     return Boolean.getBoolean("org.safere.crosscheck.generatedTests");
+  }
+
+  private static boolean isGeneratedEarlierCaptureDivergence(
+      Exception exception, String pattern, String text, String method, int[][] expected) {
+    // This source also compiles in the library module, which cannot depend on the facade module.
+    return isGeneratedCrosscheckRun()
+        && exception.getClass().getName().equals("org.safere.crosscheck.CrosscheckException")
+        && hasKnownJdkEarlierCaptureDivergence(pattern, text, method, expected);
+  }
+
+  /**
+   * Uses the independent RE2 oracle for the approved #1079 earlier-capture boundary. Every SafeRE
+   * group must match the reference data, and the JDK may differ only by retaining the same nonempty
+   * capture text at an earlier, disjoint position. Membership, group zero, missing captures, and
+   * other capture differences remain failures.
+   */
+  private static boolean hasKnownJdkEarlierCaptureDivergence(
+      String pattern, String text, String method, int[][] expected) {
+    if (expected == null) {
+      return false;
+    }
+    try {
+      org.safere.Pattern safeRePattern = org.safere.Pattern.compile(pattern);
+      var features = safeRePattern.analysis().features();
+      if (!features.contains(BOUNDED_REPEAT) || !features.contains(CAPTURES_IN_QUANTIFIER)) {
+        return false;
+      }
+      org.safere.Matcher safeReMatcher = safeRePattern.matcher(text);
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(pattern).matcher(text);
+      boolean safeReMatched =
+          method.equals("matches") ? safeReMatcher.matches() : safeReMatcher.find();
+      boolean jdkMatched = method.equals("matches") ? jdkMatcher.matches() : jdkMatcher.find();
+      if (!safeReMatched
+          || !jdkMatched
+          || expected.length != safeReMatcher.groupCount() + 1
+          || safeReMatcher.groupCount() != jdkMatcher.groupCount()) {
+        return false;
+      }
+      boolean sawEarlierCapture = false;
+      for (int g = 0; g < expected.length; g++) {
+        int start = safeReMatcher.start(g);
+        int end = safeReMatcher.end(g);
+        if (start != utf8ByteToCharOffset(text, expected[g][0])
+            || end != utf8ByteToCharOffset(text, expected[g][1])) {
+          return false;
+        }
+        int jdkStart = jdkMatcher.start(g);
+        int jdkEnd = jdkMatcher.end(g);
+        if (start == jdkStart && end == jdkEnd) {
+          continue;
+        }
+        if (g == 0
+            || start < 0
+            || end <= start
+            || jdkStart < 0
+            || jdkEnd > start
+            || !safeReMatcher.group(g).equals(jdkMatcher.group(g))) {
+          return false;
+        }
+        sawEarlierCapture = true;
+      }
+      return sawEarlierCapture;
+    } catch (RuntimeException e) {
+      return false;
+    }
   }
 
   private static boolean hasKnownJdkFailedStartCaptureLeakageDivergence(

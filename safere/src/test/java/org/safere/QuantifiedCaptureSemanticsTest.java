@@ -25,27 +25,13 @@ class QuantifiedCaptureSemanticsTest {
   private static final Duration CAPTURE_OBSERVATION_TIMEOUT = Duration.ofSeconds(5);
 
   private static Stream<Arguments> quantifiedCaptureCases() {
+    // Nested-repeat JDK differences use explicit expectations in AcceptedPathCaptureTest.
     return Stream.of(
-        Arguments.of("(?:(a){1,}){2}", "aaa"),
-        Arguments.of("(?:(a){1,}){2,3}", "aaaaa"),
-        Arguments.of("(?:(a){0,2})*", "aaa"),
-        Arguments.of("(?:(a){0,2})*?", "aaa"),
-        Arguments.of("(?:(?:(a){0,2})*?)", "aaa"),
-        Arguments.of("(?:(a){1,2})*", "aaa"),
-        Arguments.of("(?:(a){1,2})*?", "aaa"),
-        Arguments.of("(?:(a){1,2})+?", "aaa"),
-        Arguments.of("(?:(a){1,2}){2,}?", "aaa"),
-        Arguments.of("[x](?:(a){1,2})*", "xaaa"),
         Arguments.of("(?:(a|aa){1,2})*", "aaa"),
         Arguments.of("(?:(a|aa){1,}){2}", "aaaa"),
         Arguments.of("(?:(a|aa)+){2}", "aaaa"),
         Arguments.of("(?:(a|aa)+){2}", "aaa"),
-        Arguments.of("(?:(a){1,2}){2}", "aaa"),
-        Arguments.of("((a)+){2}", "aaa"),
         Arguments.of("((a|aa)+){2}", "aaaa"),
-        Arguments.of("(?:((a))+){2}", "aaa"),
-        Arguments.of("(?:((a)){1,}){2}", "aaa"),
-        Arguments.of("(?:((a)){0,2})*", "aaa"),
         Arguments.of("(?:(a)|(b))*", "abba"),
         Arguments.of("(?:(a)?b)*", "abab"),
         Arguments.of("(?:(a){1,2}?)*", "aaa"),
@@ -53,9 +39,7 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("((a?))*", "aa"),
         Arguments.of("(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
         Arguments.of("(.?)+/([a-z]+)/([^/]+)", "abc/foo/bar"),
-        Arguments.of("(.?)+([a-z]+)", "abc"),
-        Arguments.of("x(?:(a){1,2})*y", "xaaay"),
-        Arguments.of("x(?:(a){1,}){2}y", "xaaay"));
+        Arguments.of("(.?)+([a-z]+)", "abc"));
   }
 
   private static Stream<Arguments> failedStartLeakageCases() {
@@ -221,15 +205,15 @@ class QuantifiedCaptureSemanticsTest {
 
           assertThat(matcher.find()).isTrue();
           assertThat(matcher.group(1)).isEqualTo("a");
-          assertThat(matcher.start(1)).isEqualTo(prefix.length() + suffix.length() - 1);
-          assertThat(matcher.end(1)).isEqualTo(prefix.length() + suffix.length());
+          assertThat(matcher.start(1)).isEqualTo(prefix.length() + suffix.length());
+          assertThat(matcher.end(1)).isEqualTo(prefix.length() + suffix.length() + 1);
         });
   }
 
   @ParameterizedTest(name = "[{index}] lazy nullable group 0 for /{0}/ on \"{1}\"")
   @MethodSource("lazyNullableGroupZeroCases")
-  @DisplayName("capture-retention lowering preserves lazy nullable group zero")
-  void captureRetentionLoweringPreservesLazyNullableGroupZero(String regex, String input) {
+  @DisplayName("capture observation preserves lazy nullable group zero")
+  void captureObservationPreservesLazyNullableGroupZero(String regex, String input) {
     java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
     Matcher safere = Pattern.compile(regex).matcher(input);
 

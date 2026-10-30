@@ -44,7 +44,6 @@ final class Prog {
   private boolean unixLines;
   private boolean lineStartUnixLines;
   private int numLoopRegs;
-  private boolean requiresPikeNfaCaptureSemantics;
   private boolean hasGraphemeSemantics;
   private boolean hasGraphemeClusterInstruction;
   private boolean hasWordBoundary;
@@ -82,7 +81,6 @@ final class Prog {
     this.unixLines = other.unixLines;
     this.lineStartUnixLines = other.lineStartUnixLines;
     this.numLoopRegs = other.numLoopRegs;
-    this.requiresPikeNfaCaptureSemantics = other.requiresPikeNfaCaptureSemantics;
     this.hasGraphemeSemantics = other.hasGraphemeSemantics;
     this.hasGraphemeClusterInstruction = other.hasGraphemeClusterInstruction;
     this.hasWordBoundary = other.hasWordBoundary;
@@ -238,14 +236,6 @@ final class Prog {
   /** Sets the number of loop progress-check registers. */
   public void setNumLoopRegs(int numLoopRegs) {
     this.numLoopRegs = numLoopRegs;
-  }
-
-  boolean requiresPikeNfaCaptureSemantics() {
-    return requiresPikeNfaCaptureSemantics;
-  }
-
-  void setRequiresPikeNfaCaptureSemantics(boolean requiresPikeNfaCaptureSemantics) {
-    this.requiresPikeNfaCaptureSemantics = requiresPikeNfaCaptureSemantics;
   }
 
   /**
