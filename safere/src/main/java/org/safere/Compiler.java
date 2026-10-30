@@ -635,58 +635,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     return new Frag(id, PatchList.mk(id2 << 1), a.nullable);
   }
 
-  private void suppressCapture(Frag a, int cap) {
-    if (isNoMatch(a)
-        || PatchList.head(a.end) != PatchList.tail(a.end)
-        || (PatchList.head(a.end) & 1) != 0) {
-      return;
-    }
-    Inst start = prog.mutableInst(a.begin);
-    int endId = PatchList.head(a.end) >> 1;
-    Inst end = prog.mutableInst(endId);
-    if (start.op == InstOp.CAPTURE
-        && start.arg == 2 * cap
-        && end.op == InstOp.CAPTURE
-        && end.arg == 2 * cap + 1) {
-      start.initNop(start.out);
-      end.initNop(end.out);
-    }
-  }
-
-  static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
-    return re.op == RegexpOp.CAPTURE && re.cap > 0 && isPureEmpty(re.sub());
-  }
-
-  private static boolean isPureEmpty(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      switch (node.op) {
-        case EMPTY_MATCH,
-            BEGIN_LINE,
-            END_LINE,
-            BEGIN_TEXT,
-            END_TEXT,
-            WORD_BOUNDARY,
-            NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY -> {}
-        case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
-        case CONCAT -> {
-          if (node.subs != null) {
-            for (Regexp sub : node.subs) {
-              stack.push(sub);
-            }
-          }
-        }
-        default -> {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   private Frag literal(int rune, int flags) {
     boolean foldCase = (flags & ParseFlags.FOLD_CASE) != 0;
     if (foldCase && (flags & ParseFlags.UNICODE_CASE) == 0) {
@@ -800,13 +748,7 @@ final class Compiler extends Walker<Compiler.Frag> {
 
       case NON_CAPTURE -> childArgs.get(0);
 
-      case STAR -> {
-        Frag child = childArgs.get(0);
-        if (isDirectRepeatedPureEmptyCapture(re.sub())) {
-          suppressCapture(child, re.sub().cap);
-        }
-        yield star(child, re.nonGreedy());
-      }
+      case STAR -> star(childArgs.get(0), re.nonGreedy());
 
       case PLUS -> plus(childArgs.get(0), re.nonGreedy());
 

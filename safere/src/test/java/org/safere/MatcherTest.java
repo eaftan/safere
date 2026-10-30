@@ -1088,14 +1088,25 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("find() matches JDK captures for repeated empty groups")
-    void findMatchesJdkCapturesForRepeatedEmptyGroups() {
-      assertFirstFindMatchesJdk("()*", "");
-      assertFirstFindMatchesJdk("(())*", "");
-      assertFirstFindMatchesJdk("(?:())*", "");
-      assertFirstFindMatchesJdk("(a?)*", "");
-      assertFirstFindMatchesJdk("(?:((^){2}))*", "");
-      assertFirstFindMatchesJdk("$|^Fe|()\u00fc|()*|||||^D*4", "\u007f*\u007f");
+    @DisabledForCrosscheck("JDK suppresses completed empty captures for direct repeat operands")
+    @DisplayName("find() publishes completed captures in empty iterations")
+    void findPublishesCompletedCapturesInEmptyIterations() {
+      for (String regex : List.of("()*", "(())*", "(?:())*", "(a?)*", "(?:((^){2}))*")) {
+        Matcher matcher = Pattern.compile(regex).matcher("");
+        assertThat(matcher.find()).as("/%s/", regex).isTrue();
+        for (int group = 0; group <= matcher.groupCount(); group++) {
+          assertThat(matcher.start(group)).isZero();
+          assertThat(matcher.end(group)).isZero();
+          assertThat(matcher.group(group)).isEmpty();
+        }
+      }
+      Matcher alternatives = Pattern.compile("$|^Fe|()ü|()*|||||^D*4").matcher("\u007f*\u007f");
+      assertThat(alternatives.find()).isTrue();
+      assertThat(alternatives.start()).isZero();
+      assertThat(alternatives.end()).isZero();
+      assertThat(alternatives.group(1)).isNull();
+      assertThat(alternatives.start(2)).isZero();
+      assertThat(alternatives.end(2)).isZero();
     }
 
     @Test
