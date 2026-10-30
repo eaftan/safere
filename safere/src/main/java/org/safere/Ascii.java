@@ -147,9 +147,15 @@ final class Ascii {
 
   /** Knuth-Morris-Pratt scan on String, strictly linear in text length regardless of pattern. */
   static int indexOfLinearIgnoreCase(String text, String prefix, int[] failure, int start) {
+    return indexOfLinearIgnoreCase(text, prefix, failure, start, text.length());
+  }
+
+  /** KMP over a bounded range of the original String, without a substring allocation. */
+  static int indexOfLinearIgnoreCase(
+      String text, String prefix, int[] failure, int start, int end) {
     int matched = 0;
     int prefixLen = prefix.length();
-    int length = text.length();
+    int length = end;
     for (int position = Math.max(0, start); position < length; position++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();

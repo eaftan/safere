@@ -231,6 +231,7 @@ public final class RegionBoundsFuzzer {
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
     compareLineAnchorPaths(data);
+    compareAdvancingRegions(data);
 
     compareRegionLocalScalarModel(data);
     compareSplitSurrogateBoundaryModel(data);
@@ -262,6 +263,35 @@ public final class RegionBoundsFuzzer {
     matcher.reset();
     matcher.region(region[0], region[1]);
     matcher.lookingAt();
+  }
+
+  private static void compareAdvancingRegions(FuzzedDataProvider data) {
+    String token = data.pickValue(List.of("a", "abc", "é", "😀", "123"));
+    String separator = data.pickValue(List.of(" ", "\t", "\n"));
+    String unit = token + separator;
+    String body = unit.repeat(data.consumeInt(1, 24));
+    String input = "!" + body + "!";
+    String atom =
+        data.pickValue(
+            List.of("[\\p{L}\\p{N}😀]+|\\s+", "(" + Pattern.quote(token) + ")|\\s+", "(?s:.)"));
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(atom, 0);
+    if (pattern == null) {
+      return;
+    }
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+    int end = input.length() - 1;
+    for (int pos = 1; pos < end; ) {
+      matcher.region(pos, end);
+      boolean found = data.consumeBoolean() ? matcher.lookingAt() : matcher.find();
+      if (!found) {
+        throw new AssertionError("Advancing region lost a token");
+      }
+      int next = matcher.end();
+      if (next <= pos) {
+        throw new AssertionError("Advancing region made no progress");
+      }
+      pos = next;
+    }
   }
 
   private static void compareLineAnchorPaths(FuzzedDataProvider data) {

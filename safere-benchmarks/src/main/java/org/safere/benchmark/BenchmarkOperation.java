@@ -33,6 +33,8 @@ enum BenchmarkOperation {
   COMPILE_AND_FIND_ROTATING_UTF16(EngineCapability.COMPILE, EngineCapability.FIND),
   MATCHER_RESET_FIND(EngineCapability.FIND, EngineCapability.MATCHER_RESET),
   MATCHER_REGION_FIND(EngineCapability.FIND, EngineCapability.REGIONS),
+  MATCHER_REGION_MATCHES(EngineCapability.MATCHES, EngineCapability.REGIONS),
+  MATCHER_REGION_TOKENIZE(EngineCapability.LOOKING_AT, EngineCapability.REGIONS),
   FIND_SAMPLED_GROUP(
       EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION, EngineCapability.MATCHER_RESET),
   FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION),
@@ -70,6 +72,8 @@ enum BenchmarkOperation {
       case COMPILE_AND_FIND_ROTATING_UTF16 -> COMPILE_AND_FIND_ROTATING_UTF16;
       case MATCHER_RESET_FIND -> MATCHER_RESET_FIND;
       case MATCHER_REGION_FIND -> MATCHER_REGION_FIND;
+      case MATCHER_REGION_MATCHES -> MATCHER_REGION_MATCHES;
+      case MATCHER_REGION_TOKENIZE -> MATCHER_REGION_TOKENIZE;
       case FIND_SAMPLED_GROUP -> FIND_SAMPLED_GROUP;
       case FIND_GROUP_PRESENT -> FIND_GROUP_PRESENT;
       case FIND_GROUP -> FIND_GROUP;
@@ -176,6 +180,30 @@ enum BenchmarkOperation {
           blackhole.consume(matcher.find());
         };
       }
+      case MATCHER_REGION_MATCHES -> {
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
+        DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
+        yield blackhole -> {
+          RegexEngineVariant.MatchCursor matcher =
+              retainedMatcher != null ? retainedMatcher : pattern.matcher(input);
+          matcher.region(region.start(), region.end());
+          blackhole.consume(matcher.matches());
+        };
+      }
+      case MATCHER_REGION_TOKENIZE -> {
+        RegexEngineVariant.MatchCursor retainedMatcher =
+            lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+                ? pattern.matcher(input)
+                : null;
+        yield blackhole ->
+            blackhole.consume(
+                tokenize(
+                    retainedMatcher != null ? retainedMatcher : pattern.matcher(input),
+                    input.nativeLength()));
+      }
       case FIND_SAMPLED_GROUP -> {
         boolean capture = mode.equals("capture");
         primeCaptureDemand(pattern, inputs, groups[0], capture);
@@ -272,6 +300,13 @@ enum BenchmarkOperation {
         matcher.region(region.start(), region.end());
         yield matcher.find();
       }
+      case MATCHER_REGION_MATCHES -> {
+        RegexEngineVariant.MatchCursor matcher = pattern.matcher(input);
+        DeclarativeBenchmarkPlan.LifecycleStep region = region(lifecycle);
+        matcher.region(region.start(), region.end());
+        yield matcher.matches();
+      }
+      case MATCHER_REGION_TOKENIZE -> tokenize(pattern.matcher(input), input.nativeLength());
       case FIND_SAMPLED_GROUP -> {
         primeCaptureDemand(pattern, inputs, groups[0], mode.equals("capture"));
         yield findSampledGroup(pattern.matcher(input), groups[0], mode.equals("capture"));
@@ -281,6 +316,23 @@ enum BenchmarkOperation {
       case COMPILE -> throw new AssertionError();
       case FIND_ROTATING_UTF16, COMPILE_AND_FIND_ROTATING_UTF16 -> throw new AssertionError();
     };
+  }
+
+  private static int tokenize(RegexEngineVariant.MatchCursor matcher, int length) {
+    int count = 0;
+    for (int pos = 0; pos < length; ) {
+      matcher.region(pos, length);
+      if (!matcher.lookingAt()) {
+        throw new IllegalStateException("Tokenizer failed at " + pos);
+      }
+      int end = matcher.end(0);
+      if (end <= pos) {
+        throw new IllegalStateException("Tokenizer did not advance at " + pos);
+      }
+      pos = end;
+      count++;
+    }
+    return count;
   }
 
   private static BenchmarkTask rotatingUtf16Task(

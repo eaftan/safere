@@ -413,6 +413,12 @@ final class GraphemeSupport {
   private static int inputCodePointAt(InputScanner text, int pos, int endPos) {
     return switch (text) {
       case StringInputScanner stringInput -> graphemeCodePointAt(stringInput.text(), pos, endPos);
+      case StringRegionInputScanner regionInput -> {
+        if (pos < 0 || pos >= endPos || pos >= regionInput.length()) {
+          yield -1;
+        }
+        yield InputScanner.codePoint(regionInput.decodeForward(pos, endPos));
+      }
       case Utf8InputScanner utf8Input -> {
         if (pos < 0 || pos >= endPos || pos >= utf8Input.length()) {
           yield -1;
@@ -426,6 +432,12 @@ final class GraphemeSupport {
   private static int inputNextPos(InputScanner text, int pos, int endPos) {
     return switch (text) {
       case StringInputScanner stringInput -> graphemeNextPos(stringInput.text(), pos, endPos);
+      case StringRegionInputScanner regionInput -> {
+        if (pos < 0 || pos >= endPos || pos >= regionInput.length()) {
+          yield endPos + 1;
+        }
+        yield InputScanner.position(regionInput.decodeForward(pos, endPos));
+      }
       case Utf8InputScanner utf8Input -> {
         if (pos < 0 || pos >= endPos || pos >= utf8Input.length()) {
           yield endPos + 1;
@@ -500,7 +512,7 @@ final class GraphemeSupport {
       regionStart -= view.offset;
       boundaryEndPos -= view.offset;
     }
-    if (text instanceof Utf8InputScanner) {
+    if (!(text instanceof StringInputScanner stringInput)) {
       if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)
           || isGraphemeClusterBoundaryLocal(text, pos, regionStart, graphemeContext)) {
         return EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
@@ -508,7 +520,7 @@ final class GraphemeSupport {
       return 0;
     }
     return boundaryFlags(
-        ((StringInputScanner) text).text(),
+        stringInput.text(),
         pos,
         graphemeContext,
         matchStart,

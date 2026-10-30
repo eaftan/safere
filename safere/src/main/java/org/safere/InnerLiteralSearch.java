@@ -126,6 +126,8 @@ final class InnerLiteralSearch {
     int inner;
     if (scanner instanceof Utf8InputScanner bytes) {
       inner = bytes.indexOf(suffix.utf8(), suffix.failure(), suffix.shifts(), from);
+    } else if (scanner instanceof StringRegionInputScanner regionScanner) {
+      inner = regionScanner.indexOf(suffix.literal(), from, regionScanner.length());
     } else {
       String text = ((StringInputScanner) scanner).text();
       inner =

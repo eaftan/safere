@@ -1187,6 +1187,7 @@ final class Dfa {
               utf8StartAccelerator != null ? utf8StartAccelerator.policy() : null;
           case StringInputScanner unusedString ->
               stringStartAccelerator != null ? stringStartAccelerator.policy() : null;
+          case StringRegionInputScanner unusedRegion -> null;
         };
     if (policy != null) {
       return policy;
