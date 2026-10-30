@@ -94,6 +94,12 @@ capture/compile skips is used by `StrictDifferential`.
 
 ## Intentional reproductions
 
+`CaptureSemanticsFuzzer.acceptedPaths` generates nested repetitions and compound
+repeated captures with explicit latest-capture and whole-match expectations.
+It checks String and UTF-8 results without using the JDK's inconsistent
+nested-repeat captures as an oracle. The broad `quantifiedCaptures` method also
+generates these shapes and continues to expose intentional JDK differences.
+
 `SplitFuzzer` checks its fixed CRLF/interior-boundary matrix against Unicode
 GB3, separately from arbitrary differential inputs. `ExploratoryGraphemeTest`
 confirms that the broad split comparator still reports the intentional JDK
