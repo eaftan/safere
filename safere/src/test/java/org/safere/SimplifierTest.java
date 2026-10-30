@@ -10,6 +10,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,6 +26,57 @@ class SimplifierTest {
 
   private static final int FLAGS =
       ParseFlags.MATCH_NL | (ParseFlags.LIKE_PERL & ~ParseFlags.ONE_LINE);
+
+  @Test
+  void greedyNestedAtomRepeatsKeepTheLatestCaptureBeforeTheSuffix() {
+    List<String> atoms = List.of("(?<g>[ab])", "(?<g>ab)", "(?<g>😀)", "((?<g>a))");
+    List<String> units = List.of("a", "ab", "😀", "a");
+    for (int atom = 0; atom < atoms.size(); atom++) {
+      for (int min : List.of(0, 1)) {
+        for (int max : List.of(2, 3, 8)) {
+          for (String outer : List.of("*", "+")) {
+            String regex =
+                "\\A(?:(?:" + atoms.get(atom) + "){" + min + "," + max + "})" + outer + "b\\z";
+            for (int count : List.of(0, 1, 2, 5, 8)) {
+              String body = units.get(atom).repeat(count);
+              Matcher matcher = Pattern.compile(regex).matcher(body + "b");
+              boolean matched = count != 0 || min == 0 || outer.equals("*");
+              assertThat(matcher.matches()).as("/%s/ on %s", regex, body + "b").isEqualTo(matched);
+              if (matched) {
+                assertThat(matcher.start("g"))
+                    .isEqualTo(count == 0 ? -1 : body.length() - units.get(atom).length());
+                assertThat(matcher.end("g")).isEqualTo(count == 0 ? -1 : body.length());
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void nestedRepeatGroupingRemainsObservableForHigherMinimaAndLazyOrder() {
+    Matcher minimum = Pattern.compile("(?:(?:(a)){3,4})*").matcher("aaaaaa");
+    assertThat(minimum.find()).isTrue();
+    assertThat(minimum.end()).isEqualTo(4);
+    assertThat(minimum.start(1)).isEqualTo(3);
+
+    Matcher lazyOuter = Pattern.compile("(?:(?:(?<g>[ab])){0,2})*?b").matcher("abb");
+    assertThat(lazyOuter.find()).isTrue();
+    assertThat(lazyOuter.end()).isEqualTo(3);
+    assertThat(lazyOuter.start("g")).isEqualTo(1);
+
+    Matcher lazyInner = Pattern.compile("(?:(?:(?<g>[ab])){0,2}?)*b").matcher("abb");
+    assertThat(lazyInner.find()).isTrue();
+    assertThat(lazyInner.end()).isEqualTo(2);
+    assertThat(lazyInner.start("g")).isEqualTo(0);
+
+    Matcher chunk = Pattern.compile("((a){0,2})*").matcher("aaaa");
+    assertThat(chunk.find()).isTrue();
+    assertThat(chunk.start(1)).isEqualTo(4);
+    assertThat(chunk.end(1)).isEqualTo(4);
+    assertThat(chunk.start(2)).isEqualTo(3);
+  }
 
   private static String simplify(String pattern) {
     Regexp re = Parser.parse(pattern, FLAGS);

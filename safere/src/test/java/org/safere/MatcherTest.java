@@ -1099,30 +1099,44 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("find() preserves counted-repeat captures retained by JDK")
-    void findPreservesCountedRepeatCapturesRetainedByJdk() {
+    @DisplayName("find() preserves zero-count capture nonparticipation")
+    void findPreservesZeroCountCaptureNonparticipation() {
       assertFirstFindMatchesJdk("(?:(a){1}){0}$", "ab");
       assertFirstFindMatchesJdk("(?:(a){1}){0,1}$", "ab");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2,}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2,}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
-      assertFirstFindMatchesJdk("(?:(a){0,2})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){0,2})*", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,2})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,2})*", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aa");
-      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aa");
-      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){3,4})*", "aaaaaa");
-      assertFullMatchMatchesJdk("(?:(a){3,4})*", "aaaaaa");
-      assertFirstFindMatchesJdk("(?:(a){0,1})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){0,1})*", "aaa");
+    }
+
+    @Test
+    @DisabledForCrosscheck("approved accepted-path captures differ from JDK restoration (#1079)")
+    void nestedRepeatsKeepTheLatestAcceptedCapture() {
+      for (String regex :
+          List.of(
+              "(?:(a){1,}){2}",
+              "(?:(a){1,}){2,}",
+              "(?:(a){1,}){2,3}",
+              "(?:(a){0,2})*",
+              "(?:(a){1,2})*",
+              "(?:(a){1,2}){2}",
+              "(?:(a){3,4})*",
+              "(?:(a){0,1})*")) {
+        for (int length : List.of(2, 3, 5, 6)) {
+          String input = "a".repeat(length);
+          for (boolean fullMatch : new boolean[] {false, true}) {
+            Matcher matcher = Pattern.compile(regex).matcher(input);
+            java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+            boolean matched = fullMatch ? matcher.matches() : matcher.find();
+            assertThat(matched)
+                .as("/%s/ on %s, fullMatch=%s", regex, input, fullMatch)
+                .isEqualTo(fullMatch ? jdk.matches() : jdk.find());
+            if (matched) {
+              assertThat(matcher.start()).isEqualTo(jdk.start());
+              assertThat(matcher.end()).isEqualTo(jdk.end());
+              boolean empty = matcher.start() == matcher.end();
+              assertThat(matcher.start(1)).isEqualTo(empty ? -1 : matcher.end() - 1);
+              assertThat(matcher.end(1)).isEqualTo(empty ? -1 : matcher.end());
+            }
+          }
+        }
+      }
     }
 
     @Test
@@ -3409,28 +3423,6 @@ class MatcherTest {
     Matcher safere = Pattern.compile(regex).matcher(input);
 
     assertThat(safere.find()).isEqualTo(jdk.find());
-    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
-    assertThat(safere.group()).isEqualTo(jdk.group());
-    assertThat(safere.start()).isEqualTo(jdk.start());
-    assertThat(safere.end()).isEqualTo(jdk.end());
-    for (int group = 1; group <= jdk.groupCount(); group++) {
-      assertThat(safere.group(group))
-          .as("group(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.group(group));
-      assertThat(safere.start(group))
-          .as("start(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.start(group));
-      assertThat(safere.end(group))
-          .as("end(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.end(group));
-    }
-  }
-
-  private static void assertFullMatchMatchesJdk(String regex, String input) {
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
-    Matcher safere = Pattern.compile(regex).matcher(input);
-
-    assertThat(safere.matches()).isEqualTo(jdk.matches());
     assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
     assertThat(safere.group()).isEqualTo(jdk.group());
     assertThat(safere.start()).isEqualTo(jdk.start());

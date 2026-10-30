@@ -8,6 +8,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,36 +27,45 @@ class QuantifiedCaptureSemanticsTest {
 
   private static Stream<Arguments> quantifiedCaptureCases() {
     return Stream.of(
-        Arguments.of("(?:(a){1,}){2}", "aaa"),
-        Arguments.of("(?:(a){1,}){2,3}", "aaaaa"),
-        Arguments.of("(?:(a){0,2})*", "aaa"),
-        Arguments.of("(?:(a){0,2})*?", "aaa"),
-        Arguments.of("(?:(?:(a){0,2})*?)", "aaa"),
-        Arguments.of("(?:(a){1,2})*", "aaa"),
-        Arguments.of("(?:(a){1,2})*?", "aaa"),
-        Arguments.of("(?:(a){1,2})+?", "aaa"),
-        Arguments.of("(?:(a){1,2}){2,}?", "aaa"),
-        Arguments.of("[x](?:(a){1,2})*", "xaaa"),
-        Arguments.of("(?:(a|aa){1,2})*", "aaa"),
-        Arguments.of("(?:(a|aa){1,}){2}", "aaaa"),
-        Arguments.of("(?:(a|aa)+){2}", "aaaa"),
-        Arguments.of("(?:(a|aa)+){2}", "aaa"),
-        Arguments.of("(?:(a){1,2}){2}", "aaa"),
-        Arguments.of("((a)+){2}", "aaa"),
-        Arguments.of("((a|aa)+){2}", "aaaa"),
-        Arguments.of("(?:((a))+){2}", "aaa"),
-        Arguments.of("(?:((a)){1,}){2}", "aaa"),
-        Arguments.of("(?:((a)){0,2})*", "aaa"),
-        Arguments.of("(?:(a)|(b))*", "abba"),
-        Arguments.of("(?:(a)?b)*", "abab"),
-        Arguments.of("(?:(a){1,2}?)*", "aaa"),
-        Arguments.of("((ab)?)*", "abab"),
-        Arguments.of("((a?))*", "aa"),
-        Arguments.of("(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
-        Arguments.of("(.?)+/([a-z]+)/([^/]+)", "abc/foo/bar"),
-        Arguments.of("(.?)+([a-z]+)", "abc"),
-        Arguments.of("x(?:(a){1,2})*y", "xaaay"),
-        Arguments.of("x(?:(a){1,}){2}y", "xaaay"));
+        captureCase("(?:(a){1,}){2}", "(?:(?:(a)){1,}){2}", "aaa"),
+        captureCase("(?:(a){1,}){2,3}", "(?:(?:(a)){1,}){2,3}", "aaaaa"),
+        captureCase("(?:(a){0,2})*", "(?:(?:(a)){0,2})*", "aaa"),
+        captureCase("(?:(a){0,2})*?", "(?:(?:(a)){0,2})*?", "aaa"),
+        captureCase("(?:(?:(a){0,2})*?)", "(?:(?:(?:(a)){0,2})*?)", "aaa"),
+        captureCase("(?:(a){1,2})*", "(?:(?:(a)){1,2})*", "aaa"),
+        captureCase("(?:(a){1,2})*?", "(?:(?:(a)){1,2})*?", "aaa"),
+        captureCase("(?:(a){1,2})+?", "(?:(?:(a)){1,2})+?", "aaa"),
+        captureCase("(?:(a){1,2}){2,}?", "(?:(?:(a)){1,2}){2,}?", "aaa"),
+        captureCase("[x](?:(a){1,2})*", "[x](?:(?:(a)){1,2})*", "xaaa"),
+        captureCase("(?:(a|aa){1,2})*", "aaa"),
+        captureCase("(?:(a|aa){1,}){2}", "aaaa"),
+        captureCase("(?:(a|aa)+){2}", "aaaa"),
+        captureCase("(?:(a|aa)+){2}", "aaa"),
+        captureCase("(?:(a){1,2}){2}", "(?:(?:(a)){1,2}){2}", "aaa"),
+        captureCase("((a)+){2}", "((?:(a))+){2}", "aaa"),
+        captureCase("((a|aa)+){2}", "aaaa"),
+        captureCase("(?:((a))+){2}", "(?:(?:((a)))+){2}", "aaa"),
+        captureCase("(?:((a)){1,}){2}", "(?:(?:((a))){1,}){2}", "aaa"),
+        captureCase("(?:((a)){0,2})*", "(?:(?:((a))){0,2})*", "aaa"),
+        captureCase("(?:(a)|(b))*", "abba"),
+        captureCase("(?:(a)?b)*", "abab"),
+        captureCase("(?:(a){1,2}?)*", "aaa"),
+        captureCase("((ab)?)*", "abab"),
+        captureCase("((a?))*", "aa"),
+        captureCase("(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
+        captureCase("(.?)+/([a-z]+)/([^/]+)", "abc/foo/bar"),
+        captureCase("(.?)+([a-z]+)", "abc"),
+        captureCase("x(?:(a){1,2})*y", "x(?:(?:(a)){1,2})*y", "xaaay"),
+        captureCase("x(?:(a){1,}){2}y", "x(?:(?:(a)){1,}){2}y", "xaaay"));
+  }
+
+  private static Arguments captureCase(String regex, String input) {
+    return captureCase(regex, regex, input);
+  }
+
+  private static Arguments captureCase(String regex, String oracleRegex, String input) {
+    // The approved nested-repeat policy uses the wrapped JDK spelling as an accepted-path oracle.
+    return Arguments.of(regex, oracleRegex, input);
   }
 
   private static Stream<Arguments> failedStartLeakageCases() {
@@ -63,6 +73,25 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(a){1})*$", "ab"),
         Arguments.of("(?:(a){2})*$", "aab"),
         Arguments.of("(?:(a){2})*$", "aaab"));
+  }
+
+  private static Stream<Arguments> nestedBoundedCaptureCases() {
+    List<GeneratedCase> cases = new ArrayList<>();
+    // A redundant noncapturing wrapper makes the JDK retain the accepted-path capture (#1079).
+    for (String atom : List.of("(?:(a))", "(?:(?<word>a))", "(?:((a)))")) {
+      for (String inner : List.of("{0,2}", "{1,2}", "{0,3}", "{1,3}", "+", "{1,}")) {
+        for (String outer : List.of("*", "+", "*?", "+?", "{2}", "{2,3}")) {
+          String regex = "(?:" + atom + inner + ")" + outer;
+          for (int length = 0; length <= 8; length++) {
+            String input = "a".repeat(length);
+            String name = atom.contains("word") ? "word" : null;
+            cases.add(new GeneratedCase("nested bounded capture", regex, input, name));
+            cases.add(new GeneratedCase("nested bounded suffix", regex + "b", input + "b", name));
+          }
+        }
+      }
+    }
+    return cases.stream().map(Arguments::of);
   }
 
   private static Stream<Arguments> lazyNullableGroupZeroCases() {
@@ -155,11 +184,11 @@ class QuantifiedCaptureSemanticsTest {
     }
   }
 
-  @ParameterizedTest(name = "[{index}] find captures for /{0}/ on \"{1}\"")
+  @ParameterizedTest(name = "[{index}] find captures for /{0}/ on \"{2}\"")
   @MethodSource("quantifiedCaptureCases")
   @DisplayName("find() exposes quantified captures like java.util.regex")
-  void findCapturesMatchJdk(String regex, String input) {
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+  void findCapturesMatchJdk(String regex, String oracleRegex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(oracleRegex).matcher(input);
     Matcher safere = Pattern.compile(regex).matcher(input);
 
     boolean jdkMatched = jdk.find();
@@ -167,11 +196,11 @@ class QuantifiedCaptureSemanticsTest {
     assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
   }
 
-  @ParameterizedTest(name = "[{index}] matches captures for /{0}/ on \"{1}\"")
+  @ParameterizedTest(name = "[{index}] matches captures for /{0}/ on \"{2}\"")
   @MethodSource("quantifiedCaptureCases")
   @DisplayName("matches() exposes quantified captures like java.util.regex")
-  void matchesCapturesMatchJdk(String regex, String input) {
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+  void matchesCapturesMatchJdk(String regex, String oracleRegex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(oracleRegex).matcher(input);
     Matcher safere = Pattern.compile(regex).matcher(input);
 
     boolean jdkMatched = jdk.matches();
@@ -187,11 +216,126 @@ class QuantifiedCaptureSemanticsTest {
     assertReplacementTraceMatchesJdk(testCase);
   }
 
-  @ParameterizedTest(name = "[{index}] replacement APIs for /{0}/ on \"{1}\"")
+  @ParameterizedTest(name = "[{index}] {0}")
+  @MethodSource("nestedBoundedCaptureCases")
+  void nestedBoundedCapturesMatchJdk(GeneratedCase testCase) {
+    assertOperationTraceMatchesJdk(testCase);
+    assertReplacementTraceMatchesJdk(testCase);
+  }
+
+  @Test
+  void nestedBoundedCapturesPreserveCoordinatesAcrossEnginePaths() {
+    for (String atom : List.of("a", "é", "😀")) {
+      for (boolean wrapped : List.of(false, true)) {
+        for (String inner : List.of("{0,2}", "{1,2}", "{2,3}")) {
+          for (String outer : List.of("*", "+", "*?", "+?")) {
+            String capture = "(?<word>" + atom + ")";
+            String operand = wrapped ? "(?:" + capture + ")" : capture;
+            String regex = "(?:" + operand + inner + ")" + outer + "b";
+            String body = atom.repeat(8) + "b";
+            String input = "yy" + body + "z";
+            for (EnginePathOptions options :
+                List.of(
+                    EnginePathOptions.allEnabled(),
+                    EnginePathOptions.builder().onePass(false).bitState(false).dfa(false).build(),
+                    EnginePathOptions.builder().lazyCaptureExtraction(false).build())) {
+              Pattern pattern = Pattern.compile(regex, 0, options);
+              Matcher matcher = pattern.matcher(input).region(2, input.length() - 1);
+              assertThat(matcher.matches()).as("/%s/ on %s", regex, input).isTrue();
+              assertThat(matcher.start("word")).isEqualTo(2 + 7 * atom.length());
+              assertThat(matcher.end("word")).isEqualTo(2 + 8 * atom.length());
+              MatchResult snapshot = matcher.toMatchResult();
+              assertThat(matcher.find()).isFalse();
+              assertThat(snapshot.start(1)).isEqualTo(2 + 7 * atom.length());
+              assertThat(snapshot.group(1)).isEqualTo(atom);
+
+              Utf8Matcher utf8 =
+                  pattern.matcher(Utf8Input.validated(body.getBytes(StandardCharsets.UTF_8)));
+              assertThat(utf8.matches()).isTrue();
+              int width = atom.getBytes(StandardCharsets.UTF_8).length;
+              assertThat(utf8.start(1)).isEqualTo(7 * width);
+              assertThat(utf8.end(1)).isEqualTo(8 * width);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void nestedBoundedFindSequenceRetainsLatestNamedCaptureInSnapshot() {
+    for (String operand : List.of("(?<word>a)", "(?:(?<word>a))")) {
+      Matcher matcher = Pattern.compile("(?:" + operand + "{0,2})*").matcher("yy" + "a".repeat(26));
+      for (int position = 0; position < 2; position++) {
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(position);
+        assertThat(matcher.end()).isEqualTo(position);
+        assertThat(matcher.group("word")).isNull();
+      }
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(2);
+      assertThat(matcher.end()).isEqualTo(28);
+      assertThat(matcher.start("word")).isEqualTo(27);
+      assertThat(matcher.end("word")).isEqualTo(28);
+      MatchResult snapshot = matcher.toMatchResult();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(28);
+      assertThat(matcher.group("word")).isNull();
+      assertThat(matcher.find()).isFalse();
+      assertThat(snapshot.start(1)).isEqualTo(27);
+      assertThat(snapshot.end(1)).isEqualTo(28);
+    }
+  }
+
+  @Test
+  void nestedRepeatRollbackKeepsCapturesOnTheAcceptedPath() {
+    for (String operand : List.of("(a)", "(?:(a))", "(?:((a)))")) {
+      for (String inner : List.of("{0,2}", "{1,2}", "{2,3}", "+")) {
+        for (String outer : List.of("*", "+", "*?", "+?", "{2,3}")) {
+          String regex = "\\A(?:" + operand + inner + ")" + outer + "ab\\z";
+          for (int length = 0; length <= 8; length++) {
+            String input = "a".repeat(length) + "ab";
+            Matcher matcher = Pattern.compile(regex).matcher(input);
+            boolean matched = matcher.matches();
+            assertThat(matched)
+                .as("/%s/ on %s", regex, input)
+                .isEqualTo(java.util.regex.Pattern.matches(regex, input));
+            if (matched) {
+              // The suffix forces rollback. JDK captures can leak from the abandoned iteration;
+              // every participating capture here must end before the suffix's uncaptured 'a'.
+              for (int group = 1; group <= matcher.groupCount(); group++) {
+                assertThat(matcher.start(group)).isEqualTo(length == 0 ? -1 : length - 1);
+                assertThat(matcher.end(group)).isEqualTo(length == 0 ? -1 : length);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void failedMinimumIterationCannotOverwriteTheAcceptedCapture() {
+    // A final one-character attempt cannot satisfy the inner minimum of two. The JDK can
+    // leak that attempt's capture beyond group zero, even with a redundant wrapper (#52).
+    for (String operand : List.of("(a)", "(?:(a))")) {
+      Pattern pattern = Pattern.compile("(?:" + operand + "{2,3})*");
+      for (int length : List.of(1, 4, 7)) {
+        Matcher matcher = pattern.matcher("a".repeat(length));
+        assertThat(matcher.find()).isTrue();
+        int end = length - 1;
+        assertThat(matcher.end()).isEqualTo(end);
+        assertThat(matcher.start(1)).isEqualTo(end == 0 ? -1 : end - 1);
+        assertThat(matcher.end(1)).isEqualTo(end == 0 ? -1 : end);
+      }
+    }
+  }
+
+  @ParameterizedTest(name = "[{index}] replacement APIs for /{0}/ on \"{2}\"")
   @MethodSource("quantifiedCaptureCases")
   @DisplayName("replacement APIs consume quantified captures like java.util.regex")
-  void replacementApisMatchJdk(String regex, String input) {
-    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+  void replacementApisMatchJdk(String regex, String oracleRegex, String input) {
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(oracleRegex);
     Pattern saferePattern = Pattern.compile(regex);
 
     assertThat(saferePattern.matcher(input).replaceAll("[$1]"))
@@ -221,15 +365,15 @@ class QuantifiedCaptureSemanticsTest {
 
           assertThat(matcher.find()).isTrue();
           assertThat(matcher.group(1)).isEqualTo("a");
-          assertThat(matcher.start(1)).isEqualTo(prefix.length() + suffix.length() - 1);
-          assertThat(matcher.end(1)).isEqualTo(prefix.length() + suffix.length());
+          assertThat(matcher.start(1)).isEqualTo(prefix.length() + suffix.length());
+          assertThat(matcher.end(1)).isEqualTo(prefix.length() + suffix.length() + 1);
         });
   }
 
   @ParameterizedTest(name = "[{index}] lazy nullable group 0 for /{0}/ on \"{1}\"")
   @MethodSource("lazyNullableGroupZeroCases")
-  @DisplayName("capture-retention lowering preserves lazy nullable group zero")
-  void captureRetentionLoweringPreservesLazyNullableGroupZero(String regex, String input) {
+  @DisplayName("nested repetitions preserve lazy nullable group zero")
+  void nestedRepetitionsPreserveLazyNullableGroupZero(String regex, String input) {
     java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
     Matcher safere = Pattern.compile(regex).matcher(input);
 

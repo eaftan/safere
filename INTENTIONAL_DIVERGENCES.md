@@ -203,6 +203,29 @@ describe the accepted match, not incidental state from abandoned paths. Copying
 the JDK trace exactly would require replaying or preserving backtracking
 history that SafeRE deliberately does not have.
 
+## Earlier Captures in Nested Repetition
+
+Issue reference: #1079.
+
+SafeRE retains the most recent successful capture on the accepted path, including
+inside nested bounded or unbounded repetition. Redundant noncapturing wrappers
+do not change that capture history. For example, both `(?:(a){0,2})*` and
+`(?:(?:(a)){0,2})*` on `aaaa` capture the final `a` at `[3,4)` in group 1.
+Observed JDK 26 behavior returns `[1,2)` for the first spelling and `[3,4)` for
+the second. Similarly, `(?:(a)+){2}` on `aaa` returns `[1,2)` in the JDK,
+while wrapping the inner capture as `(?:(?:(a))+){2}` returns `[2,3)`.
+
+The [JDK 26 capture contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+describes the most recently matched subsequence and retention after a failed
+quantified evaluation. It does not fully formalize nested evaluation and
+rollback history. The project owner approved consistent accepted-path captures
+instead of reproducing this wrapper-dependent restoration of earlier values.
+This boundary is distinct from failed-path capture leakage: these examples
+consume the whole input on their successful path.
+
+Compilation preserves capture writes in every repeat copy. The fix uses the
+existing prioritized engines, without retries or capture-history rescans.
+
 ## Empty Captures in Nullable Counted Repetitions
 
 Issue reference: #1051.

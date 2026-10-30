@@ -29,11 +29,27 @@ class SafeReDiagnosticsTest {
     assertThat(json).contains("\"matchKind\":\"FIRST_MATCH\"");
     assertThat(json).contains("\"shape\":\"nfa-prog\"");
     assertThat(json).contains("\"didFlatten\":false");
+    assertThat(json).contains("\"requiresPikeNfaCaptureSemantics\":false");
     assertThat(json).contains("\"op\":\"CHAR_RANGE\"");
     assertThat(json).contains("\"lo\":97");
     assertThat(json).contains("\"hi\":97");
     assertThat(json).contains("\"foldCase\":false");
     assertThat(json).contains("\"op\":\"MATCH\"");
+  }
+
+  @Test
+  void nestedRepeatsExportAcceptedPathCapturesWithoutPikeRequirement() {
+    String json =
+        SafeReDiagnostics.bytecodeCaseToJsonLine(
+            "nested-repeat",
+            "(?:(a){0,2})*",
+            0,
+            "aaaa",
+            SafeReDiagnostics.BytecodeMatchMode.ANCHORED,
+            Pattern.compile("(?:(a){0,2})*"));
+
+    assertThat(json).contains("\"requiresPikeNfaCaptureSemantics\":false");
+    assertThat(json).contains("{\"group\":1,\"matched\":true,\"start\":3,\"end\":4}");
   }
 
   @Test

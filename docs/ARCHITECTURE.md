@@ -32,9 +32,9 @@ constructs are rejected before execution; accepted syntax is documented in
 [syntax and compatibility](SYNTAX.md).
 
 Simplification reduces the AST and lowers counted repetitions. Rewrites must
-preserve observable captures, not only the set of matching strings. Compiler
-analysis and guarded control-flow lowering handle retained capture values;
-public capture access must not repair them by reinterpreting the original AST.
+preserve observable captures, not only the set of matching strings. Every repeat copy preserves its capture writes, and the selected prioritized
+execution path determines retained values. Public capture access must not repair
+them by reinterpreting the original AST.
 Enumerating candidate repeat partitions after a match is chosen could make
 capture access superlinear in the input length.
 

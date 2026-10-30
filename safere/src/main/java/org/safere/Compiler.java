@@ -9,7 +9,6 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 
 /**
@@ -96,7 +95,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     private final boolean anchorEnd;
     private final boolean dollarEnd;
     private final boolean dollarUnixLines;
-    private final boolean pikeCaptureSemantics;
 
     private Prepared(
         Regexp root,
@@ -105,8 +103,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         boolean anchorStart,
         boolean anchorEnd,
         boolean dollarEnd,
-        boolean dollarUnixLines,
-        boolean pikeCaptureSemantics) {
+        boolean dollarUnixLines) {
       this.root = root;
       this.simplifiedSource = simplifiedSource;
       this.numCaptures = numCaptures;
@@ -114,30 +111,20 @@ final class Compiler extends Walker<Compiler.Frag> {
       this.anchorEnd = anchorEnd;
       this.dollarEnd = dollarEnd;
       this.dollarUnixLines = dollarUnixLines;
-      this.pikeCaptureSemantics = pikeCaptureSemantics;
     }
 
-    /**
-     * Returns {@code Simplifier.simplify(source)}, before anchor stripping, if preparation didn't
-     * need to lower capture retention; otherwise null.
-     */
+    /** Returns {@code Simplifier.simplify(source)}, before anchor stripping. */
     Regexp simplifiedSource() {
       return simplifiedSource;
     }
   }
 
-  /** Lowers and simplifies a source AST once, without changing it. */
+  /** Simplifies a source AST once, without changing it. */
   static Prepared prepare(Regexp re) {
     int numCaptures = maxCapture(re) + 1;
-    // Lowering only rewrites quantifiers that contain captures; otherwise it copies the tree.
-    boolean lower = numCaptures > 1 && hasCaptureUnderQuantifier(re);
-    Regexp lowered = lower ? lowerCaptureRetention(re) : re;
-    if (lowered == null) {
-      return null;
-    }
-
-    // Simplify to remove REPEAT, complex char classes, etc.
-    Regexp sre = Simplifier.simplify(lowered);
+    // Preserve capture writes in every iteration of a nested repeat. Suppressing later
+    // writes to imitate JDK capture restoration changes the accepted path's capture history.
+    Regexp sre = Simplifier.simplify(re);
     if (sre == null) {
       return null;
     }
@@ -150,41 +137,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     boolean dollarUnixLines = isDollarEnd && isUnixDollarAnchorEnd(stripped);
     stripped = stripAnchorEnd(stripped);
     return new Prepared(
-        stripped,
-        lower ? null : sre,
-        numCaptures,
-        isAnchorStart,
-        isAnchorEnd,
-        isDollarEnd,
-        dollarUnixLines,
-        lower && requiresPikeNfaCaptureSemantics(re));
-  }
-
-  /** Returns whether any capture group is nested inside a star, plus, or counted repeat. */
-  private static boolean hasCaptureUnderQuantifier(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    ArrayDeque<Boolean> underQuantifier = new ArrayDeque<>();
-    stack.push(re);
-    underQuantifier.push(false);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      boolean under = underQuantifier.pop();
-      if (under && node.op == RegexpOp.CAPTURE) {
-        return true;
-      }
-      if (node.subs != null) {
-        boolean childUnder =
-            under
-                || node.op == RegexpOp.STAR
-                || node.op == RegexpOp.PLUS
-                || node.op == RegexpOp.REPEAT;
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-          underQuantifier.push(childUnder);
-        }
-      }
-    }
-    return false;
+        stripped, sre, numCaptures, isAnchorStart, isAnchorEnd, isDollarEnd, dollarUnixLines);
   }
 
   static Prog compile(Prepared prepared, boolean reversed) {
@@ -240,9 +193,6 @@ final class Compiler extends Walker<Compiler.Frag> {
 
     c.prog.setNumCaptures(prepared.numCaptures);
     c.prog.setNumLoopRegs(c.nextLoopReg);
-    if (!reversed) {
-      c.prog.setRequiresPikeNfaCaptureSemantics(prepared.pikeCaptureSemantics);
-    }
 
     return c.prog;
   }
@@ -264,361 +214,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     return max;
   }
-
-  private static boolean requiresPikeNfaCaptureSemantics(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT
-          && node.min >= 2
-          && (node.max == -1 || node.max >= node.min)
-          && hasUnboundedCaptureRepeat(node.sub())) {
-        return true;
-      }
-      if (isRepeatWithRemainingCopies(node)
-          && !hasAlternation(node.sub())
-          && hasGreedyBoundedCaptureRepeat(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean isRepeatWithRemainingCopies(Regexp re) {
-    return re.op == RegexpOp.STAR
-        || re.op == RegexpOp.PLUS
-        || (re.op == RegexpOp.REPEAT && (re.max == -1 || re.max >= 2));
-  }
-
-  private static boolean hasUnboundedCaptureRepeat(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if ((node.op == RegexpOp.PLUS
-              || (node.op == RegexpOp.REPEAT && node.min >= 1 && node.max == -1))
-          && !node.nonGreedy()
-          && hasCapture(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasGreedyBoundedCaptureRepeat(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT
-          && node.max >= 2
-          && node.max > node.min
-          && !node.nonGreedy()
-          && hasCapture(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasCapture(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasAlternation(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.ALTERNATE) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  static Regexp lowerCaptureRetention(Regexp re) {
-    CaptureRetentionLoweringWalker walker = new CaptureRetentionLoweringWalker();
-    Regexp lowered = walker.walk(re, null);
-    return walker.stoppedEarly() ? null : lowered;
-  }
-
-  private static final class CaptureRetentionLoweringWalker extends Walker<Regexp> {
-
-    @Override
-    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
-      return null;
-    }
-
-    @Override
-    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
-      if (childArgs.contains(null)) {
-        return null;
-      }
-      return switch (re.op) {
-        case STAR, PLUS, REPEAT -> lowerQuantifier(re, childArgs.get(0));
-        default -> copyWithChildren(re, childArgs);
-      };
-    }
-
-    private static Regexp lowerQuantifier(Regexp re, Regexp sub) {
-      if (!needsCaptureRetentionLowering(re, sub)) {
-        return copyWithChildren(re, List.of(sub));
-      }
-      boolean[] retainedGroups = groupsInsideNestedQuantifier(sub);
-      if (!hasAnyGroup(retainedGroups)) {
-        return copyWithChildren(re, List.of(sub));
-      }
-
-      Regexp first = forceRetainingQuantifiersPastMinimum(sub);
-      if (first == null) {
-        return copyWithChildren(re, List.of(sub));
-      }
-      Regexp suppressed = suppressGroups(sub, retainedGroups);
-      Regexp original = copyWithChildren(re, List.of(sub));
-      Regexp retained =
-          switch (re.op) {
-            case STAR -> Regexp.concat(List.of(first, repeatAny(suppressed, re.flags)), re.flags);
-            case PLUS -> Regexp.concat(List.of(first, repeatAny(suppressed, re.flags)), re.flags);
-            case REPEAT -> lowerCountedRepeat(first, suppressed, re.min, re.max, re.flags);
-            default -> original;
-          };
-      if (re.nonGreedy() && canRepeatZeroTimes(re)) {
-        return Regexp.alternate(List.of(Regexp.emptyMatch(re.flags), retained, original), re.flags);
-      }
-      return Regexp.alternate(List.of(retained, original), re.flags);
-    }
-
-    private static Regexp lowerCountedRepeat(
-        Regexp first, Regexp remaining, int min, int max, int flags) {
-      if (max == 0) {
-        return Regexp.repeat(first, flags, min, max);
-      }
-      if (min == 0) {
-        int remainingMax = max == -1 ? -1 : max - 1;
-        return Regexp.concat(List.of(first, repeatRange(remaining, 0, remainingMax, flags)), flags);
-      }
-      return Regexp.concat(
-          List.of(first, repeatRange(remaining, min - 1, max == -1 ? -1 : max - 1, flags)), flags);
-    }
-  }
-
-  private static Regexp forceRetainingQuantifiersPastMinimum(Regexp re) {
-    ForceRetainingQuantifiersWalker walker = new ForceRetainingQuantifiersWalker();
-    Regexp forced = walker.walk(re, null);
-    if (walker.stoppedEarly() || !walker.changed) {
-      return null;
-    }
-    return forced;
-  }
-
-  private static final class ForceRetainingQuantifiersWalker extends Walker<Regexp> {
-    private boolean changed;
-
-    @Override
-    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
-      return null;
-    }
-
-    @Override
-    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
-      if (childArgs.contains(null)) {
-        return null;
-      }
-      return switch (re.op) {
-        case PLUS -> {
-          if (!re.nonGreedy() && hasCapture(childArgs.get(0))) {
-            changed = true;
-            yield Regexp.concat(
-                List.of(
-                    childArgs.get(0),
-                    Regexp.rawQuantifier(RegexpOp.PLUS, childArgs.get(0), re.flags)),
-                re.flags);
-          }
-          yield copyWithChildren(re, childArgs);
-        }
-        case REPEAT -> {
-          if (!re.nonGreedy()
-              && hasCapture(childArgs.get(0))
-              && ((re.max == -1 && re.min >= 1) || re.max > re.min)) {
-            changed = true;
-            yield Regexp.repeat(childArgs.get(0), re.flags, re.min + 1, re.max == -1 ? -1 : re.max);
-          }
-          yield copyWithChildren(re, childArgs);
-        }
-        default -> copyWithChildren(re, childArgs);
-      };
-    }
-  }
-
-  private static boolean needsCaptureRetentionLowering(Regexp re, Regexp sub) {
-    if (hasNullableCaptureRetainingQuantifier(sub)) {
-      return false;
-    }
-    if (re.op == RegexpOp.REPEAT
-        && re.min >= 2
-        && (re.max == -1 || re.max >= re.min)
-        && !hasAlternation(sub)
-        && hasUnboundedCaptureRepeat(sub)) {
-      return true;
-    }
-    return isRepeatWithRemainingCopies(re)
-        && !hasAlternation(sub)
-        && hasGreedyBoundedCaptureRepeat(sub);
-  }
-
-  private static boolean canRepeatZeroTimes(Regexp re) {
-    return re.op == RegexpOp.STAR || (re.op == RegexpOp.REPEAT && re.min == 0);
-  }
-
-  private static Regexp repeatAny(Regexp re, int flags) {
-    return Regexp.rawQuantifier(RegexpOp.STAR, re, flags);
-  }
-
-  private static Regexp repeatRange(Regexp re, int min, int max, int flags) {
-    if (min == 0 && max == 0) {
-      return Regexp.emptyMatch(flags);
-    }
-    if (min == 1 && max == 1) {
-      return re;
-    }
-    return Regexp.repeat(re, flags, min, max);
-  }
-
-  private static Regexp suppressGroups(Regexp re, boolean[] groups) {
-    SuppressGroupsWalker walker = new SuppressGroupsWalker(groups);
-    Regexp suppressed = walker.walk(re, null);
-    return walker.stoppedEarly() ? null : suppressed;
-  }
-
-  private static final class SuppressGroupsWalker extends Walker<Regexp> {
-    private final boolean[] groups;
-
-    SuppressGroupsWalker(boolean[] groups) {
-      this.groups = groups;
-    }
-
-    @Override
-    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
-      return null;
-    }
-
-    @Override
-    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
-      if (childArgs.contains(null)) {
-        return null;
-      }
-      if (re.op == RegexpOp.CAPTURE && re.cap > 0 && re.cap < groups.length && groups[re.cap]) {
-        return Regexp.capture(childArgs.get(0), re.flags, -1, null);
-      }
-      return copyWithChildren(re, childArgs);
-    }
-  }
-
-  private static Regexp copyWithChildren(Regexp re, List<Regexp> childArgs) {
-    return switch (re.op) {
-      case CONCAT -> Regexp.concat(childArgs, re.flags);
-      case ALTERNATE -> Regexp.alternate(childArgs, re.flags);
-      case NON_CAPTURE -> Regexp.nonCapture(childArgs.get(0), re.flags);
-      case CAPTURE -> Regexp.capture(childArgs.get(0), re.flags, re.cap, re.name);
-      case STAR, PLUS, QUEST -> Regexp.rawQuantifier(re.op, childArgs.get(0), re.flags);
-      case REPEAT -> Regexp.repeat(childArgs.get(0), re.flags, re.min, re.max);
-      default -> re;
-    };
-  }
-
-  private static boolean[] groupsInsideNestedQuantifier(Regexp re) {
-    int ncap = maxCapture(re) + 1;
-    boolean[] groups = new boolean[ncap];
-    Deque<Node> stack = new ArrayDeque<>();
-    stack.push(new Node(re, false));
-    while (!stack.isEmpty()) {
-      Node current = stack.pop();
-      Regexp node = current.re;
-      boolean inQuantifier = current.inQuantifier;
-      boolean childInQuantifier = inQuantifier || isCaptureRetainingQuantifier(node);
-      if (inQuantifier && node.op == RegexpOp.CAPTURE && node.cap > 0 && node.cap < groups.length) {
-        groups[node.cap] = true;
-        childInQuantifier = false;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(new Node(sub, childInQuantifier));
-        }
-      }
-    }
-    return groups;
-  }
-
-  private static boolean hasAnyGroup(boolean[] groups) {
-    for (boolean group : groups) {
-      if (group) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean isCaptureRetainingQuantifier(Regexp re) {
-    return (re.op == RegexpOp.PLUS
-            || (re.op == RegexpOp.REPEAT && (re.max > 1 || (re.max == -1 && re.min >= 1))))
-        && !re.nonGreedy();
-  }
-
-  private static boolean hasNullableCaptureRetainingQuantifier(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (isCaptureRetainingQuantifier(node)
-          && hasCapture(node.sub())
-          && AstAnalysis.analyze(node.sub()).canMatchEmpty()) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private record Node(Regexp re, boolean inQuantifier) {}
 
   // ---------------------------------------------------------------------------
   // Anchor detection — approximate, like RE2's IsAnchorStart/IsAnchorEnd

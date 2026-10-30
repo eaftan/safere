@@ -5,6 +5,8 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 
@@ -29,7 +31,8 @@ public final class CaptureSemanticsFuzzer {
     "(?<word>a|aa)"
   };
   private static final String[] QUANTIFIERS = {
-    "*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??", "{0,2}?", "{1,2}?", "*+", "?+", "{0,2}+"
+    "*", "+", "?", "{0,2}", "{1,2}", "{2,3}", "{0,3}", "*?", "+?", "??", "{0,2}?", "{1,2}?", "*+",
+    "?+", "{0,2}+"
   };
   private static final String[] CHAINED_QUANTIFIERS = {
     "{0}", "{1}", "{0,2}", "{1}?", "{0}?", "{0}+", "{1}+", "{0,2}+"
@@ -40,6 +43,30 @@ public final class CaptureSemanticsFuzzer {
   @FuzzTest(maxDuration = "30s")
   void quantifiedCaptures(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
+  }
+
+  @FuzzTest(maxDuration = "30s")
+  void nestedBoundedCaptures(FuzzedDataProvider data) {
+    // Model oracle: the JDK can restore an earlier capture depending on redundant wrappers.
+    String unit = pick(data, "a", "é", "😀", "ab");
+    String atom = data.consumeBoolean() && unit.equals("a") ? "[ab]" : unit;
+    int min = data.consumeInt(0, 2);
+    int max = data.consumeInt(Math.max(2, min + 1), 5);
+    int length = max * data.consumeInt(2, 16);
+    String outer = pick(data, "*", "+", "*?", "+?");
+    for (boolean wrapped : new boolean[] {false, true}) {
+      String capture = "(?<word>" + atom + ")";
+      String operand = wrapped ? "(?:" + capture + ")" : capture;
+      String regex = "(?:" + operand + "{" + min + "," + max + "})" + outer + "b";
+      String input = unit.repeat(length) + "b";
+      var pattern = org.safere.Pattern.compile(regex);
+      var matcher = pattern.matcher(input);
+      assertThat(matcher.matches()).as("/%s/ on %s", regex, input).isTrue();
+      assertThat(matcher.start("word")).isEqualTo((length - 1) * unit.length());
+      assertThat(matcher.end("word")).isEqualTo(length * unit.length());
+      assertThat(matcher.toMatchResult().group(1)).isEqualTo(unit);
+      assertThat(pattern.matcher(input).replaceAll("${word}")).isEqualTo(unit);
+    }
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
@@ -72,6 +99,9 @@ public final class CaptureSemanticsFuzzer {
 
   private static String consumeCaptureInput(FuzzedDataProvider data) {
     int length = data.consumeInt(0, 64);
+    if (data.consumeBoolean()) {
+      return "a".repeat(length) + pick(data, "", "b", "ab", "y");
+    }
     StringBuilder input = new StringBuilder(length);
     for (int i = 0; i < length; i++) {
       input.append(
