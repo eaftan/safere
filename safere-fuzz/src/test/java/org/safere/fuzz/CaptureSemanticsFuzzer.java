@@ -86,6 +86,9 @@ public final class CaptureSemanticsFuzzer {
     if (minimum <= 1 && data.consumeBoolean()) {
       maximum = data.consumeInt(minimum, 1);
     }
+    if (maximum > 1 && data.consumeBoolean()) {
+      maximum = new int[] {16, 256, 1000}[data.consumeInt(0, 2)];
+    }
     String quantifier = "{" + minimum + "," + (maximum < 0 ? "" : maximum) + "}";
     if (data.consumeBoolean() && maximum < 0 && minimum <= 1) {
       quantifier = minimum == 0 ? "*" : "+";

@@ -120,6 +120,48 @@ class EmptyCaptureSemanticsTest {
   }
 
   @Test
+  void countedZeroWidthProgramsStayBoundedWithoutLosingParticipation() {
+    for (String operand :
+        List.of("()", "(())", "(()??)", "(?:()())", "(^)", "(\\b)", "(?:()|())")) {
+      for (String mode : List.of("", "?", "+")) {
+        for (String range : List.of("{0,%d}", "{%d}", "{1,%d}", "{%d,}")) {
+          Pattern small = Pattern.compile(operand + range.formatted(2) + mode);
+          Pattern large = Pattern.compile(operand + range.formatted(1000) + mode);
+          assertThat(large.analysis().programSize())
+              .as("/%s/ should not expand identical zero-width iterations", large)
+              .isEqualTo(small.analysis().programSize());
+          for (String input : List.of("", "a", "😀a")) {
+            Matcher expected = small.matcher(input);
+            Matcher actual = large.matcher(input);
+            Utf8Matcher bytes = large.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+            while (expected.find()) {
+              assertThat(actual.find()).isTrue();
+              for (int group = 0; group <= expected.groupCount(); group++) {
+                assertThat(actual.start(group)).isEqualTo(expected.start(group));
+                assertThat(actual.end(group)).isEqualTo(expected.end(group));
+              }
+            }
+            assertThat(actual.find()).isFalse();
+            // UTF-8 cursor advancement differs on supplementary characters; compare directly on
+            // the empty and ASCII subjects, and leave code-point coordinates to the matrix above.
+            if (!input.contains("😀")) {
+              Matcher chars = large.matcher(input);
+              while (chars.find()) {
+                assertThat(bytes.find()).isTrue();
+                for (int group = 0; group <= chars.groupCount(); group++) {
+                  assertThat(bytes.start(group)).isEqualTo(chars.start(group));
+                  assertThat(bytes.end(group)).isEqualTo(chars.end(group));
+                }
+              }
+              assertThat(bytes.find()).isFalse();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void followingOperandlessCountsDoNotEraseEarlierCaptures() {
     // Adjacent counted tokens after a quantifier have their own implicit empty operand in the
     // supported syntax. Only an actual enclosing zero-count repeat omits the earlier group.
