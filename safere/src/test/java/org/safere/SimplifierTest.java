@@ -220,19 +220,19 @@ class SimplifierTest {
         Arguments.of("(){0}", ""),
         Arguments.of("(){1}", "()"),
         Arguments.of("(){1,}", "()+"),
-        Arguments.of("(){0,2}", "(?:()()?)?"),
-        Arguments.of("(?:()){0,2}", "(?:()()?)?"),
+        Arguments.of("(){0,2}", "()?"),
+        Arguments.of("(?:()){0,2}", "()?"),
 
         // Empty-width ops: repetition count capped at 1
         Arguments.of("(?:^){0,}", "^*"),
-        Arguments.of("(?:$){28,}", "$+"),
+        Arguments.of("(?:$){28,}", "$"),
         Arguments.of("(?-m:^){0,30}", "(?-m:^)?"),
         Arguments.of("(?-m:$){28,30}", "(?-m:$)"),
         Arguments.of("\\b(?:\\b\\B){999}\\B", "\\b\\b\\B\\B"),
         Arguments.of("\\b(?:\\b|\\B){999}\\B", "\\b(?:\\b|\\B)\\B"),
         // NonGreedy should also be handled.
         Arguments.of("(?:^){0,}?", "^*?"),
-        Arguments.of("(?:$){28,}?", "$+?"),
+        Arguments.of("(?:$){28,}?", "$"),
         Arguments.of("(?-m:^){0,30}?", "(?-m:^)??"),
         Arguments.of("(?-m:$){28,30}?", "(?-m:$)"),
         Arguments.of("\\b(?:\\b\\B){999}?\\B", "\\b\\b\\B\\B"),
@@ -424,9 +424,9 @@ class SimplifierTest {
 
   @Test
   void simplifyRepeatEmptyWidthOp() {
-    // ^{3,} — empty-width op repetition capped at min=1 → ^{1,} → ^+
+    // Repeating a required zero-width assertion has the same effect as checking it once.
     String result = simplify("^{3,}");
-    assertThat(result).isEqualTo("^+");
+    assertThat(result).isEqualTo("^");
   }
 
   @Test
