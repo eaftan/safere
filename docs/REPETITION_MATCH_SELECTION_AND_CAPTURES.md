@@ -1,16 +1,9 @@
 # Repetition, match selection, and captures
 
-**Draft for review.** This document defines the intended semantics, rather than
-describing every current SafeRE result. The owner selected finite expansion with
-nested optional copies, acceptance of a terminal empty iteration in unbounded
-repetition, and transparent redundant noncapturing wrappers during the policy
-discussion. Implementation and coverage changes are separate work.
-
-The motivation is the [review of PR #1092][review1092] and the related examples
-in [#1079][issue1079], [#1051][issue1051], and [#1091][issue1091]. As with
-[opaque region bounds](OPAQUE_REGION_BOUNDS.md) and [PR #1039][pr1039], the aim
-is a model that resolves a behavioral class. Existing divergence entries are
-evidence of earlier decisions, not premises that this policy must preserve.
+This document defines SafeRE's contract for repetition, match selection, and
+captures. Finite repetition uses required copies followed by nested optional
+copies. Unbounded repetition accepts a terminal empty iteration, and redundant
+noncapturing wrappers preserve results.
 
 The [decisions and reasonable alternatives](#decisions-and-reasonable-alternatives)
 section collects the choices behind these rules, their tradeoffs, and relevant
@@ -22,6 +15,21 @@ These rules apply to supported patterns in String and UTF-8 matching. Positions
 use each API's coordinates; String examples below use UTF-16 indices and
 half-open bounds. Region, assertion, Unicode, and search-cursor rules remain
 those of the corresponding APIs and [semantic invariants](INVARIANTS.md).
+
+The following terms distinguish pattern structure from input progress:
+
+- An **operand** is the expression to which a quantifier applies.
+- An **iteration** is one successful execution of that operand. An **empty
+  iteration** leaves the input position unchanged, but may update captures.
+- A **nullable** operand can succeed without consuming input. Whether a
+  particular iteration is empty depends on its selected path and input context.
+  A **statically zero-width** operand is one whose successful executions can
+  be established from the pattern to consume no input.
+- An **invocation** is one entry into a repetition, including its iterations
+  until it exits. Entering that repetition again starts a new invocation.
+- A **continuation** is the remaining pattern together with the operation's
+  acceptance condition. A local success is usable only if its continuation
+  also succeeds.
 
 **Select the first complete success in the ordered executions defined below.
 Report its whole-match bounds and its capture state.** In particular, neither
@@ -37,8 +45,9 @@ enumerating repeat partitions, or repairing captures with repeated searches.
 ## Ordered executions and complete success
 
 Conceptually, an execution carries an input position, a capture map, and the
-remaining expression. Each choice has ordered children. Explore earlier
-children before later children, including their remaining expressions.
+remaining expression. The capture map records each group's latest bounds.
+Each choice has ordered children. Explore earlier children before later
+children, including their remaining expressions.
 
 1. `A|B` tries executions through `A` before executions through `B`.
 2. `AB` tries an outcome of `A` together with `B`. If that continuation fails,
@@ -124,6 +133,31 @@ For `R*`, `R+`, and `R{m,}`, use the following source-level rule:
 5. An empty iteration before the minimum is met must continue toward the
    minimum. It cannot make an otherwise insufficient iteration count succeed.
 
+Equivalently, let `need` be the remaining minimum count, `state` contain the
+input position and captures, and `outside` be the continuation after this
+invocation. The initial `need` is 0 for `*`, 1 for `+`, and `m` for `{m,}`.
+
+```text
+Unbounded(R, need, greedy, state, outside):
+    define iterate():
+        execute R from state with continuation(next):
+            remaining = max(0, need-1)
+            if next.position == state.position and remaining == 0:
+                outside(next)
+            else:
+                Unbounded(R, remaining, greedy, next, outside)
+
+    if need > 0: try iterate()
+    otherwise: choose between iterate() and outside(state)
+               iterate() first if greedy; outside(state) first if reluctant
+```
+
+Each choice returns its first complete success. If its continuation fails,
+restore the incoming state and try the next available path in the established
+order. Recursive calls continue the same invocation; a nested repetition in
+`R` starts its own invocation. As with the finite definition, this recursion
+specifies results rather than a production execution strategy.
+
 Stopping after empty does not commit the entire pattern. If the outside
 continuation fails, the selected iteration's other operand outcomes, earlier
 iterations, or other surrounding choices remain available in their defined
@@ -144,19 +178,19 @@ iteration and consume `a`. The empty alternative is unavailable at position 1,
 so group 1 is unmatched. A conceptual `RR*` with shared capture identities can
 instead keep the first copy's empty capture at position 0 while its fresh star
 consumes `a`. Source-group identity and repetition invocation boundaries both
-matter. Literal source duplication introduces separate group numbers; the
-shared-identity example describes a proposed compiler rewrite.
+matter. The conceptual copies share capture identities; literal source
+duplication introduces separate group numbers.
 
 On finite input, consuming iterations are bounded by input progress, required
 empty iterations by the fixed minimum, and a terminal empty iteration ends its
 invocation. This makes the conceptual executions finite; it does not make
 enumerating those executions an acceptable production algorithm.
 
-Already-supported possessive quantifiers over statically zero-width operands
-use the greedy repetition outcomes but commit to the first local success before
-trying the outside continuation. Failure outside cannot reconsider that
-quantifier's internal choices. Consuming possessive operands and other excluded
-features remain outside the supported dialect.
+Possessive quantifiers over statically zero-width operands use the greedy
+repetition outcomes but commit to the first local success before trying the
+outside continuation. Failure outside cannot reconsider that quantifier's
+internal choices. Consuming possessive operands and other excluded features
+remain outside the supported dialect.
 
 ## Capture updates, retention, and restoration
 
@@ -194,143 +228,12 @@ The rule applies to consuming, nullable, and purely zero-width operands. Under
 this policy, both `()*` and `(?:())*` capture empty at `[0,0)` on empty input;
 so do `(){0,2}` and `(?:()){0,2}`. Their reluctant zero-minimum forms omit the
 operand when that already permits success, leaving the group unmatched.
-These are intended outcomes, not a claim about current implementation behavior.
 
 Nested repetitions apply the same capture update rule at every depth. No
 compiler transformation may freeze an earlier capture simply because it occurs
 inside a nested quantifier. Nor may a transformation infer equivalence solely
 from recognition language, absence of captures, or equality of first isolated
 results. It must preserve ordered fallback outcomes in surrounding contexts.
-
-## Worked examples and observed implementations
-
-In these examples, **current SafeRE** means the checked-out revision
-`0b60ee50`, not PR #1092 or a future implementation of this policy. Each example
-compares its observed behavior with the required result. PR and JDK observations
-are context; agreement with either does not establish conformance. The JDK
-columns report the verified OpenJDK 26.0.2 results.
-
-### Earlier captures in nested repetition: #1079
-
-On `aaaa`, consider the first `find()` result for each spelling:
-
-| Pattern | Current SafeRE | Required by this policy | Observed JDK 26.0.2 |
-|---|---|---|---|
-| `(?:(a){0,2})*` | Whole match `[0,4)`; group 1 `[1,2)` | Whole match `[0,4)`; group 1 `[3,4)` | Whole match `[0,4)`; group 1 `[1,2)` |
-| `(?:(?:(a)){0,2})*` | Whole match `[0,4)`; group 1 `[1,2)` | Whole match `[0,4)`; group 1 `[3,4)` | Whole match `[0,4)`; group 1 `[3,4)` |
-
-**Change required:** both spellings must report the later capture at `[3,4)`.
-Their whole-match bounds already agree with the policy. Later consuming
-iterations update group 1. A final empty outer iteration does not participate
-in `(a)`, so it retains that value.
-
-The current capture-suppression lowering preserves the earlier value. The
-verified PR #1092 revision removes that lowering and gives the required
-`[3,4)` for both examples. This is distinct from preserving a legitimate earlier
-capture when a later iteration omits the group. For comparison, the observed
-JDK capture is `[1,2)` for the first spelling and `[3,4)` for the second.
-See [#1079][issue1079] and [PR #1092][review1092].
-
-### Empty captures in finite repetition: #1051
-
-On `" y"`, each form matches the whole input at `[0,2)`:
-
-| Pattern | Current SafeRE group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
-|---|---|---|---|
-| `(?:()\|\W+){0,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
-| `(?:()\|\W+){1,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
-| `(?:()\|\W+)*y` | Empty at `[1,1)` | Empty at `[1,1)` | Empty at `[1,1)` |
-
-**No change required for these examples.** The policy preserves current SafeRE's
-different capture positions for counted and unbounded repetition.
-
-In the `{0,2}` case, finite expansion first tries the empty branch in the first
-copy. After unsuccessful choices in the second copy, its `\W+` branch consumes
-the space and the suffix matches `y`. The second iteration does not participate
-in group 1, so its `[0,0)` value survives.
-
-For the `*` form, an empty iteration at position 0 stops the repetition and
-`y` then fails. Reconsidering that operand selects the consuming branch. The
-next empty iteration at position 1 stops the repetition and allows `y` to
-succeed, giving `[1,1)`. Counted and unbounded forms differ because their
-admissible executions differ, not because capture retention changes. For
-comparison, the observed JDK group 1 is `[1,1)` for all three forms.
-See [#1051][issue1051].
-
-### Whole-match bounds and later searches: #1091
-
-For `(?:b?|a){0,2}b` on `abb`, the first copy can take `b?` empty; the second
-then takes `a`; the final `b` consumes the middle character. That complete
-success has priority over reconsidering the first copy to obtain a longer
-match. The same result follows for `{1,2}` and `{2}`.
-
-| Operation or control | Current SafeRE | Required by this policy | Observed JDK 26.0.2 |
-|---|---|---|---|
-| Counted forms: successive `find()` | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,3)` (`abb`) |
-| `(?:b?\|a)?(?:b?\|a)?b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
-| `(?:b?\|a)(?:b?\|a)b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
-| `(?:b?\|a)*b`: successive `find()` | `abb` | `abb` | `abb` |
-| Counted forms: `matches()` | Success `[0,3)` | Success `[0,3)` | Success `[0,3)` |
-| Counted forms: `replaceAll("X")` | `XX` | `XX` | `X` |
-| Counted forms: `split(input, -1)` | `["", "", ""]` | `["", "", ""]` | `["", ""]` |
-
-**No change required for these examples**, including the `{1,2}` and `{2}`
-variants. The policy preserves current SafeRE's selected whole matches and
-their consequences for subsequent searches, replacement, and splitting.
-
-For comparison, the observed JDK counted forms find only `abb`, replace it
-with one `X`, and produce two empty fields with a negative split limit. The
-explicit-copy and star controls give the table's results in both engines.
-The optional-copy control agrees here because it is greedy; this is not a
-general equivalence between flat and nested optional copies. See
-[#1091][issue1091].
-
-### Purely empty captures and redundant wrappers
-
-On empty input, the first `find()` matches `[0,0)` in every case:
-
-| Pattern | Current SafeRE group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
-|---|---|---|---|
-| `()*` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
-| `(?:())*` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
-| `(){0,2}` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
-| `(?:()){0,2}` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
-
-**Change required:** the unwrapped spellings must participate and capture empty,
-just as the wrapped spellings already do. The verified PR #1092 revision still
-has the current behavior here; its nested-capture fix is insufficient to meet
-this part of the policy. The observed JDK results also match current SafeRE in
-this table, but the policy chooses consistent wrapper transparency.
-
-### Revision and runtime basis
-
-The issue reports describe historical observations. Local probes reproduced
-their central results with OpenJDK 26.0.2, including archived SafeRE revisions
-`be81e170` (#1051), `7c1b3833` (#1079), and `3292aa7d` (#1091).
-
-The following also records the verified PR #1092 revision alongside the policy
-and JDK results:
-
-| Case | Required by this policy | PR #1092 head `7d665161` | OpenJDK 26.0.2 |
-|---|---|---|---|
-| #1079, direct spelling, group 1 | `[3,4)` | `[3,4)` | `[1,2)` |
-| #1079, wrapped spelling, group 1 | `[3,4)` | `[3,4)` | `[3,4)` |
-| #1051, counted form, group 1 | `[0,0)` | `[0,0)` | `[1,1)` |
-| #1051, star form, group 1 | `[1,1)` | `[1,1)` | `[1,1)` |
-| #1091, counted find sequence | `ab`, `b` | `ab`, `b` | `abb` |
-| `()*` and `(){0,2}`, group 1 on empty input | Empty at `[0,0)` | Unmatched | Unmatched |
-
-The JDK observations also reproduced on the installed JDK 21 through 25
-runtimes. These are versioned observations, not guarantees about future JDKs
-or a claim that a locally checked-out revision is the latest upstream release.
-The archived compatibility experiment at [db84b9a5][compat-experiment] reproduces
-the JDK's reduced #1051 and #1091 results; this is evidence that a compatibility
-implementation is possible, not evidence of its general correctness or cost.
-
-Current differential tests also pin some of the historical results above and
-must be reassessed against this contract. The tables cover these specific
-examples; unchanged results here do not establish conformance for an entire
-behavioral class.
 
 ## Whole-match APIs and search progress
 
@@ -353,6 +256,105 @@ zero-width delimiter, and trailing-empty-field rules. Different whole-match
 selection can change output even without a capturing group. Region resets,
 append state, and callback mutation remain governed by their existing APIs.
 
+## Worked examples
+
+The required results illustrate the contract. The comparison columns record
+observations of SafeRE revision `0b60ee50` and OpenJDK 26.0.2. These fixed-version
+observations are informative; they do not define the required behavior.
+
+### Earlier captures in nested repetition
+
+In each case, the first `find()` covers the whole input. The table shows group 1:
+
+| Pattern and input | SafeRE `0b60ee50` | Required by this policy | Observed JDK 26.0.2 |
+|---|---|---|---|
+| `(?:(a){0,2})*` on `aaaa` | `[1,2)` | `[3,4)` | `[1,2)` |
+| `(?:(?:(a)){0,2})*` on `aaaa` | `[1,2)` | `[3,4)` | `[3,4)` |
+| `(?:(a){1,2}b)*` on `aabab` | `[1,2)` | `[3,4)` | `[1,2)` |
+
+For the first two cases, later consuming iterations update group 1. A final
+empty outer iteration does not participate in `(a)`, so it retains `[3,4)`.
+Preserving `[1,2)` instead would discard a later accepted participation.
+See [#1079][issue1079].
+
+The third case has no empty outer iterations: the accepted chunks are `aab`
+and `ab`. Group 1 necessarily participates at `[3,4)` in the second chunk.
+This separates the most-recent-capture rule from nullable path selection.
+
+### Restoring captures from an abandoned branch
+
+For `(a)b|ac` on `ac`, the first branch captures `a` before failing at `b`.
+The second branch matches the whole input at `[0,2)`. Group 1 is unmatched,
+with bounds `-1`, because its only write belonged to the abandoned branch.
+SafeRE `0b60ee50` and OpenJDK 26.0.2 both produce this required result.
+
+### Empty captures in finite repetition
+
+On `" y"`, each form matches the whole input at `[0,2)`:
+
+| Pattern | SafeRE `0b60ee50` group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
+|---|---|---|---|
+| `(?:()\|\W+){0,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
+| `(?:()\|\W+){1,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
+| `(?:()\|\W+)*y` | Empty at `[1,1)` | Empty at `[1,1)` | Empty at `[1,1)` |
+
+In the `{0,2}` case, finite expansion first tries the empty branch in the first
+copy. After unsuccessful choices in the second copy, its `\W+` branch consumes
+the space and the suffix matches `y`. The second iteration does not participate
+in group 1, so its `[0,0)` value survives.
+
+For the `*` form, an empty iteration at position 0 stops the repetition and
+`y` then fails. Reconsidering that operand selects the consuming branch. The
+next empty iteration at position 1 stops the repetition and allows `y` to
+succeed, giving `[1,1)`. Counted and unbounded forms differ because their
+admissible executions differ, not because capture retention changes.
+See [#1051][issue1051].
+
+### Whole-match bounds and later searches
+
+For `(?:b?|a){0,2}b` on `abb`, the first copy can take `b?` empty; the second
+then takes `a`; the final `b` consumes the middle character. That complete
+success has priority over reconsidering the first copy to obtain a longer
+match. The same result follows for `{1,2}` and `{2}`.
+
+| Operation or control | SafeRE `0b60ee50` | Required by this policy | Observed JDK 26.0.2 |
+|---|---|---|---|
+| Counted forms: successive `find()` | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,3)` (`abb`) |
+| `(?:b?\|a)?(?:b?\|a)?b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
+| `(?:b?\|a)(?:b?\|a)b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
+| `(?:b?\|a)*b`: successive `find()` | `abb` | `abb` | `abb` |
+| Counted forms: `matches()` | Success `[0,3)` | Success `[0,3)` | Success `[0,3)` |
+| Counted forms: `replaceAll("X")` | `XX` | `XX` | `X` |
+| Counted forms: `split(input, -1)` | `["", "", ""]` | `["", "", ""]` | `["", ""]` |
+
+The optional-copy control agrees here because it is greedy; this is not a
+general equivalence between flat and nested optional copies. See
+[#1091][issue1091].
+
+### Purely empty captures and redundant wrappers
+
+On empty input, the first `find()` matches `[0,0)` in every case:
+
+| Pattern | SafeRE `0b60ee50` group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
+|---|---|---|---|
+| `()*` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
+| `()*?` | Unmatched, bounds `-1` | Unmatched, bounds `-1` | Unmatched, bounds `-1` |
+| `(?:())*` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
+| `(){0,2}` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
+| `(?:()){0,2}` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
+| `(){2,}` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
+
+Greedy finite repetition accepts its empty copies; greedy unbounded repetition
+accepts one terminal empty iteration. In both cases group 1 participates,
+regardless of the redundant wrapper.
+
+The reluctant `()*?` first chooses zero iterations. Its continuation already
+succeeds, so group 1 never participates. In `(){2,}`, two empty iterations are
+required: the first leaves the input position unchanged but reduces the
+remaining minimum to one; the second satisfies the minimum and ends the
+invocation. Input consumption is not required for this bounded progress
+toward the minimum.
+
 ## Decisions and reasonable alternatives
 
 There is no single cross-engine contract for empty iterations. Shared syntax
@@ -363,10 +365,9 @@ are evidence of disagreement, but do not establish that every result reflects
 a deliberate design decision.
 
 The comparisons below correspond to the semantic sections above. The SafeRE
-column records this draft's choices; the alternatives explain what another
-language could reasonably prioritize. None of these alternatives is proposed
-as an additional SafeRE mode. Linear input work and stack safety remain project
-constraints under every considered design.
+column records the contract; the alternatives explain what another language
+can reasonably prioritize. Linear input work and stack safety constrain every
+SafeRE implementation.
 
 ### Scope, ordered executions, and complete success
 
@@ -393,16 +394,14 @@ SafeRE chooses finite expansion because the count already supplies a termination
 bound and the resulting source-level model has a direct implementation. The
 choice avoids requiring additional finite-repeat progress state; it is not a
 claim that every alternative is expensive or cannot be implemented linearly.
-Nested optional suffixes also preserve the current ordering of ordinary
-reluctant counted repeats. These benefits come at a compatibility cost: #1051
-and #1091 intentionally retain differences from observed JDK behavior.
+Nested optional suffixes give greedy and reluctant counted repeats the same
+prefix structure. The resulting finite-repeat paths can differ from those
+selected by other engines, as the worked examples show.
 
-The JDK Javadoc does not expressly require the expansion contract. Nor does
-ECMAScript leave optional empty iterations open to implementation choice: its
-rejection rule is explicit. Agreement with Rust or RE2 on the worked finite
-examples supports our choice as an implementation precedent, not a universal
-semantic consensus. A flat optional expansion is listed as a possible language
-design; no claim is made that a named engine promises that contract.
+The JDK Javadoc does not expressly require the expansion contract. ECMAScript's
+rejection of optional empty iterations is explicit. A flat optional expansion
+is listed as a possible language design; no claim is made that a named engine
+promises that contract.
 
 ### Unbounded repetition
 
@@ -444,16 +443,15 @@ support that feature.
 
 SafeRE chooses source-level transparency for redundant noncapturing wrappers
 and applies the same capture-update rules at every nesting depth. This makes
-local refactoring and compiler equivalence understandable. It requires changing
-some current pure-empty special cases and accepting the documented JDK
-differences.
+local refactoring and compiler equivalence understandable, including for
+purely empty captures.
 
 Exact emulation of observed wrapper-dependent results is a possible
 compatibility priority. However, no documented semantic purpose for those
 particular differences has been established here. They are classified as
 observed implementation behavior, not presented as another principled meaning
 of a redundant wrapper. Likewise, freezing an earlier capture despite later
-accepted participation is not an alternative allowed by this draft's
+accepted participation is not an alternative allowed by this contract's
 most-recent-capture contract. Legitimate retention and reset alternatives are
 described in the preceding subsection.
 
@@ -472,203 +470,45 @@ String-versus-UTF-8 cursor units follow the existing representation contracts.
 Replacement and splitting must use the chosen sequence with their documented
 API rules. Independently selecting a more convenient match sequence for a fast
 replacement or split path would violate this contract; it is not an additional
-design alternative within the current APIs.
-
-### Evidence, implementation, and coverage
-
-The worked examples and JDK assessment distinguish required behavior, chosen
-interpretation, and observed quirks. The implementation and coverage sections
-then constrain how to realize and verify those decisions. Different algorithms
-or oracle combinations may be appropriate, but they must implement the same
-contract on their declared overlap. Agreement by several engines is useful
-evidence, not a substitute for choosing and stating the rules.
+design alternative within these APIs.
 
 ## JDK specification, interpretation, and compatibility
 
 The official [JDK 26 Pattern specification][jdk-pattern] defines ordered
-alternation, repetition bounds, capturing groups, and retention of a previous
-capture when a later quantified evaluation fails. Its `(a(b)?)+` example
-explicitly retains `b` on `aba`. The [Matcher specification][jdk-matcher]
+alternation, repetition bounds, and capture retention. Its most-recent-capture
+rule states:
+
+> The captured input associated with a group is always the subsequence that the
+> group most recently matched.
+
+Its `(a(b)?)+` example retains `b` on `aba`. The [Matcher specification][jdk-matcher]
 defines operation acceptance conditions, result access, and successive searches.
 
+For `(?:(a){1,2}b)*` on `aabab`, the complete match necessarily includes a later
+participation of group 1 at `[3,4)`, as shown in the
+[worked example](#earlier-captures-in-nested-repetition). The observed JDK capture
+at `[1,2)` conflicts with the most-recent-capture rule under this contract.
+This concern does not depend on how empty iterations are selected.
+
 The Javadocs do not give an operational algorithm for nullable repetition or
-fully order its empty and consuming executions. Therefore the #1051 and #1091
-results alone do not establish a specification violation. Finite expansion and
-terminal-empty stopping are SafeRE's explicit interpretation and compatibility
-choice. They are not claimed to be forced by the JDK specification or by linear
-time. The owner selected retaining this boundary, including whole-match effects.
+fully order its empty and consuming executions. Different capture positions
+or whole-match bounds in those cases do not by themselves establish a
+specification violation. Finite expansion and terminal-empty stopping are
+SafeRE's explicit interpretation and compatibility choice, including their
+whole-match effects. Neither rule is claimed to be forced by the JDK
+specification or by linear time.
 
-Reporting an earlier value despite later participation on the selected path
-conflicts with the documented most-recent-capture rule under this interpretation.
-Wrapper-dependent results reinforce that concern, but are not themselves a
-complete proof of the JDK's selected internal execution. SafeRE chooses the
-stated capture and wrapper rules rather than reproducing those implementation
-details. The owner also selected that choice for purely empty captures.
-
-## Implementation implications and cost limits
-
-The policy fixes results, not an engine architecture. Relevant current code
-includes `Simplifier`'s nested finite expansion and pure-empty special cases,
-`Compiler`'s capture-retention lowering and nullable progress instructions,
-`Nfa`'s closure/restore logic, and `BitState`'s progress and capture restoration.
-PR #1092 changes part of that landscape; its optimizations need independent
-assessment rather than becoming part of the semantic definition.
-
-- Remove or replace transformations that suppress genuine later capture writes
-  or distinguish redundant wrappers. Recheck repeat coalescing and nullable
-  `+` lowering against ordered outcomes, even without captures.
-- Bound progress context and include every relevant distinction in merging and
-  cache correctness arguments. A program-counter visitation rule must preserve
-  this source contract; changing visited-state treatment is not a policy fix.
-- Keep per-path capture restoration separate from progress termination. The
-  semantic execution history does not require a persistent runtime history.
-  Capture arrays, bounded registers, or other representations need explicit
-  time and space bounds; persistent structures need justification for their
-  allocation, retention, and maintenance costs.
-- Require every result-producing engine and deferred extraction pass to select
-  the same path. A language-only DFA may remain a rejection filter where it
-  cannot prove selected bounds. Fallback must preserve results and work bounds.
-- Preserve iterative compilation and execution, bounded compilation resources,
-  and work bounds for complete find/replacement sequences. Linear input work
-  for a fixed expanded program is distinct from linear compilation in the
-  source length or numeric repeat bounds.
-
-The JavaScript literature demonstrates bounded progress-state techniques for
-its own semantics, not a drop-in proof for this policy. The 2026 PikeVM proof
-has a restricted compiler language and leaves a formal linear execution bound
-to future work. Neither paper proves SafeRE's current engines correct.
-
-Possible JDK-compatible linear algorithms do not automatically justify their
-state, complexity, or performance costs. This policy deliberately selects
-finite expansion semantics. Any future proposal to change that boundary must
-describe class-wide behavior, implementation bounds, and measured costs before
-adoption; it must not arrive as another isolated capture exception.
-
-## Focused coverage and oracle plan
-
-### Assert the policy directly
-
-Add direct expected-result coverage for finite empty-then-consuming iterations;
-terminal empty iterations in unbounded repeats; required empty iterations before
-the minimum; greedy and reluctant nesting; retained captures; suffix rollback;
-failed candidate starts; and purely empty captures with redundant wrappers.
-Include the three worked examples and the reluctant nested-copy control above.
-
-Vary zero/exact/bounded/unbounded counts, alternative order, consuming versus
-nullable operands, nested invocation re-entry, named and numbered groups, and
-suffixes that reject earlier choices. Assert the full find trace, participating
-and unmatched bounds, snapshots, replacement, and splitting where affected.
-Include String and UTF-8 coordinates, supplementary characters, regions, and
-different capture-demand paths. Check forced eligible engines against the same
-expected observations in the existing engine-path equivalence suites.
-
-Existing starting points include `QuantifiedCaptureSemanticsTest`,
-`NullableCountedCaptureDivergenceTest`, `AlternationCaptureSemanticsTest`,
-`MatcherDeferredCaptureStateTest`, and matcher-state trace tests. Extend
-`CaptureSemanticsFuzzer` and the relevant match/find generators with behavioral
-shapes, not just minimized issue strings. Use stable work or scaling checks for
-long inputs and deep nesting; avoid elapsed-time thresholds as the proof of
-linear behavior.
-
-### Keep JDK comparison where the contract agrees
-
-Continue differential checks for ordinary ordered alternatives, nonnullable
-quantifiers, capture retention such as `(a(b)?)+`, and unaffected API state.
-Known semantic disagreements need direct policy assertions, not JDK-derived
-expected values. Keep separate versioned observations of JDK differences so
-upstream changes are visible without redefining SafeRE's contract.
-
-### Use an independent RE2-style oracle within a declared overlap
-
-RE2/RE2J can provide an independent check of ordered alternatives, finite
-expansion, nested consuming captures, and failed-path restoration on their
-shared dialect. They are particularly useful for detecting SafeRE compiler
-mistakes that internal engine comparisons all inherit. Select their ordered,
-leftmost-first mode, not a longest-match mode.
-
-They are not authorities for all nullable loops: in the local comparison,
-RE2 and RE2J leave group 1 unmatched for `(?:()|\W+)*y` on `" y"`, while this
-policy requires `[1,1)`. Java syntax, flags, Unicode classes, assertions,
-regions, coordinates, and iteration APIs also need explicit normalization or
-exclusion. A translated pattern is an oracle only when the translation
-preserves ordered outcomes and capture identities.
-
-A small independent source-tree interpreter is a possible additional oracle
-for short generated patterns and inputs. It can implement the definitions here
-without sharing SafeRE's lowering or instruction graph. Its deliberately
-bounded test workload may enumerate executions; production matching may not.
-Direct examples still anchor the interpreter's intended behavior.
-
-### Do not hide other defects
-
-Do not exclude every nullable, counted, or captured pattern from differential
-testing. Classify a disagreement by the semantic rule and affected observation.
-Keep unaffected fields checked where justified; #1091 shows that equal bounds
-cannot be assumed merely because an earlier issue involved captures alone.
-Unmatched-group status, bounds validity, operation success, cursor progress,
-and engine agreement remain independently testable.
-
-If a generated case is outside an oracle's overlap, route it to policy checks
-or a supported independent oracle and record the reason. Bound that routing by
-structural capabilities and explicit decisions, rather than broad string
-filters or a fallback oracle chosen only after the preferred answer disagrees.
-
-## Consolidating the existing divergence documentation
-
-After review, replace the separate "Failed-Path Capture Leakage" and "Empty
-Captures in Nullable Counted Repetitions" discussions with one concise
-"Repetition, match selection, and captures" entry linking here. Retain
-[#52](https://github.com/eaftan/safere/issues/52), #1051, #1079, #1091, the
-compatibility experiment, and their useful minimal examples. Add a summary of
-the whole-match/find/replacement/split consequences, rather than describing
-the boundary as capture positions only.
-
-Keep the distinctions inside the unified entry: rollback of abandoned paths;
-replacement of earlier captures by later participation; finite versus
-unbounded path selection; and wrapper transparency. Preserve the existing
-`FAILED_PATH_CAPTURE_LEAKAGE` classification name or explicitly migrate its
-references. Link `INVARIANTS.md` here for the precise meaning of prioritized
-paths, while retaining its concise capture and linear-work requirements.
-
-Remove unsupported claims that a particular JDK result necessarily requires
-backtracking replay or cannot be matched linearly. Preserve prior decisions as
-history where useful, but base the replacement entry on the reviewed model.
-This draft does not itself change those entries, tests, or oracle exclusions.
-
-## Review status and remaining work
-
-The owner selected these policy directions during drafting:
-
-- Finite repetition follows explicit expansion with nested optional suffixes,
-  including empty iterations followed by consuming ones.
-- Unbounded repetition accepts an empty iteration and then stops once its
-  minimum is satisfied, retaining accepted capture updates.
-- Redundant noncapturing wrappers are transparent throughout, including purely
-  empty captures and the resulting differences from current SafeRE and JDK.
-
-The general capture rule recommends updating on every later participation,
-retaining on nonparticipation, and restoring on abandonment. Implementation
-review must establish the bounds and engine eligibility needed to realize the
-whole contract; source-level termination is not that proof. No blanket RE2
-oracle switch or compatibility-state expansion is approved by this document.
-If review exposes a further observable compatibility choice, add a labeled
-proposal with examples before adopting it. No additional semantic choice is
-currently left open in this draft; implementation design and measured cost
-remain future work.
+SafeRE also requires redundant wrappers to preserve results. Wrapper-dependent
+JDK observations alone do not determine a complete nullable-repetition policy.
 
 ## References consulted
 
-### Project context and official specifications
+### Specifications and related contracts
 
-- [PR #1092 review][review1092], [#1079][issue1079], [#1051][issue1051], and
-  [#1091][issue1091]: motivation and versioned implementation observations.
-  GitHub discussions were retrieved through the repository's trusted-author
-  snapshot helper.
-- [PR #1039][pr1039] and [opaque region bounds](OPAQUE_REGION_BOUNDS.md): the
-  precedent for stating an independent model and identifying interpretation.
-- [Semantic invariants](INVARIANTS.md) and
-  [intentional divergences](../INTENTIONAL_DIVERGENCES.md): existing contracts
-  and decisions assessed by this draft.
+- [Semantic invariants](INVARIANTS.md),
+  [opaque region bounds](OPAQUE_REGION_BOUNDS.md), and
+  [intentional divergences](../INTENTIONAL_DIVERGENCES.md): related SafeRE
+  contracts and compatibility boundaries.
 - [JDK 26 Pattern][jdk-pattern] and [Matcher][jdk-matcher]: the Java
   specification basis, separately assessed from implementation observations.
 - [ECMAScript 2026, RepeatMatcher][ecma-repeat]: a normative operational model
@@ -720,12 +560,9 @@ remain future work.
   priority and execution descriptions, not a substitute for the complete
   nullable-repetition contract above.
 
-[review1092]: https://github.com/eaftan/safere/pull/1092#pullrequestreview-5679857952
-[pr1039]: https://github.com/eaftan/safere/pull/1039
 [issue1079]: https://github.com/eaftan/safere/issues/1079
 [issue1051]: https://github.com/eaftan/safere/issues/1051
 [issue1091]: https://github.com/eaftan/safere/issues/1091
-[compat-experiment]: https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457
 [jdk-pattern]: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html
 [jdk-matcher]: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html
 [ecma-repeat]: https://tc39.es/ecma262/2026/multipage/text-processing.html#sec-repeatmatcher
