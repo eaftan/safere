@@ -181,6 +181,10 @@ consumes `a`. Source-group identity and repetition invocation boundaries both
 matter. The conceptual copies share capture identities; literal source
 duplication introduces separate group numbers.
 
+On this example, OpenJDK 26.0.2 and Perl 5.38.2 leave group 1 unmatched,
+while Python 3.13.12 retains `[0,0)`. Python is a concrete observed example
+of the `RR*` alternative here, not a claim of general cross-engine equivalence.
+
 On finite input, consuming iterations are bounded by input progress, required
 empty iterations by the fixed minimum, and a terminal empty iteration ends its
 invocation. This makes the conceptual executions finite; it does not make
@@ -258,19 +262,20 @@ append state, and callback mutation remain governed by their existing APIs.
 
 ## Worked examples
 
-The required results illustrate the contract. The comparison columns record
-observations of SafeRE revision `0b60ee50` and OpenJDK 26.0.2. These fixed-version
-observations are informative; they do not define the required behavior.
+The required results illustrate the contract. The comparison column records
+observations of OpenJDK 26.0.2. These fixed-version observations are informative;
+they do not define the required behavior. Implementation snapshots belong in
+the linked issues and PRs rather than this specification.
 
 ### Earlier captures in nested repetition
 
 In each case, the first `find()` covers the whole input. The table shows group 1:
 
-| Pattern and input | SafeRE `0b60ee50` | Required by this policy | Observed JDK 26.0.2 |
-|---|---|---|---|
-| `(?:(a){0,2})*` on `aaaa` | `[1,2)` | `[3,4)` | `[1,2)` |
-| `(?:(?:(a)){0,2})*` on `aaaa` | `[1,2)` | `[3,4)` | `[3,4)` |
-| `(?:(a){1,2}b)*` on `aabab` | `[1,2)` | `[3,4)` | `[1,2)` |
+| Pattern and input | Required by this policy | Observed JDK 26.0.2 |
+|---|---|---|
+| `(?:(a){0,2})*` on `aaaa` | `[3,4)` | `[1,2)` |
+| `(?:(?:(a)){0,2})*` on `aaaa` | `[3,4)` | `[3,4)` |
+| `(?:(a){1,2}b)*` on `aabab` | `[3,4)` | `[1,2)` |
 
 For the first two cases, later consuming iterations update group 1. A final
 empty outer iteration does not participate in `(a)`, so it retains `[3,4)`.
@@ -281,22 +286,28 @@ The third case has no empty outer iterations: the accepted chunks are `aab`
 and `ab`. Group 1 necessarily participates at `[3,4)` in the second chunk.
 This separates the most-recent-capture rule from nullable path selection.
 
+Perl 5.38.2 and Python 3.13.12 also report `[3,4)` in the third case.
+Python reports `[3,4)` for the first two spellings as well. These are observed
+results supporting the chosen retention rule, not claims that the engines
+share every repetition rule. See the [Perl contract][perl-repeat] and
+[Python regex documentation][python-re] for their respective models.
+
 ### Restoring captures from an abandoned branch
 
 For `(a)b|ac` on `ac`, the first branch captures `a` before failing at `b`.
 The second branch matches the whole input at `[0,2)`. Group 1 is unmatched,
 with bounds `-1`, because its only write belonged to the abandoned branch.
-SafeRE `0b60ee50` and OpenJDK 26.0.2 both produce this required result.
+OpenJDK 26.0.2 also produces this required result.
 
 ### Empty captures in finite repetition
 
 On `" y"`, each form matches the whole input at `[0,2)`:
 
-| Pattern | SafeRE `0b60ee50` group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
-|---|---|---|---|
-| `(?:()\|\W+){0,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
-| `(?:()\|\W+){1,2}y` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[1,1)` |
-| `(?:()\|\W+)*y` | Empty at `[1,1)` | Empty at `[1,1)` | Empty at `[1,1)` |
+| Pattern | Required group 1 | Observed JDK 26.0.2 group 1 |
+|---|---|---|
+| `(?:()\|\W+){0,2}y` | Empty at `[0,0)` | Empty at `[1,1)` |
+| `(?:()\|\W+){1,2}y` | Empty at `[0,0)` | Empty at `[1,1)` |
+| `(?:()\|\W+)*y` | Empty at `[1,1)` | Empty at `[1,1)` |
 
 In the `{0,2}` case, finite expansion first tries the empty branch in the first
 copy. After unsuccessful choices in the second copy, its `\W+` branch consumes
@@ -317,15 +328,15 @@ then takes `a`; the final `b` consumes the middle character. That complete
 success has priority over reconsidering the first copy to obtain a longer
 match. The same result follows for `{1,2}` and `{2}`.
 
-| Operation or control | SafeRE `0b60ee50` | Required by this policy | Observed JDK 26.0.2 |
-|---|---|---|---|
-| Counted forms: successive `find()` | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,3)` (`abb`) |
-| `(?:b?\|a)?(?:b?\|a)?b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
-| `(?:b?\|a)(?:b?\|a)b`: successive `find()` | `ab`, `b` | `ab`, `b` | `ab`, `b` |
-| `(?:b?\|a)*b`: successive `find()` | `abb` | `abb` | `abb` |
-| Counted forms: `matches()` | Success `[0,3)` | Success `[0,3)` | Success `[0,3)` |
-| Counted forms: `replaceAll("X")` | `XX` | `XX` | `X` |
-| Counted forms: `split(input, -1)` | `["", "", ""]` | `["", "", ""]` | `["", ""]` |
+| Operation or control | Required by this policy | Observed JDK 26.0.2 |
+|---|---|---|
+| Counted forms: successive `find()` | `[0,2)` (`ab`), `[2,3)` (`b`) | `[0,3)` (`abb`) |
+| `(?:b?\|a)?(?:b?\|a)?b`: successive `find()` | `ab`, `b` | `ab`, `b` |
+| `(?:b?\|a)(?:b?\|a)b`: successive `find()` | `ab`, `b` | `ab`, `b` |
+| `(?:b?\|a)*b`: successive `find()` | `abb` | `abb` |
+| Counted forms: `matches()` | Success `[0,3)` | Success `[0,3)` |
+| Counted forms: `replaceAll("X")` | `XX` | `X` |
+| Counted forms: `split(input, -1)` | `["", "", ""]` | `["", ""]` |
 
 The optional-copy control agrees here because it is greedy; this is not a
 general equivalence between flat and nested optional copies. See
@@ -335,18 +346,21 @@ general equivalence between flat and nested optional copies. See
 
 On empty input, the first `find()` matches `[0,0)` in every case:
 
-| Pattern | SafeRE `0b60ee50` group 1 | Required group 1 | Observed JDK 26.0.2 group 1 |
-|---|---|---|---|
-| `()*` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
-| `()*?` | Unmatched, bounds `-1` | Unmatched, bounds `-1` | Unmatched, bounds `-1` |
-| `(?:())*` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
-| `(){0,2}` | Unmatched, bounds `-1` | Empty at `[0,0)` | Unmatched, bounds `-1` |
-| `(?:()){0,2}` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
-| `(){2,}` | Empty at `[0,0)` | Empty at `[0,0)` | Empty at `[0,0)` |
+| Pattern | Required group 1 | Observed JDK 26.0.2 group 1 |
+|---|---|---|
+| `()*` | Empty at `[0,0)` | Unmatched, bounds `-1` |
+| `()*?` | Unmatched, bounds `-1` | Unmatched, bounds `-1` |
+| `(?:())*` | Empty at `[0,0)` | Empty at `[0,0)` |
+| `(){0,2}` | Empty at `[0,0)` | Unmatched, bounds `-1` |
+| `(?:()){0,2}` | Empty at `[0,0)` | Empty at `[0,0)` |
+| `(){2,}` | Empty at `[0,0)` | Empty at `[0,0)` |
 
 Greedy finite repetition accepts its empty copies; greedy unbounded repetition
 accepts one terminal empty iteration. In both cases group 1 participates,
 regardless of the redundant wrapper.
+
+Perl 5.38.2 and Python 3.13.12 both report group 1 at `[0,0)` for `()*`
+and `(){0,2}` on empty input, supporting the chosen participation rule.
 
 The reluctant `()*?` first chooses zero iterations. Its continuation already
 succeeds, so group 1 never participates. In `(){2,}`, two empty iterations are
@@ -397,6 +411,23 @@ claim that every alternative is expensive or cannot be implemented linearly.
 Nested optional suffixes give greedy and reluctant counted repeats the same
 prefix structure. The resulting finite-repeat paths can differ from those
 selected by other engines, as the worked examples show.
+
+This compatibility cost extends beyond Java. For `(?:b?|a){0,2}b` on
+`abb` and `(?:()|\W+){0,2}y` on `" y"`, OpenJDK 26.0.2, Perl 5.38.2,
+and Python 3.13.12 select `abb` as one match and place the empty capture at
+`[1,1)`, rather than this policy's `ab`, `b` sequence and `[0,0)` capture.
+These observations concern those zero-minimum examples; required iterations
+can give different agreements between engines. The difference
+therefore affects whole-match bounds, later searches, replacement, and
+splitting. [.NET's documented rule][dotnet-empty] also stops finite repetition
+after an empty iteration once its minimum is met.
+
+This is not uniform across the PCRE/Perl family: PCRE2 10.42's traditional
+matcher returns this policy's results on both examples. Its [repetition
+manual][pcre2-repeat] describes stopping for unbounded empty iterations;
+it does not establish that every bounded form follows that rule. These
+versioned observations should not be generalized into universal engine
+compatibility claims.
 
 The JDK Javadoc does not expressly require the expansion contract. ECMAScript's
 rejection of optional empty iterations is explicit. A flat optional expansion
@@ -577,3 +608,6 @@ JDK observations alone do not determine a complete nullable-repetition policy.
 [linearjs-paper]: https://aurele-barriere.github.io/papers/linearjs.pdf
 [warblre-paper]: https://arxiv.org/html/2403.11919v3
 [tree-paper]: https://arxiv.org/html/2507.13091v3
+
+[perl-repeat]: https://perldoc.perl.org/perlre#Repeated-Patterns-Matching-a-Zero-length-Substring
+[python-re]: https://docs.python.org/3.13/library/re.html
