@@ -259,6 +259,66 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void quantifiedSingleCharClassUtf8MatchesUsesCharacterClassFastPath() {
+    EnginePathOptions noCharClassFastPath =
+        EnginePathOptions.builder().charClassMatchFastPaths(false).build();
+    List<String> regexes = List.of("[a-zA-Z0-9]+", "\\d*", "\\p{L}+", "[^a]+");
+    List<String> inputs =
+        List.of("", "abcXYZ123", "12345", "12a45", "élanβ", "élan42", "😀", "é😀b", "éab");
+
+    for (String regex : regexes) {
+      Pattern utf8Fast = Pattern.compile(regex);
+      Pattern stringFast = Pattern.compile(regex);
+      Pattern fallback = Pattern.compile(regex, 0, noCharClassFastPath);
+      for (String text : inputs) {
+        Pattern.setDiagnostics(diagnostics);
+        boolean expected = stringFast.matcher(text).matches();
+        OperationDiagnostics stringEvent = operationsFor(stringFast).getLast();
+        Utf8Matcher utf8Matcher = matcher(utf8Fast, text);
+        assertThat(utf8Matcher.matches()).as("/%s/ on '%s'", regex, text).isEqualTo(expected);
+        if (expected) {
+          assertThat(utf8Matcher.start()).isZero();
+          assertThat(utf8Matcher.end()).isEqualTo(text.getBytes(UTF_8).length);
+        }
+        assertThat(operationsFor(utf8Fast).getLast())
+            .satisfies(
+                event -> {
+                  assertThat(event.boundaryStrategy()).isEqualTo(stringEvent.boundaryStrategy());
+                  if (!text.isEmpty() || expected) {
+                    assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+                  }
+                  assertThat(event.forwardDfaSearchCount()).isZero();
+                });
+        Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+        assertThat(fallback.matcher(input(text)).matches()).isEqualTo(expected);
+
+        // Region slicing preserves byte coordinates.
+        byte[] framed = ("!a!" + text + "!a!").getBytes(UTF_8);
+        int start = 3;
+        int end = framed.length - 3;
+        Utf8Matcher sliced = utf8Fast.matcher(Utf8Input.validated(framed)).region(start, end);
+        assertThat(sliced.matches()).isEqualTo(expected);
+        if (expected) {
+          assertThat(sliced.start()).isEqualTo(start);
+          assertThat(sliced.end()).isEqualTo(end);
+        }
+      }
+    }
+
+    // Malformed trusted UTF-8 bytes decode as U+FFFD, matching the fallback engine on both
+    // ASCII-only classes (rejected) and negated classes (accepted when U+FFFD is in the class).
+    byte[] malformed = new byte[] {(byte) 0x80, 'b', (byte) 0xED, (byte) 0xA0, (byte) 0x80};
+    for (String regex : List.of("[a-z]+", "[^a]+", "[^\\uFFFD]+")) {
+      Pattern fast = Pattern.compile(regex);
+      Pattern fallback = Pattern.compile(regex, 0, noCharClassFastPath);
+      boolean expected = fallback.matcher(Utf8Input.trusted(malformed)).matches();
+      assertThat(fast.matcher(Utf8Input.trusted(malformed)).matches())
+          .as("malformed trusted UTF-8 for /%s/", regex)
+          .isEqualTo(expected);
+    }
+  }
+
+  @Test
   void patternBooleanFindReportsNfaForGraphemeSemantics() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("\\Xz");
