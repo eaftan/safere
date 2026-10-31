@@ -207,36 +207,37 @@ history that SafeRE deliberately does not have.
 
 Issue reference: #1051.
 
-SafeRE preserves its existing counted-repeat expansion when the repeated
-operand can match the empty string. An empty iteration can be followed by a
-consuming iteration in a later copy. Observed JDK behavior can instead terminate
-the repetition after an empty iteration and reconsider earlier alternatives,
-selecting a different successful path and different inner capture boundaries.
+This section records current implementation behavior pending the
+[repetition policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md). The selected
+contract now uses minimum-respecting empty-stop for finite and unbounded
+repetition, superseding the earlier choice to preserve finite expansion for
+simplicity. The implementation and its pinned observations still need to be
+aligned with that contract.
 
-For `(?:()|\W+){0,2}y` on `" y"`, both implementations match the entire input at
-`[0,2)` and return `""` for group 1. SafeRE reports group 1 at `[0,0)`: the first
-iteration captures empty and the second consumes the space. JDK 26 reports
-`[1,1)`: the successful path consumes the space before capturing empty. The same
-difference occurs with `{1,2}`. The corresponding unbounded `*` form reports
-`[1,1)` in both implementations.
+For `(?:()|\W+){0,2}y` on `" y"`, both implementations match `[0,2)` and
+return `""` for group 1. Current SafeRE reports `[0,0)`: an empty iteration
+precedes the iteration consuming the space. JDK 26 reports `[1,1)`. The chosen
+policy now also requires `[1,1)`, selecting the consuming iteration before the
+terminal empty capture. The same target applies to `{1,2}`. Exact `{2}` still
+requires two iterations and retains `[0,0)` under the policy, a remaining JDK
+path-selection difference.
 
 The [JDK 26 capture specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
-says that a group retains its most recent successful capture, but does not fully
-specify path selection for nullable counted repetitions. Both results describe
-successful paths consistent with the documented repetition bounds. SafeRE does
-not claim that the JDK violates its specification or that reproducing its
-behavior is impossible in linear time. This is an approved compatibility
-tradeoff: preserving the simpler expansion avoids additional repeat state and
-matching overhead solely to reproduce this underspecified path choice.
+does not fully specify nullable repetition's path selection. The
+[policy appendix](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md#empty-stop-rather-than-finite-expansion)
+records the compatibility comparison and its limits. Empty-stop is the chosen
+interpretation for better observed Java compatibility, subject to linear time,
+stack safety, and implementation performance; exact JDK emulation is not claimed.
 
-`NullableCountedCaptureDivergenceTest` pins the capture boundaries for fresh
-`find()`, `matches()`, and `lookingAt()` operations, repeated finds, and snapshots,
-along with unbounded and reversed-alternative controls. This boundary concerns
-successful-path selection; it is separate from failed-path capture leakage.
+`NullableCountedCaptureDivergenceTest` currently pins the existing implementation's
+capture boundaries. It must be updated with the implementation change rather
+than treated as continued approval of finite expansion. This boundary concerns
+successful-path selection, separately from failed-path capture leakage.
 
-The evaluated compatibility implementation and its performance optimizations are
-preserved at [commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
-for possible future work.
+The previous compatibility implementation and optimizations are preserved at
+[commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
+for reference; their existence does not establish compliance with the selected
+policy or acceptable performance for its eventual implementation.
 
 ## ASCII Word Boundaries around Combining Marks
 
