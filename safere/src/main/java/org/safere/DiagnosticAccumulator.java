@@ -103,6 +103,10 @@ final class DiagnosticAccumulator {
     }
   }
 
+  void replaceCapture(MatchStrategy strategy) {
+    captureStrategy = strategy;
+  }
+
   void participate(MatchStrategy strategy, StrategyRole role) {
     int token = strategyIndex(strategy) * ROLE_COUNT + roleIndex(role);
     int word = token / Long.SIZE;
@@ -174,12 +178,14 @@ final class DiagnosticAccumulator {
               DISPOSITIONS[remainder / REASON_COUNT],
               REASONS[remainder % REASON_COUNT]));
     }
+    MatchStrategy effectiveCaptureStrategy =
+        captureMode == CaptureMode.EAGER ? captureStrategy : MatchStrategy.NONE;
     return new OperationDiagnostics(
         pattern,
         operation,
         outcome,
         boundaryStrategy,
-        captureStrategy,
+        effectiveCaptureStrategy,
         participation,
         decisionSet,
         forwardDfaSearchCount,

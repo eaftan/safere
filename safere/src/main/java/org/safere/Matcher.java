@@ -203,13 +203,16 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticExact(MatchStrategy strategy) {
+  private void diagnosticExact(MatchStrategy strategy, boolean resolvedCaptures) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
       if (diagnosticCaptureSearch) {
         accumulator.capture(strategy);
       } else {
         accumulator.boundary(strategy);
+        if (resolvedCaptures) {
+          accumulator.capture(strategy);
+        }
       }
     }
   }
@@ -230,6 +233,13 @@ public final class Matcher implements MatchResult {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
       accumulator.capture(strategy);
+    }
+  }
+
+  private void diagnosticCaptureOverride(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.replaceCapture(strategy);
     }
   }
 
@@ -377,6 +387,11 @@ public final class Matcher implements MatchResult {
    * existence or read group 0.
    */
   private boolean capturesResolved = true;
+
+  /** Returns whether inner captures are currently resolved without triggering lazy extraction. */
+  boolean capturesResolved() {
+    return capturesResolved;
+  }
 
   private boolean groupZeroResolved = true;
 
@@ -1246,6 +1261,8 @@ public final class Matcher implements MatchResult {
               Nfa.MatchKind.FULL_MATCH,
               false,
               this.groups);
+      diagnosticCaptureOverride(
+          prog.numCaptures() > 1 && nfaResult != null ? MatchStrategy.NFA : MatchStrategy.NONE);
       result = nfaResult;
     }
     return applyFullMatchResult(result);
@@ -2724,7 +2741,7 @@ public final class Matcher implements MatchResult {
         if (speculate) {
           consecutiveWindowFailures = 0;
         }
-        diagnosticExact(MatchStrategy.BIT_STATE);
+        diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
         return result;
       }
@@ -2757,17 +2774,19 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
-    diagnosticExact(MatchStrategy.NFA);
-    return searchNfa(
-        prog,
-        startPos,
-        searchLimit,
-        endPos,
-        nsubmatch,
-        nfaAnchor,
-        nfaKind,
-        preserveOuterEmptyContext,
-        reuseGroups);
+    int[] result =
+        searchNfa(
+            prog,
+            startPos,
+            searchLimit,
+            endPos,
+            nsubmatch,
+            nfaAnchor,
+            nfaKind,
+            preserveOuterEmptyContext,
+            reuseGroups);
+    diagnosticExact(MatchStrategy.NFA, nsubmatch > 1 && result != null);
+    return result;
   }
 
   private int[] searchNfa(
@@ -3223,9 +3242,6 @@ public final class Matcher implements MatchResult {
     Arrays.fill(groups, -1);
 
     diagnosticParticipation(MatchStrategy.ONE_PASS, StrategyRole.CANDIDATE_VERIFICATION);
-    if (parentPattern.numGroups() > 0) {
-      diagnosticCapture(MatchStrategy.ONE_PASS);
-    }
 
     InputScanner scanner = activeScanner();
     int[] result =
@@ -3237,6 +3253,9 @@ public final class Matcher implements MatchResult {
       return text;
     }
     diagnosticBoundary(MatchStrategy.ONE_PASS);
+    if (parentPattern.numGroups() > 0) {
+      diagnosticCapture(MatchStrategy.ONE_PASS);
+    }
     diagnosticIncrementMatchCount();
 
     int matchStart = result[0];
@@ -5399,20 +5418,25 @@ public final class Matcher implements MatchResult {
       }
       if (isStartAnchored) {
         matcher.diagnosticBoundary(MatchStrategy.KEYWORD);
-        if (keywordAlternation.captureGroup > 0) {
+        boolean matched =
+            matcher.text != null
+                ? matcher.matchKeywordAlternationAt(keywordAlternation, 0, numCaptures)
+                : matcher.matchUtf8KeywordAlternationAt(keywordAlternation, 0, numCaptures);
+        if (matched && keywordAlternation.captureGroup > 0) {
           matcher.diagnosticCapture(MatchStrategy.KEYWORD);
         }
-        return matcher.text != null
-            ? matcher.matchKeywordAlternationAt(keywordAlternation, 0, numCaptures)
-            : matcher.matchUtf8KeywordAlternationAt(keywordAlternation, 0, numCaptures);
+        return matched;
       }
       matcher.diagnosticBoundary(MatchStrategy.KEYWORD);
-      if (keywordAlternation.captureGroup > 0) {
+      boolean matched =
+          matcher.text != null
+              ? matcher.findKeywordAlternation(keywordAlternation, matcher.searchFrom, numCaptures)
+              : matcher.findUtf8KeywordAlternation(
+                  keywordAlternation, matcher.searchFrom, numCaptures);
+      if (matched && keywordAlternation.captureGroup > 0) {
         matcher.diagnosticCapture(MatchStrategy.KEYWORD);
       }
-      return matcher.text != null
-          ? matcher.findKeywordAlternation(keywordAlternation, matcher.searchFrom, numCaptures)
-          : matcher.findUtf8KeywordAlternation(keywordAlternation, matcher.searchFrom, numCaptures);
+      return matched;
     }
 
     @Override
@@ -5535,9 +5559,6 @@ public final class Matcher implements MatchResult {
         return matcher.applyFailedMatchResult();
       }
       matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
-      if (matcher.parentPattern.numGroups() > 0) {
-        matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
-      }
       int[] result =
           matcher
               .parentPattern
@@ -5549,6 +5570,9 @@ public final class Matcher implements MatchResult {
                   false,
                   numCaptures,
                   matcher.groups);
+      if (result != null && matcher.parentPattern.numGroups() > 0) {
+        matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
+      }
       return matcher.applyFullMatchResult(result);
     }
 
@@ -5562,13 +5586,13 @@ public final class Matcher implements MatchResult {
       if (pattern.canOnePassPrimary()) {
         OnePass onePass = pattern.onePass();
         matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
-        if (pattern.numGroups() > 0) {
-          matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
-        }
         int[] result =
             matcher.text != null
                 ? onePass.search(matcher.text, true, numCaptures, matcher.groups)
                 : onePass.search(matcher.activeScanner(), true, numCaptures, matcher.groups);
+        if (result != null && pattern.numGroups() > 0) {
+          matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
+        }
         return matcher.applyFullMatchResult(result);
       }
       return matcher.matchesCore();
@@ -5587,14 +5611,14 @@ public final class Matcher implements MatchResult {
           && !prog.anchorEnd()
           && !prog.dollarAnchorEnd()) {
         matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
-        if (pattern.numGroups() > 0) {
-          matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
-        }
         OnePass onePass = pattern.onePass();
         int[] result =
             matcher.text != null
                 ? onePass.search(matcher.text, false, numCaptures, matcher.groups)
                 : onePass.search(matcher.activeScanner(), false, numCaptures, matcher.groups);
+        if (result != null && pattern.numGroups() > 0) {
+          matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
+        }
         return matcher.applyFullMatchResult(result);
       }
       return matcher.lookingAtCore();

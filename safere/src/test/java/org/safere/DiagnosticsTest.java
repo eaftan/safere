@@ -1121,6 +1121,312 @@ class DiagnosticsTest {
             });
   }
 
+  @Test
+  void primaryBitStateAndNfaCaptureSearchesReportEagerCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern nullableLoopBitState = Pattern.compile("(?:(a)?)*b");
+    Matcher matchesMatcher = nullableLoopBitState.matcher("aab");
+    assertThat(matchesMatcher.matches()).isTrue();
+    assertThat(matchesMatcher.capturesResolved()).isTrue();
+
+    Matcher lookingAtMatcher = nullableLoopBitState.matcher("aabx");
+    assertThat(lookingAtMatcher.lookingAt()).isTrue();
+    assertThat(lookingAtMatcher.capturesResolved()).isTrue();
+
+    Pattern regionBitState = Pattern.compile("(a+?)b");
+    Matcher regionMatcher = regionBitState.matcher("xaabx").region(1, 4);
+    assertThat(regionMatcher.find()).isTrue();
+    assertThat(regionMatcher.capturesResolved()).isTrue();
+
+    assertThat(operationsFor(nullableLoopBitState))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+    assertThat(operationsFor(regionBitState))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+
+    Pattern nfaPattern = Pattern.compile("(\\X)b");
+    Matcher nfaMatches = nfaPattern.matcher("ab");
+    assertThat(nfaMatches.matches()).isTrue();
+    assertThat(nfaMatches.capturesResolved()).isTrue();
+
+    Matcher nfaFind = nfaPattern.matcher("xxab");
+    assertThat(nfaFind.find()).isTrue();
+    assertThat(nfaFind.capturesResolved()).isTrue();
+
+    assertThat(operationsFor(nfaPattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+  }
+
+  @Test
+  void deferredExactBoundarySearchesKeepDeferredCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+
+    EnginePathOptions noDfa = EnginePathOptions.builder().dfa(false).build();
+    Pattern lazyFallbackPattern = Pattern.compile("(a+?)b", 0, noDfa);
+    Matcher lazyFallbackMatcher = lazyFallbackPattern.matcher("xxaab");
+    assertThat(lazyFallbackMatcher.find()).isTrue();
+    assertThat(lazyFallbackMatcher.capturesResolved()).isFalse();
+
+    assertThat(operationsFor(lazyFallbackPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+    assertThat(lazyFallbackMatcher.group(1)).isEqualTo("aa");
+
+    Pattern endAnchoredPattern = Pattern.compile("foo(a+?)b$");
+    Matcher endAnchoredMatcher = endAnchoredPattern.matcher("zzfooaab");
+    assertThat(endAnchoredMatcher.find()).isTrue();
+    assertThat(endAnchoredMatcher.capturesResolved()).isFalse();
+
+    assertThat(operationsFor(endAnchoredPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+    assertThat(endAnchoredMatcher.group(1)).isEqualTo("aa");
+  }
+
+  @Test
+  void speculativeCaptureCandidateMissRestoresAttributionWhenDfaFindsLaterMatch() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("foo(a+)b");
+
+    Matcher warmup = pattern.matcher("fooaab");
+    assertThat(warmup.find()).isTrue();
+    assertThat(warmup.group(1)).isEqualTo("aa");
+    diagnostics.operations.clear();
+
+    Matcher speculativeHit = pattern.matcher("xxfooaab");
+    assertThat(speculativeHit.find()).isTrue();
+    assertThat(speculativeHit.capturesResolved()).isTrue();
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+    diagnostics.operations.clear();
+
+    Matcher speculativeMissThenDfa = pattern.matcher("fooxxx xxfooaab");
+    assertThat(speculativeMissThenDfa.find()).isTrue();
+    assertThat(speculativeMissThenDfa.capturesResolved()).isFalse();
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+    assertThat(speculativeMissThenDfa.group(1)).isEqualTo("aa");
+  }
+
+  @Test
+  void matchesTrailingNewlineNfaFallbackOverridesCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+    EnginePathOptions noDfa =
+        EnginePathOptions.builder().dfa(false).onePass(false).shiftDfa(false).build();
+
+    Pattern fullMatchViaNfa = Pattern.compile("^(a+)(\\n??)$", 0, noDfa);
+    Matcher matched = fullMatchViaNfa.matcher("aa\n");
+    assertThat(matched.matches()).isTrue();
+    assertThat(matched.group(1)).isEqualTo("aa");
+    assertThat(matched.group(2)).isEqualTo("\n");
+    assertThat(operationsFor(fullMatchViaNfa))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+
+    Pattern rejectedViaNfa = Pattern.compile("^(a+?)$", 0, noDfa);
+    Matcher rejected = rejectedViaNfa.matcher("aa\n");
+    assertThat(rejected.matches()).isFalse();
+    assertThat(operationsFor(rejectedViaNfa))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+  }
+
+  @Test
+  void failedOnePassAndKeywordOperationsReportNoCaptureStrategy() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern onePassPattern = Pattern.compile("^([a-z]+):(\\d+)$");
+    assertThat(onePassPattern.matcher("abc:nope").matches()).isFalse();
+    assertThat(onePassPattern.matcher("abc:nope").find()).isFalse();
+    assertThat(onePassPattern.matcher("abc:nope").replaceFirst("$1")).isEqualTo("abc:nope");
+    assertThat(onePassPattern.matcher("abc:nope").replaceAll("$1")).isEqualTo("abc:nope");
+
+    Pattern onePassPrefixPattern = Pattern.compile("^([a-z]+):(\\d+)");
+    assertThat(onePassPrefixPattern.matcher("abc:nope").lookingAt()).isFalse();
+
+    assertThat(operationsFor(onePassPattern))
+        .hasSize(4)
+        .allSatisfy(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+    assertThat(operationsFor(onePassPrefixPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+
+    Pattern anchoredKeywordPattern = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    assertThat(anchoredKeywordPattern.matcher("nothing matching here").find()).isFalse();
+    Pattern unanchoredKeywordPattern = Pattern.compile("(?i)\\b(you|your)\\b");
+    assertThat(unanchoredKeywordPattern.matcher("nothing matching here").find()).isFalse();
+
+    for (Pattern pattern : List.of(anchoredKeywordPattern, unanchoredKeywordPattern)) {
+      assertThat(operationsFor(pattern))
+          .singleElement()
+          .satisfies(
+              event -> {
+                assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.KEYWORD);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+                assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+              });
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("captureAttributionAlignmentCases")
+  void captureModeAndCaptureStrategyAgreeWithMatcherStateAcrossOperations(
+      String regex, String matchingInput, String nonMatchingInput) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(regex);
+    boolean hasCaptures = pattern.analysis().captureCount() > 0;
+
+    for (String input : List.of(matchingInput, nonMatchingInput)) {
+      diagnostics.operations.clear();
+      Matcher mMatches = pattern.matcher(input);
+      boolean matched = mMatches.matches();
+      assertSingleOperationCaptureAgreement(
+          operationsFor(pattern), matched, hasCaptures, mMatches.capturesResolved());
+
+      diagnostics.operations.clear();
+      Matcher mLookingAt = pattern.matcher(input);
+      boolean lookedAt = mLookingAt.lookingAt();
+      assertSingleOperationCaptureAgreement(
+          operationsFor(pattern), lookedAt, hasCaptures, mLookingAt.capturesResolved());
+
+      diagnostics.operations.clear();
+      Matcher mFind = pattern.matcher(input);
+      boolean found = mFind.find();
+      assertSingleOperationCaptureAgreement(
+          operationsFor(pattern), found, hasCaptures, mFind.capturesResolved());
+      if (found && hasCaptures) {
+        mFind.group(1);
+        diagnostics.operations.clear();
+        Matcher mPostDemandFind = pattern.matcher(input);
+        boolean foundAgain = mPostDemandFind.find();
+        assertSingleOperationCaptureAgreement(
+            operationsFor(pattern), foundAgain, hasCaptures, mPostDemandFind.capturesResolved());
+      }
+
+      String captureReplacement = hasCaptures ? "$1" : "x";
+      for (String replacement : List.of("x", captureReplacement)) {
+        diagnostics.operations.clear();
+        assertThat(pattern.matcher(input).replaceFirst(replacement)).isNotNull();
+        assertCaptureStrategyMatchesMode(operationsFor(pattern));
+
+        diagnostics.operations.clear();
+        assertThat(pattern.matcher(input).replaceAll(replacement)).isNotNull();
+        assertCaptureStrategyMatchesMode(operationsFor(pattern));
+      }
+    }
+  }
+
+  private static Stream<Arguments> captureAttributionAlignmentCases() {
+    return Stream.of(
+        Arguments.of("^([a-z]+):(\\d+)$", "abc:123", "abc:nope"),
+        Arguments.of("([a-z]+):(\\d+)", "abc:123", "nope"),
+        Arguments.of("(a+?)b", "aab", "zzz"),
+        Arguments.of("(a+|ab)c", "abc", "zzz"),
+        Arguments.of("foo(a+)b", "xxfooaab", "fooxxx"),
+        Arguments.of("(?is).*\\b(you|your)\\b.*", "here is your token", "nothing"),
+        Arguments.of("(\\X)b", "ab", "zz"),
+        Arguments.of("\\d{4}-\\d{2}-\\d{2}", "2026-10-30", "nope"));
+  }
+
+  private static void assertSingleOperationCaptureAgreement(
+      List<OperationDiagnostics> events,
+      boolean matched,
+      boolean hasCaptures,
+      boolean matcherCapturesResolved) {
+    assertCaptureStrategyMatchesMode(events);
+    assertThat(events)
+        .singleElement()
+        .satisfies(
+            event -> {
+              if (!matched || !hasCaptures) {
+                assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              } else {
+                assertThat(event.captureMode() == CaptureMode.EAGER)
+                    .isEqualTo(matcherCapturesResolved);
+              }
+            });
+  }
+
+  private static void assertCaptureStrategyMatchesMode(List<OperationDiagnostics> events) {
+    assertThat(events)
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.captureStrategy() != MatchStrategy.NONE)
+                  .isEqualTo(event.captureMode() == CaptureMode.EAGER);
+              if (event.outcome() == MatchOutcome.NO_MATCH
+                  || event.pattern().analysis().captureCount() == 0) {
+                assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              }
+            });
+  }
+
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
     long patternId = pattern.patternId();
     return diagnostics.operations.stream()
