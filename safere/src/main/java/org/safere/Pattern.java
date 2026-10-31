@@ -12,7 +12,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
-import java.lang.ref.SoftReference;
+import java.lang.invoke.VarHandle;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -204,18 +204,14 @@ public final class Pattern implements Serializable {
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /**
-   * Per-thread cached execution state. Shared across all Matchers created from this Pattern within
-   * the same thread, so warm DFA state caches and BitState/Nfa scratch buffers persist across the
-   * common {@code pattern.matcher(t).find()} idiom.
+   * Execution engines owned by one search at a time: a {@link Matcher}, or one matcher-free call.
    *
-   * <p>The cache is held via a {@link SoftReference} (a bootstrap-loaded JDK class) so that when
-   * SafeRE is loaded in a child {@link ClassLoader} and patterns are held in {@code static final}
-   * fields, the {@link ThreadLocal} entry value in long-lived threads does not strongly reference
-   * SafeRE classes and pin the child {@code ClassLoader}.
+   * <p>Each engine is built lazily on first need. An owner takes an idle bundle from the pattern or
+   * builds an empty one, and gives it back when its search operation returns. The bundle is never
+   * shared, so a Matcher may move between threads, and no thread-indexed structure holds SafeRE
+   * objects that could pin a child {@link ClassLoader}.
    */
-  static final class ThreadCache {
-    // Use the ID rather than retaining the Thread and its other thread-local values.
-    final long ownerThreadId = Thread.currentThread().threadId();
+  static final class Engines {
     BitState bitState;
     Nfa nfa;
     Dfa forwardFirstMatchDfa;
@@ -223,10 +219,46 @@ public final class Pattern implements Serializable {
     Dfa reverseDfa;
   }
 
-  // Per-Pattern ThreadLocal is intentional: each Pattern caches its own DFA/BitState/Nfa state per
-  // thread, so warm state caches persist across the common pattern.matcher(t).find() idiom.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<SoftReference<ThreadCache>> threadCache = new ThreadLocal<>();
+  /**
+   * The engines no search currently owns, or null. Until searches overlap this is the only slot.
+   * Once they do, {@link #engineStripes} takes over, and this slot holds a bundle whose owner's
+   * stripe was taken.
+   */
+  private transient volatile Engines idleEngines;
+
+  /**
+   * Idle engines per thread hash, or null until two bundles are idle at once. Created on the first
+   * release that finds {@link #idleEngines} taken, as {@link java.util.concurrent.atomic.LongAdder}
+   * creates its cells on the first contended update, so a pattern used by one thread at a time pays
+   * for one field. Stripe {@code i} lives at index {@code i * STRIPE_PAD}, so stripes that
+   * different cores update sit on different cache lines.
+   */
+  private transient volatile Engines[] engineStripes;
+
+  /** log2 of the stripe count: the next power of two of the processor count, from 2 to 16. */
+  private static final int STRIPE_BITS =
+      Math.min(
+          4,
+          Math.max(
+              1,
+              32 - Integer.numberOfLeadingZeros(Runtime.getRuntime().availableProcessors() - 1)));
+
+  /** References per 64-byte cache line with compressed oops. */
+  private static final int STRIPE_PAD = 16;
+
+  private static final VarHandle IDLE_ENGINES;
+  private static final VarHandle ENGINE_STRIPES;
+  private static final VarHandle STRIPE = MethodHandles.arrayElementVarHandle(Engines[].class);
+
+  static {
+    try {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      IDLE_ENGINES = lookup.findVarHandle(Pattern.class, "idleEngines", Engines.class);
+      ENGINE_STRIPES = lookup.findVarHandle(Pattern.class, "engineStripes", Engines[].class);
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
 
   /** Holder for OnePass analysis results. */
   private record OnePassAnalysis(
@@ -647,58 +679,64 @@ public final class Pattern implements Serializable {
         }
       }
     }
-    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, null);
-    if (endAnchoredStart == -1) {
-      return false;
-    }
-    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
-      return true;
-    }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
-    if (findRejectPrefilter != null
-        && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
-      return false;
-    }
-    int searchStart = 0;
-    boolean startPositionPreselected = false;
-    if (enginePathOptions.startAcceleration()
-        && utf8StartAccelerator != null
-        && !prog.anchorStart()) {
-      searchStart = findNextUtf8StartCandidate(scanner, null);
-      if (searchStart < 0) {
-        return false;
-      }
-      startPositionPreselected = true;
-    }
-    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
-      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, null, false);
+    Engines engines = acquireEngines();
+    try {
+      int endAnchoredStart = endAnchoredSearchStart(engines, scanner, 0, false, null);
       if (endAnchoredStart == -1) {
         return false;
       }
-      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+      if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart)) {
         return true;
       }
+      RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+      if (findRejectPrefilter != null
+          && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
+        return false;
+      }
+      int searchStart = 0;
+      boolean startPositionPreselected = false;
+      if (enginePathOptions.startAcceleration()
+          && utf8StartAccelerator != null
+          && !prog.anchorStart()) {
+        searchStart = findNextUtf8StartCandidate(engines, scanner, null);
+        if (searchStart < 0) {
+          return false;
+        }
+        startPositionPreselected = true;
+      }
+      if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+        endAnchoredStart =
+            endAnchoredSearchStart(engines, scanner, searchStart, false, null, false);
+        if (endAnchoredStart == -1) {
+          return false;
+        }
+        if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart)) {
+          return true;
+        }
+      }
+      // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on,
+      // so end-anchored programs that the reverse probe could not settle avoid the NFA here too.
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa(engines)
+              .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+      if (result != null) {
+        return result.matched();
+      }
+      return Nfa.search(
+              prog,
+              scanner,
+              searchStart,
+              length,
+              length,
+              0,
+              Nfa.Anchor.UNANCHORED,
+              Nfa.MatchKind.FIRST_MATCH,
+              0,
+              null)
+          != null;
+    } finally {
+      releaseEngines(engines);
     }
-    // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
-    // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
-    Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
-    if (result != null) {
-      return result.matched();
-    }
-    return Nfa.search(
-            prog,
-            scanner,
-            searchStart,
-            length,
-            length,
-            0,
-            Nfa.Anchor.UNANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
-            0,
-            null)
-        != null;
   }
 
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
@@ -739,70 +777,76 @@ public final class Pattern implements Serializable {
         }
       }
     }
-    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, diagnostics);
-    if (endAnchoredStart == -1) {
-      return false;
-    }
-    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
-      return true;
-    }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
-    if (findRejectPrefilter != null
-        && findRejectPrefilter.canRejectWithDiagnostics(
-            scanner, 0, enginePathOptions, diagnostics)) {
-      return false;
-    }
-    int searchStart = 0;
-    boolean startPositionPreselected = false;
-    if (enginePathOptions.startAcceleration()
-        && utf8StartAccelerator != null
-        && !prog.anchorStart()) {
-      searchStart = findNextUtf8StartCandidate(scanner, diagnostics);
-      if (searchStart < 0) {
-        return false;
-      }
-      startPositionPreselected = true;
-    }
-    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
-      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, diagnostics, false);
+    Engines engines = acquireEngines();
+    try {
+      int endAnchoredStart = endAnchoredSearchStart(engines, scanner, 0, false, diagnostics);
       if (endAnchoredStart == -1) {
         return false;
       }
-      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
+      if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart, diagnostics)) {
         return true;
       }
+      RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+      if (findRejectPrefilter != null
+          && findRejectPrefilter.canRejectWithDiagnostics(
+              scanner, 0, enginePathOptions, diagnostics)) {
+        return false;
+      }
+      int searchStart = 0;
+      boolean startPositionPreselected = false;
+      if (enginePathOptions.startAcceleration()
+          && utf8StartAccelerator != null
+          && !prog.anchorStart()) {
+        searchStart = findNextUtf8StartCandidate(engines, scanner, diagnostics);
+        if (searchStart < 0) {
+          return false;
+        }
+        startPositionPreselected = true;
+      }
+      if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+        endAnchoredStart =
+            endAnchoredSearchStart(engines, scanner, searchStart, false, diagnostics, false);
+        if (endAnchoredStart == -1) {
+          return false;
+        }
+        if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart, diagnostics)) {
+          return true;
+        }
+      }
+      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+      diagnostics.incrementForwardDfaSearchCount();
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa(engines)
+              .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+      if (result != null) {
+        diagnostics.boundary(MatchStrategy.DFA);
+        return result.matched();
+      }
+      diagnostics.decision(
+          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+      boolean matched =
+          Nfa.search(
+                  prog,
+                  scanner,
+                  searchStart,
+                  length,
+                  length,
+                  0,
+                  Nfa.Anchor.UNANCHORED,
+                  Nfa.MatchKind.FIRST_MATCH,
+                  0,
+                  null)
+              != null;
+      diagnostics.boundary(MatchStrategy.NFA);
+      return matched;
+    } finally {
+      releaseEngines(engines);
     }
-    diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-    diagnostics.incrementForwardDfaSearchCount();
-    Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
-    if (result != null) {
-      diagnostics.boundary(MatchStrategy.DFA);
-      return result.matched();
-    }
-    diagnostics.decision(
-        MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
-    boolean matched =
-        Nfa.search(
-                prog,
-                scanner,
-                searchStart,
-                length,
-                length,
-                0,
-                Nfa.Anchor.UNANCHORED,
-                Nfa.MatchKind.FIRST_MATCH,
-                0,
-                null)
-            != null;
-    diagnostics.boundary(MatchStrategy.NFA);
-    return matched;
   }
 
   /** Shares candidate selection between the diagnostic and non-diagnostic matcher-free paths. */
   private int findNextUtf8StartCandidate(
-      Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
+      Engines engines, Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     MatchStrategy strategy = utf8StartAccelerator.policy().strategy();
     if (diagnostics != null && strategy != null) {
       diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
@@ -818,7 +862,7 @@ public final class Pattern implements Serializable {
           diagnostics.incrementForwardDfaSearchCount();
         }
         Dfa.SearchResult result =
-            forwardFirstMatchDfa().doSearch(scanner, innerMatch, false, false, true);
+            forwardFirstMatchDfa(engines).doSearch(scanner, innerMatch, false, false, true);
         if (result != null && !result.matched()) {
           if (diagnostics != null) {
             diagnostics.boundary(MatchStrategy.DFA);
@@ -853,15 +897,17 @@ public final class Pattern implements Serializable {
    * to ordinary search.
    */
   int endAnchoredSearchStart(
+      Engines engines,
       InputScanner scanner,
       int searchFrom,
       boolean leftmostStart,
       DiagnosticAccumulator diagnostics) {
-    return endAnchoredSearchStart(scanner, searchFrom, leftmostStart, diagnostics, true);
+    return endAnchoredSearchStart(engines, scanner, searchFrom, leftmostStart, diagnostics, true);
   }
 
   /** A deferred probe may retry once after ordinary rejection and start acceleration. */
   int endAnchoredSearchStart(
+      Engines engines,
       InputScanner scanner,
       int searchFrom,
       boolean leftmostStart,
@@ -891,7 +937,7 @@ public final class Pattern implements Serializable {
         || reverseProgram.numLoopRegs() != 0) {
       return END_ANCHORED_SEARCH_FALLBACK;
     }
-    Dfa reverse = reverseDfa();
+    Dfa reverse = reverseDfa(engines);
     if (reverse == null) {
       return END_ANCHORED_SEARCH_FALLBACK;
     }
@@ -984,23 +1030,23 @@ public final class Pattern implements Serializable {
    * its bitmap, as {@code Matcher}'s end-anchored verification does, and the NFA otherwise or when
    * BitState exceeds its work budget.
    */
-  private boolean findAt(InputScanner scanner, int start) {
-    return findAt(scanner, start, null);
+  private boolean findAt(Engines engines, InputScanner scanner, int start) {
+    return findAt(engines, scanner, start, null);
   }
 
-  private boolean findAt(InputScanner scanner, int start, DiagnosticAccumulator diagnostics) {
+  private boolean findAt(
+      Engines engines, InputScanner scanner, int start, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
     int maxBitStateLen = BitState.maxTextSize(prog);
     if (enginePathOptions.bitState() && maxBitStateLen >= 0 && length - start <= maxBitStateLen) {
       if (diagnostics != null) {
         diagnostics.participate(MatchStrategy.BIT_STATE, StrategyRole.CANDIDATE_VERIFICATION);
       }
-      ThreadCache cache = getOrCreateThreadCache();
       BitState bitState =
           BitState.getOrCreate(
-              borrowBitState(cache), prog, scanner, start, length, 2, false, prog.anchorEnd());
+              borrowBitState(engines), prog, scanner, start, length, 2, false, prog.anchorEnd());
       int[] result = bitState.doSearch(start, start, true);
-      returnBitState(cache, bitState);
+      returnBitState(engines, bitState);
       if (!bitState.budgetExceeded()) {
         if (result != null && diagnostics != null) {
           diagnostics.boundary(MatchStrategy.BIT_STATE);
@@ -1280,57 +1326,63 @@ public final class Pattern implements Serializable {
         }
       }
     }
-    int endAnchoredStart = endAnchoredSearchStart(scanner, 0, false, null);
-    if (endAnchoredStart == -1) {
-      return false;
-    }
-    if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
-      return true;
-    }
-    if (rejectPrefilter != null
-        && rejectPrefilter.canReject(scanner, input, 0, enginePathOptions)) {
-      return false;
-    }
-    int searchStart = 0;
-    boolean startPositionPreselected = false;
-    if (enginePathOptions.startAcceleration()
-        && stringStartAccelerator != null
-        && !prog.anchorStart()) {
-      searchStart = findNextStringStartCandidate(scanner, input);
-      if (searchStart < 0) {
-        return false;
-      }
-      startPositionPreselected = true;
-    }
-    if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
-      endAnchoredStart = endAnchoredSearchStart(scanner, searchStart, false, null, false);
+    Engines engines = acquireEngines();
+    try {
+      int endAnchoredStart = endAnchoredSearchStart(engines, scanner, 0, false, null);
       if (endAnchoredStart == -1) {
         return false;
       }
-      if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
+      if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart)) {
         return true;
       }
+      if (rejectPrefilter != null
+          && rejectPrefilter.canReject(scanner, input, 0, enginePathOptions)) {
+        return false;
+      }
+      int searchStart = 0;
+      boolean startPositionPreselected = false;
+      if (enginePathOptions.startAcceleration()
+          && stringStartAccelerator != null
+          && !prog.anchorStart()) {
+        searchStart = findNextStringStartCandidate(engines, scanner, input);
+        if (searchStart < 0) {
+          return false;
+        }
+        startPositionPreselected = true;
+      }
+      if (endAnchoredStart == END_ANCHORED_SEARCH_DEFERRED) {
+        endAnchoredStart =
+            endAnchoredSearchStart(engines, scanner, searchStart, false, null, false);
+        if (endAnchoredStart == -1) {
+          return false;
+        }
+        if (endAnchoredStart >= 0 && findAt(engines, scanner, endAnchoredStart)) {
+          return true;
+        }
+      }
+      // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on,
+      // so end-anchored programs that the reverse probe could not settle avoid the NFA here too.
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa(engines)
+              .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+      if (result != null) {
+        return result.matched();
+      }
+      return Nfa.search(
+              prog,
+              scanner,
+              searchStart,
+              length,
+              length,
+              0,
+              Nfa.Anchor.UNANCHORED,
+              Nfa.MatchKind.FIRST_MATCH,
+              0,
+              null)
+          != null;
+    } finally {
+      releaseEngines(engines);
     }
-    // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
-    // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
-    Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
-    if (result != null) {
-      return result.matched();
-    }
-    return Nfa.search(
-            prog,
-            scanner,
-            searchStart,
-            length,
-            length,
-            0,
-            Nfa.Anchor.UNANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
-            0,
-            null)
-        != null;
   }
 
   /**
@@ -1339,7 +1391,8 @@ public final class Pattern implements Serializable {
    * leading expansion is first verified at its inner candidate, as in {@link
    * #findNextUtf8StartCandidate}.
    */
-  private int findNextStringStartCandidate(StringInputScanner scanner, String text) {
+  private int findNextStringStartCandidate(
+      Engines engines, StringInputScanner scanner, String text) {
     boolean unixLines = prog.lineStartUnixLines();
     if (stringStartAccelerator instanceof StringStartAccelerator.LeadingExpansion le
         && le.canVerifyAtInner()) {
@@ -1353,7 +1406,7 @@ public final class Pattern implements Serializable {
       // With zero repetitions and no leading assertions, an unanchored rejection from the inner
       // candidate also rejects every expanded start.
       Dfa.SearchResult result =
-          forwardFirstMatchDfa().doSearch(scanner, innerMatch, false, false, true);
+          forwardFirstMatchDfa(engines).doSearch(scanner, innerMatch, false, false, true);
       if (result != null && !result.matched()) {
         return -1;
       }
@@ -1481,69 +1534,104 @@ public final class Pattern implements Serializable {
     }
   }
 
-  private ThreadCache existingThreadCache() {
-    SoftReference<ThreadCache> ref = threadCache.get();
-    return ref != null ? ref.get() : null;
+  /**
+   * Takes idle engines: the current thread's stripe first once stripes exist, then the shared slot.
+   * Builds an empty bundle when neither holds one.
+   */
+  Engines acquireEngines() {
+    Engines[] stripes = engineStripes;
+    Engines engines = null;
+    if (stripes != null) {
+      engines = (Engines) STRIPE.getAndSet(stripes, stripeIndex(), (Engines) null);
+      if (engines == null && idleEngines == null) {
+        return new Engines();
+      }
+    }
+    if (engines == null) {
+      engines = (Engines) IDLE_ENGINES.getAndSet(this, (Engines) null);
+    }
+    return engines != null ? engines : new Engines();
   }
 
   /**
-   * Returns the current thread's cache, creating it if needed. A {@link Matcher} fetches this once
-   * and passes it to the cache accessors, so each lookup does not repeat the {@link ThreadLocal}
-   * and {@link SoftReference} dereferences.
+   * Makes {@code engines} idle again: in the current thread's stripe once stripes exist, else in
+   * the shared slot. When the shared slot is taken, a second bundle is idle at once, which creates
+   * the stripes. Drops the bundle when every place it may go is taken.
    */
-  ThreadCache getOrCreateThreadCache() {
-    ThreadCache cache = existingThreadCache();
-    if (cache == null) {
-      cache = new ThreadCache();
-      threadCache.set(new SoftReference<>(cache));
+  void releaseEngines(Engines engines) {
+    Engines[] stripes = engineStripes;
+    if (stripes == null) {
+      if (IDLE_ENGINES.compareAndSet(this, (Engines) null, engines)) {
+        return;
+      }
+      stripes = createStripes();
     }
-    return cache;
+    if (!STRIPE.compareAndSet(stripes, stripeIndex(), (Engines) null, engines)) {
+      IDLE_ENGINES.compareAndSet(this, (Engines) null, engines);
+    }
   }
 
-  /** Returns the thread-local cached BitState, or null if none has been cached yet. */
+  private Engines[] createStripes() {
+    Engines[] created = new Engines[STRIPE_PAD << STRIPE_BITS];
+    Engines[] witness =
+        (Engines[]) ENGINE_STRIPES.compareAndExchange(this, (Engines[]) null, created);
+    return witness != null ? witness : created;
+  }
+
+  /** Spreads sequential thread IDs over the stripes by Fibonacci hashing. */
+  private static int stripeIndex() {
+    long id = Thread.currentThread().threadId();
+    return (int) ((id * 0x9E3779B97F4A7C15L) >>> (64 - STRIPE_BITS)) * STRIPE_PAD;
+  }
+
+  /**
+   * Returns the idle bundle, making an empty one idle first if none is. Unlike {@link
+   * #acquireEngines()}, the bundle stays idle, so repeated calls observe the same engines. For
+   * tests on one thread only.
+   */
+  Engines idleEnginesForTesting() {
+    Engines engines = idleEngines;
+    if (engines == null) {
+      IDLE_ENGINES.compareAndSet(this, (Engines) null, new Engines());
+      engines = idleEngines;
+    }
+    return engines;
+  }
+
+  /** Returns the idle cached BitState, or null if none has been cached yet. For tests. */
   BitState borrowBitState() {
-    ThreadCache cache = existingThreadCache();
-    if (cache == null) {
-      return null;
-    }
-    return borrowBitState(cache);
+    Engines engines = idleEngines;
+    return engines == null ? null : borrowBitState(engines);
   }
 
-  static BitState borrowBitState(ThreadCache cache) {
+  static BitState borrowBitState(Engines cache) {
     BitState bs = cache.bitState;
     cache.bitState = null; // take ownership
     return bs;
   }
 
-  /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
+  /** Returns a BitState to the idle engines. For tests. */
   void returnBitState(BitState bs) {
-    returnBitState(getOrCreateThreadCache(), bs);
+    returnBitState(idleEnginesForTesting(), bs);
   }
 
-  static void returnBitState(ThreadCache cache, BitState bs) {
+  static void returnBitState(Engines cache, BitState bs) {
     bs.releaseInput();
     cache.bitState = bs;
   }
 
   Nfa borrowNfa() {
-    ThreadCache cache = existingThreadCache();
-    if (cache == null) {
-      return null;
-    }
-    return borrowNfa(cache);
+    Engines engines = idleEngines;
+    return engines == null ? null : borrowNfa(engines);
   }
 
-  static Nfa borrowNfa(ThreadCache cache) {
+  static Nfa borrowNfa(Engines cache) {
     Nfa nfa = cache.nfa;
     cache.nfa = null;
     return nfa;
   }
 
-  void returnNfa(Nfa nfa) {
-    returnNfa(getOrCreateThreadCache(), nfa);
-  }
-
-  static void returnNfa(ThreadCache cache, Nfa nfa) {
+  static void returnNfa(Engines cache, Nfa nfa) {
     nfa.releaseInputContext();
     cache.nfa = nfa;
   }
@@ -1551,11 +1639,7 @@ public final class Pattern implements Serializable {
   /** Maximum number of DFA states before the DFA bails out. */
   static final int MAX_DFA_STATES = 10_000;
 
-  /**
-   * Returns the thread-local cached forward DFA, creating it on first access. The DFA state cache
-   * persists across Matcher instances, so repeated {@code pattern.matcher(t).find()} calls benefit
-   * from warm DFA transitions.
-   */
+  /** Returns the flattened program the forward DFAs run, creating it on first access. */
   Prog flatProg() {
     Prog p = flatProg;
     if (p == null && enginePathOptions.dfa()) {
@@ -1590,10 +1674,10 @@ public final class Pattern implements Serializable {
   }
 
   Dfa forwardFirstMatchDfa() {
-    return forwardFirstMatchDfa(getOrCreateThreadCache());
+    return forwardFirstMatchDfa(idleEnginesForTesting());
   }
 
-  Dfa forwardFirstMatchDfa(ThreadCache cache) {
+  Dfa forwardFirstMatchDfa(Engines cache) {
     Dfa dfa = cache.forwardFirstMatchDfa;
     if (dfa == null) {
       dfa =
@@ -1611,10 +1695,10 @@ public final class Pattern implements Serializable {
   }
 
   Dfa forwardLongestMatchDfa() {
-    return forwardLongestMatchDfa(getOrCreateThreadCache());
+    return forwardLongestMatchDfa(idleEnginesForTesting());
   }
 
-  Dfa forwardLongestMatchDfa(ThreadCache cache) {
+  Dfa forwardLongestMatchDfa(Engines cache) {
     Dfa dfa = cache.forwardLongestMatchDfa;
     if (dfa == null) {
       dfa =
@@ -1631,14 +1715,14 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the thread-local cached reverse DFA, creating it on first access. Triggers lazy
+   * Returns the idle bundle's reverse DFA, creating it on first access. For tests. Triggers lazy
    * compilation of the reverse program if needed.
    */
   Dfa reverseDfa() {
-    return reverseDfa(getOrCreateThreadCache());
+    return reverseDfa(idleEnginesForTesting());
   }
 
-  Dfa reverseDfa(ThreadCache cache) {
+  Dfa reverseDfa(Engines cache) {
     Dfa dfa = cache.reverseDfa;
     if (dfa == null) {
       Prog rp = flatReverseDfaProg();
@@ -1652,7 +1736,7 @@ public final class Pattern implements Serializable {
 
   /** Returns the currently cached forward first-match DFA without creating it. For tests. */
   Dfa cachedForwardFirstMatchDfa() {
-    ThreadCache cache = existingThreadCache();
+    Engines cache = idleEngines;
     return cache != null ? cache.forwardFirstMatchDfa : null;
   }
 

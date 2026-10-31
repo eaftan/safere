@@ -10,7 +10,6 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.net.URL;
@@ -875,7 +874,7 @@ class PatternInternalTest {
   }
 
   @Test
-  void threadCacheRebuildsAfterSoftReferenceIsCleared() throws ReflectiveOperationException {
+  void enginesRebuildAfterIdleBundleIsDropped() {
     Pattern dfaPattern = Pattern.compile("([a-z]+)[0-9]+");
     Dfa firstDfa = dfaPattern.forwardFirstMatchDfa();
     Dfa longestDfa = dfaPattern.forwardLongestMatchDfa();
@@ -884,7 +883,7 @@ class PatternInternalTest {
     assertThat(dfaPattern.forwardLongestMatchDfa()).isSameAs(longestDfa);
     assertThat(dfaPattern.reverseDfa()).isSameAs(reverseDfa);
 
-    clearThreadCacheReference(dfaPattern);
+    dfaPattern.acquireEngines(); // Taken and never released.
 
     assertThat(dfaPattern.cachedForwardFirstMatchDfa()).isNull();
     assertThat(dfaPattern.forwardFirstMatchDfa()).isNotNull().isNotSameAs(firstDfa);
@@ -893,8 +892,7 @@ class PatternInternalTest {
   }
 
   @Test
-  void bitStateAndNfaCachesRebuildAfterSoftReferenceIsCleared()
-      throws ReflectiveOperationException {
+  void bitStateAndNfaCachesRebuildAfterIdleBundleIsDropped() {
     Pattern bitStatePattern =
         Pattern.compile(
             "([a-z]+)([0-9]+)", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
@@ -904,35 +902,25 @@ class PatternInternalTest {
             0,
             EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build());
     for (Pattern pattern : List.of(bitStatePattern, nfaPattern)) {
-      assertThat(pattern.matcher("abc123").find()).isTrue();
-      clearThreadCacheReference(pattern);
+      assertThat(pattern.matcher("abc123").matches()).isTrue();
+      pattern.acquireEngines(); // Taken and never released.
       assertThat(pattern.borrowBitState()).isNull();
       assertThat(pattern.borrowNfa()).isNull();
 
       Matcher m = pattern.matcher("xyz789");
-      assertThat(m.find()).isTrue();
+      assertThat(m.matches()).isTrue();
       assertThat(m.group(2)).isEqualTo("789");
     }
     assertThat(bitStatePattern.borrowBitState()).isNotNull();
     assertThat(nfaPattern.borrowNfa()).isNotNull();
   }
 
-  private static void clearThreadCacheReference(Pattern pattern)
-      throws ReflectiveOperationException {
-    Field threadCacheField = Pattern.class.getDeclaredField("threadCache");
-    threadCacheField.setAccessible(true);
-    SoftReference<?> ref =
-        (SoftReference<?>) ((ThreadLocal<?>) threadCacheField.get(pattern)).get();
-    assertThat(ref).isNotNull();
-    ref.clear();
-  }
-
   @Test
   @Timeout(10)
-  void isolatedClassLoaderIsNotStronglyRetainedByThreadLocalCache() throws Exception {
-    // Clears the soft references explicitly: System.gc() does not clear recently used soft
-    // references, so this verifies that nothing but the soft referents retains the loader.
-    WeakReference<ClassLoader> loaderRef = createIsolatedLoaderAndPopulateCaches();
+  void isolatedClassLoaderIsNotRetainedByIdleEngines() throws Exception {
+    // Clears no references: the idle engines are reachable only from the child loader's patterns,
+    // so the loader becomes unreachable with them, and an ordinary collection reclaims it.
+    WeakReference<ClassLoader> loaderRef = createIsolatedLoaderAndPopulateEngines();
     for (int i = 0; i < 50 && loaderRef.get() != null; i++) {
       System.gc();
       Thread.sleep(10);
@@ -940,7 +928,7 @@ class PatternInternalTest {
     assertThat(loaderRef.get()).isNull();
   }
 
-  private static WeakReference<ClassLoader> createIsolatedLoaderAndPopulateCaches()
+  private static WeakReference<ClassLoader> createIsolatedLoaderAndPopulateEngines()
       throws Exception {
     URL[] urls = {
       Pattern.class.getProtectionDomain().getCodeSource().getLocation(),
@@ -967,18 +955,8 @@ class PatternInternalTest {
         }) {
       Class<?> holderClass = loader.loadClass(ChildLoaderPatternHolder.class.getName());
       assertThat(holderClass.getClassLoader()).isSameAs(loader);
-      // populateThreadCaches() returns List<SoftReference<?>>.
-      List<?> refs = (List<?>) holderClass.getMethod("populateThreadCaches").invoke(null);
-      assertThat(refs).hasSize(3);
-      for (Object value : refs) {
-        assertThat(value).isInstanceOf(SoftReference.class);
-        SoftReference<?> ref = (SoftReference<?>) value;
-        assertThat(ref.getClass().getClassLoader()).isNull();
-        Object cache = ref.get();
-        assertThat(cache).isNotNull();
-        assertThat(cache.getClass().getClassLoader()).isSameAs(loader);
-        ref.clear();
-      }
+      Object idleEngineLoaders = holderClass.getMethod("populateEngines").invoke(null);
+      assertThat(idleEngineLoaders).isEqualTo(List.of(loader, loader, loader));
       return new WeakReference<>(loader);
     }
   }
@@ -996,22 +974,24 @@ class PatternInternalTest {
 
     private ChildLoaderPatternHolder() {}
 
-    public static List<SoftReference<?>> populateThreadCaches()
-        throws ReflectiveOperationException {
+    /** Returns the class loader of each pattern's idle engines, in declaration order. */
+    public static List<ClassLoader> populateEngines() throws ReflectiveOperationException {
       if (DFA_PATTERN.forwardFirstMatchDfa() == null
           || DFA_PATTERN.forwardLongestMatchDfa() == null
           || DFA_PATTERN.reverseDfa() == null) {
         throw new AssertionError("Expected DFAs to be initialized");
       }
-      if (!BITSTATE_PATTERN.matcher("abc123").find() || !NFA_PATTERN.matcher("abc123").find()) {
+      // matches() releases the engines when it completes, so each pattern ends with an idle bundle.
+      if (!BITSTATE_PATTERN.matcher("abc123").matches()
+          || !NFA_PATTERN.matcher("abc123").matches()) {
         throw new AssertionError("Expected matches to succeed");
       }
-      Field field = Pattern.class.getDeclaredField("threadCache");
+      Field field = Pattern.class.getDeclaredField("idleEngines");
       field.setAccessible(true);
       return List.of(
-          (SoftReference<?>) ((ThreadLocal<?>) field.get(DFA_PATTERN)).get(),
-          (SoftReference<?>) ((ThreadLocal<?>) field.get(BITSTATE_PATTERN)).get(),
-          (SoftReference<?>) ((ThreadLocal<?>) field.get(NFA_PATTERN)).get());
+          field.get(DFA_PATTERN).getClass().getClassLoader(),
+          field.get(BITSTATE_PATTERN).getClass().getClassLoader(),
+          field.get(NFA_PATTERN).getClass().getClassLoader());
     }
   }
 }

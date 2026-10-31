@@ -351,9 +351,8 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
-   * {@code find()} calls. Borrowed on first use, returned on final use within the Matcher's
-   * lifetime.
+   * BitState borrowed from {@link #engines} for the current search and returned to it afterwards,
+   * reused across the searches of one replace or split. Cleared when the engines are released.
    */
   private BitState cachedBitState;
 
@@ -365,7 +364,7 @@ public final class Matcher implements MatchResult {
   private int consecutiveWindowFailures;
   private int[] onePassScratchCap;
 
-  /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
+  /** Nfa borrowed from {@link #engines}, as {@link #cachedBitState} is. */
   private Nfa cachedNfa;
 
   private boolean nfaBorrowed;
@@ -393,16 +392,21 @@ public final class Matcher implements MatchResult {
   private boolean replacementNeedsCaptures;
 
   /**
-   * Cached DFA references to avoid repeated ThreadLocal lookups in find-all loops. Populated on
-   * first use and reused for subsequent calls within this Matcher's lifetime.
+   * DFA references taken from {@link #engines}, so the searches of one replace or split skip the
+   * bundle lookup. Cleared whenever the bundle is released.
    */
   private Dfa cachedForwardFirstMatchDfa;
 
+  /** Engines this Matcher owns exclusively, taken from the parent pattern on first need. */
+  private Pattern.Engines engines;
+
   /**
-   * The parent pattern's per-thread cache, fetched on first use so later lookups by this Matcher
-   * skip the {@link ThreadLocal} and {@link java.lang.ref.SoftReference} dereferences.
+   * Whether a public search operation is running: {@code matches()}, {@code lookingAt()}, {@code
+   * find}, a replace, or a split. Each such operation gives {@link #engines} back to the pattern
+   * when it returns or throws. Engines taken while this is false, such as by lazy capture
+   * resolution in {@code group()}, go back before that call returns.
    */
-  private Pattern.ThreadCache threadCache;
+  private boolean holdEngines;
 
   private Dfa cachedForwardLongestMatchDfa;
 
@@ -591,20 +595,7 @@ public final class Matcher implements MatchResult {
 
   private void invalidatePatternCaches() {
     consecutiveWindowFailures = 0;
-    threadCache = null;
-    cachedForwardFirstMatchDfa = null;
-    cachedForwardLongestMatchDfa = null;
-    cachedReverseDfa = null;
-    reverseDfaLookedUp = false;
     startBackoff = AdaptiveBackoff.NEUTRAL;
-    if (bitStateBorrowed && cachedBitState != null) {
-      bitStateBorrowed = false;
-      cachedBitState = null;
-    }
-    if (nfaBorrowed && cachedNfa != null) {
-      nfaBorrowed = false;
-      cachedNfa = null;
-    }
     bitStateResult = null;
     graphemeContextInput = null;
     graphemeContext = null;
@@ -655,27 +646,23 @@ public final class Matcher implements MatchResult {
         && BitState.maxTextSize(prog) >= scanner.length();
   }
 
-  private Pattern.ThreadCache threadCache() {
-    releaseEnginesOwnedByOtherThread();
-    Pattern.ThreadCache cache = threadCache;
-    if (cache == null) {
-      cache = parentPattern.getOrCreateThreadCache();
-      threadCache = cache;
+  private Pattern.Engines engines() {
+    Pattern.Engines owned = engines;
+    if (owned == null) {
+      owned = parentPattern.acquireEngines();
+      engines = owned;
     }
-    return cache;
+    return owned;
   }
 
   /**
-   * Drops engine references that came from another thread's cache.
-   *
-   * <p>Every engine this Matcher holds came from {@link #threadCache}. After a sequential handoff,
-   * the previous thread may still use those engines through the same Pattern, so the Matcher must
-   * switch to the executing thread's cache before its next search.
+   * Gives the engines back to the parent pattern and drops every reference taken from them, since
+   * another Matcher may own them from now on.
    */
-  private void releaseEnginesOwnedByOtherThread() {
-    Pattern.ThreadCache cache = threadCache;
-    if (cache != null && cache.ownerThreadId != Thread.currentThread().threadId()) {
-      threadCache = null;
+  private void releaseEngines() {
+    Pattern.Engines owned = engines;
+    if (owned != null) {
+      engines = null;
       cachedForwardFirstMatchDfa = null;
       cachedForwardLongestMatchDfa = null;
       cachedReverseDfa = null;
@@ -684,34 +671,53 @@ public final class Matcher implements MatchResult {
       bitStateBorrowed = false;
       cachedNfa = null;
       nfaBorrowed = false;
+      parentPattern.releaseEngines(owned);
     }
   }
 
-  /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
+  /**
+   * Marks the start of a public search operation and returns whether it is the outermost one. A
+   * replace runs {@code find()} for each match, and the engines stay with this Matcher until the
+   * replace itself ends.
+   */
+  private boolean beginSearchOperation() {
+    if (holdEngines) {
+      return false;
+    }
+    holdEngines = true;
+    return true;
+  }
+
+  private void endSearchOperation(boolean outermost) {
+    if (outermost) {
+      holdEngines = false;
+      releaseEngines();
+    }
+  }
+
+  /** Returns the owned forward DFA, caching it for reuse. */
   private Dfa dfa(boolean longest) {
-    releaseEnginesOwnedByOtherThread();
     if (longest) {
       Dfa d = cachedForwardLongestMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardLongestMatchDfa(threadCache());
+        d = parentPattern.forwardLongestMatchDfa(engines());
         cachedForwardLongestMatchDfa = d;
       }
       return d;
     } else {
       Dfa d = cachedForwardFirstMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardFirstMatchDfa(threadCache());
+        d = parentPattern.forwardFirstMatchDfa(engines());
         cachedForwardFirstMatchDfa = d;
       }
       return d;
     }
   }
 
-  /** Returns the Pattern's thread-local cached reverse DFA (or null), caching it for reuse. */
+  /** Returns the owned reverse DFA (or null), caching it for reuse. */
   private Dfa reverseDfa() {
-    releaseEnginesOwnedByOtherThread();
     if (!reverseDfaLookedUp) {
-      cachedReverseDfa = parentPattern.reverseDfa(threadCache());
+      cachedReverseDfa = parentPattern.reverseDfa(engines());
       reverseDfaLookedUp = true;
     }
     return cachedReverseDfa;
@@ -1019,8 +1025,13 @@ public final class Matcher implements MatchResult {
    */
   public boolean matches() {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.MATCHES);
+    boolean outermost = beginSearchOperation();
     if (operation == null) {
-      return matchesImpl();
+      try {
+        return matchesImpl();
+      } finally {
+        endSearchOperation(outermost);
+      }
     }
     try {
       boolean matched = matchesImpl();
@@ -1029,6 +1040,8 @@ public final class Matcher implements MatchResult {
     } catch (RuntimeException | Error e) {
       abortDiagnostics(operation);
       throw e;
+    } finally {
+      endSearchOperation(outermost);
     }
   }
 
@@ -1261,6 +1274,7 @@ public final class Matcher implements MatchResult {
    */
   public boolean lookingAt() {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.LOOKING_AT);
+    boolean outermost = beginSearchOperation();
     try {
       boolean matched = lookingAtImpl();
       completeDiagnostics(operation, matched ? 1 : 0);
@@ -1268,6 +1282,8 @@ public final class Matcher implements MatchResult {
     } catch (RuntimeException | Error e) {
       abortDiagnostics(operation);
       throw e;
+    } finally {
+      endSearchOperation(outermost);
     }
   }
 
@@ -1383,6 +1399,7 @@ public final class Matcher implements MatchResult {
    */
   public boolean find() {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.FIND);
+    boolean outermost = beginSearchOperation();
     try {
       boolean matched = findImpl();
       completeDiagnostics(operation, matched ? 1 : 0);
@@ -1390,6 +1407,8 @@ public final class Matcher implements MatchResult {
     } catch (RuntimeException | Error e) {
       abortDiagnostics(operation);
       throw e;
+    } finally {
+      endSearchOperation(outermost);
     }
   }
 
@@ -1500,6 +1519,7 @@ public final class Matcher implements MatchResult {
    */
   public boolean find(int start) {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.FIND);
+    boolean outermost = beginSearchOperation();
     try {
       boolean matched = findFromImpl(start);
       completeDiagnostics(operation, matched ? 1 : 0);
@@ -1507,6 +1527,8 @@ public final class Matcher implements MatchResult {
     } catch (RuntimeException | Error e) {
       abortDiagnostics(operation);
       throw e;
+    } finally {
+      endSearchOperation(outermost);
     }
   }
 
@@ -1804,7 +1826,8 @@ public final class Matcher implements MatchResult {
     // before prefix acceleration, which would otherwise scan an unrelated prefix on success.
     if (!regionActive) {
       int endAnchoredStart =
-          parentPattern.endAnchoredSearchStart(scanner, searchFrom, true, diagnosticsAccumulator());
+          parentPattern.endAnchoredSearchStart(
+              engines(), scanner, searchFrom, true, diagnosticsAccumulator());
       endAnchoredDeferred = endAnchoredStart == Pattern.END_ANCHORED_SEARCH_DEFERRED;
       if (endAnchoredStart == -1) {
         return applyFailedMatchResult();
@@ -1866,7 +1889,7 @@ public final class Matcher implements MatchResult {
     if (endAnchoredDeferred) {
       int endAnchoredStart =
           parentPattern.endAnchoredSearchStart(
-              scanner, effectiveStart, true, diagnosticsAccumulator(), false);
+              engines(), scanner, effectiveStart, true, diagnosticsAccumulator(), false);
       if (endAnchoredStart == -1) {
         return applyFailedMatchResult();
       }
@@ -2694,10 +2717,9 @@ public final class Matcher implements MatchResult {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
-      // Borrow from Pattern's thread-local cache on first use.
-      releaseEnginesOwnedByOtherThread();
+      // Borrow from the owned engines on first use.
       if (cachedBitState == null && !bitStateBorrowed) {
-        cachedBitState = Pattern.borrowBitState(threadCache());
+        cachedBitState = Pattern.borrowBitState(engines());
         bitStateBorrowed = true;
       }
       // One fixed-size attempt per search. Never retry with successively larger windows.
@@ -2718,8 +2740,8 @@ public final class Matcher implements MatchResult {
               ? bs.doSearchWindow(startPos, searchLimit, anchoredEffective, destBuf)
               : bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
       cachedBitState = bs;
-      // Return to Pattern's cache for reuse by future Matchers.
-      Pattern.returnBitState(threadCache(), bs);
+      // Return to the owned engines for reuse by later searches.
+      Pattern.returnBitState(engines(), bs);
       if (!bs.budgetExceeded() && (!speculate || result != null)) {
         if (speculate) {
           consecutiveWindowFailures = 0;
@@ -2830,16 +2852,15 @@ public final class Matcher implements MatchResult {
             emptyAnchorEndPos,
             graphemeContextFor(prog));
 
-    releaseEnginesOwnedByOtherThread();
     if (cachedNfa == null && !nfaBorrowed) {
-      cachedNfa = Pattern.borrowNfa(threadCache());
+      cachedNfa = Pattern.borrowNfa(engines());
       nfaBorrowed = true;
     }
 
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
     int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
     cachedNfa = nfa;
-    Pattern.returnNfa(threadCache(), nfa);
+    Pattern.returnNfa(engines(), nfa);
 
     return result;
   }
@@ -3072,6 +3093,15 @@ public final class Matcher implements MatchResult {
   }
 
   private String replaceImpl(String replacement, int limit) {
+    boolean outermost = beginSearchOperation();
+    try {
+      return replaceImplHolding(replacement, limit);
+    } finally {
+      endSearchOperation(outermost);
+    }
+  }
+
+  private String replaceImplHolding(String replacement, int limit) {
     Objects.requireNonNull(replacement, "replacement");
     reset();
     if (!parentPattern.prog().anchorStart()) {
@@ -3083,7 +3113,7 @@ public final class Matcher implements MatchResult {
       if (parentPattern.prog().anchorEnd()) {
         int endAnchoredStart =
             parentPattern.endAnchoredSearchStart(
-                activeScanner(), searchFrom, true, diagnosticsAccumulator());
+                engines(), activeScanner(), searchFrom, true, diagnosticsAccumulator());
         if (endAnchoredStart == -1) {
           return text;
         }
@@ -3583,6 +3613,15 @@ public final class Matcher implements MatchResult {
   }
 
   private String replaceFirstFunctionImpl(Function<MatchResult, String> replacer) {
+    boolean outermost = beginSearchOperation();
+    try {
+      return replaceFirstFunctionImplHolding(replacer);
+    } finally {
+      endSearchOperation(outermost);
+    }
+  }
+
+  private String replaceFirstFunctionImplHolding(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
     if (!find()) {
@@ -3654,6 +3693,15 @@ public final class Matcher implements MatchResult {
   }
 
   private String replaceAllFunctionImpl(Function<MatchResult, String> replacer) {
+    boolean outermost = beginSearchOperation();
+    try {
+      return replaceAllFunctionImplHolding(replacer);
+    } finally {
+      endSearchOperation(outermost);
+    }
+  }
+
+  private String replaceAllFunctionImplHolding(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
     if (!find()) {
@@ -4265,6 +4313,7 @@ public final class Matcher implements MatchResult {
       if (prevStart == prevEnd && searchFrom < regionEnd) {
         searchFrom++;
       }
+      releaseEngines();
       this.parentPattern = newPattern;
       this.groups = new int[2 * newPattern.prog().numCaptures()];
       Arrays.fill(this.groups, -1);
@@ -4272,6 +4321,7 @@ public final class Matcher implements MatchResult {
       this.groups[1] = prevEnd;
       clearDeferredCaptureState();
     } else {
+      releaseEngines();
       this.parentPattern = newPattern;
       this.groups = new int[2 * newPattern.prog().numCaptures()];
       clearCurrentResult();
@@ -4366,11 +4416,21 @@ public final class Matcher implements MatchResult {
    * (fo|foo)} matching "fo" rather than "foo"). For {@code matches()}, the deferred search must
    * still cover the whole input.
    */
-  @SuppressWarnings("ReferenceEquality")
   private void resolveCaptures() {
     if (capturesResolved) {
       return;
     }
+    try {
+      resolveUnresolvedCaptures();
+    } finally {
+      if (!holdEngines) {
+        releaseEngines();
+      }
+    }
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private void resolveUnresolvedCaptures() {
     Prog prog = parentPattern.prog();
     InputScanner scanner = activeScanner();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
@@ -4741,11 +4801,21 @@ public final class Matcher implements MatchResult {
   }
 
   int findSplitPositions(int limit, SplitBuffer buffer) {
+    boolean outermost = beginSearchOperation();
+    try {
+      return findSplitPositionsHolding(limit, buffer);
+    } finally {
+      endSearchOperation(outermost);
+    }
+  }
+
+  private int findSplitPositionsHolding(int limit, SplitBuffer buffer) {
     // The first search reuses this end-anchored probe instead of repeating it.
     int firstEndAnchoredStart = END_ANCHORED_START_UNKNOWN;
     if (!parentPattern.prog().anchorStart()) {
       // As in replaceImpl, try the end-anchored search before the whole-input reject prefilter.
-      int endAnchoredStart = parentPattern.endAnchoredSearchStart(activeScanner(), 0, true, null);
+      int endAnchoredStart =
+          parentPattern.endAnchoredSearchStart(engines(), activeScanner(), 0, true, null);
       if (endAnchoredStart == -1) {
         return 0;
       }
@@ -4925,7 +4995,8 @@ public final class Matcher implements MatchResult {
     boolean endAnchoredDeferred = false;
     if (!prog.anchorStart()) {
       if (endAnchoredStart == END_ANCHORED_START_UNKNOWN) {
-        endAnchoredStart = parentPattern.endAnchoredSearchStart(scanner, fromIndex, true, null);
+        endAnchoredStart =
+            parentPattern.endAnchoredSearchStart(engines(), scanner, fromIndex, true, null);
       }
       endAnchoredDeferred = endAnchoredStart == Pattern.END_ANCHORED_SEARCH_DEFERRED;
       long endAnchoredMatch = endAnchoredSplitMatch(scanner, endAnchoredStart);
@@ -4953,7 +5024,8 @@ public final class Matcher implements MatchResult {
       long endAnchoredMatch =
           endAnchoredSplitMatch(
               scanner,
-              parentPattern.endAnchoredSearchStart(scanner, effectiveStart, true, null, false));
+              parentPattern.endAnchoredSearchStart(
+                  engines(), scanner, effectiveStart, true, null, false));
       if (endAnchoredMatch != END_ANCHORED_UNRESOLVED) {
         return endAnchoredMatch;
       }
