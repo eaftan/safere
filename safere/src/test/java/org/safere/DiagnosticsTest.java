@@ -1121,6 +1121,51 @@ class DiagnosticsTest {
             });
   }
 
+  @Test
+  void literalStartAcceleratorShortCircuitsBeforeInfixRejectPrefilter() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("status=3\\d\\d took=(\\d+)ms");
+    String input = "id=42 status=200 took=12ms\nid=43 status=201 took=8ms\n";
+
+    assertThat(pattern.matcher(input).find()).isFalse();
+    assertThat(pattern.find(Utf8Input.trusted(input.getBytes(UTF_8)))).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactly(
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION));
+            });
+
+    for (String regex :
+        new String[] {
+          "(?i:status=3\\d\\d) took=(\\d+)ms", "\u03b1\u03b2\\d+<<!nav>>\\d+", "er\\d+<<!nav>>\\d+",
+        }) {
+      diagnostics.operations.clear();
+      Pattern rejectFirst = Pattern.compile(regex);
+      String miss = "id=42 status=200 elapsed=12ms\nid=43 status=201 elapsed=8ms\n";
+      assertThat(rejectFirst.matcher(miss).find()).isFalse();
+      assertThat(rejectFirst.find(Utf8Input.trusted(miss.getBytes(UTF_8)))).isFalse();
+      assertThat(operationsFor(rejectFirst))
+          .as("%s should run exact rare-anchor REJECT_PREFILTER first", regex)
+          .hasSize(2)
+          .allSatisfy(
+              event -> {
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                assertThat(event.forwardDfaSearchCount()).isZero();
+                assertThat(event.auxiliaryStrategies())
+                    .containsExactly(
+                        new StrategyParticipation(
+                            MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
+              });
+    }
+  }
+
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
     long patternId = pattern.patternId();
     return diagnostics.operations.stream()

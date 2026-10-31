@@ -301,6 +301,30 @@ public final class Matcher implements MatchResult {
     return policy.isExactMatchCandidate() || pos >= AdaptiveBackoff.resumePos(startBackoff);
   }
 
+  private boolean hasLiteralStartAccelerator(InputScanner scanner) {
+    return parentPattern.startPrecedesFindReject()
+        && (scanner instanceof Utf8InputScanner || text != null);
+  }
+
+  private boolean rejectFindFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
+    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
+    if (rejectPrefilter == null || (text == null && !(scanner instanceof Utf8InputScanner))) {
+      return false;
+    }
+    MatchStrategy rejectionStrategy =
+        rejectPrefilter instanceof RejectPrefilter.Composite composite
+            ? composite.rejectionStrategy(scanner, text, fromIndex, options)
+            : rejectPrefilter.canReject(scanner, text, fromIndex, options)
+                ? rejectPrefilter.strategy()
+                : null;
+    if (rejectionStrategy == null) {
+      return false;
+    }
+    diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
+    diagnosticBoundary(rejectionStrategy);
+    return true;
+  }
+
   /**
    * Charges a matcher-level start-accelerator call from {@code pos} to {@link #startBackoff},
    * unless its candidates are exact match starts (see {@link #startAccelerationAllowed}).
@@ -1814,23 +1838,17 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
-    if (rejectPrefilter != null && (text != null || scanner instanceof Utf8InputScanner)) {
-      MatchStrategy rejectionStrategy =
-          rejectPrefilter instanceof RejectPrefilter.Composite composite
-              ? composite.rejectionStrategy(scanner, text, searchFrom, options)
-              : rejectPrefilter.canReject(scanner, text, searchFrom, options)
-                  ? rejectPrefilter.strategy()
-                  : null;
-      if (rejectionStrategy != null) {
-        diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
-        diagnosticBoundary(rejectionStrategy);
-        return applyFailedMatchResult();
-      }
+    boolean literalStartFirst =
+        options.startAcceleration() && !prog.anchorStart() && hasLiteralStartAccelerator(scanner);
+    if (!literalStartFirst && rejectFindFrom(scanner, searchFrom, options)) {
+      return applyFailedMatchResult();
     }
 
     // Prefix acceleration: if the pattern has a start accelerator (literal, fixed-offset,
-    // character-class, or line-anchor), skip ahead to candidate match positions.
+    // character-class, or line-anchor), skip ahead to candidate match positions. Literal-driven
+    // accelerators run before findRejectPrefilter so a missing prefix rejects in one pass without
+    // paying a separate infix prefilter scan, and a matching prefix narrows any remaining prefilter
+    // check to [effectiveStart, length].
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
     boolean startPositionPreselected = false;
@@ -1860,6 +1878,12 @@ public final class Matcher implements MatchResult {
           startPositionPreselected = true;
         }
       }
+    }
+
+    if (literalStartFirst
+        && scanner.length() - effectiveStart >= Pattern.MIN_LITERAL_START_REJECT_WINDOW
+        && rejectFindFrom(scanner, effectiveStart, options)) {
+      return applyFailedMatchResult();
     }
 
     // Retry a deferred reverse probe only after rejection and start acceleration narrow its work.
