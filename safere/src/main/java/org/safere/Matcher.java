@@ -1157,22 +1157,11 @@ public final class Matcher implements MatchResult {
 
   private boolean terminalPrefilterRejects(int fromIndex) {
     Prog prog = parentPattern.prog();
-    if (!prog.anchorEnd() && !prog.dollarAnchorEnd()) {
+    if ((!prog.anchorEnd() && !prog.dollarAnchorEnd()) || parentPattern.rejectPrefilter() == null) {
       return false;
     }
-    RejectPrefilter filter = parentPattern.rejectPrefilter();
-    if (filter == null) {
-      return false;
-    }
-    // Do not run input-wide filters here: prepared find paths may be called repeatedly.
-    MatchStrategy rejection =
-        filter.endAnchoredRejectionStrategy(activeScanner(), fromIndex, enginePathOptions());
-    if (rejection == null) {
-      return false;
-    }
-    diagnosticParticipation(rejection, StrategyRole.REJECT_PREFILTER);
-    diagnosticBoundary(rejection);
-    return true;
+    return parentPattern.terminalPrefilterRejects(
+        activeScanner(), fromIndex, diagnosticsAccumulator());
   }
 
   /** Core matches fallback logic, operates on the (possibly substituted) {@code text} field. */
