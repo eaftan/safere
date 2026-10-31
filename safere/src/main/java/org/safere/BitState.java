@@ -37,6 +37,13 @@ final class BitState {
   private static final int MAX_WORK_PER_SLOT = 8;
 
   /**
+   * Step count at which multi-start searches begin recording non-cycle ALTs for cross-start
+   * pruning. Short searches that finish before this bound skip bitmap maintenance entirely, while
+   * long failing runs activate pruning within the first start and stay linear overall.
+   */
+  private static final long PRUNE_ACTIVATION_STEPS = 64L;
+
+  /**
    * Returns the maximum text length (in chars) for which BitState can be used with the given
    * program, or -1 if the program is too large for BitState.
    */
@@ -292,7 +299,10 @@ final class BitState {
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
-    pruneAcrossStarts = !anchored;
+    pruneAcrossStarts = false;
+    unvisitedKindLimit = ALT;
+    nextStepThreshold =
+        limit - startPos > 1 ? Math.min(stepBudget, PRUNE_ACTIVATION_STEPS) : stepBudget;
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (speculative && searchStart > endPos) {
         windowExceeded = true;
@@ -369,6 +379,18 @@ final class BitState {
 
   /** Whether the current {@link #doSearch} prunes later starts with {@link #dead}. */
   private boolean pruneAcrossStarts;
+
+  /**
+   * Highest {@link #altKind} value that {@link #shouldVisit} accepts without touching the bitmaps:
+   * {@link #ALT} while cross-start pruning is inactive, {@link #NOT_ALT} once active.
+   */
+  private byte unvisitedKindLimit;
+
+  /**
+   * Step count at which {@link #trySearch} either activates cross-start pruning or trips {@link
+   * #stepBudget}. Merging both checks keeps a single branch on the hot instruction loop.
+   */
+  private long nextStepThreshold;
 
   /**
    * Per-instruction kind for {@link #shouldVisit}: 0 = not an ALT, 1 = ALT, 2 = epsilon-cycle ALT.
@@ -466,13 +488,16 @@ final class BitState {
     this.jobPos = new int[maxJobs];
     this.jobCount = 0;
     this.stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * textSlots);
+    this.nextStepThreshold = this.stepBudget;
+    this.unvisitedKindLimit = ALT;
     this.stepCount = 0;
     this.budgetExceeded = false;
   }
 
   /**
-   * Returns true if (instId, pos) should be explored. Records every ALT reached so a failed start
-   * can prune later ones via {@link #dead}; within one start, only epsilon-cycle ALTs are blocked.
+   * Returns true if (instId, pos) should be explored. Records every ALT reached once cross-start
+   * pruning is active so a failed start can prune later ones via {@link #dead}; within one start,
+   * only epsilon-cycle ALTs are blocked.
    *
    * <p>Only ALT/ALT_MATCH instructions that participate in epsilon cycles are blocked on revisit.
    * An epsilon cycle is a path from an ALT back to itself through only epsilon transitions (ALT,
@@ -492,21 +517,21 @@ final class BitState {
    *   <li>CAPTURE, NOP, EMPTY_WIDTH — epsilon with a single outgoing edge, cannot form cycles alone
    *   <li>CHAR_RANGE — consumes input (advances position), cannot form cycles
    * </ul>
+   *
+   * <p>Kept tiny so C2 inlines the array-indexed fast exit across all call sites in {@link
+   * #trySearch}.
    */
   private boolean shouldVisit(int instId, int pos) {
     int kind = altKind[instId];
-    if (kind == NOT_ALT) {
-      return true;
-    }
+    return kind <= unvisitedKindLimit || shouldVisitTracked(kind, instId, pos);
+  }
+
+  private boolean shouldVisitTracked(int kind, int instId, int pos) {
     int bit = (pos - basePos) * progSize + instId;
     int word = bit >>> 6;
     long mask = 1L << (bit & 63);
-    if (pruneAcrossStarts) {
-      if ((dead[word] & mask) != 0) {
-        return false; // an earlier start already exhausted this pair without matching
-      }
-    } else if (kind == ALT) {
-      return true; // non-cycle ALT: safe to revisit
+    if (pruneAcrossStarts && (dead[word] & mask) != 0) {
+      return false; // an earlier start already exhausted this pair without matching
     }
     long w = visited[word];
     if ((w & mask) != 0) {
@@ -559,10 +584,17 @@ final class BitState {
     if (WorkCounterConfig.ENABLED) {
       WorkCounter.record();
     }
-    if (++stepCount > stepBudget) {
+    return ++stepCount <= nextStepThreshold || onStepThresholdExceeded();
+  }
+
+  private boolean onStepThresholdExceeded() {
+    if (stepCount > stepBudget) {
       budgetExceeded = true;
       return false;
     }
+    pruneAcrossStarts = true;
+    unvisitedKindLimit = NOT_ALT;
+    nextStepThreshold = stepBudget;
     return true;
   }
 

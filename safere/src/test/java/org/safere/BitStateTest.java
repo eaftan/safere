@@ -503,6 +503,62 @@ class BitStateTest {
         }
       }
     }
+
+    @Test
+    void pruningActivatesMidStartAndPreservesReuseAcrossShortAndBoundedSearches() {
+      Regexp re = Parser.parse("((?:.+?)*)c", FLAGS);
+      Prog prog = Compiler.compile(re);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+
+      // Short unanchored search finishes below PRUNE_ACTIVATION_STEPS.
+      String shortText = "abbc";
+      BitState bs =
+          BitState.getOrCreate(null, prog, shortText, 0, shortText.length(), ncap, false, false);
+      assertThat(bs.doSearch(0, shortText.length(), false))
+          .isEqualTo(
+              Nfa.search(
+                  prog, shortText, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, ncap / 2));
+
+      // Long unanchored search crosses PRUNE_ACTIVATION_STEPS mid-start and fails.
+      String missText = "a".repeat(120);
+      bs = BitState.getOrCreate(bs, prog, missText, 0, missText.length(), ncap, false, false);
+      assertThat(bs.doSearch(0, missText.length(), false)).isNull();
+
+      // Bounded single-start search (startPos == searchLimit, anchored == false, as used by
+      // preselected starts in Matcher) exceeds PRUNE_ACTIVATION_STEPS while revisiting shared ALTs.
+      String singleStartText = "xx" + "a".repeat(80) + "c";
+      bs =
+          BitState.getOrCreate(
+              bs, prog, singleStartText, 2, singleStartText.length(), ncap, false, false);
+      assertThat(bs.doSearch(2, 2, false)).containsExactly(2, 83, 2, 82);
+
+      // Reusing again for an unanchored search that matches after crossing the threshold.
+      String laterHitText = "b".repeat(80) + "xac";
+      Regexp greedyRe = Parser.parse("(a*)c", FLAGS);
+      Prog greedyProg = Compiler.compile(greedyRe);
+      BitState greedyBs =
+          BitState.getOrCreate(
+              null,
+              greedyProg,
+              laterHitText,
+              0,
+              laterHitText.length(),
+              2 * greedyProg.numCaptures(),
+              false,
+              false);
+      assertThat(greedyBs.doSearch(0, laterHitText.length(), false))
+          .containsExactly(81, 83, 81, 82);
+    }
+
+    @Test
+    void epsilonCycleAltsRemainExactAcrossPruningThresholdTransitions() {
+      String[] patterns = {"(a*)*c", "((?:a?)*)c", "(?:b|(a*)*)+c"};
+      for (String pattern : patterns) {
+        assertConsistentUnanchored(pattern, "bbbbaac");
+        assertConsistentUnanchored(pattern, "b".repeat(80) + "aac");
+        assertConsistentUnanchored(pattern, "a".repeat(80));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
