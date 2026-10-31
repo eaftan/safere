@@ -5,8 +5,13 @@
 
 package org.safere.fuzz;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
+import org.safere.Pattern;
+import org.safere.Utf8Input;
 
 public final class CaptureSemanticsFuzzer {
   private static final String[] ATOMS = {
@@ -25,6 +30,8 @@ public final class CaptureSemanticsFuzzer {
     ".|(){2}",
     "((a))",
     "(?:|(a))",
+    "(?:a(b)?){1,2}",
+    "(ab?)+(a){0,2}",
     "(?<word>a)",
     "(?<word>a|aa)"
   };
@@ -40,6 +47,69 @@ public final class CaptureSemanticsFuzzer {
   @FuzzTest(maxDuration = "30s")
   void quantifiedCaptures(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
+  }
+
+  @FuzzTest(maxDuration = "30s")
+  void acceptedPaths(FuzzedDataProvider data) {
+    String atom = pick(data, "a", "ab", "é", "😀");
+    int count = data.consumeInt(3, 64);
+    int maximum = data.consumeInt(2, 32);
+    int minimum = data.consumeBoolean() ? 0 : 1;
+    String captured = data.consumeBoolean() ? "(?<last>" + atom + ")" : "(?:(?<last>" + atom + "))";
+    String outer = data.consumeBoolean() ? "*" : "+";
+    String reluctant = data.consumeBoolean() ? "?" : "";
+    String run = atom.repeat(count);
+
+    // These oracles describe the accepted path directly. JDK nested-repeat captures can retain
+    // an earlier iteration, so a differential oracle cannot establish this invariant (#1079).
+    assertAcceptedPath(
+        "(?:" + captured + "{" + minimum + "," + maximum + "})" + outer + reluctant + "!",
+        run + "!",
+        run.length() - atom.length(),
+        run.length());
+    assertAcceptedPath(
+        "(?:(?:" + atom + "(?<last>b)?){1," + maximum + "})+",
+        run + "b",
+        run.length(),
+        run.length() + 1);
+    assertAcceptedPath(
+        "(?:(?<last>" + atom + "b?)+(" + atom + "){0," + maximum + "})+",
+        run + "b",
+        run.length() - atom.length(),
+        run.length() + 1);
+  }
+
+  private static void assertAcceptedPath(String regex, String input, int start, int end) {
+    Pattern pattern = Pattern.compile(regex);
+    for (int operation = 0; operation < 3; operation++) {
+      var matcher = pattern.matcher(input);
+      boolean matched =
+          switch (operation) {
+            case 0 -> matcher.find();
+            case 1 -> matcher.matches();
+            default -> matcher.lookingAt();
+          };
+      assertThat(matched).as("/%s/ on %s", regex, input).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(input.length());
+      assertThat(matcher.start("last")).isEqualTo(start);
+      assertThat(matcher.end("last")).isEqualTo(end);
+      if (matcher.groupCount() > 1) {
+        assertThat(matcher.start(2)).isEqualTo(-1);
+        assertThat(matcher.end(2)).isEqualTo(-1);
+      }
+      var snapshot = matcher.toMatchResult();
+      matcher.reset();
+      assertThat(snapshot.start(1)).isEqualTo(start);
+      assertThat(snapshot.end(1)).isEqualTo(end);
+    }
+    var utf8 = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    assertThat(utf8.find()).isTrue();
+    assertThat(utf8.end()).isEqualTo(input.getBytes(UTF_8).length);
+    assertThat(utf8.start(1)).isEqualTo(input.substring(0, start).getBytes(UTF_8).length);
+    assertThat(utf8.end(1)).isEqualTo(input.substring(0, end).getBytes(UTF_8).length);
+    assertThat(pattern.matcher(input).replaceAll("[${last}]"))
+        .isEqualTo("[" + input.substring(start, end) + "]");
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
