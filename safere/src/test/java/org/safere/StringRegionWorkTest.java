@@ -7,12 +7,41 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("Deterministic work checks SafeRE region search kernels")
 @Tag("work-counter")
 class StringRegionWorkTest {
+  @Test
+  void regionFindDoesComparableWorkToIndependentText() {
+    for (String regex : List.of("q[a-z]+k\\s+b", "[a-z]*q[a-z]+k\\s+b")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (int size : List.of(256, 4096)) {
+        for (boolean matches : List.of(false, true)) {
+          String visible = "x ".repeat(size / 2) + (matches ? "qabck b" : "");
+          String input = "q!" + visible + "!qabck b";
+          pattern.matcher(visible).find();
+          pattern.matcher(input).region(2, 2 + visible.length()).find();
+          long independent =
+              WorkCounter.countWithForwardDfaStepsForTesting(
+                  () -> assertThat(pattern.matcher(visible).find()).isEqualTo(matches));
+          long region =
+              WorkCounter.countWithForwardDfaStepsForTesting(
+                  () ->
+                      assertThat(pattern.matcher(input).region(2, 2 + visible.length()).find())
+                          .isEqualTo(matches));
+          assertThat(region)
+              .as(
+                  "/%s/ size=%s matches=%s against %s independent units",
+                  regex, size, matches, independent)
+              .isLessThanOrEqualTo(2 * independent + 100);
+        }
+      }
+    }
+  }
+
   @Test
   void terminalMismatchRejectsWithoutScanningTheRegion() {
     String input = "!" + "a".repeat(8192) + "!";

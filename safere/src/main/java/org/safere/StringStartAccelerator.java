@@ -87,6 +87,63 @@ sealed interface StringStartAccelerator {
     };
   }
 
+  /** Uses the same plans on a bounded, region-relative String view. */
+  static int findNextCandidate(
+      StringStartAccelerator accelerator,
+      StringRegionInputScanner text,
+      int fromIndex,
+      boolean unixLines) {
+    return switch (accelerator) {
+      case Literal lit -> text.indexOf(lit.prefix(), fromIndex, text.length());
+      case CaseInsensitiveLiteral cil ->
+          text.indexOfIgnoreCase(
+              cil.prefix(), cil.anchorOffset(), cil.anchorLow(), cil.anchorHigh(), fromIndex);
+      case UnicodeCaseInsensitiveLiteral ucil -> {
+        if (ucil.classHashChain() != null) {
+          int candidate =
+              ucil.classHashChain()
+                  .search(text, fromIndex, WorkLimit.forRemaining(text.length() - fromIndex));
+          if (candidate != -2) {
+            yield candidate;
+          }
+        }
+        yield Utf16.indexOfUnicodeIgnoreCase(text, ucil.prefix(), fromIndex);
+      }
+      case CharClass cc -> text.indexOfCharClass(cc.scanInfo(), fromIndex);
+      case FixedOffset fo -> fo.findCandidate(text, fromIndex, unixLines);
+      case FixedOffsetClass fc -> fc.findCandidate(text, fromIndex, unixLines);
+      case LineAnchor la -> la.findCandidate(text, fromIndex, unixLines);
+      case LeadingExpansion le -> le.findCandidate(text, fromIndex, unixLines);
+    };
+  }
+
+  /** Dispatches composite plans without copying their input view. */
+  static int findNextCandidate(
+      StringStartAccelerator accelerator, CharSequence text, int fromIndex, boolean unixLines) {
+    return text instanceof String string
+        ? findNextCandidate(accelerator, string, fromIndex, unixLines)
+        : findNextCandidate(accelerator, (StringRegionInputScanner) text, fromIndex, unixLines);
+  }
+
+  private static int indexOfPlanned(
+      CharSequence text,
+      String literal,
+      int anchorOffset,
+      char anchor,
+      int singleAsciiChar,
+      int fromIndex) {
+    return text instanceof String string
+        ? StringLiteralSearch.indexOfPlanned(
+            string, literal, anchorOffset, anchor, singleAsciiChar, fromIndex)
+        : ((StringRegionInputScanner) text).indexOf(literal, fromIndex, text.length());
+  }
+
+  private static int indexOfClass(CharSequence text, CharClassScanInfo info, int fromIndex) {
+    return text instanceof String string
+        ? StringInputScanner.indexOfCharClass(string, info, fromIndex)
+        : ((StringRegionInputScanner) text).indexOfCharClass(info, fromIndex);
+  }
+
   /** Returns the tuning and diagnostic policy for this accelerator. */
   default AcceleratorPolicy policy() {
     return AcceleratorPolicy.DEFAULT;
@@ -216,13 +273,13 @@ sealed interface StringStartAccelerator {
       return AcceleratorPolicy.LITERAL;
     }
 
-    int findCandidate(String text, int fromIndex, boolean unixLines) {
+    int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
       return nextFixedOffsetCandidate(
           text, fixedOffset, firstCharClass, anchorOffset, anchor, singleAsciiChar, fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
-        String text,
+        CharSequence text,
         FixedOffsetLiteral fixedOffsetLiteral,
         CharClassScanInfo firstCharClass,
         int anchorOffset,
@@ -238,7 +295,7 @@ sealed interface StringStartAccelerator {
 
       while (literalFrom <= text.length()) {
         int literalStart =
-            StringLiteralSearch.indexOfPlanned(
+            indexOfPlanned(
                 text,
                 fixedOffsetLiteral.literal(),
                 anchorOffset,
@@ -252,7 +309,8 @@ sealed interface StringStartAccelerator {
           if (discreteOffsets != null && discreteOffsets.length == 1) {
             int candidateStart = literalStart - discreteOffsets[0];
             if (candidateStart >= fromIndex) {
-              int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
+              int first =
+                  candidateStart < text.length() ? Character.codePointAt(text, candidateStart) : -1;
               if (first >= 0 && firstCharClass.contains(first)) {
                 return candidateStart;
               }
@@ -305,7 +363,7 @@ sealed interface StringStartAccelerator {
      * index 10 starts the match at 0.
      */
     private static int resolveMultiOffsetStart(
-        String text,
+        CharSequence text,
         FixedOffsetLiteral fixedOffsetLiteral,
         int[] discreteOffsets,
         CharClassScanInfo firstCharClass,
@@ -315,7 +373,7 @@ sealed interface StringStartAccelerator {
         int start = literalStart - discreteOffsets[i];
         if (start >= fromIndex
             && start < text.length()
-            && firstCharClass.contains(text.codePointAt(start))) {
+            && firstCharClass.contains(Character.codePointAt(text, start))) {
           return Math.max(
               fromIndex, Math.min(start, literalStart + 1 - fixedOffsetLiteral.maxOffset()));
         }
@@ -328,7 +386,7 @@ sealed interface StringStartAccelerator {
      * points when the leading class admits it, or -1 when the occurrence can be skipped.
      */
     private static int retreatedStartInClass(
-        String text,
+        CharSequence text,
         FixedOffsetLiteral fixedOffsetLiteral,
         CharClassScanInfo firstCharClass,
         int literalStart,
@@ -336,7 +394,8 @@ sealed interface StringStartAccelerator {
       int candidateStart =
           retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
       if (candidateStart >= fromIndex) {
-        int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
+        int first =
+            candidateStart < text.length() ? Character.codePointAt(text, candidateStart) : -1;
         if (first >= 0 && firstCharClass.contains(first)) {
           return candidateStart;
         }
@@ -344,7 +403,7 @@ sealed interface StringStartAccelerator {
       return -1;
     }
 
-    private static int retreatByCodePoints(String text, int index, int count, int minIndex) {
+    private static int retreatByCodePoints(CharSequence text, int index, int count, int minIndex) {
       int pos = index;
       while (count > 0 && pos > minIndex) {
         pos--;
@@ -375,7 +434,7 @@ sealed interface StringStartAccelerator {
       return AcceleratorPolicy.CHAR_CLASS;
     }
 
-    int findCandidate(String text, int fromIndex, boolean unixLines) {
+    int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
       int start = Math.max(0, fromIndex);
       if (offset >= text.length() - start) {
         return -1;
@@ -383,7 +442,7 @@ sealed interface StringStartAccelerator {
       int position = start + offset;
       int cheapRejections = 0;
       while (position < text.length()) {
-        int hit = inner.findCandidate(text, position, unixLines);
+        int hit = findNextCandidate(inner, text, position, unixLines);
         if (hit < 0) {
           return -1;
         }
@@ -399,7 +458,7 @@ sealed interface StringStartAccelerator {
           position = hit + 1;
           continue;
         }
-        int nextLeading = StringInputScanner.indexOfCharClass(text, leadingClass, candidate + 1);
+        int nextLeading = indexOfClass(text, leadingClass, candidate + 1);
         if (nextLeading < 0 || offset >= text.length() - nextLeading) {
           return -1;
         }
@@ -497,12 +556,12 @@ sealed interface StringStartAccelerator {
       return AcceleratorPolicy.LINE_ANCHOR;
     }
 
-    int findCandidate(String text, int fromIndex, boolean unixLines) {
+    int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
       return nextAcceleratedStart(text, startAcceleration, fromIndex, unixLines);
     }
 
     private static int nextAcceleratedStart(
-        String text, StartAcceleration acceleration, int fromIndex, boolean unixLines) {
+        CharSequence text, StartAcceleration acceleration, int fromIndex, boolean unixLines) {
       int start = Math.max(0, fromIndex);
       for (int i = start; i < text.length(); i++) {
         if (WorkCounterConfig.ENABLED) {
@@ -511,14 +570,14 @@ sealed interface StringStartAccelerator {
         if (matchesStartAcceleration(text, i, acceleration, unixLines)) {
           return i;
         }
-        int cp = text.codePointAt(i);
+        int cp = Character.codePointAt(text, i);
         i += Character.charCount(cp) - 1;
       }
       return -1;
     }
 
     private static boolean matchesStartAcceleration(
-        String text, int pos, StartAcceleration acceleration, boolean unixLines) {
+        CharSequence text, int pos, StartAcceleration acceleration, boolean unixLines) {
       boolean lineStart = isBeginLine(text, pos, unixLines);
       boolean asciiStart = matchesAsciiStart(text, pos, acceleration.asciiStart);
       if (acceleration.requireLineStart) {
@@ -527,7 +586,7 @@ sealed interface StringStartAccelerator {
       return (acceleration.allowLineStart && lineStart) || asciiStart;
     }
 
-    private static boolean matchesAsciiStart(String text, int pos, AsciiBitmap asciiStart) {
+    private static boolean matchesAsciiStart(CharSequence text, int pos, AsciiBitmap asciiStart) {
       if (asciiStart == null || pos >= text.length()) {
         return false;
       }
@@ -535,7 +594,7 @@ sealed interface StringStartAccelerator {
       return asciiStart.contains(ch);
     }
 
-    private static boolean isBeginLine(String text, int pos, boolean unixLines) {
+    private static boolean isBeginLine(CharSequence text, int pos, boolean unixLines) {
       if (pos == 0) {
         return !text.isEmpty();
       }
@@ -571,15 +630,15 @@ sealed interface StringStartAccelerator {
       return minRepetition == 0 && !hasLeadingAssertions;
     }
 
-    int findInnerCandidate(String text, int searchPos, boolean unixLines) {
+    int findInnerCandidate(CharSequence text, int searchPos, boolean unixLines) {
       return StringStartAccelerator.findNextCandidate(inner, text, searchPos, unixLines);
     }
 
-    int expandBackward(String text, int innerMatch, int fromIndex) {
+    int expandBackward(CharSequence text, int innerMatch, int fromIndex) {
       int start = innerMatch;
       int count = 0;
       while (start > fromIndex) {
-        int cp = text.codePointBefore(start);
+        int cp = Character.codePointBefore(text, start);
         int cpStart = start - Character.charCount(cp);
         if (cpStart < fromIndex) {
           // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.
@@ -598,7 +657,7 @@ sealed interface StringStartAccelerator {
       return start;
     }
 
-    int findCandidate(String text, int fromIndex, boolean unixLines) {
+    int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
       int searchPos = Math.max(0, fromIndex);
       int textLen = text.length();
       while (searchPos < textLen) {
@@ -609,7 +668,7 @@ sealed interface StringStartAccelerator {
         int start = innerMatch;
         int count = 0;
         while (start > fromIndex) {
-          int cp = text.codePointBefore(start);
+          int cp = Character.codePointBefore(text, start);
           int cpStart = start - Character.charCount(cp);
           if (cpStart < fromIndex) {
             // Preserve an explicit low-surrogate cursor when its high surrogate precedes fromIndex.

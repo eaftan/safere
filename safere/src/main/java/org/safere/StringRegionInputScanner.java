@@ -8,7 +8,7 @@ package org.safere;
 import java.util.Objects;
 
 /** An opaque, region-relative String view. Construction never copies the backing text. */
-final class StringRegionInputScanner implements InputScanner {
+final class StringRegionInputScanner implements InputScanner, CharSequence {
   private final String text;
   private final int base;
   private final int length;
@@ -17,6 +17,22 @@ final class StringRegionInputScanner implements InputScanner {
     this.text = text;
     this.base = start;
     this.length = end - start;
+  }
+
+  @Override
+  public char charAt(int index) {
+    return text.charAt(base + Objects.checkIndex(index, length));
+  }
+
+  @Override
+  public StringRegionInputScanner subSequence(int start, int end) {
+    Objects.checkFromToIndex(start, end, length);
+    return new StringRegionInputScanner(text, base + start, base + end);
+  }
+
+  @Override
+  public String toString() {
+    return text.substring(base, base + length);
   }
 
   boolean startsWith(String literal, int from, boolean foldCase) {

@@ -16,6 +16,56 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class StringRegionViewTest {
   @Test
+  @DisabledForCrosscheck("Checks SafeRE bounded acceleration against independent text")
+  void boundedSearchPlansPreserveFindHistoriesAndCaptureOffsets() {
+    for (String regex :
+        List.of(
+            "q[a-z]+k\\s+b",
+            "[a-z]*q[a-z]+k\\s+b",
+            "(q[a-z]+)(k\\s+b)",
+            "(?i)qab[a-z]+k\\s+b",
+            "(?iu:K)[a-z]+k\\s+b",
+            "(?iu:𐐀)[a-z]+k\\s+b",
+            ".{2}qab",
+            "(?:a|bc){1,2}qab",
+            "[ab]{2}[xyz]Q",
+            "(?m:^qab)",
+            "(q[a-z]+)(k\\s+b)$",
+            "[a-z]*q[a-z]+k\\s+b\\z",
+            "\\p{Cs}[a-z]+")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (String visible :
+          List.of(
+              "",
+              "qabck b QABCK B aaxQ bcqab Kabck b 𐐨abck b\nqabck b",
+              "x ".repeat(2048) + "qabck b qabck b",
+              "\uDE00qabck b\uD83D")) {
+        for (String prefix : List.of("!", "\uD83D", "\r")) {
+          String input = prefix + visible + "qabck b\uDE00";
+          Matcher actual =
+              pattern.matcher(input).region(prefix.length(), prefix.length() + visible.length());
+          Matcher expected = pattern.matcher(visible);
+          while (true) {
+            boolean found = expected.find();
+            assertThat(actual.find()).as("/%s/ on bounded input", regex).isEqualTo(found);
+            if (!found) {
+              break;
+            }
+            for (int group = 0; group <= expected.groupCount(); group++) {
+              assertThat(actual.start(group))
+                  .isEqualTo(
+                      expected.start(group) < 0 ? -1 : prefix.length() + expected.start(group));
+              assertThat(actual.end(group))
+                  .isEqualTo(expected.end(group) < 0 ? -1 : prefix.length() + expected.end(group));
+              assertThat(actual.group(group)).isEqualTo(expected.group(group));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   @DisabledForCrosscheck("Allocation scaling checks SafeRE region implementation behavior")
   void advancingRegionsAllocateLinearly() {
     AllocationTracker tracker = allocationTracker();

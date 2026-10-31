@@ -1778,6 +1778,7 @@ public final class Matcher implements MatchResult {
    */
   private boolean doFindCore(boolean regionActive) {
     InputScanner scanner = activeScanner();
+    boolean independentRegion = regionActive && scanner instanceof StringRegionInputScanner;
     if (searchFrom > scanner.length()) {
       return applyFailedMatchResult();
     }
@@ -1809,7 +1810,7 @@ public final class Matcher implements MatchResult {
     boolean endAnchoredDeferred = false;
     // End-anchored searches can identify candidate starts from the terminal endpoints. Do this
     // before prefix acceleration, which would otherwise scan an unrelated prefix on success.
-    if (!regionActive) {
+    if (!regionActive || independentRegion) {
       int endAnchoredStart =
           parentPattern.endAnchoredSearchStart(scanner, searchFrom, true, diagnosticsAccumulator());
       endAnchoredDeferred = endAnchoredStart == Pattern.END_ANCHORED_SEARCH_DEFERRED;
@@ -1854,7 +1855,7 @@ public final class Matcher implements MatchResult {
           literalPrefixCandidateStart = policy.isExactMatchCandidate();
           startPositionPreselected = true;
         }
-      } else if (text != null) {
+      } else if (text != null || scanner instanceof StringRegionInputScanner) {
         StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
         if (accelerator != null && startAccelerationAllowed(searchFrom, accelerator.policy())) {
           AcceleratorPolicy policy = accelerator.policy();
@@ -1974,10 +1975,10 @@ public final class Matcher implements MatchResult {
     // When the accepted start is authoritative, the sandwich still treats group(0) as deferred for
     // programs whose end may be wrong; resolveCaptures() corrects the end position using the
     // submatch engine.
-    // Skip when a region is active — deferred capture resolution runs on the full text but the
-    // DFA ran on the region view, causing empty-width assertion mismatches at boundaries.
+    // Bounded String views use the same DFA result path as independent text. Deferred captures
+    // are resolved against that view before restoring the original input and capture offsets.
     if (options.dfa()
-        && !regionActive
+        && (!regionActive || independentRegion)
         && parentPattern.dfaGroupZeroReliable()
         && fwdResult != null
         && fwdResult.pos() > effectiveStart) {
@@ -2180,6 +2181,7 @@ public final class Matcher implements MatchResult {
   private int findNextStringStartCandidate(StringStartAccelerator accelerator, int fromIndex) {
     Prog prog = parentPattern.prog();
     InputScanner scanner = activeScanner();
+    CharSequence startText = text != null ? text : (StringRegionInputScanner) scanner;
     AcceleratorPolicy policy = accelerator.policy();
     MatchStrategy strategy = policy.strategy();
     if (strategy != null) {
@@ -2188,11 +2190,11 @@ public final class Matcher implements MatchResult {
     if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
         && le.canVerifyAtInner()
         && canUseForwardDfa()) {
-      int innerMatch = le.findInnerCandidate(text, fromIndex, prog.lineStartUnixLines());
+      int innerMatch = le.findInnerCandidate(startText, fromIndex, prog.lineStartUnixLines());
       // Literal scans use UTF-16 indices, but newly discovered scalar starts must be code point
       // boundaries. Filter before verification so rejected starts never replay a DFA suffix scan.
       while (innerMatch > fromIndex && !scanner.isCodePointBoundary(innerMatch)) {
-        innerMatch = le.findInnerCandidate(text, innerMatch + 1, prog.lineStartUnixLines());
+        innerMatch = le.findInnerCandidate(startText, innerMatch + 1, prog.lineStartUnixLines());
       }
       if (innerMatch < 0) {
         if (strategy != null) {
@@ -2213,11 +2215,11 @@ public final class Matcher implements MatchResult {
       }
       // A successful probe only proves existence; callers still need authoritative bounds and
       // captures. A DFA budget bailout also resumes from the conservatively expanded start.
-      return le.expandBackward(text, innerMatch, fromIndex);
+      return le.expandBackward(startText, innerMatch, fromIndex);
     }
     int candidate =
         StringStartAccelerator.findNextCandidate(
-            accelerator, text, fromIndex, prog.lineStartUnixLines());
+            accelerator, startText, fromIndex, prog.lineStartUnixLines());
     if (!prog.hasGraphemeClusterInstruction()) {
       // Literal scans can nominate a low surrogate inside a pair. Scalar searches may start
       // there only when the caller explicitly supplies that initial cursor.
@@ -2225,7 +2227,7 @@ public final class Matcher implements MatchResult {
       while (candidate > fromIndex && !activeScanner().isCodePointBoundary(candidate)) {
         candidate =
             StringStartAccelerator.findNextCandidate(
-                accelerator, text, candidate + 1, prog.lineStartUnixLines());
+                accelerator, startText, candidate + 1, prog.lineStartUnixLines());
       }
     }
     if (candidate < 0) {
