@@ -356,7 +356,7 @@ performance remain implementation requirements.
 | Question | SafeRE decision | Reasonable alternative and tradeoff |
 |---|---|---|
 | What happens when an iteration matches empty after satisfying the minimum? | Accept its capture updates and stop this invocation. | Reject optional empty iterations, as in [ECMAScript][ecma-repeat]. Both policies terminate; they differ on participation and captures even for `()*` on empty input. |
-| Does the first iteration of `R+` belong to its progress rule? | Yes. If it is empty, the minimum has been met and this invocation stops. | Define `R+` as a required `R` followed by a fresh `R*`. This preserves a convenient expansion identity but lets that fresh star continue after the required empty copy. The `(?:^()\|a)` example above shows the capture consequence under retention semantics. |
+| Does the first iteration of `R+` belong to its progress rule? | Yes. If it is empty, the minimum has been met and this invocation stops. | Define `R+` as a required `R` followed by a fresh `R*`. This preserves a convenient expansion identity but lets that fresh star continue after the required empty copy. The [invocation-local progress example](#invocation-local-progress) shows the capture consequence under retention semantics. |
 
 Accepting a terminal empty iteration makes its successful capture writes
 observable and fits Java-style retention. [PCRE2][pcre2-repeat] and
@@ -399,9 +399,9 @@ compatibility priority. However, no documented semantic purpose for those
 particular differences has been established here. They are classified as
 observed implementation behavior, not presented as another principled meaning
 of a redundant wrapper. Likewise, freezing an earlier capture despite later
-accepted participation is not an alternative allowed by this contract's
-most-recent-capture contract. Legitimate retention and reset alternatives are
-described in the preceding subsection.
+accepted participation is inconsistent with the most-recent-capture rule.
+Legitimate retention and reset alternatives are described in the preceding
+subsection.
 
 ### Whole-match APIs and search progress
 
@@ -571,6 +571,18 @@ are explicit: for `(?:b?|(a)){2,3}b` on `abbb`, the selected rule matches
 `[0,3)`, the alternative `[0,2)`, and Java `[0,4)`. On `a`, both empty-stop and
 finite expansion accept `(?:\A|a){2}\z`, but Java rejects it. Required counts
 must still be respected; these observations do not authorize bypassing them.
+
+Required empty iterations can also retain a capture before later consuming
+iterations:
+
+| Pattern and subject | Required group 1 | Observed JDK 26.0.2 group 1 |
+|---|---|---|
+| `(?:()\|a){2,3}b` on `aab` | `[0,0)` | `[2,2)` |
+
+The required first iteration can capture empty at position 0; later iterations
+consume both `a`s without replacing that capture. The selected path therefore
+retains `[0,0)`; Java reports `[2,2)`. Python 3.13.12 also retains `[0,0)` for
+this example.
 
 Versioned cross-engine controls illustrate why matching one example does not
 establish a common policy. For `(?:b?|a)QUANTIFIERb` on `abb`, the first match is:
