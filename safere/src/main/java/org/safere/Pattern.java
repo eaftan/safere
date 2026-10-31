@@ -167,6 +167,8 @@ public final class Pattern implements Serializable {
    */
   private final transient RejectPrefilter rejectPrefilter;
 
+  private final transient RejectPrefilter utf8FindRejectPrefilter;
+
   /**
    * OnePass analysis results, computed during construction when eligible analysis can support
    * {@code find()} or capture extraction, otherwise on first request. Holds the OnePass automaton
@@ -344,6 +346,15 @@ public final class Pattern implements Serializable {
     // loop-register instructions, and therefore already establishes support.
     Prog forwardProgram = flatDfaProg != null ? flatDfaProg : flatProg != null ? flatProg : prog;
     this.forwardDfaSupported = enginePathOptions.dfa() && supportsForwardDfa(forwardProgram);
+    RejectPrefilter baseFindReject =
+        this.innerLiteralSearch == null || !this.forwardDfaSupported ? this.rejectPrefilter : null;
+    this.utf8FindRejectPrefilter =
+        baseFindReject != null
+                && enginePathOptions.startAcceleration()
+                && this.utf8StartAccelerator != null
+                && !prog.anchorStart()
+            ? RejectPrefilter.withoutDisjointLiterals(baseFindReject)
+            : baseFindReject;
 
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
@@ -654,9 +665,9 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
     if (findRejectPrefilter != null
-        && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
+        && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -746,11 +757,15 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
       return true;
     }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
-    if (findRejectPrefilter != null
-        && findRejectPrefilter.canRejectWithDiagnostics(
-            scanner, 0, enginePathOptions, diagnostics)) {
-      return false;
+    RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
+    if (findRejectPrefilter != null) {
+      MatchStrategy rejection =
+          findRejectPrefilter.rejectionStrategy(null, scanner, 0, enginePathOptions);
+      if (rejection != null) {
+        diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+        diagnostics.boundary(rejection);
+        return false;
+      }
     }
     int searchStart = 0;
     boolean startPositionPreselected = false;
@@ -1287,8 +1302,9 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    if (rejectPrefilter != null
-        && rejectPrefilter.canReject(scanner, input, 0, enginePathOptions)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -1910,6 +1926,14 @@ public final class Pattern implements Serializable {
   /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
   RejectPrefilter findRejectPrefilter() {
     return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
+  }
+
+  /**
+   * UTF-8 {@code find()} counterpart to {@link #findRejectPrefilter()}: also omits {@link
+   * RejectPrefilter.DisjointLiterals} when UTF-8 start acceleration already covers the search.
+   */
+  RejectPrefilter utf8FindRejectPrefilter() {
+    return utf8FindRejectPrefilter;
   }
 
   MultiAnchorDescriptor multiAnchor() {

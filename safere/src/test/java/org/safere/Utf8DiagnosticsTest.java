@@ -647,6 +647,109 @@ class Utf8DiagnosticsTest {
         .hasSize(32);
   }
 
+  @Test
+  void utf8MatchesReportsRejectPrefilterAcrossAllFilterKinds() {
+    record RejectCase(
+        String regex,
+        String matchingInput,
+        String rejectingInput,
+        MatchStrategy expectedStrategy) {}
+
+    List<RejectCase> cases =
+        List.of(
+            new RejectCase(
+                "(?:foo|bar).*needle.*",
+                "foo xx needle yy",
+                "foohaystackonly",
+                MatchStrategy.LITERAL),
+            new RejectCase(
+                "((?:a|ab)+)#[a-z]*", "aab#def", "aababcdef", MatchStrategy.CHARACTER_CLASS),
+            new RejectCase(
+                "((?:[a-z]|[a-z]{2})+)[#%][a-z]*",
+                "abc%def", "abcdef", MatchStrategy.CHARACTER_CLASS),
+            new RejectCase(
+                ".*(?:apple|banana|cherry).*",
+                "fresh banana pie",
+                "fresh grape pie",
+                MatchStrategy.LITERAL),
+            new RejectCase("((?:a|ab)+)\\.json$", "aab.json", "aab.yaml", MatchStrategy.LITERAL),
+            new RejectCase("((?:a|ab)+)[0-9]$", "aab7", "aabx", MatchStrategy.CHARACTER_CLASS),
+            new RejectCase(
+                "(?:foo|bar).*token.*[0-9]$", "foohastoken7", "foonotok7", MatchStrategy.LITERAL),
+            new RejectCase(
+                "(?:foo|bar).*token.*[0-9]$",
+                "foohastoken7",
+                "foohastokenx",
+                MatchStrategy.CHARACTER_CLASS));
+
+    Pattern.setDiagnostics(diagnostics);
+    for (RejectCase tc : cases) {
+      Pattern utf8Pattern = Pattern.compile(tc.regex());
+      Pattern stringPattern = Pattern.compile(tc.regex());
+
+      assertThat(matcher(utf8Pattern, tc.rejectingInput()).matches())
+          .as("UTF-8 reject /%s/ on %s", tc.regex(), tc.rejectingInput())
+          .isFalse();
+      assertThat(stringPattern.matcher(tc.rejectingInput()).matches())
+          .as("String reject /%s/ on %s", tc.regex(), tc.rejectingInput())
+          .isFalse();
+
+      OperationDiagnostics utf8RejectEvent = operationsFor(utf8Pattern).getLast();
+      OperationDiagnostics stringRejectEvent = operationsFor(stringPattern).getLast();
+      assertThat(utf8RejectEvent.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+      assertThat(utf8RejectEvent.boundaryStrategy()).isEqualTo(tc.expectedStrategy());
+      assertThat(utf8RejectEvent.boundaryStrategy())
+          .isEqualTo(stringRejectEvent.boundaryStrategy());
+      assertThat(utf8RejectEvent.auxiliaryStrategies())
+          .contains(
+              new StrategyParticipation(tc.expectedStrategy(), StrategyRole.REJECT_PREFILTER));
+      assertThat(utf8RejectEvent.forwardDfaSearchCount()).isZero();
+
+      assertThat(matcher(utf8Pattern, tc.matchingInput()).matches())
+          .as("UTF-8 match /%s/ on %s", tc.regex(), tc.matchingInput())
+          .isTrue();
+      assertThat(stringPattern.matcher(tc.matchingInput()).matches()).isTrue();
+
+      // Sliced region() rejects when the mandatory token falls outside the active region.
+      byte[] padded = ("needle" + tc.rejectingInput() + "token9.jsonbanana#%").getBytes(UTF_8);
+      int regionStart = "needle".length();
+      int regionEnd = regionStart + tc.rejectingInput().getBytes(UTF_8).length;
+      Utf8Matcher regionMatcher =
+          utf8Pattern.matcher(Utf8Input.validated(padded)).region(regionStart, regionEnd);
+      assertThat(regionMatcher.matches()).isFalse();
+    }
+  }
+
+  @Test
+  void unacceleratedUtf8FindRejectsDisjointLiterals() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern matcherPattern = Pattern.compile(".*(?:apple|banana|cherry).*");
+    Pattern booleanPattern = Pattern.compile(".*(?:apple|banana|cherry).*");
+    Utf8Input miss = input("ordinary prose with grape and pear");
+    Utf8Input hit = input("ordinary prose with cherry pie");
+
+    assertThat(matcherPattern.matcher(miss).find()).isFalse();
+    assertThat(booleanPattern.find(miss)).isFalse();
+
+    for (Pattern p : List.of(matcherPattern, booleanPattern)) {
+      assertThat(operationsFor(p))
+          .singleElement()
+          .satisfies(
+              event -> {
+                assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                assertThat(event.auxiliaryStrategies())
+                    .contains(
+                        new StrategyParticipation(
+                            MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
+                assertThat(event.forwardDfaSearchCount()).isZero();
+              });
+    }
+
+    assertThat(matcherPattern.matcher(hit).find()).isTrue();
+    assertThat(booleanPattern.find(hit)).isTrue();
+  }
+
   private static EnginePathOptions exactEngineOptions(boolean bitState) {
     return EnginePathOptions.builder()
         .literalFastPaths(false)

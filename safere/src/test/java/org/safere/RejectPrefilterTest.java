@@ -38,19 +38,21 @@ class RejectPrefilterTest {
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // String input
-    assertThat(prefilter.canReject(null, "haystack with needle in it", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "haystack without keyword in it", 0, options)).isTrue();
-    assertThat(prefilter.canReject(null, "needle is at start", 7, options)).isTrue();
+    assertThat(prefilter.canReject("haystack with needle in it", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("haystack without keyword in it", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("needle is at start", null, 7, options)).isTrue();
 
     // UTF-8 scanner
     Utf8InputScanner matchingScanner = utf8Scanner("haystack with needle in it");
     Utf8InputScanner nonMatchingScanner = utf8Scanner("haystack without keyword in it");
-    assertThat(prefilter.canReject(matchingScanner, 0, options)).isFalse();
-    assertThat(prefilter.canReject(nonMatchingScanner, 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, matchingScanner, 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, nonMatchingScanner, 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("needle is at start"), 7, options)).isTrue();
 
     // Disabled option
     EnginePathOptions disabled = EnginePathOptions.builder().literalFastPaths(false).build();
-    assertThat(prefilter.canReject(nonMatchingScanner, 0, disabled)).isFalse();
+    assertThat(prefilter.canReject("haystack without keyword in it", null, 0, disabled)).isFalse();
+    assertThat(prefilter.canReject(null, nonMatchingScanner, 0, disabled)).isFalse();
   }
 
   @Test
@@ -74,14 +76,18 @@ class RejectPrefilterTest {
 
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
+    assertThat(prefilter.canReject("item-42-test", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item-no-digits", null, 0, options)).isTrue();
+
     Utf8InputScanner matchingScanner = utf8Scanner("item-42-test");
     Utf8InputScanner nonMatchingScanner = utf8Scanner("item-no-digits");
-    assertThat(prefilter.canReject(matchingScanner, 0, options)).isFalse();
-    assertThat(prefilter.canReject(nonMatchingScanner, 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, matchingScanner, 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, nonMatchingScanner, 0, options)).isTrue();
 
     // Disabled option
     EnginePathOptions disabled = EnginePathOptions.builder().charClassMatchFastPaths(false).build();
-    assertThat(prefilter.canReject(nonMatchingScanner, 0, disabled)).isFalse();
+    assertThat(prefilter.canReject("item-no-digits", null, 0, disabled)).isFalse();
+    assertThat(prefilter.canReject(null, nonMatchingScanner, 0, disabled)).isFalse();
   }
 
   @Test
@@ -106,28 +112,42 @@ class RejectPrefilterTest {
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // Has both token and digits -> not rejected
-    assertThat(prefilter.canReject(utf8Scanner("prefix token 123 suffix"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("prefix token 123 suffix"), 0, options))
+        .isFalse();
+    assertThat(
+            prefilter.rejectionStrategy(null, utf8Scanner("prefix token 123 suffix"), 0, options))
+        .isNull();
 
-    // Missing token -> rejected
-    assertThat(prefilter.canReject(utf8Scanner("prefix missing 123 suffix"), 0, options)).isTrue();
-
-    // Missing digits -> rejected
-    assertThat(prefilter.canReject(utf8Scanner("prefix token no-digits suffix"), 0, options))
+    // Missing token -> rejected by LITERAL
+    assertThat(prefilter.canReject(null, utf8Scanner("prefix missing 123 suffix"), 0, options))
         .isTrue();
+    assertThat(
+            prefilter.rejectionStrategy(null, utf8Scanner("prefix missing 123 suffix"), 0, options))
+        .isEqualTo(MatchStrategy.LITERAL);
+
+    // Missing digits -> rejected by CHARACTER_CLASS
+    assertThat(prefilter.canReject(null, utf8Scanner("prefix token no-digits suffix"), 0, options))
+        .isTrue();
+    assertThat(
+            prefilter.rejectionStrategy(
+                null, utf8Scanner("prefix token no-digits suffix"), 0, options))
+        .isEqualTo(MatchStrategy.CHARACTER_CLASS);
   }
 
   @Test
-  void diagnosticsAccumulateOnRejection() {
+  void rejectionStrategyReportsExactRejectingStrategy() {
     MultiAnchorDescriptor.RejectPlan plan =
         new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("needle");
     RejectPrefilter prefilter = RejectPrefilter.create(plan);
 
-    DiagnosticAccumulator accumulator = new DiagnosticAccumulator();
     Utf8InputScanner scanner = utf8Scanner("no match here");
+    MatchStrategy strategy =
+        prefilter.rejectionStrategy(null, scanner, 0, EnginePathOptions.allEnabled());
+    assertThat(strategy).isEqualTo(MatchStrategy.LITERAL);
 
-    boolean rejected =
-        prefilter.canRejectWithDiagnostics(scanner, 0, EnginePathOptions.allEnabled(), accumulator);
-    assertThat(rejected).isTrue();
+    DiagnosticAccumulator accumulator = new DiagnosticAccumulator();
+    accumulator.participate(strategy, StrategyRole.REJECT_PREFILTER);
+    accumulator.boundary(strategy);
 
     Pattern pattern = Pattern.compile("needle");
     OperationDiagnostics event =
@@ -153,21 +173,87 @@ class RejectPrefilterTest {
     RejectPrefilter.DisjointLiterals d = (RejectPrefilter.DisjointLiterals) prefilter;
     assertThat(d.strategy()).isEqualTo(MatchStrategy.LITERAL);
     assertThat(d.literals()).isEqualTo(literals);
+    assertThat(d.utf8Literals()).hasNumberOfRows(3);
 
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // String input
-    assertThat(prefilter.canReject(null, "I like banana smoothie", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "I like apple pie", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "I like grape juice", 0, options)).isTrue();
+    assertThat(prefilter.canReject("I like banana smoothie", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("I like apple pie", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("I like grape juice", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("I like grape juice", null, 1, options)).isFalse();
 
-    // UTF-8 input (disjoint literals prefilter is String-only to avoid redundant UTF-8 scans)
-    assertThat(prefilter.canReject(utf8Scanner("I like orange juice"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("I like grape juice"), 0, options)).isFalse();
+    // UTF-8 input
+    assertThat(prefilter.canReject(null, utf8Scanner("I like orange juice"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("I like apple pie"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("I like grape juice"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("I like grape juice"), 1, options)).isFalse();
 
     // Disabled option
     EnginePathOptions disabled = EnginePathOptions.builder().literalFastPaths(false).build();
-    assertThat(prefilter.canReject(null, "I like grape juice", 0, disabled)).isFalse();
+    assertThat(prefilter.canReject("I like grape juice", null, 0, disabled)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("I like grape juice"), 0, disabled)).isFalse();
+  }
+
+  @Test
+  void disjointLiteralsOmitsUnpairedSurrogateBranchesFromUtf8Table() {
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    String[] mixed = new String[] {"a\uD83D", "za\uD83D\uDE00", "banana"};
+    RejectPrefilter.DisjointLiterals mixedFilter =
+        (RejectPrefilter.DisjointLiterals)
+            RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.DisjointLiterals(mixed));
+    assertThat(mixedFilter.utf8Literals()).hasNumberOfRows(2);
+    // String.getBytes(UTF_8) turns lone surrogates into '?', so "a?" must still be rejected.
+    assertThat(mixedFilter.canReject(null, utf8Scanner("a?x"), 0, options)).isTrue();
+    assertThat(mixedFilter.canReject(null, utf8Scanner("prefix za\uD83D\uDE00"), 0, options))
+        .isFalse();
+    assertThat(mixedFilter.canReject(null, utf8Scanner("prefix banana"), 0, options)).isFalse();
+    assertThat(mixedFilter.canReject("prefix a\uD83D", null, 0, options)).isFalse();
+
+    // Malformed CESU-8 surrogate bytes decode as U+FFFD in Utf8InputScanner, so they cannot match
+    // the unpaired-surrogate branch either.
+    byte[] cesu8HighSurrogate = new byte[] {'a', (byte) 0xED, (byte) 0xA0, (byte) 0xBD};
+    Utf8InputScanner cesu8Scanner = new Utf8InputScanner(cesu8HighSurrogate, 0, 4);
+    assertThat(mixedFilter.canReject(null, cesu8Scanner, 0, options)).isTrue();
+    Pattern pattern = Pattern.compile("(?:a\uD83D|za\uD83D\uDE00|banana)");
+    assertThat(pattern.matcher(Utf8Input.trusted(cesu8HighSurrogate)).matches()).isFalse();
+    assertThat(pattern.matcher(Utf8Input.trusted(cesu8HighSurrogate)).find()).isFalse();
+
+    String[] allSurrogates = new String[] {"a\uD83D", "\uDE00b"};
+    RejectPrefilter.DisjointLiterals allSurrogateFilter =
+        (RejectPrefilter.DisjointLiterals)
+            RejectPrefilter.create(
+                new MultiAnchorDescriptor.RejectPlan.DisjointLiterals(allSurrogates));
+    assertThat(allSurrogateFilter.utf8Literals()).isEmpty();
+    assertThat(allSurrogateFilter.canReject(null, utf8Scanner("a? ?b"), 0, options)).isTrue();
+    assertThat(allSurrogateFilter.canReject("xxa\uD83Dyy", null, 0, options)).isFalse();
+  }
+
+  @Test
+  void withoutDisjointLiteralsPreservesRemainingFilters() {
+    RejectPrefilter disjoint =
+        RejectPrefilter.create(
+            new MultiAnchorDescriptor.RejectPlan.DisjointLiterals(new String[] {"foo", "bar"}));
+    RejectPrefilter literal =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("foo"));
+    RejectPrefilter suffix =
+        RejectPrefilter.create(
+            new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(
+                new Pattern.SuffixInfo(".json", true, false)));
+
+    assertThat(RejectPrefilter.withoutDisjointLiterals(null)).isNull();
+    assertThat(RejectPrefilter.withoutDisjointLiterals(disjoint)).isNull();
+    assertThat(RejectPrefilter.withoutDisjointLiterals(literal)).isSameAs(literal);
+
+    RejectPrefilter compositeWithDisjoint =
+        new RejectPrefilter.Composite(new RejectPrefilter[] {disjoint, suffix});
+    assertThat(RejectPrefilter.withoutDisjointLiterals(compositeWithDisjoint)).isSameAs(suffix);
+
+    RejectPrefilter compositeWithoutDisjoint =
+        new RejectPrefilter.Composite(new RejectPrefilter[] {literal, suffix});
+    assertThat(RejectPrefilter.withoutDisjointLiterals(compositeWithoutDisjoint))
+        .isSameAs(compositeWithoutDisjoint);
   }
 
   @Test
@@ -183,57 +269,45 @@ class RejectPrefilterTest {
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // String input
-    assertThat(prefilter.canReject(null, "config.json", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\r\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\r", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\u0085", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\u2028", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.json\u2029", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.yaml", 0, options)).isTrue();
-    assertThat(prefilter.canReject(null, "config.yaml\n", 0, options)).isTrue();
-    assertThat(prefilter.canReject(null, "config.yaml\u0085", 0, options)).isTrue();
+    assertThat(prefilter.canReject("config.json", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\r\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\r", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\u0085", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\u2028", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.json\u2029", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.yaml", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("config.yaml\n", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("config.yaml\u0085", null, 0, options)).isTrue();
 
     // UTF-8 input
-    assertThat(prefilter.canReject(utf8Scanner("config.json"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\r\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\r"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\u0085"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\u2028"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.json\u2029"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.yaml"), 0, options)).isTrue();
-    assertThat(prefilter.canReject(utf8Scanner("config.yaml\n"), 0, options)).isTrue();
-    assertThat(prefilter.canReject(utf8Scanner("config.yaml\u0085"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\r\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\r"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\u0085"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\u2028"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json\u2029"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.yaml"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.yaml\n"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.yaml\u0085"), 0, options)).isTrue();
 
     // UNIX_LINES suffix prefilter
     Pattern.SuffixInfo unixInfo = new Pattern.SuffixInfo(".json", true, true);
     RejectPrefilter unixPrefilter =
         RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(unixInfo));
-    assertThat(unixPrefilter.canReject(null, "config.json\n", 0, options)).isFalse();
-    assertThat(unixPrefilter.canReject(null, "config.json\r", 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(null, "config.json\u0085", 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(utf8Scanner("config.json\n"), 0, options)).isFalse();
-    assertThat(unixPrefilter.canReject(utf8Scanner("config.json\r"), 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(utf8Scanner("config.json\u0085"), 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject("config.json\n", null, 0, options)).isFalse();
+    assertThat(unixPrefilter.canReject("config.json\r", null, 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject("config.json\u0085", null, 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("config.json\n"), 0, options)).isFalse();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("config.json\r"), 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("config.json\u0085"), 0, options))
+        .isTrue();
 
-    // Diagnostics
-    DiagnosticAccumulator accumulator = new DiagnosticAccumulator();
+    // End-anchored rejection strategy
     Utf8InputScanner scanner = utf8Scanner("config.yaml");
-    boolean rejected = prefilter.canRejectWithDiagnostics(scanner, 0, options, accumulator);
-    assertThat(rejected).isTrue();
-
-    Pattern pattern = Pattern.compile(".*\\.json$");
-    OperationDiagnostics event =
-        accumulator.toEvent(
-            pattern.descriptor(),
-            MatchOperation.FIND,
-            MatchOutcome.NO_MATCH,
-            CaptureMode.NONE,
-            scanner.length());
-    assertThat(event.auxiliaryStrategies())
-        .contains(new StrategyParticipation(MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
-    assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+    assertThat(prefilter.endAnchoredRejectionStrategy(scanner, 0, options))
+        .isEqualTo(MatchStrategy.LITERAL);
   }
 
   @Test
@@ -249,20 +323,20 @@ class RejectPrefilterTest {
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // String input
-    assertThat(prefilter.canReject(null, "config.json", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.JSON", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.JsOn\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.JSON\r\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "config.yaml", 0, options)).isTrue();
-    assertThat(prefilter.canReject(null, "config.YAML\n", 0, options)).isTrue();
+    assertThat(prefilter.canReject("config.json", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.JSON", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.JsOn\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.JSON\r\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("config.yaml", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("config.YAML\n", null, 0, options)).isTrue();
 
     // UTF-8 input
-    assertThat(prefilter.canReject(utf8Scanner("config.json"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.JSON"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.JsOn\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.JSON\r\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("config.yaml"), 0, options)).isTrue();
-    assertThat(prefilter.canReject(utf8Scanner("config.YAML\n"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.json"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.JSON"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.JsOn\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.JSON\r\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.yaml"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("config.YAML\n"), 0, options)).isTrue();
   }
 
   @Test
@@ -281,38 +355,38 @@ class RejectPrefilterTest {
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
     // String input
-    assertThat(prefilter.canReject(null, "item123", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\r\n", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\r", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\u0085", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\u2028", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123\u2029", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "item123abc", 0, options)).isTrue();
-    assertThat(prefilter.canReject(null, "item123abc\u0085", 0, options)).isTrue();
+    assertThat(prefilter.canReject("item123", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\r\n", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\r", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\u0085", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\u2028", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123\u2029", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("item123abc", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject("item123abc\u0085", null, 0, options)).isTrue();
 
     // UTF-8 input
-    assertThat(prefilter.canReject(utf8Scanner("item123"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\r\n"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\r"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\u0085"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\u2028"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123\u2029"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("item123abc"), 0, options)).isTrue();
-    assertThat(prefilter.canReject(utf8Scanner("item123abc\u0085"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\r\n"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\r"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\u0085"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\u2028"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123\u2029"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123abc"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("item123abc\u0085"), 0, options)).isTrue();
 
     // UNIX_LINES char class prefilter
     Pattern.EndAnchoredCharClassInfo unixInfo =
         new Pattern.EndAnchoredCharClassInfo(builder.build(), true, true);
     RejectPrefilter unixPrefilter =
         RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass(unixInfo));
-    assertThat(unixPrefilter.canReject(null, "item123\n", 0, options)).isFalse();
-    assertThat(unixPrefilter.canReject(null, "item123\r", 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(null, "item123\u0085", 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(utf8Scanner("item123\n"), 0, options)).isFalse();
-    assertThat(unixPrefilter.canReject(utf8Scanner("item123\r"), 0, options)).isTrue();
-    assertThat(unixPrefilter.canReject(utf8Scanner("item123\u0085"), 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject("item123\n", null, 0, options)).isFalse();
+    assertThat(unixPrefilter.canReject("item123\r", null, 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject("item123\u0085", null, 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("item123\n"), 0, options)).isFalse();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("item123\r"), 0, options)).isTrue();
+    assertThat(unixPrefilter.canReject(null, utf8Scanner("item123\u0085"), 0, options)).isTrue();
   }
 
   private static Utf8InputScanner utf8Scanner(String text) {
@@ -329,13 +403,13 @@ class RejectPrefilterTest {
 
     // Negative text with {Link:...} but missing <<!nav>> should reject in Tier 0
     String textNoNav = "{Link: home_page}{Link: about_page}{Link: contact_page}";
-    assertThat(p.rejectPrefilter().canReject(null, textNoNav, 0, EnginePathOptions.allEnabled()))
+    assertThat(p.rejectPrefilter().canReject(textNoNav, null, 0, EnginePathOptions.allEnabled()))
         .isTrue();
     assertThat(p.find(Utf8Input.validated(textNoNav.getBytes(UTF_8)))).isFalse();
 
     // Positive text with <<!nav>> should match and capture properly
     String textWithNav = "{Link: home_page}{Link: section<<!nav>>item}";
-    assertThat(p.rejectPrefilter().canReject(null, textWithNav, 0, EnginePathOptions.allEnabled()))
+    assertThat(p.rejectPrefilter().canReject(textWithNav, null, 0, EnginePathOptions.allEnabled()))
         .isFalse();
     Matcher m = p.matcher(textWithNav);
     assertThat(m.find()).isTrue();
@@ -353,7 +427,7 @@ class RejectPrefilterTest {
     assertThat(p.rejectPrefilter()).isNotNull();
 
     String inputNoEnd = "<meta_start>Thinking process: analyzing query...\n".repeat(1_000);
-    assertThat(p.rejectPrefilter().canReject(null, inputNoEnd, 0, EnginePathOptions.allEnabled()))
+    assertThat(p.rejectPrefilter().canReject(inputNoEnd, null, 0, EnginePathOptions.allEnabled()))
         .isTrue();
     assertThat(p.matcher(inputNoEnd).replaceAll("")).isEqualTo(inputNoEnd);
   }
@@ -380,26 +454,39 @@ class RejectPrefilterTest {
     String hit = "x = 1  # noqa";
     String miss = "x = 1  no comment";
 
-    // String, via the text argument.
-    assertThat(prefilter.canReject(null, hit, 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, miss, 0, options)).isTrue();
+    // String.
+    assertThat(prefilter.canReject(hit, null, 0, options)).isFalse();
+    assertThat(prefilter.canReject(miss, null, 0, options)).isTrue();
     // searchFrom is respected: the only '#' is behind it.
-    assertThat(prefilter.canReject(null, hit, hit.indexOf('#') + 1, options)).isTrue();
-
-    // String, via the scanner argument.
-    assertThat(prefilter.canReject(new StringInputScanner(hit), null, 0, options)).isFalse();
-    assertThat(prefilter.canReject(new StringInputScanner(miss), null, 0, options)).isTrue();
+    assertThat(prefilter.canReject(hit, null, hit.indexOf('#') + 1, options)).isTrue();
 
     // UTF-8.
-    assertThat(prefilter.canReject(utf8Scanner(hit), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner(miss), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner(hit), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner(miss), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner(hit), hit.indexOf('#') + 1, options)).isTrue();
 
     // A '#' beyond the BMP-adjacent boundary is still found, and a non-ASCII
     // haystack does not confuse the character search.
     String wide = "\u00e9\u4e2d\ud83d\ude00#";
-    assertThat(prefilter.canReject(null, wide, 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner(wide), 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "\u00e9\u4e2d\ud83d\ude00", 0, options)).isTrue();
+    assertThat(prefilter.canReject(wide, null, 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner(wide), 0, options)).isFalse();
+    assertThat(prefilter.canReject("\u00e9\u4e2d\ud83d\ude00", null, 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("\u00e9\u4e2d\ud83d\ude00"), 0, options))
+        .isTrue();
+  }
+
+  @Test
+  @Tag("work-counter")
+  void singleAsciiCharClassUtf8RejectStopsAtEarlyHitWithoutDecodingPrefix() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('#').build());
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    Utf8InputScanner earlyHit = utf8Scanner("\u4E00#" + "\u4E00".repeat(10_000));
+    long work = WorkCounter.countForTesting(() -> prefilter.canReject(null, earlyHit, 0, options));
+    assertThat(work).isLessThan(16L);
   }
 
   @Test
@@ -413,9 +500,9 @@ class RejectPrefilterTest {
     assertThat(((RejectPrefilter.CharClass) prefilter).singleAscii()).isEqualTo(-1);
 
     EnginePathOptions options = EnginePathOptions.allEnabled();
-    assertThat(prefilter.canReject(null, "a # b", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "a % b", 0, options)).isFalse();
-    assertThat(prefilter.canReject(null, "a + b", 0, options)).isTrue();
+    assertThat(prefilter.canReject("a # b", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("a % b", null, 0, options)).isFalse();
+    assertThat(prefilter.canReject("a + b", null, 0, options)).isTrue();
   }
 
   @Test
@@ -427,30 +514,35 @@ class RejectPrefilterTest {
         RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
-    assertThat(prefilter.canReject(utf8Scanner("no brackets here"), 0, options)).isTrue();
-    assertThat(prefilter.canReject(utf8Scanner("has \uFF3D here"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("has ] here"), 0, options)).isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00 ascii then ] late"), 0, options))
+    assertThat(prefilter.canReject(null, utf8Scanner("no brackets here"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(null, utf8Scanner("has \uFF3D here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("has ] here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("\u00e9\u4E00 ascii then ] late"), 0, options))
         .isFalse();
-    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00\uFF3B no closing"), 0, options))
+    assertThat(prefilter.canReject(null, utf8Scanner("\u00e9\u4E00\uFF3B no closing"), 0, options))
         .isTrue();
     // Each member on either side of the first non-ASCII byte, including inputs long enough to
     // reach the word-at-a-time scans.
     for (int prefix : new int[] {0, 7, 8, 9, 300}) {
       String ascii = "x".repeat(prefix);
-      assertThat(prefilter.canReject(utf8Scanner(ascii), 0, options)).isTrue();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "]"), 0, options)).isFalse();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii), 0, options)).isTrue();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "]\u4E00"), 0, options)).isFalse();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii + "]"), 0, options))
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii), 0, options)).isTrue();
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii + "]"), 0, options)).isFalse();
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii + "\u4E00" + ascii), 0, options))
+          .isTrue();
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii + "]\u4E00"), 0, options)).isFalse();
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii + "\u4E00" + ascii + "]"), 0, options))
           .isFalse();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "\uFF3D" + ascii), 0, options)).isFalse();
-      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii + "\uFF3D"), 0, options))
+      assertThat(prefilter.canReject(null, utf8Scanner(ascii + "\uFF3D" + ascii), 0, options))
+          .isFalse();
+      assertThat(
+              prefilter.canReject(
+                  null, utf8Scanner(ascii + "\u4E00" + ascii + "\uFF3D"), 0, options))
           .isFalse();
     }
     // Non-ASCII UTF-8 class scans have no memo and use scalar decoding, so they only run once from
     // index 0.
-    assertThat(prefilter.canReject(utf8Scanner("] tail without brackets"), 2, options)).isFalse();
+    assertThat(prefilter.canReject(null, utf8Scanner("] tail without brackets"), 2, options))
+        .isFalse();
   }
 
   @Test
@@ -467,7 +559,8 @@ class RejectPrefilterTest {
     // ASCII member, the single-pass mixed-pair scan stops at that early member instead of scanning
     // the entire input for the absent ASCII member first.
     Utf8InputScanner earlyFullWidth = utf8Scanner("\u4E00\uFF3D" + "\u4E00".repeat(10_000));
-    long work = WorkCounter.countForTesting(() -> prefilter.canReject(earlyFullWidth, 0, options));
+    long work =
+        WorkCounter.countForTesting(() -> prefilter.canReject(null, earlyFullWidth, 0, options));
     assertThat(work).isLessThan(64L);
   }
 
@@ -485,18 +578,18 @@ class RejectPrefilterTest {
     for (char member : new char[] {']', '\uFF3D'}) {
       for (int index : new int[] {0, 14, 78, 79, 80, 81, 200}) {
         String text = "x".repeat(index) + member + "x".repeat(20);
-        assertThat(prefilter.canReject(new StringInputScanner(text), text, 0, options))
+        assertThat(prefilter.canReject(text, null, 0, options))
             .as("member %s at %d", member, index)
             .isFalse();
       }
       String atEnd = "x".repeat(300) + member;
-      assertThat(prefilter.canReject(new StringInputScanner(atEnd), atEnd, 0, options))
+      assertThat(prefilter.canReject(atEnd, null, 0, options))
           .as("member %s at end", member)
           .isFalse();
     }
     for (int length : new int[] {0, 1, 79, 80, 81, 300}) {
       String text = "x".repeat(length);
-      assertThat(prefilter.canReject(new StringInputScanner(text), text, 0, options))
+      assertThat(prefilter.canReject(text, null, 0, options))
           .as("no member, length %d", length)
           .isTrue();
     }
@@ -504,9 +597,8 @@ class RejectPrefilterTest {
     // Later find() positions are left to the start accelerator and DFA, even when no member
     // remains.
     String text = "x".repeat(40) + "]" + "x".repeat(40);
-    StringInputScanner shared = new StringInputScanner(text);
     for (int searchFrom = 1; searchFrom <= text.length(); searchFrom++) {
-      assertThat(prefilter.canReject(shared, text, searchFrom, options))
+      assertThat(prefilter.canReject(text, null, searchFrom, options))
           .as("from %d", searchFrom)
           .isFalse();
     }
