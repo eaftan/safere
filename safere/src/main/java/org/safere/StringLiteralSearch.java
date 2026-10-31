@@ -93,7 +93,7 @@ final class StringLiteralSearch {
   private static final int STRIKE_CHARGE = 4;
 
   /** Keeps the anchored loop's per-candidate verification cost bounded by a constant. */
-  private static final int MAX_ANCHORED_LITERAL_LENGTH = MIN_DENSITY_STRIDE * 2;
+  static final int MAX_ANCHORED_LITERAL_LENGTH = MIN_DENSITY_STRIDE * 2;
 
   /**
    * Shortest remaining window worth anchoring.

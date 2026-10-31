@@ -327,6 +327,26 @@ public final class Matcher implements MatchResult {
     return policy.isExactMatchCandidate() || pos >= AdaptiveBackoff.resumePos(startBackoff);
   }
 
+  private boolean hasLiteralStartAccelerator(InputScanner scanner) {
+    return parentPattern.startPrecedesFindReject()
+        && (text != null
+            || scanner instanceof Utf8InputScanner
+            || scanner instanceof StringRegionInputScanner);
+  }
+
+  private boolean rejectFindFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
+    RejectPrefilter rejectPrefilter =
+        scanner instanceof Utf8InputScanner
+            ? parentPattern.utf8FindRejectPrefilter()
+            : parentPattern.findRejectPrefilter();
+    if (rejectPrefilter == null) {
+      return false;
+    }
+    return diagnosticsAccumulator() == null
+        ? rejectPrefilter.canReject(text, scanner, fromIndex, options)
+        : rejectWithDiagnostics(rejectPrefilter, text, scanner, fromIndex, options);
+  }
+
   /**
    * Charges a matcher-level start-accelerator call from {@code pos} to {@link #startBackoff},
    * unless its candidates are exact match starts (see {@link #startAccelerationAllowed}).
@@ -1906,19 +1926,20 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter =
-        scanner instanceof Utf8InputScanner
-            ? parentPattern.utf8FindRejectPrefilter()
-            : parentPattern.findRejectPrefilter();
-    if (rejectPrefilter != null
-        && (diagnosticsAccumulator() == null
-            ? rejectPrefilter.canReject(text, scanner, searchFrom, options)
-            : rejectWithDiagnostics(rejectPrefilter, text, scanner, searchFrom, options))) {
+    boolean literalStartFirst =
+        options.startAcceleration()
+            && !prog.anchorStart()
+            && scanner.length() - searchFrom < Pattern.MAX_LITERAL_START_FIRST_LENGTH
+            && hasLiteralStartAccelerator(scanner);
+    if (!literalStartFirst && rejectFindFrom(scanner, searchFrom, options)) {
       return applyFailedMatchResult();
     }
 
     // Prefix acceleration: if the pattern has a start accelerator (literal, fixed-offset,
-    // character-class, or line-anchor), skip ahead to candidate match positions.
+    // character-class, or line-anchor), skip ahead to candidate match positions. Literal-driven
+    // accelerators run before findRejectPrefilter so a missing prefix rejects in one pass without
+    // paying a separate infix prefilter scan, and a matching prefix narrows any remaining prefilter
+    // check to [effectiveStart, length].
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
     boolean startPositionPreselected = false;
