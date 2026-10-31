@@ -140,6 +140,55 @@ class PatternInternalTest {
   }
 
   @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "^(a|)b",
+        "(a|)b",
+        "^(?:a|)b",
+        "^[a-z]+?b",
+        "([a-z]+?)b",
+        "^\\b{g}a+",
+        "\\b{g}(a+)",
+        "(\\X)"
+      })
+  void onePassIsNotBuiltForStaticallyIneligiblePatterns(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+    assertThat(pattern.onePass()).isNull();
+    assertThat(pattern.canOnePassPrimary()).isFalse();
+    assertThat(pattern.canOnePassFind()).isFalse();
+    assertThat(pattern.canOnePassSubmatch()).isFalse();
+  }
+
+  @Test
+  void onePassIsNotBuiltWhenCaptureCountExceedsLimitOrOptionDisabled() {
+    Pattern tooManyCaptures = Pattern.compile("(a)".repeat(OnePass.MAX_CAPTURE_GROUPS));
+    assertThat(tooManyCaptures.onePassAnalyzed()).isFalse();
+    assertThat(tooManyCaptures.onePass()).isNull();
+    assertThat(tooManyCaptures.canOnePassSubmatch()).isFalse();
+
+    Pattern disabled =
+        Pattern.compile("^([a-z]+)$", 0, EnginePathOptions.builder().onePass(false).build());
+    assertThat(disabled.onePassAnalyzed()).isFalse();
+    assertThat(disabled.onePass()).isNull();
+    assertThat(disabled.canOnePassPrimary()).isFalse();
+    assertThat(disabled.canOnePassFind()).isFalse();
+    assertThat(disabled.canOnePassSubmatch()).isFalse();
+  }
+
+  @Test
+  void nullableQuantifierWithoutNullableAlternationRetainsOnePassSubmatch() {
+    Pattern withCapture = Pattern.compile("(a)*");
+    assertThat(withCapture.onePassAnalyzed()).isTrue();
+    assertThat(withCapture.canOnePassPrimary()).isFalse();
+    assertThat(withCapture.canOnePassSubmatch()).isTrue();
+
+    Pattern withoutCapture = Pattern.compile("^a*$");
+    assertThat(withoutCapture.canOnePassPrimary()).isFalse();
+    assertThat(withoutCapture.canOnePassSubmatch()).isFalse();
+  }
+
+  @ParameterizedTest
   @CsvSource({
     "\\d{4}-\\d{2}-\\d{2}, 2026-10-08",
     "\\p{L}+\\s+\\p{Lu}\\p{Ll}*, john Smith",
