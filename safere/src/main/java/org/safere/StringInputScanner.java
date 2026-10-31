@@ -33,6 +33,10 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int indexOfAscii(int ascii, int fromIndex, int limit) {
+    return indexOfAscii(text, ascii, fromIndex, limit);
+  }
+
+  static int indexOfAscii(String text, int ascii, int fromIndex, int limit) {
     if (WorkCounterConfig.ENABLED) {
       int end = Math.min(limit, text.length());
       for (int i = Math.max(0, fromIndex); i < end; i++) {
@@ -260,6 +264,11 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start, int limit) {
+    return indexOfCodePointClass(text, ranges, bitmap0, bitmap1, start, limit);
+  }
+
+  static int indexOfCodePointClass(
+      String text, int[] ranges, long bitmap0, long bitmap1, int start, int limit) {
     int position = Math.max(0, start);
     int bound = Math.min(limit, text.length());
     while (position < bound) {

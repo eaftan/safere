@@ -674,9 +674,11 @@ final class MultiAnchorCompiler {
               : foldCase
                   ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
                   : new PrefixResult(lit, false);
-      // bestRequiredLiteral only feeds DisjointLiterals, which runs on String inputs only.
-      // A lone surrogate is safe there because any String match contains the same UTF-16 code unit,
-      // but adjacent high/low surrogate runes would coalesce into a supplementary code point.
+      // bestRequiredLiteral only feeds DisjointLiterals. A lone surrogate is safe on String inputs
+      // because any String match contains the same UTF-16 code unit, while DisjointLiterals.create
+      // omits branches with unpaired surrogates from its UTF-8 table (UTF-8 inputs never decode
+      // surrogate code points). Adjacent high/low surrogate runes are still excluded here because a
+      // String literal would coalesce them into a supplementary code point.
       String reqLit =
           !foldCase && canRepresentAsCodePointString(node.runes) && node.runes.length >= 1
               ? (lit != null ? lit : new String(node.runes, 0, node.runes.length))
