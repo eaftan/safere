@@ -11,6 +11,26 @@
       "pattern": "([a-z]+)(\\d+)",
       "replacement": "$2:$1"
     },
+    "engineSlot": {
+      "patterns": {
+        "lookingAt": "[A-Za-z]+:\\s+\\d+",
+        "region": "\\b[A-Za-z]+ing\\b",
+        "reset": "[A-Za-z]+\\d+",
+        "find": "status=5\\d\\d took=(\\d+)ms",
+        "miss": "status=3\\d\\d took=(\\d+)ms",
+        "findAll": "id=(\\d+)",
+        "matches": "([a-z0-9._%+-]+)@([a-z0-9.-]+)\\.([a-z]{2,})"
+      },
+      "inputs": {
+        "lookingAt": "matcherApi.lookingAt.input",
+        "region": "matcherApi.regionFind.input",
+        "reset": "matcherApi.resetAndFind.input",
+        "matches": "engineSlot.matches.input",
+        "log": "engineSlot.log.input"
+      },
+      "regionStart": 7,
+      "regionEnd": 22
+    },
     "vectorScan": {
       "smokeTrials": [
         "singleton/first/absent/64/0",
@@ -146,6 +166,22 @@
     }
   },
   "inputs": [
+    {
+      "id": "engineSlot.log.input",
+      "shared": true,
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-10-31T12:00:00Z INFO  request id=42 path=/api/v1/items status=200 took=12ms 2026-10-31T12:00:01Z INFO  request id=43 path=/api/v1/users status=200 took=7ms 2026-10-31T12:00:02Z WARN  request id=44 path=/api/v1/items status=404 took=3ms 2026-10-31T12:00:03Z INFO  request id=45 path=/api/v1/orders status=200 took=19ms 2026-10-31T12:00:04Z ERROR request id=46 path=/api/v1/items status=500 took=250ms"
+      }
+    },
+    {
+      "id": "engineSlot.matches.input",
+      "shared": true,
+      "recipe": {
+        "kind": "literal",
+        "text": "user.name+tag@mail.example.com"
+      }
+    },
     {
       "id": "captureDemand.nullable.primer",
       "recipe": {

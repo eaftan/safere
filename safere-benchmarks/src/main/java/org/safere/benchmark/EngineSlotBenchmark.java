@@ -5,7 +5,6 @@
 
 package org.safere.benchmark;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -24,8 +23,7 @@ import org.safere.Utf8Matcher;
 /**
  * Matcher lifecycles that exercise how a Pattern hands its cached engines to matchers: a new
  * matcher per call, a retained matcher reset per call, and matcher-free searches. Patterns live in
- * a {@link Scope#Benchmark} state, so running with {@code -t 4} shares each Pattern across
- * threads.
+ * a {@link Scope#Benchmark} state, so running with {@code -t 4} shares each Pattern across threads.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -36,12 +34,9 @@ public class EngineSlotBenchmark {
   @Param({"string", "utf8"})
   public String input;
 
-  private static final String LOG =
-      "2026-10-31T12:00:00Z INFO  request id=42 path=/api/v1/items status=200 took=12ms "
-          + "2026-10-31T12:00:01Z INFO  request id=43 path=/api/v1/users status=200 took=7ms "
-          + "2026-10-31T12:00:02Z WARN  request id=44 path=/api/v1/items status=404 took=3ms "
-          + "2026-10-31T12:00:03Z INFO  request id=45 path=/api/v1/orders status=200 took=19ms "
-          + "2026-10-31T12:00:04Z ERROR request id=46 path=/api/v1/items status=500 took=250ms";
+  private String logText;
+  private int regionStart;
+  private int regionEnd;
 
   Pattern lookingAtPattern;
   String lookingAtText;
@@ -55,13 +50,13 @@ public class EngineSlotBenchmark {
   String resetText;
   byte[] resetBytes;
 
-  /** Matches near the end of {@link #LOG}, so a forward DFA scan runs. */
+  /** Matches near the end of {@link #logText}, so a forward DFA scan runs. */
   Pattern findPattern;
 
-  /** Never matches {@link #LOG}. */
+  /** Never matches {@link #logText}. */
   Pattern missPattern;
 
-  /** Many matches in {@link #LOG}. */
+  /** Many matches in {@link #logText}. */
   Pattern findAllPattern;
 
   Pattern matchesPattern;
@@ -73,22 +68,29 @@ public class EngineSlotBenchmark {
 
   @Setup
   public void setup() {
-    lookingAtPattern = Pattern.compile("[A-Za-z]+:\\s+\\d+");
-    lookingAtText = "requests: 1234 completed";
-    regionPattern = Pattern.compile("\\b[A-Za-z]+ing\\b");
-    regionText = "IGNORE morning shining IGNORE";
-    resetPattern = Pattern.compile("[A-Za-z]+\\d+");
-    resetText = "item1 item22 item333";
-    findPattern = Pattern.compile("status=5\\d\\d took=(\\d+)ms");
-    missPattern = Pattern.compile("status=3\\d\\d took=(\\d+)ms");
-    findAllPattern = Pattern.compile("id=(\\d+)");
-    matchesPattern = Pattern.compile("([a-z0-9._%+-]+)@([a-z0-9.-]+)\\.([a-z]{2,})");
-    matchesText = "user.name+tag" + "@" + "mail.example.com";
-    lookingAtBytes = lookingAtText.getBytes(StandardCharsets.UTF_8);
-    regionBytes = regionText.getBytes(StandardCharsets.UTF_8);
-    resetBytes = resetText.getBytes(StandardCharsets.UTF_8);
-    matchesBytes = matchesText.getBytes(StandardCharsets.UTF_8);
-    logBytes = LOG.getBytes(StandardCharsets.UTF_8);
+    BenchmarkData data = BenchmarkData.get();
+    lookingAtPattern =
+        Pattern.compile(data.getString("configuration.engineSlot.patterns.lookingAt"));
+    lookingAtText =
+        data.getInputString(data.getString("configuration.engineSlot.inputs.lookingAt"));
+    regionPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.region"));
+    regionText = data.getInputString(data.getString("configuration.engineSlot.inputs.region"));
+    resetPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.reset"));
+    resetText = data.getInputString(data.getString("configuration.engineSlot.inputs.reset"));
+    findPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.find"));
+    missPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.miss"));
+    findAllPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.findAll"));
+    matchesPattern = Pattern.compile(data.getString("configuration.engineSlot.patterns.matches"));
+    matchesText = data.getInputString(data.getString("configuration.engineSlot.inputs.matches"));
+    lookingAtBytes =
+        data.getInputBytes(data.getString("configuration.engineSlot.inputs.lookingAt"));
+    regionBytes = data.getInputBytes(data.getString("configuration.engineSlot.inputs.region"));
+    resetBytes = data.getInputBytes(data.getString("configuration.engineSlot.inputs.reset"));
+    matchesBytes = data.getInputBytes(data.getString("configuration.engineSlot.inputs.matches"));
+    logText = data.getInputString(data.getString("configuration.engineSlot.inputs.log"));
+    logBytes = data.getInputBytes(data.getString("configuration.engineSlot.inputs.log"));
+    regionStart = Integer.parseInt(data.getString("configuration.engineSlot.regionStart"));
+    regionEnd = Integer.parseInt(data.getString("configuration.engineSlot.regionEnd"));
     findPredicate = findPattern.asPredicate();
   }
 
@@ -124,7 +126,9 @@ public class EngineSlotBenchmark {
   /** A retained matcher: {@code region(7, 22).find()}. */
   @Benchmark
   public boolean regionFind(Retained r) {
-    return utf8() ? r.regionUtf8Matcher.region(7, 22).find() : r.regionMatcher.region(7, 22).find();
+    return utf8()
+        ? r.regionUtf8Matcher.region(regionStart, regionEnd).find()
+        : r.regionMatcher.region(regionStart, regionEnd).find();
   }
 
   /** A retained matcher: {@code reset()} then a find-all loop with three matches. */
@@ -150,7 +154,7 @@ public class EngineSlotBenchmark {
   public boolean newMatcherFindHit() {
     return utf8()
         ? findPattern.matcher(Utf8Input.trusted(logBytes)).find()
-        : findPattern.matcher(LOG).find();
+        : findPattern.matcher(logText).find();
   }
 
   /** {@code pattern.matcher(s).find()} that does not match. */
@@ -158,7 +162,7 @@ public class EngineSlotBenchmark {
   public boolean newMatcherFindMiss() {
     return utf8()
         ? missPattern.matcher(Utf8Input.trusted(logBytes)).find()
-        : missPattern.matcher(LOG).find();
+        : missPattern.matcher(logText).find();
   }
 
   /** {@code m = pattern.matcher(s); m.find(); m.group(1)}: a capture read from an abandoned hit. */
@@ -168,7 +172,7 @@ public class EngineSlotBenchmark {
       Utf8Matcher m = findPattern.matcher(Utf8Input.trusted(logBytes));
       return m.find() ? m.end(1) : -1;
     }
-    Matcher m = findPattern.matcher(LOG);
+    Matcher m = findPattern.matcher(logText);
     return m.find() ? m.group(1).length() : -1;
   }
 
@@ -182,7 +186,7 @@ public class EngineSlotBenchmark {
         count += m.end(1);
       }
     } else {
-      Matcher m = findAllPattern.matcher(LOG);
+      Matcher m = findAllPattern.matcher(logText);
       while (m.find()) {
         count += m.end(1);
       }
@@ -204,6 +208,6 @@ public class EngineSlotBenchmark {
   /** Matcher-free search: {@code asPredicate()} for String, {@code Pattern.find} for UTF-8. */
   @Benchmark
   public boolean matcherFreeFind() {
-    return utf8() ? findPattern.find(Utf8Input.trusted(logBytes)) : findPredicate.test(LOG);
+    return utf8() ? findPattern.find(Utf8Input.trusted(logBytes)) : findPredicate.test(logText);
   }
 }
