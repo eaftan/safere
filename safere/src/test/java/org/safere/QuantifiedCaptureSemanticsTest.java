@@ -57,15 +57,6 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(?:(a){0,2})*?)", "aaa"));
   }
 
-  private static Stream<Arguments> chainedZeroCountQuantifiedCaptureCases() {
-    return Stream.of(
-        Arguments.of(new GeneratedCase("bounded empty capture", "(){0,2}", "", null)),
-        Arguments.of(new GeneratedCase("outer zero repeat", "(){0,2}{0}", "", null)),
-        Arguments.of(new GeneratedCase("outer zero then one repeat", "(){0,2}{0}{1}", "", null)),
-        Arguments.of(
-            new GeneratedCase("nested optional zero repeat", "(){0,2}{1}?{0}?", "", null)));
-  }
-
   private static Stream<Arguments> zeroWidthPossessiveCaptureCases() {
     return Stream.of(
         Arguments.of(new GeneratedCase("empty group star possessive", "((?:))*+", "", null)),
@@ -220,14 +211,6 @@ class QuantifiedCaptureSemanticsTest {
     boolean jdkMatched = jdk.find();
     assertThat(safere.find()).isEqualTo(jdkMatched);
     assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
-  }
-
-  @ParameterizedTest(name = "[{index}] {0}")
-  @MethodSource("chainedZeroCountQuantifiedCaptureCases")
-  @DisplayName("chained zero-count quantifiers preserve JDK-visible captures")
-  void chainedZeroCountQuantifiersPreserveJdkVisibleCaptures(GeneratedCase testCase) {
-    assertOperationTraceMatchesJdk(testCase);
-    assertReplacementTraceMatchesJdk(testCase);
   }
 
   @ParameterizedTest(name = "[{index}] {0}")

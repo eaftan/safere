@@ -18,17 +18,41 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class CountedRepetitionQuotationTest {
   private static final String EMPTY_QUOTE = "\\Q\\E";
+  private static final List<String> INPUTS =
+      List.of("", "a", "aa", "aaa", "aaaa", "baaaabaaa", "😀😀😀", "a".repeat(13), "{1,3}");
 
   @ParameterizedTest
   @MethodSource("countsWithEmptyQuotes")
   void emptyQuotesDisappearThroughoutCountedRepeatTokens(String count) {
     // JDK 26 documents quotes and repetition separately; its lexical interaction is unspecified.
     // Match observed JDK behavior, including gaps within numbers and before delimiters. Refs #1060.
-    for (String operand : List.of("a", "(a)", "[a]", "\\Qa\\E", "😀", "()", "")) {
+    for (String operand : List.of("a", "(a)", "[a]", "\\Qa\\E", "😀", "")) {
       for (String modifier : List.of("", "?", EMPTY_QUOTE + "?")) {
         String regex = operand + count + modifier;
         assertSameMatches(regex, 0);
         assertSameMatches(regex, Pattern.COMMENTS);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("countsWithEmptyQuotes")
+  @DisabledForCrosscheck("empty-capture participation follows SafeRE's explicit repetition policy")
+  void emptyQuotesPreserveEmptyCaptureParticipation(String count) {
+    String unquotedCount = count.replace(EMPTY_QUOTE, "");
+    int comma = unquotedCount.indexOf(',');
+    int minimum =
+        Integer.parseInt(
+            unquotedCount.substring(1, comma < 0 ? unquotedCount.length() - 1 : comma));
+    for (String modifier : List.of("", "?", EMPTY_QUOTE + "?")) {
+      boolean participates = minimum > 0 || !modifier.endsWith("?");
+      for (int flags : new int[] {0, Pattern.COMMENTS}) {
+        // Both spellings must satisfy the independent capture policy. Comparing only with the
+        // JDK would instead require its intentionally different direct-empty suppression.
+        assertEmptyCaptureMatches(Pattern.compile("()" + count + modifier, flags), participates);
+        assertEmptyCaptureMatches(
+            Pattern.compile("()" + unquotedCount + modifier.replace(EMPTY_QUOTE, ""), flags),
+            participates);
       }
     }
   }
@@ -144,8 +168,7 @@ class CountedRepetitionQuotationTest {
   private static void assertSameMatches(String regex, int flags) {
     var expectedPattern = java.util.regex.Pattern.compile(regex, flags);
     var actualPattern = Pattern.compile(regex, flags);
-    for (String input :
-        List.of("", "a", "aa", "aaa", "aaaa", "baaaabaaa", "😀😀😀", "a".repeat(13), "{1,3}")) {
+    for (String input : INPUTS) {
       var expected = expectedPattern.matcher(input);
       var actual = actualPattern.matcher(input);
       assertThat(actual.matches())
@@ -164,5 +187,36 @@ class CountedRepetitionQuotationTest {
         }
       }
     }
+  }
+
+  private static void assertEmptyCaptureMatches(Pattern pattern, boolean participates) {
+    for (String input : INPUTS) {
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.groupCount()).isEqualTo(1);
+      assertThat(matcher.matches())
+          .as("matches /%s/ on %s", pattern, input)
+          .isEqualTo(input.isEmpty());
+      if (input.isEmpty()) {
+        assertEmptyCapture(matcher, 0, participates);
+      }
+      matcher.reset();
+      assertThat(matcher.lookingAt()).isTrue();
+      assertEmptyCapture(matcher, 0, participates);
+      matcher.reset();
+      for (int position = 0; position <= input.length(); position++) {
+        assertThat(matcher.find()).as("find /%s/ at %d on %s", pattern, position, input).isTrue();
+        assertEmptyCapture(matcher, position, participates);
+      }
+      assertThat(matcher.find()).isFalse();
+    }
+  }
+
+  private static void assertEmptyCapture(Matcher matcher, int position, boolean participates) {
+    assertThat(matcher.start()).isEqualTo(position);
+    assertThat(matcher.end()).isEqualTo(position);
+    int expected = participates ? position : -1;
+    assertThat(matcher.start(1)).isEqualTo(expected);
+    assertThat(matcher.end(1)).isEqualTo(expected);
+    assertThat(matcher.group(1)).isEqualTo(participates ? "" : null);
   }
 }

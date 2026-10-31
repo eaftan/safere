@@ -15,7 +15,8 @@
     "seeds": "src/test/resources/org/safere/fuzz/CaptureSemanticsFuzzerInputs",
     "methods": [
       "quantifiedCaptures",
-      "acceptedPaths"
+      "acceptedPaths",
+      "emptyCaptures"
     ]
   },
   {

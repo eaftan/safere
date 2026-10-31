@@ -79,6 +79,73 @@ public final class CaptureSemanticsFuzzer {
         run.length() + 1);
   }
 
+  @FuzzTest(maxDuration = "30s")
+  void emptyCaptures(FuzzedDataProvider data) {
+    int minimum = data.consumeInt(0, 4);
+    int maximum = data.consumeBoolean() ? -1 : data.consumeInt(Math.max(2, minimum), 8);
+    if (minimum <= 1 && data.consumeBoolean()) {
+      maximum = data.consumeInt(minimum, 1);
+    }
+    if (maximum > 1 && data.consumeBoolean()) {
+      maximum = new int[] {16, 256, 1000}[data.consumeInt(0, 2)];
+    }
+    String quantifier = "{" + minimum + "," + (maximum < 0 ? "" : maximum) + "}";
+    if (data.consumeBoolean() && maximum < 0 && minimum <= 1) {
+      quantifier = minimum == 0 ? "*" : "+";
+    }
+    String mode = pick(data, "", "?", "+");
+    String operand = pick(data, "(?<empty>)", "(?<empty>(?:))", "((?<empty>))");
+    int wrappers = data.consumeInt(0, 3);
+    operand = "(?:".repeat(wrappers) + operand + ")".repeat(wrappers);
+    String prefix = pick(data, "", "a", "é", "😀");
+    String suffix = pick(data, "", "b", "é", "😀");
+    Pattern pattern =
+        Pattern.compile(
+            Pattern.quote(prefix) + operand + quantifier + mode + Pattern.quote(suffix));
+    String input = prefix + suffix;
+    boolean participates = maximum != 0 && (minimum > 0 || !mode.equals("?"));
+    int position = participates ? prefix.length() : -1;
+
+    // Empty iterations count and publish captures; redundant wrappers do not select another
+    // participation policy. JDK's direct-empty suppression is intentionally not the oracle.
+    for (int operation = 0; operation < 3; operation++) {
+      var matcher = pattern.matcher(input);
+      boolean matched =
+          switch (operation) {
+            case 0 -> matcher.find();
+            case 1 -> matcher.matches();
+            default -> matcher.lookingAt();
+          };
+      assertThat(matched).as("/%s/ on %s", pattern, input).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(input.length());
+      for (int group = 1; group <= matcher.groupCount(); group++) {
+        assertThat(matcher.start(group)).isEqualTo(position);
+        assertThat(matcher.end(group)).isEqualTo(position);
+        assertThat(matcher.group(group)).isEqualTo(participates ? "" : null);
+      }
+      assertThat(matcher.start("empty")).isEqualTo(position);
+      var snapshot = matcher.toMatchResult();
+      matcher.reset();
+      assertThat(snapshot.start(1)).isEqualTo(position);
+      assertThat(snapshot.end(1)).isEqualTo(position);
+    }
+    var utf8 = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    assertThat(utf8.find()).isTrue();
+    assertThat(utf8.start()).isZero();
+    assertThat(utf8.end()).isEqualTo(input.getBytes(UTF_8).length);
+    int bytePosition = participates ? prefix.getBytes(UTF_8).length : -1;
+    for (int group = 1; group <= utf8.groupCount(); group++) {
+      assertThat(utf8.start(group)).isEqualTo(bytePosition);
+      assertThat(utf8.end(group)).isEqualTo(bytePosition);
+    }
+    assertThat(
+            pattern
+                .matcher(input)
+                .replaceAll(result -> result.group(1) == null ? "omitted" : "empty"))
+        .isEqualTo(participates ? "empty" : "omitted");
+  }
+
   private static void assertAcceptedPath(String regex, String input, int start, int end) {
     Pattern pattern = Pattern.compile(regex);
     for (int operation = 0; operation < 3; operation++) {
