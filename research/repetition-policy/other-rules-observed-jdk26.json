@@ -1,0 +1,1010 @@
+{
+  "runtime": "26.0.2+10-55",
+  "cases": 303108,
+  "byStudy": {
+    "ordered_first": 13224,
+    "minimum_boundary": 30624,
+    "terminal_empty": 45936,
+    "optional_order": 22272,
+    "plus_invocation": 7656,
+    "omitted_capture": 34800,
+    "latest_capture": 62640,
+    "empty_search_cursor": 3828,
+    "wrapper_transparency": 66120,
+    "zero_width_possessive": 10440,
+    "invariants": 5568
+  },
+  "summary": {
+    "ordered_first": {
+      "both": 11892,
+      "first:both": 11892,
+      "lookingAt:both": 12030,
+      "matches:both": 13194,
+      "history:both": 11528,
+      "history:selected": 1434,
+      "selected": 1072,
+      "first:selected": 1072,
+      "lookingAt:selected": 1054,
+      "shared_miss": 260,
+      "first:shared_miss": 260,
+      "lookingAt:shared_miss": 140,
+      "matches:shared_miss": 30,
+      "history:shared_miss": 262
+    },
+    "minimum_boundary": {
+      "both": 29541,
+      "first:both": 29541,
+      "lookingAt:both": 29735,
+      "matches:both": 29968,
+      "history:both": 29481,
+      "matches:selected": 276,
+      "selected": 503,
+      "first:selected": 503,
+      "history:selected": 536,
+      "lookingAt:selected": 402,
+      "matches:shared_miss": 380,
+      "shared_miss": 571,
+      "first:shared_miss": 571,
+      "lookingAt:shared_miss": 478,
+      "history:shared_miss": 594,
+      "history:neither": 13,
+      "neither": 9,
+      "first:neither": 9,
+      "lookingAt:neither": 9
+    },
+    "terminal_empty": {
+      "selected": 4333,
+      "first:selected": 4333,
+      "lookingAt:selected": 3337,
+      "matches:selected": 1287,
+      "history:selected": 5182,
+      "matches:both": 44362,
+      "both": 40810,
+      "first:both": 40810,
+      "lookingAt:both": 42081,
+      "history:both": 39946,
+      "matches:shared_miss": 271,
+      "shared_miss": 333,
+      "first:shared_miss": 333,
+      "history:shared_miss": 348,
+      "lookingAt:shared_miss": 282,
+      "alternative": 460,
+      "first:alternative": 460,
+      "lookingAt:alternative": 236,
+      "matches:alternative": 16,
+      "history:alternative": 460
+    },
+    "optional_order": {
+      "both": 22124,
+      "first:both": 22124,
+      "lookingAt:both": 22161,
+      "matches:both": 22181,
+      "history:both": 22113,
+      "matches:selected": 34,
+      "selected": 80,
+      "first:selected": 80,
+      "lookingAt:selected": 56,
+      "history:selected": 89,
+      "shared_miss": 68,
+      "first:shared_miss": 68,
+      "lookingAt:shared_miss": 55,
+      "matches:shared_miss": 57,
+      "history:shared_miss": 70
+    },
+    "plus_invocation": {
+      "both": 7431,
+      "first:both": 7431,
+      "lookingAt:both": 7459,
+      "matches:both": 7452,
+      "history:both": 7422,
+      "matches:selected": 189,
+      "selected": 210,
+      "first:selected": 210,
+      "history:selected": 218,
+      "lookingAt:selected": 184,
+      "shared_miss": 15,
+      "first:shared_miss": 15,
+      "lookingAt:shared_miss": 13,
+      "matches:shared_miss": 15,
+      "history:shared_miss": 16
+    },
+    "omitted_capture": {
+      "both": 32375,
+      "first:both": 32375,
+      "lookingAt:both": 33011,
+      "matches:both": 33804,
+      "history:both": 31870,
+      "selected": 2233,
+      "first:selected": 2233,
+      "lookingAt:selected": 1643,
+      "matches:selected": 878,
+      "history:selected": 2716,
+      "shared_miss": 92,
+      "first:shared_miss": 92,
+      "lookingAt:shared_miss": 78,
+      "matches:shared_miss": 88,
+      "history:shared_miss": 92,
+      "history:neither": 122,
+      "neither": 100,
+      "first:neither": 100,
+      "lookingAt:neither": 68,
+      "matches:neither": 30
+    },
+    "latest_capture": {
+      "both": 55996,
+      "first:both": 55996,
+      "lookingAt:both": 58051,
+      "matches:both": 59854,
+      "history:both": 55240,
+      "selected": 6368,
+      "first:selected": 6368,
+      "lookingAt:selected": 4379,
+      "matches:selected": 2604,
+      "history:selected": 7100,
+      "neither": 196,
+      "first:neither": 196,
+      "lookingAt:neither": 160,
+      "matches:neither": 168,
+      "history:neither": 208,
+      "matches:shared_miss": 14,
+      "shared_miss": 80,
+      "first:shared_miss": 80,
+      "history:shared_miss": 92,
+      "lookingAt:shared_miss": 50
+    },
+    "empty_search_cursor": {
+      "both": 3381,
+      "first:both": 3588,
+      "lookingAt:both": 3702,
+      "matches:both": 3814,
+      "history:both": 3381,
+      "selected": 206,
+      "history:selected": 206,
+      "shared_miss": 241,
+      "first:shared_miss": 240,
+      "lookingAt:shared_miss": 126,
+      "matches:shared_miss": 14,
+      "history:shared_miss": 241
+    },
+    "wrapper_transparency": {
+      "paired_both": 65172,
+      "equal": 65118,
+      "first:both": 65254,
+      "lookingAt:both": 65572,
+      "matches:both": 65908,
+      "history:both": 65224,
+      "matches:shared_miss": 212,
+      "paired_shared_miss": 948,
+      "first:shared_miss": 866,
+      "history:shared_miss": 896,
+      "lookingAt:shared_miss": 548,
+      "different": 1002,
+      "pair_bounds_differences": 0
+    },
+    "zero_width_possessive": {
+      "paired_both": 9505,
+      "different": 1703,
+      "first:shared_miss": 768,
+      "lookingAt:shared_miss": 428,
+      "matches:shared_miss": 24,
+      "history:shared_miss": 780,
+      "matches:both": 10416,
+      "equal": 8737,
+      "first:both": 9672,
+      "lookingAt:both": 10012,
+      "history:both": 9660,
+      "paired_shared_miss": 935,
+      "pair_bounds_differences": 0
+    },
+    "invariants": {
+      "both": 5412,
+      "first:both": 5412,
+      "lookingAt:both": 5491,
+      "matches:both": 5548,
+      "history:both": 5374,
+      "shared_miss": 156,
+      "first:shared_miss": 156,
+      "history:shared_miss": 194,
+      "lookingAt:shared_miss": 77,
+      "matches:shared_miss": 20
+    }
+  },
+  "families": {
+    "ordered_first": {
+      "literal": {
+        "both": 667,
+        "selected": 29
+      },
+      "word": {
+        "both": 676,
+        "selected": 20
+      },
+      "overlap_short_first": {
+        "both": 663,
+        "selected": 33
+      },
+      "overlap_long_first": {
+        "both": 667,
+        "selected": 29
+      },
+      "optional_tail": {
+        "both": 658,
+        "selected": 38
+      },
+      "reluctant_tail": {
+        "both": 608,
+        "selected": 88
+      },
+      "split_groups": {
+        "both": 663,
+        "selected": 33
+      },
+      "nested_count": {
+        "both": 652,
+        "shared_miss": 15,
+        "selected": 29
+      },
+      "nullable_optional_atom": {
+        "both": 667,
+        "selected": 29
+      },
+      "nullable_empty_first": {
+        "both": 638,
+        "selected": 58
+      },
+      "nullable_optional_first": {
+        "both": 568,
+        "selected": 128
+      },
+      "nullable_nullable_concat": {
+        "both": 615,
+        "selected": 81
+      },
+      "nullable_overlap": {
+        "both": 615,
+        "selected": 81
+      },
+      "nullable_reluctant_operand": {
+        "both": 567,
+        "selected": 129
+      },
+      "nullable_assertion": {
+        "both": 642,
+        "selected": 54
+      },
+      "nullable_nested_finite": {
+        "both": 652,
+        "shared_miss": 15,
+        "selected": 29
+      },
+      "nullable_nested_unbounded": {
+        "both": 667,
+        "selected": 29
+      },
+      "nullable_zero_width": {
+        "shared_miss": 230,
+        "both": 466
+      },
+      "nullable_boundary": {
+        "both": 541,
+        "selected": 155
+      }
+    },
+    "minimum_boundary": {
+      "optional_atom": {
+        "both": 2784
+      },
+      "empty_first": {
+        "both": 2474,
+        "selected": 180,
+        "shared_miss": 130
+      },
+      "optional_first": {
+        "both": 2746,
+        "selected": 14,
+        "shared_miss": 23,
+        "neither": 1
+      },
+      "nullable_concat": {
+        "both": 2784
+      },
+      "overlap": {
+        "both": 2784
+      },
+      "reluctant_operand": {
+        "both": 2615,
+        "selected": 79,
+        "shared_miss": 86,
+        "neither": 4
+      },
+      "assertion": {
+        "both": 2578,
+        "selected": 94,
+        "shared_miss": 112
+      },
+      "nested_finite": {
+        "both": 2714,
+        "shared_miss": 70
+      },
+      "nested_unbounded": {
+        "both": 2784
+      },
+      "zero_width": {
+        "both": 2784
+      },
+      "boundary": {
+        "both": 2494,
+        "selected": 136,
+        "shared_miss": 150,
+        "neither": 4
+      }
+    },
+    "terminal_empty": {
+      "optional_atom": {
+        "selected": 751,
+        "both": 3425
+      },
+      "empty_first": {
+        "selected": 771,
+        "both": 3345,
+        "shared_miss": 60
+      },
+      "optional_first": {
+        "both": 3930,
+        "selected": 236,
+        "shared_miss": 10
+      },
+      "nullable_concat": {
+        "selected": 757,
+        "both": 3419
+      },
+      "overlap": {
+        "both": 4176
+      },
+      "reluctant_operand": {
+        "selected": 791,
+        "both": 3352,
+        "shared_miss": 33
+      },
+      "assertion": {
+        "selected": 312,
+        "both": 3804,
+        "shared_miss": 60
+      },
+      "nested_finite": {
+        "both": 4096,
+        "shared_miss": 80
+      },
+      "nested_unbounded": {
+        "both": 4176
+      },
+      "zero_width": {
+        "selected": 230,
+        "both": 3486,
+        "alternative": 460
+      },
+      "boundary": {
+        "both": 3601,
+        "selected": 485,
+        "shared_miss": 90
+      }
+    },
+    "optional_order": {
+      "literal": {
+        "both": 2784
+      },
+      "word": {
+        "both": 2784
+      },
+      "overlap_short_first": {
+        "both": 2748,
+        "selected": 36
+      },
+      "overlap_long_first": {
+        "both": 2784
+      },
+      "optional_tail": {
+        "both": 2777,
+        "selected": 7
+      },
+      "reluctant_tail": {
+        "both": 2784
+      },
+      "split_groups": {
+        "both": 2747,
+        "selected": 37
+      },
+      "nested_count": {
+        "both": 2716,
+        "shared_miss": 68
+      }
+    },
+    "plus_invocation": {
+      "optional_atom": {
+        "both": 696
+      },
+      "empty_first": {
+        "both": 636,
+        "selected": 60
+      },
+      "optional_first": {
+        "both": 696
+      },
+      "nullable_concat": {
+        "both": 696
+      },
+      "overlap": {
+        "both": 696
+      },
+      "reluctant_operand": {
+        "both": 696
+      },
+      "assertion": {
+        "both": 636,
+        "selected": 60
+      },
+      "nested_finite": {
+        "both": 681,
+        "shared_miss": 15
+      },
+      "nested_unbounded": {
+        "both": 696
+      },
+      "zero_width": {
+        "both": 696
+      },
+      "boundary": {
+        "both": 606,
+        "selected": 90
+      }
+    },
+    "omitted_capture": {
+      "optional_descendant": {
+        "both": 3375,
+        "selected": 105
+      },
+      "branch_omission": {
+        "both": 2896,
+        "selected": 584
+      },
+      "optional_prefix": {
+        "both": 3390,
+        "selected": 90
+      },
+      "nullable_descendant": {
+        "both": 3480
+      },
+      "nested_finite_zero_min": {
+        "both": 2854,
+        "selected": 546,
+        "shared_miss": 60,
+        "neither": 20
+      },
+      "nested_finite_positive_min": {
+        "both": 3448,
+        "shared_miss": 32
+      },
+      "nested_reluctant": {
+        "both": 3378,
+        "selected": 102
+      },
+      "nested_star": {
+        "both": 2874,
+        "selected": 606
+      },
+      "empty_or_word": {
+        "both": 3200,
+        "selected": 200,
+        "neither": 80
+      },
+      "captured_optional": {
+        "both": 3480
+      }
+    },
+    "latest_capture": {
+      "optional_descendant": {
+        "both": 2936,
+        "selected": 544
+      },
+      "branch_omission": {
+        "both": 2850,
+        "selected": 630
+      },
+      "optional_prefix": {
+        "both": 3450,
+        "selected": 30
+      },
+      "nullable_descendant": {
+        "both": 2936,
+        "selected": 544
+      },
+      "nested_finite_zero_min": {
+        "both": 3096,
+        "selected": 304,
+        "neither": 80
+      },
+      "nested_finite_positive_min": {
+        "both": 3286,
+        "selected": 162,
+        "neither": 32
+      },
+      "nested_reluctant": {
+        "both": 3268,
+        "selected": 212
+      },
+      "nested_star": {
+        "both": 3096,
+        "selected": 384
+      },
+      "empty_or_word": {
+        "both": 3200,
+        "selected": 200,
+        "shared_miss": 80
+      },
+      "captured_optional": {
+        "both": 2794,
+        "selected": 686
+      },
+      "literal": {
+        "both": 3114,
+        "selected": 366
+      },
+      "word": {
+        "both": 3450,
+        "selected": 30
+      },
+      "overlap_short_first": {
+        "both": 3114,
+        "selected": 366
+      },
+      "overlap_long_first": {
+        "both": 3312,
+        "selected": 168
+      },
+      "optional_tail": {
+        "both": 2936,
+        "selected": 544
+      },
+      "reluctant_tail": {
+        "both": 2982,
+        "selected": 498
+      },
+      "split_groups": {
+        "both": 3132,
+        "selected": 348
+      },
+      "nested_count": {
+        "both": 3044,
+        "selected": 352,
+        "neither": 84
+      }
+    },
+    "empty_search_cursor": {
+      "optional_atom": {
+        "both": 348
+      },
+      "empty_first": {
+        "both": 303,
+        "selected": 45
+      },
+      "optional_first": {
+        "both": 303,
+        "selected": 45
+      },
+      "nullable_concat": {
+        "both": 348
+      },
+      "overlap": {
+        "both": 348
+      },
+      "reluctant_operand": {
+        "both": 303,
+        "selected": 45
+      },
+      "assertion": {
+        "both": 323,
+        "selected": 25
+      },
+      "nested_finite": {
+        "both": 337,
+        "shared_miss": 11
+      },
+      "nested_unbounded": {
+        "both": 348
+      },
+      "zero_width": {
+        "shared_miss": 230,
+        "both": 118
+      },
+      "boundary": {
+        "both": 302,
+        "selected": 46
+      }
+    },
+    "wrapper_transparency": {
+      "optional_atom": {
+        "equal": 3480
+      },
+      "empty_first": {
+        "equal": 3480
+      },
+      "optional_first": {
+        "equal": 3480
+      },
+      "nullable_concat": {
+        "equal": 3480
+      },
+      "overlap": {
+        "equal": 3480
+      },
+      "reluctant_operand": {
+        "equal": 3480
+      },
+      "assertion": {
+        "equal": 3480
+      },
+      "nested_finite": {
+        "equal": 3480
+      },
+      "nested_unbounded": {
+        "equal": 3480
+      },
+      "zero_width": {
+        "different": 690,
+        "equal": 2790
+      },
+      "boundary": {
+        "equal": 3480
+      },
+      "literal": {
+        "equal": 3344,
+        "different": 136
+      },
+      "word": {
+        "equal": 3304,
+        "different": 176
+      },
+      "overlap_short_first": {
+        "equal": 3480
+      },
+      "overlap_long_first": {
+        "equal": 3480
+      },
+      "optional_tail": {
+        "equal": 3480
+      },
+      "reluctant_tail": {
+        "equal": 3480
+      },
+      "split_groups": {
+        "equal": 3480
+      },
+      "nested_count": {
+        "equal": 3480
+      }
+    },
+    "zero_width_possessive": {
+      "empty_capture": {
+        "different": 460,
+        "equal": 1280
+      },
+      "two_captures": {
+        "equal": 1740
+      },
+      "anchor_then_empty": {
+        "equal": 1270,
+        "different": 470
+      },
+      "boundary": {
+        "equal": 1344,
+        "different": 396
+      },
+      "nested_count": {
+        "equal": 1740
+      },
+      "two_anchors": {
+        "equal": 1363,
+        "different": 377
+      }
+    },
+    "invariants": {
+      "rollback_branch": {
+        "both": 348
+      },
+      "rollback_nested": {
+        "both": 348
+      },
+      "rollback_repeat": {
+        "both": 348
+      },
+      "rollback_alternative": {
+        "both": 348
+      },
+      "new_start": {
+        "both": 348
+      },
+      "new_start_counted_capture": {
+        "both": 339,
+        "shared_miss": 9
+      },
+      "new_start_counted_word": {
+        "both": 302,
+        "shared_miss": 46
+      },
+      "zero_count": {
+        "both": 348
+      },
+      "empty_vs_unmatched": {
+        "both": 348
+      },
+      "group_zero": {
+        "both": 348
+      },
+      "required_empty": {
+        "both": 348
+      },
+      "inner_empty_outer_consumes": {
+        "both": 247,
+        "shared_miss": 101
+      },
+      "fresh_nested_invocation": {
+        "both": 348
+      },
+      "full_acceptance": {
+        "both": 348
+      },
+      "continuation": {
+        "both": 348
+      },
+      "reluctance_preserves_branch_order": {
+        "both": 348
+      }
+    }
+  },
+  "apiInvariantFailures": {
+    "observation": 0,
+    "reset": 0,
+    "literalReplacement": 0,
+    "captureReplacement": 0,
+    "functionalReplacement": 0,
+    "appendReplacement": 0,
+    "splitNegative": 0,
+    "splitZero": 0,
+    "splitPositive": 0
+  },
+  "auxiliary": {
+    "unicodeEmptyCursor": {
+      "utf16": 16,
+      "scalar": 0,
+      "neither": 0
+    },
+    "failedStartControls": [
+      {
+        "regex": "(?:(a)){0,2}b",
+        "text": "a b",
+        "find": [
+          [
+            2,
+            3
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "isolatedStart": [
+          [
+            2,
+            3
+          ],
+          null
+        ]
+      },
+      {
+        "regex": "(?:(ab)){0,2}b",
+        "text": " ab",
+        "find": [
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            3
+          ]
+        ],
+        "isolatedStart": [
+          [
+            2,
+            3
+          ],
+          null
+        ]
+      }
+    ]
+  },
+  "strata": {
+    "ordered_first": {
+      "finite_greedy": {
+        "both": 6098,
+        "selected": 264,
+        "shared_miss": 250
+      },
+      "finite_reluctant": {
+        "both": 5794,
+        "selected": 808,
+        "shared_miss": 10
+      }
+    },
+    "minimum_boundary": {
+      "finite_greedy": {
+        "both": 7327,
+        "selected": 211,
+        "shared_miss": 109,
+        "neither": 9
+      },
+      "finite_reluctant": {
+        "both": 7400,
+        "selected": 82,
+        "shared_miss": 174
+      },
+      "unbounded_greedy": {
+        "both": 7524,
+        "selected": 56,
+        "shared_miss": 76
+      },
+      "unbounded_reluctant": {
+        "both": 7290,
+        "selected": 154,
+        "shared_miss": 212
+      }
+    },
+    "terminal_empty": {
+      "finite_greedy": {
+        "selected": 2170,
+        "both": 9064,
+        "shared_miss": 20,
+        "alternative": 230
+      },
+      "finite_reluctant": {
+        "both": 11474,
+        "shared_miss": 10
+      },
+      "unbounded_greedy": {
+        "selected": 2163,
+        "both": 9005,
+        "shared_miss": 86,
+        "alternative": 230
+      },
+      "unbounded_reluctant": {
+        "both": 11267,
+        "shared_miss": 217
+      }
+    },
+    "optional_order": {
+      "finite_greedy": {
+        "both": 11094,
+        "shared_miss": 42
+      },
+      "finite_reluctant": {
+        "both": 11030,
+        "selected": 80,
+        "shared_miss": 26
+      }
+    },
+    "plus_invocation": {
+      "unbounded_greedy": {
+        "both": 3762,
+        "selected": 56,
+        "shared_miss": 10
+      },
+      "unbounded_reluctant": {
+        "both": 3669,
+        "selected": 154,
+        "shared_miss": 5
+      }
+    },
+    "omitted_capture": {
+      "finite_greedy": {
+        "both": 9404,
+        "selected": 954,
+        "shared_miss": 42,
+        "neither": 40
+      },
+      "finite_reluctant": {
+        "both": 10001,
+        "selected": 371,
+        "shared_miss": 28,
+        "neither": 40
+      },
+      "unbounded_greedy": {
+        "both": 6129,
+        "selected": 803,
+        "neither": 20,
+        "shared_miss": 8
+      },
+      "unbounded_reluctant": {
+        "both": 6841,
+        "selected": 105,
+        "shared_miss": 14
+      }
+    },
+    "latest_capture": {
+      "finite_greedy": {
+        "both": 16388,
+        "selected": 2290,
+        "neither": 74,
+        "shared_miss": 40
+      },
+      "finite_reluctant": {
+        "both": 17069,
+        "selected": 1634,
+        "neither": 49,
+        "shared_miss": 40
+      },
+      "unbounded_greedy": {
+        "both": 10898,
+        "selected": 1581,
+        "neither": 49
+      },
+      "unbounded_reluctant": {
+        "both": 11641,
+        "selected": 863,
+        "neither": 24
+      }
+    },
+    "empty_search_cursor": {
+      "finite_greedy": {
+        "both": 3381,
+        "selected": 206,
+        "shared_miss": 241
+      }
+    },
+    "wrapper_transparency": {
+      "finite_greedy": {
+        "equal": 19520,
+        "different": 316
+      },
+      "finite_reluctant": {
+        "equal": 19651,
+        "different": 185
+      },
+      "unbounded_greedy": {
+        "equal": 12908,
+        "different": 316
+      },
+      "unbounded_reluctant": {
+        "equal": 13039,
+        "different": 185
+      }
+    },
+    "zero_width_possessive": {
+      "finite_greedy": {
+        "different": 927,
+        "equal": 5337
+      },
+      "unbounded_greedy": {
+        "different": 776,
+        "equal": 3400
+      }
+    },
+    "invariants": {
+      "unbounded_greedy": {
+        "both": 1291,
+        "shared_miss": 101
+      },
+      "finite_greedy": {
+        "both": 1337,
+        "shared_miss": 55
+      },
+      "finite_reluctant": {
+        "both": 348
+      }
+    }
+  },
+  "explicitCopyValidation": {
+    "cases": 44544,
+    "mismatches": 0,
+    "scope": "Nested and flat optional ordering, fully expanded finite patterns; source capture identities reconstructed from consuming writes."
+  }
+}
