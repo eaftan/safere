@@ -647,6 +647,79 @@ class Utf8DiagnosticsTest {
         .hasSize(32);
   }
 
+  @Test
+  void utf8PrimaryExactCaptureSearchesReportEagerCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern nullableLoopBitState = Pattern.compile("(?:(é)?)*x");
+    assertThat(matcher(nullableLoopBitState, "ééx").matches()).isTrue();
+    assertThat(matcher(nullableLoopBitState, "ééxy").lookingAt()).isTrue();
+
+    Pattern regionBitState = Pattern.compile("(é+?)x");
+    assertThat(matcher(regionBitState, "zééxy").region(1, 6).find()).isTrue();
+
+    assertThat(operationsFor(nullableLoopBitState))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+    assertThat(operationsFor(regionBitState))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+
+    Pattern nfaPattern = Pattern.compile("(\\X)x");
+    assertThat(matcher(nfaPattern, "éx").matches()).isTrue();
+    assertThat(matcher(nfaPattern, "zzéx").find()).isTrue();
+
+    assertThat(operationsFor(nfaPattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+  }
+
+  @Test
+  void utf8FailedOnePassAndKeywordSearchesReportNoCaptureStrategy() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern onePassPattern = Pattern.compile("^(é+):(\\d+)$");
+    assertThat(matcher(onePassPattern, "éé:nope").matches()).isFalse();
+    assertThat(matcher(onePassPattern, "éé:nope").find()).isFalse();
+
+    assertThat(operationsFor(onePassPattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+
+    Pattern keywordPattern = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    assertThat(matcher(keywordPattern, "nothing matching").find()).isFalse();
+    assertThat(operationsFor(keywordPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.KEYWORD);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+  }
+
   private static EnginePathOptions exactEngineOptions(boolean bitState) {
     return EnginePathOptions.builder()
         .literalFastPaths(false)
