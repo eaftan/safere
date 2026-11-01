@@ -1170,6 +1170,15 @@ public final class Matcher implements MatchResult {
     return false;
   }
 
+  private boolean terminalPrefilterRejects(int fromIndex) {
+    Prog prog = parentPattern.prog();
+    if ((!prog.anchorEnd() && !prog.dollarAnchorEnd()) || parentPattern.rejectPrefilter() == null) {
+      return false;
+    }
+    return parentPattern.terminalPrefilterRejects(
+        activeScanner(), fromIndex, diagnosticsAccumulator());
+  }
+
   /** Core matches fallback logic, operates on the (possibly substituted) {@code text} field. */
   private boolean matchesCore() {
     capturesResolved = true;
@@ -3228,6 +3237,10 @@ public final class Matcher implements MatchResult {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     if (regionActive || searchFrom != 0) {
       return null;
+    }
+    if (terminalPrefilterRejects(0)) {
+      applyFailedMatchResult();
+      return text;
     }
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     boolean requiresCaptures = template.needsCaptures();
@@ -5547,7 +5560,9 @@ public final class Matcher implements MatchResult {
           || matcher.activeScanner().length() > matcher.onePassTextLimit()) {
         return matcher.doFindCore(regionActive);
       }
-      if (matcher.searchFrom > 0 || matcher.anchoredPrefixOrCharClassCannotMatch(0)) {
+      if (matcher.searchFrom > 0
+          || matcher.anchoredPrefixOrCharClassCannotMatch(0)
+          || matcher.terminalPrefilterRejects(0)) {
         return matcher.applyFailedMatchResult();
       }
       matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
@@ -5576,6 +5591,9 @@ public final class Matcher implements MatchResult {
       matcher.capturesResolved = true;
       Pattern pattern = matcher.parentPattern;
       if (pattern.canOnePassPrimary()) {
+        if (matcher.terminalPrefilterRejects(0)) {
+          return matcher.applyFailedMatchResult();
+        }
         OnePass onePass = pattern.onePass();
         matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
         int[] result =

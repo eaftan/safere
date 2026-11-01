@@ -874,16 +874,8 @@ public final class Pattern implements Serializable {
         || !canUseReverseDfa()) {
       return END_ANCHORED_SEARCH_FALLBACK;
     }
-    if (rejectPrefilter != null) {
-      MatchStrategy rejection =
-          rejectPrefilter.endAnchoredRejectionStrategy(scanner, searchFrom, enginePathOptions);
-      if (rejection != null) {
-        if (diagnostics != null) {
-          diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
-          diagnostics.boundary(rejection);
-        }
-        return -1;
-      }
+    if (terminalPrefilterRejects(scanner, searchFrom, diagnostics)) {
+      return -1;
     }
     Prog reverseProgram = flatReverseDfaProg();
     if (reverseProgram == null
@@ -1919,6 +1911,24 @@ public final class Pattern implements Serializable {
   /** Returns whole-input rejection prefilter, or {@code null}. */
   RejectPrefilter rejectPrefilter() {
     return rejectPrefilter;
+  }
+
+  /** Applies bounded terminal rejection and records the rejecting diagnostic strategy. */
+  boolean terminalPrefilterRejects(
+      InputScanner scanner, int searchFrom, DiagnosticAccumulator diagnostics) {
+    if (rejectPrefilter == null) {
+      return false;
+    }
+    MatchStrategy rejection =
+        rejectPrefilter.endAnchoredRejectionStrategy(scanner, searchFrom, enginePathOptions);
+    if (rejection == null) {
+      return false;
+    }
+    if (diagnostics != null) {
+      diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+      diagnostics.boundary(rejection);
+    }
+    return true;
   }
 
   /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */

@@ -694,8 +694,9 @@ class Utf8DiagnosticsTest {
     Pattern.setDiagnostics(diagnostics);
 
     Pattern onePassPattern = Pattern.compile("^(é+):(\\d+)$");
-    assertThat(matcher(onePassPattern, "éé:nope").matches()).isFalse();
-    assertThat(matcher(onePassPattern, "éé:nope").find()).isFalse();
+    // A valid final digit passes terminal rejection so OnePass observes the interior failure.
+    assertThat(matcher(onePassPattern, "éé:nope1").matches()).isFalse();
+    assertThat(matcher(onePassPattern, "éé:nope1").find()).isFalse();
 
     assertThat(operationsFor(onePassPattern))
         .hasSize(2)

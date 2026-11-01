@@ -45,6 +45,33 @@ class DiagnosticsTest {
   }
 
   @Test
+  void anchoredOnePassUsesTerminalRejectionBeforeScanning() {
+    Pattern.setDiagnostics(diagnostics);
+    String input = "a".repeat(4096) + "c";
+    for (String regex : List.of("^(a)*b$", "^([a-z]+)[0-9]$", "^([a-z]+)END\\z")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.canOnePassPrimary()).as("/%s/", regex).isTrue();
+      assertThat(pattern.matcher(input).matches()).isFalse();
+      assertThat(pattern.matcher(input).find()).isFalse();
+      assertThat(pattern.matcher(input).replaceAll("$1")).isEqualTo(input);
+      Utf8Input utf8 = Utf8Input.validated(input.getBytes(UTF_8));
+      assertThat(pattern.matcher(utf8).matches()).isFalse();
+      assertThat(pattern.matcher(utf8).find()).isFalse();
+      assertThat(operationsFor(pattern))
+          .hasSize(5)
+          .allSatisfy(
+              event -> {
+                assertThat(event.boundaryStrategy())
+                    .isIn(MatchStrategy.LITERAL, MatchStrategy.CHARACTER_CLASS);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+                assertThat(event.forwardDfaSearchCount()).isZero();
+                assertThat(event.auxiliaryStrategies())
+                    .anyMatch(strategy -> strategy.role() == StrategyRole.REJECT_PREFILTER);
+              });
+    }
+  }
+
+  @Test
   void patternIdentityIsStableAndDistinctWithoutDiagnostics() {
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     Pattern first = Pattern.compile("abc");
@@ -1287,10 +1314,12 @@ class DiagnosticsTest {
     Pattern.setDiagnostics(diagnostics);
 
     Pattern onePassPattern = Pattern.compile("^([a-z]+):(\\d+)$");
-    assertThat(onePassPattern.matcher("abc:nope").matches()).isFalse();
-    assertThat(onePassPattern.matcher("abc:nope").find()).isFalse();
-    assertThat(onePassPattern.matcher("abc:nope").replaceFirst("$1")).isEqualTo("abc:nope");
-    assertThat(onePassPattern.matcher("abc:nope").replaceAll("$1")).isEqualTo("abc:nope");
+    // A valid final digit passes terminal rejection so OnePass observes the interior failure.
+    String rejectedInput = "abc:nope1";
+    assertThat(onePassPattern.matcher(rejectedInput).matches()).isFalse();
+    assertThat(onePassPattern.matcher(rejectedInput).find()).isFalse();
+    assertThat(onePassPattern.matcher(rejectedInput).replaceFirst("$1")).isEqualTo(rejectedInput);
+    assertThat(onePassPattern.matcher(rejectedInput).replaceAll("$1")).isEqualTo(rejectedInput);
 
     Pattern onePassPrefixPattern = Pattern.compile("^([a-z]+):(\\d+)");
     assertThat(onePassPrefixPattern.matcher("abc:nope").lookingAt()).isFalse();
