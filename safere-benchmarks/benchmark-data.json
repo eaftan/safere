@@ -3317,6 +3317,38 @@
       }
     },
     {
+      "id": "matcherApi.tokenizer.16384",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "word 12 ",
+        "length": 16384
+      }
+    },
+    {
+      "id": "matcherApi.tokenizer.65536",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "word 12 ",
+        "length": 65536
+      }
+    },
+    {
+      "id": "matcherApi.fixedRegion.32",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 34
+      }
+    },
+    {
+      "id": "matcherApi.fixedRegion.32768",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32770
+      }
+    },
+    {
       "id": "matcherApi.lookingAt.input",
       "recipe": {
         "kind": "literal",
@@ -11671,6 +11703,568 @@
       },
       "arguments": {
         "replacement": ""
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.regionTokenize.16384",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "[A-Za-z0-9]+| +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.regionTokenize.65536",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "[A-Za-z0-9]+| +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.65536"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 32768
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literal.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.alternation.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "aa|ab"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.class.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.requiredLiteralAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a+zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literal.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.alternation.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "aa|ab"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.class.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.requiredLiteralAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a+zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.classMatches.32",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalFoldAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?i:zebra)"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.classMatches.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalFoldAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?i:zebra)"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.terminalSuffixAbsent.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^a+b$"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.terminalClassAbsent.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^a+[0-9]$"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
       }
     },
     {

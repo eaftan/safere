@@ -63,6 +63,11 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public int end(int group) {
+              return matcher.end(group);
+            }
+
+            @Override
             public void reset() {
               matcher.reset();
             }
@@ -156,6 +161,11 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public int end(int group) {
+              return matcher.end(group);
+            }
+
+            @Override
             public void reset() {
               matcher.reset();
             }
@@ -238,6 +248,11 @@ enum RegexEngineVariant {
             @Override
             public int start(int group) {
               return matcher.start(group);
+            }
+
+            @Override
+            public int end(int group) {
+              return matcher.end(group);
             }
 
             @Override
@@ -326,6 +341,11 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public int end(int group) {
+              return matcher.end(group);
+            }
+
+            @Override
             public void reset() {
               matcher.reset();
             }
@@ -403,6 +423,11 @@ enum RegexEngineVariant {
             @Override
             public int start(int group) {
               return matcher.start(group);
+            }
+
+            @Override
+            public int end(int group) {
+              return matcher.end(group);
             }
 
             @Override
@@ -674,7 +699,14 @@ enum RegexEngineVariant {
     return sink.output();
   }
 
-  sealed interface RegexInput permits StringRegexInput, Utf8RegexInput {}
+  sealed interface RegexInput permits StringRegexInput, Utf8RegexInput {
+    default int nativeLength() {
+      return switch (this) {
+        case StringRegexInput string -> string.value().length();
+        case Utf8RegexInput utf8 -> utf8.value().length();
+      };
+    }
+  }
 
   record StringRegexInput(String value) implements RegexInput {}
 
@@ -755,6 +787,10 @@ enum RegexEngineVariant {
     }
 
     default int start(int group) {
+      throw new UnsupportedOperationException();
+    }
+
+    default int end(int group) {
       throw new UnsupportedOperationException();
     }
 
