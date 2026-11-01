@@ -1161,11 +1161,6 @@ class DiagnosticsTest {
     assertThat(lookingAtMatcher.lookingAt()).isTrue();
     assertThat(lookingAtMatcher.capturesResolved()).isTrue();
 
-    Pattern regionBitState = Pattern.compile("(a+?)b");
-    Matcher regionMatcher = regionBitState.matcher("xaabx").region(1, 4);
-    assertThat(regionMatcher.find()).isTrue();
-    assertThat(regionMatcher.capturesResolved()).isTrue();
-
     assertThat(operationsFor(nullableLoopBitState))
         .hasSize(2)
         .allSatisfy(
@@ -1174,15 +1169,6 @@ class DiagnosticsTest {
               assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
               assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
             });
-    assertThat(operationsFor(regionBitState))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
-            });
-
     Pattern nfaPattern = Pattern.compile("(\\X)b");
     Matcher nfaMatches = nfaPattern.matcher("ab");
     assertThat(nfaMatches.matches()).isTrue();
@@ -1198,6 +1184,32 @@ class DiagnosticsTest {
             event -> {
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
               assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+  }
+
+  @Test
+  void regionFindReportsIndependentTextBoundsAndEagerCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern independentPattern = Pattern.compile("(a+?)b");
+    Matcher independentMatcher = independentPattern.matcher("aab");
+    assertThat(independentMatcher.find()).isTrue();
+    assertThat(operationsFor(independentPattern)).hasSize(1);
+    OperationDiagnostics independentEvent = operationsFor(independentPattern).getFirst();
+
+    Pattern regionPattern = Pattern.compile("(a+?)b");
+    Matcher regionMatcher = regionPattern.matcher("xaabx").region(1, 4);
+    assertThat(regionMatcher.find()).isTrue();
+    assertThat(regionMatcher.capturesResolved()).isTrue();
+
+    assertThat(operationsFor(regionPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(independentEvent.boundaryStrategy());
+              // Region captures are resolved before restoring the original input coordinates.
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
               assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
             });
   }
