@@ -87,7 +87,8 @@ class MatcherDeferredCaptureStateTest {
             0,
             EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build());
 
-    assertThat(pattern.matcher("abc123").find()).isTrue();
+    // matches() releases the engines to the pattern when it completes.
+    assertThat(pattern.matcher("abc123").matches()).isTrue();
 
     Nfa nfa = pattern.borrowNfa();
     assertThat(nfa).isNotNull();
@@ -96,36 +97,34 @@ class MatcherDeferredCaptureStateTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void resetInputThenHandoffBorrowsEngineFromExecutingThread(boolean bitState) throws Exception {
+  void resetInputThenHandoffResolvesCapturesWithoutKeepingAnEngine(boolean bitState)
+      throws Exception {
     Pattern pattern =
         Pattern.compile(
             "([a-z]+)([0-9]+)",
             0,
-            EnginePathOptions.builder().dfa(false).onePass(false).bitState(bitState).build());
+            EnginePathOptions.builder().onePass(false).bitState(bitState).build());
     Field engineField = field(Matcher.class, bitState ? "cachedBitState" : "cachedNfa");
     Matcher transferred = pattern.matcher("abc123");
     assertThat(transferred.find()).isTrue();
-    Object initialEngine = engineField.get(transferred);
-    assertThat(initialEngine).isNotNull();
     transferred.reset("xyz789");
-    assertThat(engineField.get(transferred)).isNull();
 
     Matcher retained = pattern.matcher("abc123");
     assertThat(retained.find()).isTrue();
-    assertThat(engineField.get(retained)).isSameAs(initialEngine);
+    assertThat(retained.group(2)).isEqualTo("123");
     try (ExecutorService worker = Executors.newSingleThreadExecutor()) {
       Object workerEngine =
           worker
               .submit(
                   () -> {
                     assertThat(transferred.find()).isTrue();
-                    Object borrowedEngine = engineField.get(transferred);
                     assertThat(transferred.group(2)).isEqualTo("789");
-                    return borrowedEngine;
+                    return engineField.get(transferred);
                   })
               .get();
-      assertThat(workerEngine).isNotNull().isNotSameAs(engineField.get(retained));
+      assertThat(workerEngine).isNull();
     }
+    assertThat(engineField.get(retained)).isNull();
   }
 
   @Test

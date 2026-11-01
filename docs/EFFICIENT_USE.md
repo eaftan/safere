@@ -120,7 +120,7 @@ Prefer the clearest form.
 
 Measure on warmed code. The first calls run in the JVM interpreter, and SafeRE
 has first-use costs of its own: some automata are built the first time a
-pattern needs them, and per-thread matching state is built once per thread. For microbenchmarks, use [JMH](https://github.com/openjdk/jmh)
+pattern needs them, and a pattern builds a separate copy of its matching state for each thread that searches it concurrently. For microbenchmarks, use [JMH](https://github.com/openjdk/jmh)
 and a fixed heap size (`-Xms` equal to `-Xmx`), so heap growth does not show up
 as matching time.
 

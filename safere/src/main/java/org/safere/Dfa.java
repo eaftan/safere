@@ -337,7 +337,7 @@ final class Dfa {
    * #MIN_PROGRESS_PER_CACHED_STATE} positions per state. Each such generation doubles the input
    * span required before the next cache reset is permitted ({@code (10 << unproductiveResets) *
    * cache.size()}), bounding total rebuild work on adversarial inputs to a geometric series while
-   * allowing long-lived {@code ThreadLocal<Dfa>} instances to recover on later inputs.
+   * allowing a {@link Dfa} reused across searches to recover on later inputs.
    */
   private int unproductiveResets;
 

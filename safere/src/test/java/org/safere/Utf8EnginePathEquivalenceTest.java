@@ -209,7 +209,8 @@ class Utf8EnginePathEquivalenceTest {
     Pattern pattern =
         Pattern.compile(
             "(?:é|éé)*x", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
-    assertThat(pattern.matcher(Utf8Input.validated("ééx".getBytes(UTF_8))).find()).isTrue();
+    // matches() releases the engines to the pattern when it completes.
+    assertThat(pattern.matcher(Utf8Input.validated("ééx".getBytes(UTF_8))).matches()).isTrue();
 
     BitState cached = pattern.borrowBitState();
     assertThat(cached).isNotNull();

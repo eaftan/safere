@@ -15,10 +15,17 @@ final class BenchmarkDataSchema {
   private static final Set<String> ROOT_FIELDS =
       Set.of("schemaVersion", "configuration", "inputs", "workloads");
   private static final Set<String> CONFIGURATION_FIELDS =
-      Set.of("collection", "crosscheckOverhead", "vectorScan");
+      Set.of("collection", "crosscheckOverhead", "engineSlot", "vectorScan");
   private static final Set<String> COLLECTION_FIELDS = Set.of("allocationWorkloadPrefixes");
   private static final Set<String> CROSSCHECK_OVERHEAD_FIELDS = Set.of("pattern", "replacement");
   private static final Set<String> VECTOR_SCAN_FIELDS = Set.of("smokeTrials", "standardTrials");
+
+  private static final Set<String> ENGINE_SLOT_FIELDS =
+      Set.of("patterns", "inputs", "regionStart", "regionEnd");
+  private static final Set<String> ENGINE_SLOT_PATTERNS =
+      Set.of("lookingAt", "region", "reset", "find", "miss", "findAll", "matches");
+  private static final Set<String> ENGINE_SLOT_INPUTS =
+      Set.of("lookingAt", "region", "reset", "matches", "log");
 
   private BenchmarkDataSchema() {}
 
@@ -64,6 +71,23 @@ final class BenchmarkDataSchema {
           CROSSCHECK_OVERHEAD_FIELDS);
       requiredString(crosscheck, "pattern");
       requiredString(crosscheck, "replacement");
+    }
+    if (configuration.has("engineSlot")) {
+      JsonObject engineSlot = requiredObject(configuration, "engineSlot");
+      requireOnly(engineSlot, "benchmark-data.json configuration.engineSlot", ENGINE_SLOT_FIELDS);
+      for (String section : Set.of("patterns", "inputs")) {
+        JsonObject values = requiredObject(engineSlot, section);
+        Set<String> fields = section.equals("patterns") ? ENGINE_SLOT_PATTERNS : ENGINE_SLOT_INPUTS;
+        requireOnly(values, "benchmark-data.json configuration.engineSlot." + section, fields);
+        for (String field : fields) {
+          requiredString(values, field);
+        }
+      }
+      int start = required(engineSlot, "regionStart").getAsInt();
+      int end = required(engineSlot, "regionEnd").getAsInt();
+      if (start < 0 || end < start) {
+        throw new IllegalArgumentException("Engine slot region requires 0 <= start <= end");
+      }
     }
     if (configuration.has("vectorScan")) {
       JsonObject vectorScan = requiredObject(configuration, "vectorScan");
