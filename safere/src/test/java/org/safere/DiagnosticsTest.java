@@ -1121,6 +1121,103 @@ class DiagnosticsTest {
             });
   }
 
+  @ParameterizedTest
+  @MethodSource("onePassCapabilityAlignmentCases")
+  void onePassCapabilitiesAgreeWithRuntimeExecution(
+      String regex,
+      EnginePathOptions options,
+      String matchingInput,
+      boolean expectPrimary,
+      boolean expectCaptureExtraction) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(regex, 0, options);
+    PatternAnalysis analysis = pattern.analysis();
+
+    if (analysis.limitations().contains(PatternLimitation.LAZY_SEMANTICS_LIMIT_ONE_PASS)
+        || analysis.limitations().contains(PatternLimitation.NULLABLE_ALTERNATION_LIMITS_ONE_PASS)
+        || analysis.limitations().contains(PatternLimitation.GRAPHEME_REQUIRES_EXACT_ENGINE)
+        || analysis.captureCount() > OnePass.MAX_CAPTURE_GROUPS - 1
+        || !options.onePass()) {
+      assertThat(analysis.capabilities())
+          .doesNotContain(
+              PatternCapability.ONE_PASS_PRIMARY, PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
+    }
+    if (analysis.captureCount() == 0) {
+      assertThat(analysis.capabilities())
+          .doesNotContain(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
+    }
+    assertThat(analysis.capabilities().contains(PatternCapability.ONE_PASS_PRIMARY))
+        .isEqualTo(expectPrimary);
+    assertThat(analysis.capabilities().contains(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION))
+        .isEqualTo(expectCaptureExtraction);
+
+    assertThat(pattern.matcher(matchingInput).matches()).isTrue();
+    String lookingAtInput =
+        pattern.prog().anchorEnd() || pattern.prog().dollarAnchorEnd()
+            ? matchingInput
+            : matchingInput + " suffix";
+    assertThat(pattern.matcher(lookingAtInput).lookingAt()).isTrue();
+    Matcher findMatcher = pattern.matcher("prefix " + matchingInput + " suffix");
+    if (!pattern.prog().anchorStart() && !pattern.prog().anchorEnd()) {
+      assertThat(findMatcher.find()).isTrue();
+      if (analysis.captureCount() > 0) {
+        findMatcher.group(1);
+      }
+    } else {
+      Matcher anchoredFind = pattern.matcher(matchingInput);
+      assertThat(anchoredFind.find()).isTrue();
+      if (analysis.captureCount() > 0) {
+        anchoredFind.group(1);
+      }
+    }
+    String replacement = analysis.captureCount() > 0 ? "$1" : "x";
+    assertThat(pattern.matcher(matchingInput).replaceFirst(replacement)).isNotNull();
+    assertThat(pattern.matcher(matchingInput).replaceAll(replacement)).isNotNull();
+
+    List<OperationDiagnostics> events = operationsFor(pattern);
+    boolean ranOnePassPrimary =
+        events.stream().anyMatch(event -> event.boundaryStrategy() == MatchStrategy.ONE_PASS);
+    boolean ranOnePassCapture =
+        events.stream().anyMatch(event -> event.captureStrategy() == MatchStrategy.ONE_PASS);
+    boolean ranOnePassAuxiliary =
+        events.stream()
+            .flatMap(event -> event.auxiliaryStrategies().stream())
+            .anyMatch(participation -> participation.strategy() == MatchStrategy.ONE_PASS);
+
+    assertThat(ranOnePassPrimary).isEqualTo(expectPrimary);
+    assertThat(ranOnePassCapture).isEqualTo(expectCaptureExtraction);
+    if (!expectPrimary && !expectCaptureExtraction) {
+      assertThat(ranOnePassAuxiliary).isFalse();
+    }
+  }
+
+  private static Stream<Arguments> onePassCapabilityAlignmentCases() {
+    EnginePathOptions defaults = EnginePathOptions.allEnabled();
+    EnginePathOptions onePassDisabled = EnginePathOptions.builder().onePass(false).build();
+    return Stream.of(
+        Arguments.of("^([a-z]+):(\\d+)$", defaults, "abc:123", true, true),
+        Arguments.of("([a-z]+):(\\d+)", defaults, "abc:123", true, true),
+        Arguments.of("^[a-z]+:\\d+$", defaults, "abc:123", true, false),
+        Arguments.of("\\d{4}-\\d{2}-\\d{2}", defaults, "2026-10-30", true, false),
+        Arguments.of("(a)*", defaults, "aaa", false, true),
+        Arguments.of("^(a|)b$", defaults, "ab", false, false),
+        Arguments.of("(a|)b", defaults, "ab", false, false),
+        Arguments.of("(a*|b)c", defaults, "ac", false, false),
+        Arguments.of("^([a-z]+?)b$", defaults, "aab", false, false),
+        Arguments.of("([a-z]+?)b", defaults, "aab", false, false),
+        Arguments.of("\\b{g}(a+)", defaults, "aaa", false, false),
+        Arguments.of("(\\X)", defaults, "a", false, false),
+        Arguments.of(
+            "(a)".repeat(OnePass.MAX_CAPTURE_GROUPS),
+            defaults,
+            "a".repeat(OnePass.MAX_CAPTURE_GROUPS),
+            false,
+            false),
+        Arguments.of("(a|ab)c", defaults, "abc", false, false),
+        Arguments.of("^([a-z]+):(\\d+)$", onePassDisabled, "abc:123", false, false),
+        Arguments.of("([a-z]+):(\\d+)", onePassDisabled, "abc:123", false, false));
+  }
+
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
     long patternId = pattern.patternId();
     return diagnostics.operations.stream()

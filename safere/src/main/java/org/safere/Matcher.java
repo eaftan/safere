@@ -3207,7 +3207,7 @@ public final class Matcher implements MatchResult {
   /** Callers must first check {@link #isFullyAnchoredOnePassPattern()}. */
   private String replaceAnchoredOnePass(String replacement, boolean replaceAll) {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
-    if (!enginePathOptions().onePass() || regionActive || searchFrom != 0) {
+    if (regionActive || searchFrom != 0) {
       return null;
     }
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
@@ -3318,11 +3318,7 @@ public final class Matcher implements MatchResult {
     if (needsCaptures) {
       recordInnerCaptureDemand();
     }
-    boolean useOnePass =
-        needsCaptures
-            && enginePathOptions().onePass()
-            && parentPattern.canOnePassSubmatch()
-            && !parentPattern.astAnalysis().hasNullableAlt();
+    boolean useOnePass = needsCaptures && parentPattern.canOnePassSubmatch();
 
     int textLen = text.length();
     StringBuilder sb = new StringBuilder(textLen);
@@ -4378,14 +4374,10 @@ public final class Matcher implements MatchResult {
     // captures within that range.
     //
     // Prefer OnePass when available — it's a single deterministic pass with no bitmap or job
-    // stack overhead. Skip for patterns with nullable alternation where OnePass's longest-match
-    // semantics would pick the wrong branch (consuming over zero-width). For non-nullable
-    // alternation (e.g., GET|POST), all branches must consume characters so longest-match
-    // and first-match are equivalent.
+    // stack overhead. Pattern.canOnePassSubmatch() already excludes lazy quantifiers, nullable
+    // alternations, grapheme programs, and disabled OnePass options.
     int[] result;
-    if (enginePathOptions().onePass()
-        && parentPattern.canOnePassSubmatch()
-        && !parentPattern.astAnalysis().hasNullableAlt()) {
+    if (parentPattern.canOnePassSubmatch()) {
       diagnosticCapture(MatchStrategy.ONE_PASS);
       int ncap = 2 * Math.max(prog.numCaptures(), 1);
       if (onePassScratchCap == null || onePassScratchCap.length < ncap) {
