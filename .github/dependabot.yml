@@ -10,6 +10,10 @@ updates:
         patterns:
           - "*"
     ignore:
+      # ICU 79+ uses Unicode 18. Upgrade with the generated tables, grapheme
+      # fixtures, and generator JDK; see safere-unicode/README.md.
+      - dependency-name: "com.ibm.icu:icu4j"
+        versions: ["[79.0,)"]
       # Surefire 3.6+ prevents Jazzer 0.30.0 from dynamically attaching its
       # instrumentation agent. Revisit when Jazzer supports this configuration.
       - dependency-name: "org.apache.maven.plugins:maven-surefire-plugin"

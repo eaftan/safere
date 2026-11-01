@@ -397,7 +397,10 @@ final class Prog {
   // Epsilon-cycle analysis for BitState
   // ---------------------------------------------------------------------------
 
-  private boolean[] epsilonCycleAlts;
+  // Computed lazily on first use by BitState, possibly by several threads sharing one Pattern. The
+  // computation is deterministic, so a racing duplicate computation is harmless, but the array must
+  // be published through a volatile field so that readers see its elements.
+  private volatile boolean[] epsilonCycleAlts;
 
   /**
    * Returns a boolean array indexed by instruction ID. An entry is {@code true} if that instruction
@@ -409,10 +412,12 @@ final class Prog {
    * <p>The result is computed once and cached.
    */
   boolean[] epsilonCycleAlts() {
-    if (epsilonCycleAlts == null) {
-      epsilonCycleAlts = computeEpsilonCycleAlts();
+    boolean[] result = epsilonCycleAlts;
+    if (result == null) {
+      result = computeEpsilonCycleAlts();
+      epsilonCycleAlts = result;
     }
-    return epsilonCycleAlts;
+    return result;
   }
 
   private boolean[] computeEpsilonCycleAlts() {
