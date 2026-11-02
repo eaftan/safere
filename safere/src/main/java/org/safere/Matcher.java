@@ -258,6 +258,22 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private boolean rejectWithDiagnostics(
+      RejectPrefilter rejectPrefilter,
+      String text,
+      InputScanner scanner,
+      int searchFrom,
+      EnginePathOptions options) {
+    MatchStrategy rejectionStrategy =
+        rejectPrefilter.rejectionStrategy(text, scanner, searchFrom, options);
+    if (rejectionStrategy == null) {
+      return false;
+    }
+    diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
+    diagnosticBoundary(rejectionStrategy);
+    return true;
+  }
+
   private Dfa.SearchResult searchForwardDfa(
       Dfa dfa, InputScanner scanner, boolean anchored, boolean longest) {
     return searchForwardDfa(dfa, scanner, 0, anchored, longest);
@@ -1253,19 +1269,10 @@ public final class Matcher implements MatchResult {
     }
 
     RejectPrefilter rejectPrefilter = parentPattern.rejectPrefilter();
-    MatchStrategy rejectionStrategy = null;
     if (rejectPrefilter != null
-        && (text != null || textScanner instanceof StringRegionInputScanner)) {
-      rejectionStrategy =
-          rejectPrefilter instanceof RejectPrefilter.Composite composite
-              ? composite.rejectionStrategy(activeScanner(), text, 0, enginePathOptions())
-              : rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())
-                  ? rejectPrefilter.strategy()
-                  : null;
-    }
-    if (rejectionStrategy != null) {
-      diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
-      diagnosticBoundary(rejectionStrategy);
+        && (diagnosticsAccumulator() == null
+            ? rejectPrefilter.canReject(text, textScanner, 0, enginePathOptions())
+            : rejectWithDiagnostics(rejectPrefilter, text, textScanner, 0, enginePathOptions()))) {
       return applyFailedMatchResult();
     }
 
@@ -1899,19 +1906,15 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
-    if (rejectPrefilter != null) {
-      MatchStrategy rejectionStrategy =
-          rejectPrefilter instanceof RejectPrefilter.Composite composite
-              ? composite.rejectionStrategy(scanner, text, searchFrom, options)
-              : rejectPrefilter.canReject(scanner, text, searchFrom, options)
-                  ? rejectPrefilter.strategy()
-                  : null;
-      if (rejectionStrategy != null) {
-        diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
-        diagnosticBoundary(rejectionStrategy);
-        return applyFailedMatchResult();
-      }
+    RejectPrefilter rejectPrefilter =
+        scanner instanceof Utf8InputScanner
+            ? parentPattern.utf8FindRejectPrefilter()
+            : parentPattern.findRejectPrefilter();
+    if (rejectPrefilter != null
+        && (diagnosticsAccumulator() == null
+            ? rejectPrefilter.canReject(text, scanner, searchFrom, options)
+            : rejectWithDiagnostics(rejectPrefilter, text, scanner, searchFrom, options))) {
+      return applyFailedMatchResult();
     }
 
     // Prefix acceleration: if the pattern has a start accelerator (literal, fixed-offset,
@@ -3178,20 +3181,14 @@ public final class Matcher implements MatchResult {
         hasEndAnchoredCandidate = endAnchoredStart >= 0;
       }
       RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
-      if (!hasEndAnchoredCandidate && rejectPrefilter != null && text != null) {
-        InputScanner scanner = activeScanner();
-        EnginePathOptions options = enginePathOptions();
-        MatchStrategy rejectionStrategy =
-            rejectPrefilter instanceof RejectPrefilter.Composite composite
-                ? composite.rejectionStrategy(scanner, text, searchFrom, options)
-                : rejectPrefilter.canReject(scanner, text, searchFrom, options)
-                    ? rejectPrefilter.strategy()
-                    : null;
-        if (rejectionStrategy != null) {
-          diagnosticParticipation(rejectionStrategy, StrategyRole.REJECT_PREFILTER);
-          diagnosticBoundary(rejectionStrategy);
-          return text;
-        }
+      if (!hasEndAnchoredCandidate
+          && rejectPrefilter != null
+          && text != null
+          && (diagnosticsAccumulator() == null
+              ? rejectPrefilter.canReject(text, null, searchFrom, enginePathOptions())
+              : rejectWithDiagnostics(
+                  rejectPrefilter, text, null, searchFrom, enginePathOptions()))) {
+        return text;
       }
     } else if (anchoredPrefixOrCharClassCannotMatch(searchFrom)) {
       // A start-anchored pattern can only match at searchFrom, so a failed anchored prefix or
@@ -4836,7 +4833,7 @@ public final class Matcher implements MatchResult {
       firstEndAnchoredStart = endAnchoredStart;
       RejectPrefilter rejectPrefilter = parentPattern.findRejectPrefilter();
       if (endAnchoredStart < 0 && rejectPrefilter != null && text != null) {
-        if (rejectPrefilter.canReject(activeScanner(), text, 0, enginePathOptions())) {
+        if (rejectPrefilter.canReject(text, null, 0, enginePathOptions())) {
           return 0;
         }
       }

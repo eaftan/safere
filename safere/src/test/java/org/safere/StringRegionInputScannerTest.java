@@ -41,8 +41,8 @@ class StringRegionInputScannerTest {
                   RejectPrefilter filter =
                       new RejectPrefilter.EndAnchoredSuffix(
                           suffix, suffix.getBytes(UTF_8), dollar, unix, fold);
-                  assertThat(filter.canReject(view, null, 0, options))
-                      .isEqualTo(filter.canReject(new StringInputScanner(copy), copy, 0, options));
+                  assertThat(filter.canReject(null, view, 0, options))
+                      .isEqualTo(filter.canReject(copy, null, 0, options));
                 }
               }
             }
