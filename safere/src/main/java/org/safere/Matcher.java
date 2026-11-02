@@ -782,6 +782,57 @@ public final class Matcher implements MatchResult {
   }
 
   /**
+   * UTF-8 counterpart to {@link #charClassMatchFastPath}: checks ASCII bytes against precomputed
+   * bitmaps and falls back to scalar decoding and range search only on non-ASCII bytes.
+   */
+  private boolean charClassMatchUtf8FastPath(
+      Utf8InputScanner utf8, Pattern.CharClassMatchInfo matchInfo) {
+    int len = utf8.length();
+    if (len == 0) {
+      return matchInfo.allowEmpty()
+          ? applyFullMatchResult(new int[] {0, 0})
+          : applyFailedMatchResult();
+    }
+
+    long b0 = matchInfo.bitmap0();
+    long b1 = matchInfo.bitmap1();
+    int[] ranges = matchInfo.ranges();
+    boolean asciiOnly = ranges[ranges.length - 1] < 0x80;
+    int i = 0;
+    while (i < len) {
+      int ascii = utf8.asciiAt(i);
+      if (ascii >= 0) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (ascii < 64) {
+          if ((b0 & (1L << ascii)) == 0) {
+            return applyFailedMatchResult();
+          }
+        } else {
+          if ((b1 & (1L << (ascii - 64))) == 0) {
+            return applyFailedMatchResult();
+          }
+        }
+        i++;
+      } else if (asciiOnly) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        return applyFailedMatchResult();
+      } else {
+        long decoded = utf8.decodeForward(i);
+        if (!binarySearchRanges(ranges, InputScanner.codePoint(decoded))) {
+          return applyFailedMatchResult();
+        }
+        i = InputScanner.position(decoded);
+      }
+    }
+
+    return applyFullMatchResult(new int[] {0, len});
+  }
+
+  /**
    * Fast path for {@code find()} when the pattern is exactly one character class. Scans code points
    * directly and returns the first matching code point as group 0.
    */
@@ -5406,6 +5457,10 @@ public final class Matcher implements MatchResult {
           return regionScanner.matchesCharClass(charClassMatch)
               ? matcher.applyGroupZeroMatchResult(0, regionScanner.length())
               : matcher.applyFailedMatchResult();
+        }
+        if (matcher.textScanner instanceof Utf8InputScanner utf8Scanner) {
+          matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return matcher.charClassMatchUtf8FastPath(utf8Scanner, charClassMatch);
         }
       }
       if (singleCharClass != null) {
