@@ -300,6 +300,22 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     return findQuantifierChainByText(quantifierChain) != null;
   }
 
+  static long cartesianCaseIndexForTesting(
+      String operandRegex, String wrapperTemplate, String quantifierChain, String contextTemplate) {
+    Operand operand = findOperandByRegex(operandRegex);
+    Wrapper wrapper = findWrapperByTemplate(wrapperTemplate);
+    QuantifierChain chain = findQuantifierChainByText(quantifierChain);
+    Context context = findContextByTemplate(contextTemplate);
+    if (operand == null || wrapper == null || chain == null || context == null) {
+      throw new IllegalArgumentException("case is not in the Cartesian generator");
+    }
+    long index = OPERANDS.indexOf(operand);
+    index = index * WRAPPERS.size() + WRAPPERS.indexOf(wrapper);
+    index = index * QUANTIFIER_CHAINS.size() + QUANTIFIER_CHAINS.indexOf(chain);
+    index = index * CONTEXTS.size() + CONTEXTS.indexOf(context);
+    return index * FLAG_MODES.size(); // The first flag mode is "none".
+  }
+
   static long totalCasesForTesting() {
     return totalCases();
   }

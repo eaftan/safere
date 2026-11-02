@@ -1673,6 +1673,7 @@ public final class Pattern implements Serializable {
     return enginePathOptions.onePass()
         && !astAnalysis.hasLazy()
         && !astAnalysis.hasNullableAlt()
+        && prog.numLoopRegs() == 0
         && !prog.hasGraphemeSemantics()
         && prog.numCaptures() <= OnePass.MAX_CAPTURE_GROUPS;
   }

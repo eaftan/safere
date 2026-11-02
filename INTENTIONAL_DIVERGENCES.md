@@ -206,9 +206,10 @@ history that SafeRE deliberately does not have.
 ## Empty Captures under Repetition
 
 SafeRE follows the [repetition and capture policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md):
-a completed empty iteration publishes the captures it writes. Greedy finite
-repetition accepts its empty copies; greedy unbounded repetition accepts one
-terminal empty iteration once its minimum is met. Redundant noncapturing
+a completed empty iteration publishes the captures it writes. Finite and
+unbounded repetitions stop that invocation on the first completed empty
+iteration that satisfies the minimum, including the final required iteration.
+Redundant noncapturing
 wrappers preserve participation and bounds. Required empty iterations count
 toward the minimum; zero-count repeats keep group numbering without executing
 the operand, and reluctant zero-minimum repeats can omit it.
