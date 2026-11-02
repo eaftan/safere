@@ -8,6 +8,9 @@ package org.safere;
 /** Stable reasons a compiled pattern requires or limits particular matching strategies. */
 public enum PatternLimitation {
   GRAPHEME_REQUIRES_EXACT_ENGINE,
+  /**
+   * Prefix/search selection and captures require progress checks; full-match existence does not.
+   */
   NULLABLE_LOOP_REQUIRES_EXACT_ENGINE,
   LAZY_SEMANTICS_LIMIT_ONE_PASS,
   NULLABLE_ALTERNATION_LIMITS_ONE_PASS,

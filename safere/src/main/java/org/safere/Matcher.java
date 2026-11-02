@@ -236,13 +236,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticCaptureOverride(MatchStrategy strategy) {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.replaceCapture(strategy);
-    }
-  }
-
   private void diagnosticParticipation(MatchStrategy strategy, StrategyRole role) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -1321,15 +1314,14 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
-      if (dfaResult != null && prog.numLoopRegs() == 0) {
+      if (dfaResult != null) {
+        // Empty-stop changes ordered paths and captures, not full-match existence: remove empty
+        // iterations before later iterations while retaining the minimum. Input positions and
+        // assertion context are unchanged, and captures cannot affect recognition in our dialect.
+        // Here the whole region fixes group zero; the guarded program resolves captures on demand.
+        // Prefix/search matching still needs exact progress semantics to choose its match bounds.
         diagnosticBoundary(MatchStrategy.DFA);
         return applyDeferredMatchResult(0, scanner.length(), prog.numCaptures(), true, true);
-      }
-      if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
-        diagnosticDecision(
-            MatchStrategy.DFA,
-            StrategyDisposition.BYPASSED,
-            StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
       }
       if (dfaResult == null) {
         diagnosticDecision(
@@ -1351,26 +1343,6 @@ public final class Matcher implements MatchResult {
             prog.numCaptures(),
             false,
             this.groups);
-    // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
-    // may accept a match ending before a trailing \n. In that case, fall back to the NFA
-    // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
-    if (result != null && result[1] != scanner.length()) {
-      diagnosticBoundaryOverride(MatchStrategy.NFA);
-      int[] nfaResult =
-          searchNfa(
-              prog,
-              0,
-              scanner.length(),
-              scanner.length(),
-              prog.numCaptures(),
-              Nfa.Anchor.ANCHORED,
-              Nfa.MatchKind.FULL_MATCH,
-              false,
-              this.groups);
-      diagnosticCaptureOverride(
-          prog.numCaptures() > 1 && nfaResult != null ? MatchStrategy.NFA : MatchStrategy.NONE);
-      result = nfaResult;
-    }
     return applyFullMatchResult(result);
   }
 
@@ -2844,21 +2816,27 @@ public final class Matcher implements MatchResult {
         if (speculate) {
           consecutiveWindowFailures = 0;
         }
-        diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
-        // BitState is a complete engine — if it searched and found no match, NFA won't either.
-        return result;
+        // A source $ permits BitState to stop before a trailing line terminator. An explicit
+        // full-match request, including deferred capture extraction, must consume the whole range.
+        // Let NFA FULL_MATCH choose the full-length path if BitState accepted a shorter one.
+        if (!endMatch || result == null || result[1] == endPos) {
+          diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
+          // BitState is complete: if it found no match, NFA won't either.
+          return result;
+        }
+      } else {
+        if (speculate) {
+          consecutiveWindowFailures++;
+        }
+        diagnosticDecision(
+            MatchStrategy.BIT_STATE,
+            StrategyDisposition.FALLBACK,
+            bs.budgetExceeded()
+                ? StrategyReason.WORK_BUDGET_EXCEEDED
+                : bs.windowExceeded()
+                    ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
+                    : StrategyReason.INPUT_TOO_LARGE);
       }
-      if (speculate) {
-        consecutiveWindowFailures++;
-      }
-      diagnosticDecision(
-          MatchStrategy.BIT_STATE,
-          StrategyDisposition.FALLBACK,
-          bs.budgetExceeded()
-              ? StrategyReason.WORK_BUDGET_EXCEEDED
-              : bs.windowExceeded()
-                  ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
-                  : StrategyReason.INPUT_TOO_LARGE);
     } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
       diagnosticDecision(
           MatchStrategy.BIT_STATE,

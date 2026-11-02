@@ -35,7 +35,7 @@ if (analysis.capabilities().contains(PatternCapability.DFA_REJECT_PREFILTER)) {
 }
 
 if (analysis.limitations().contains(PatternLimitation.NULLABLE_LOOP_REQUIRES_EXACT_ENGINE)) {
-  System.out.println("Successful matches require exact nullable-loop semantics");
+  System.out.println("Captures and prefix/search selection require exact nullable-loop semantics");
 }
 
 System.out.printf(

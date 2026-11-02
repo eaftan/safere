@@ -103,10 +103,6 @@ final class DiagnosticAccumulator {
     }
   }
 
-  void replaceCapture(MatchStrategy strategy) {
-    captureStrategy = strategy;
-  }
-
   void participate(MatchStrategy strategy, StrategyRole role) {
     int token = strategyIndex(strategy) * ROLE_COUNT + roleIndex(role);
     int word = token / Long.SIZE;
