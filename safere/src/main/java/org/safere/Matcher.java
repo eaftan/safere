@@ -1034,7 +1034,7 @@ public final class Matcher implements MatchResult {
           }
           segments.add(new ReplacementSegment.NamedGroupRef(replacement.substring(nameStart, i)));
           i++; // skip '}'
-        } else if (Character.isDigit(replacement.charAt(i))) {
+        } else if (isAsciiDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, maxGroup);
           segments.add(new ReplacementSegment.GroupRef(groupRef.groupNum()));
@@ -1054,11 +1054,21 @@ public final class Matcher implements MatchResult {
     return segments.toArray(new ReplacementSegment[0]);
   }
 
+  /**
+   * Returns whether {@code c} is an ASCII digit. Replacement-string group references accept only
+   * {@code '0'} through {@code '9'}, so this deliberately does not use {@link
+   * Character#isDigit(char)}, which also accepts other Unicode decimal digits whose {@code c -
+   * '0'} value is not a digit value.
+   */
+  private static boolean isAsciiDigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
   private static NumericGroupReference parseNumericGroupReference(
       String replacement, int digitStart, int maxGroup) {
     int groupNum = replacement.charAt(digitStart) - '0';
     int i = digitStart + 1;
-    while (i < replacement.length() && Character.isDigit(replacement.charAt(i))) {
+    while (i < replacement.length() && isAsciiDigit(replacement.charAt(i))) {
       int nextGroupNum = groupNum * 10 + (replacement.charAt(i) - '0');
       if (nextGroupNum > maxGroup) {
         break;
@@ -4623,7 +4633,7 @@ public final class Matcher implements MatchResult {
           if (start >= 0 && end >= 0) {
             sb.append(text, start, end);
           }
-        } else if (Character.isDigit(replacement.charAt(i))) {
+        } else if (isAsciiDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
