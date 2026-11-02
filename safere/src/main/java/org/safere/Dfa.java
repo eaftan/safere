@@ -1519,8 +1519,20 @@ final class Dfa {
               : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
       if (hasSurrogateWordContext(cp)) {
         // A cursor can start inside a pair. Consumption then sees an unpaired half, but the
-        // following assertion still classifies its adjacent character in the input context.
+        // assertions on either side of it still classify their adjacent character in the input
+        // context. The following assertion is recorded in the next state. Reverse search that
+        // resumes inside a pair also consumes the low half; the assertion at its right edge must
+        // see the whole pair, not the half.
         // Only split-pair cursors bypass the cache; truly unpaired halves remain cacheable.
+        if (prog.reversed()
+            && Character.isLowSurrogate((char) cp)
+            && !text.isCodePointBoundary(nextPos)) {
+          boolean pairIsUnicodeWord = Nfa.isUnicodeWordChar(text.codePointBefore(nextPos + 1));
+          unicodeWordBeforeFlags =
+              (pairIsUnicodeWord != wasUnicodeWord)
+                  ? EmptyOp.UNICODE_WORD_BOUNDARY
+                  : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+        }
         int adjacent = prog.reversed() ? text.codePointAt(nextPos) : text.codePointBefore(nextPos);
         isUnicodeWord = Nfa.isUnicodeWordChar(adjacent);
       }
@@ -2647,7 +2659,8 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if ((hasSurrogateWordContext(cp) && !text.isCodePointBoundary(pos))
+      if ((hasSurrogateWordContext(cp)
+              && !(text.isCodePointBoundary(pos) && text.isCodePointBoundary(effectivePrevPos)))
           || transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
         ns = computeNextOrReset(s, cp, text, effectivePrevPos, pos);
         if (ns == null) {
