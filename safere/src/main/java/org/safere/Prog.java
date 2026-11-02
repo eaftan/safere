@@ -394,13 +394,23 @@ final class Prog {
   }
 
   // ---------------------------------------------------------------------------
-  // Epsilon-cycle analysis for BitState
+  // Program analysis for BitState
   // ---------------------------------------------------------------------------
 
   // Computed lazily on first use by BitState, possibly by several threads sharing one Pattern. The
-  // computation is deterministic, so a racing duplicate computation is harmless, but the array must
-  // be published through a volatile field so that readers see its elements.
-  private volatile boolean[] epsilonCycleAlts;
+  // computation is deterministic, so a racing duplicate computation is harmless, but the analysis
+  // must be published through a volatile field so that readers see its arrays' elements.
+  private volatile BitStateAnalysis bitStateAnalysis;
+
+  private static final class BitStateAnalysis {
+    final boolean[] epsilonCycleAlts;
+    final CaptureRune[] captureRunes;
+
+    BitStateAnalysis(boolean[] epsilonCycleAlts, CaptureRune[] captureRunes) {
+      this.epsilonCycleAlts = epsilonCycleAlts;
+      this.captureRunes = captureRunes;
+    }
+  }
 
   /**
    * Returns a boolean array indexed by instruction ID. An entry is {@code true} if that instruction
@@ -412,18 +422,28 @@ final class Prog {
    * <p>The result is computed once and cached.
    */
   boolean[] epsilonCycleAlts() {
-    boolean[] result = epsilonCycleAlts;
+    return bitStateAnalysis().epsilonCycleAlts;
+  }
+
+  /** Returns shared read-only fusion metadata, or null when no sequences can be fused. */
+  CaptureRune[] captureRunes() {
+    return bitStateAnalysis().captureRunes;
+  }
+
+  private BitStateAnalysis bitStateAnalysis() {
+    BitStateAnalysis result = bitStateAnalysis;
     if (result == null) {
-      result = computeEpsilonCycleAlts();
-      epsilonCycleAlts = result;
+      boolean[] reachable = computeReachableInstructions();
+      result =
+          new BitStateAnalysis(computeEpsilonCycleAlts(reachable), computeCaptureRunes(reachable));
+      bitStateAnalysis = result;
     }
     return result;
   }
 
-  private boolean[] computeEpsilonCycleAlts() {
+  private boolean[] computeEpsilonCycleAlts(boolean[] reachable) {
     int n = size();
     boolean[] inCycle = new boolean[n];
-    boolean[] reachable = computeReachableInstructions();
 
     for (int i = 0; i < n; i++) {
       Inst inst = inst(i);
@@ -437,6 +457,32 @@ final class Prog {
     return inCycle;
   }
 
+  private CaptureRune[] computeCaptureRunes(boolean[] reachable) {
+    CaptureRune[] fused = null;
+    for (int i = 0; i < size(); i++) {
+      Inst instruction = inst(i);
+      // Discarded fragments may retain unresolved patch-list links instead of successor IDs.
+      if (reachable[i] && instruction.opCode == InstOp.OP_CAPTURE) {
+        Inst rune = inst(instruction.out);
+        if (rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS) {
+          Inst end = inst(rune.out);
+          if (end.opCode == InstOp.OP_CAPTURE) {
+            if (fused == null) {
+              fused = new CaptureRune[size()];
+            }
+            fused[i] = new CaptureRune(rune, end.arg, end.out);
+          }
+        }
+      }
+    }
+    return fused;
+  }
+
+  /**
+   * Returns instruction reachability from both entry points. Only reachable instructions are
+   * guaranteed to have patched successor fields; discarded fragments may retain patch-list links.
+   * Grapheme consumption reaches its successor here, but breaks paths in the epsilon-cycle walk.
+   */
   private boolean[] computeReachableInstructions() {
     int n = size();
     boolean[] reachable = new boolean[n];
@@ -452,7 +498,7 @@ final class Prog {
           addSuccessor(inst.out, reachable, stack);
           addSuccessor(inst.out1, reachable, stack);
         }
-        case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS ->
+        case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER ->
             addSuccessor(inst.out, reachable, stack);
         default -> {
           // MATCH and FAIL terminate.

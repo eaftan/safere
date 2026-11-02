@@ -9,11 +9,112 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Prog}. */
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class ProgTest {
+
+  @Test
+  void bitStateAnalysisIsSharedRegardlessOfFirstRequestedMetadata() {
+    for (boolean fusionFirst : new boolean[] {false, true}) {
+      Prog prog = Pattern.compile("(a)b(c)").prog();
+      CaptureRune[] captures;
+      boolean[] cycleAlts;
+      if (fusionFirst) {
+        captures = prog.captureRunes();
+        cycleAlts = prog.epsilonCycleAlts();
+      } else {
+        cycleAlts = prog.epsilonCycleAlts();
+        captures = prog.captureRunes();
+      }
+
+      assertThat(captures).isNotEmpty();
+      assertThat(prog.captureRunes()).isSameAs(captures);
+      assertThat(prog.epsilonCycleAlts()).isSameAs(cycleAlts);
+    }
+  }
+
+  @Test
+  void bitStateAnalysisCachesTheAbsenceOfFusion() {
+    Prog prog = Pattern.compile("a+").prog();
+    boolean[] cycleAlts = prog.epsilonCycleAlts();
+
+    assertThat(prog.captureRunes()).isNull();
+    assertThat(prog.captureRunes()).isNull();
+    assertThat(prog.epsilonCycleAlts()).isSameAs(cycleAlts);
+  }
+
+  @Test
+  void copiedProgramsComputeTheirOwnBitStateAnalysis() {
+    Prog original = Pattern.compile("(a)b(c)").prog();
+    CaptureRune[] originalCaptures = original.captureRunes();
+    boolean[] originalCycleAlts = original.epsilonCycleAlts();
+    Prog copy = new Prog(original);
+    copy.freeze();
+
+    assertThat(copy.captureRunes()).isNotNull().isNotSameAs(originalCaptures);
+    assertThat(copy.epsilonCycleAlts()).isNotSameAs(originalCycleAlts);
+  }
+
+  @Test
+  void concurrentFirstUsePublishesCompleteBitStateAnalysis() throws Exception {
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      for (int iteration = 0; iteration < 8; iteration++) {
+        Prog prog = Pattern.compile("(a)b(c)").prog();
+        CyclicBarrier start = new CyclicBarrier(2);
+        Callable<int[]> search =
+            () -> {
+              start.await();
+              return BitState.search(prog, "abc", true, false, true, prog.numCaptures());
+            };
+        List<Future<int[]>> results = executor.invokeAll(List.of(search, search));
+        for (Future<int[]> result : results) {
+          assertThat(result.get()).containsExactly(0, 3, 0, 1, 2, 3);
+        }
+      }
+    }
+  }
+
+  @Test
+  void epsilonCyclesAfterGraphemeConsumptionAreReachable() {
+    Prog prog = new Prog();
+    for (int i = 0; i < 5; i++) {
+      prog.allocInst();
+    }
+    prog.mutableInst(0).initFail();
+    prog.mutableInst(1).initGraphemeCluster(2);
+    prog.mutableInst(2).initAlt(3, 4);
+    prog.mutableInst(3).initNop(2);
+    prog.mutableInst(4).initMatch(0);
+    prog.setStart(1);
+    prog.setStartUnanchored(1);
+    prog.freeze();
+
+    assertThat(prog.epsilonCycleAlts()).containsExactly(false, false, true, false, false);
+  }
+
+  @Test
+  void graphemeConsumptionBreaksEpsilonCycles() {
+    Prog prog = new Prog();
+    for (int i = 0; i < 4; i++) {
+      prog.allocInst();
+    }
+    prog.mutableInst(0).initFail();
+    prog.mutableInst(1).initAlt(2, 3);
+    prog.mutableInst(2).initGraphemeCluster(1);
+    prog.mutableInst(3).initMatch(0);
+    prog.setStart(1);
+    prog.setStartUnanchored(1);
+    prog.freeze();
+
+    assertThat(prog.epsilonCycleAlts()).containsExactly(false, false, false, false);
+  }
 
   @Test
   void emptyProgram() {
