@@ -1057,8 +1057,8 @@ public final class Matcher implements MatchResult {
   /**
    * Returns whether {@code c} is an ASCII digit. Replacement-string group references accept only
    * {@code '0'} through {@code '9'}, so this deliberately does not use {@link
-   * Character#isDigit(char)}, which also accepts other Unicode decimal digits whose {@code c -
-   * '0'} value is not a digit value.
+   * Character#isDigit(char)}, which also accepts other Unicode decimal digits whose {@code c - '0'}
+   * value is not a digit value.
    */
   private static boolean isAsciiDigit(char c) {
     return c >= '0' && c <= '9';
@@ -4804,7 +4804,7 @@ public final class Matcher implements MatchResult {
           char next = replacement.charAt(i);
           if (next == '{') {
             return true;
-          } else if (next >= '0' && next <= '9') {
+          } else if (isAsciiDigit(next)) {
             NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, maxGroup);
             if (groupRef.groupNum() > 0) {
               return true;
