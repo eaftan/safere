@@ -1,0 +1,49 @@
+{
+  "runtime": "26.0.2+10-55",
+  "deduplicatedFirstMatch": {
+    "familyCounts": {
+      "optional_first_alternation": {
+        "stop": 19,
+        "neither": 1
+      },
+      "overlapping_alternation": {
+        "stop": 4
+      },
+      "reluctant_operand": {
+        "stop": 12
+      },
+      "assertions": {
+        "stop": 33,
+        "neither": 2
+      },
+      "nested_finite": {
+        "stop": 16
+      }
+    },
+    "distinguishingCases": 87,
+    "outcomes": {
+      "stop": 84,
+      "neither": 3
+    }
+  },
+  "allCases": 198288,
+  "literalExpansionValidationMismatches": 0,
+  "firstMatchBounds": {
+    "all_agree": 198012,
+    "stop": 101,
+    "common_disagreement": 171,
+    "neither": 4
+  },
+  "firstMatchCaptures": {
+    "all_agree": 196440,
+    "stop": 540,
+    "common_disagreement": 1299,
+    "neither": 9
+  },
+  "findHistoryCaptures": {
+    "all_agree": 196348,
+    "stop": 603,
+    "common_disagreement": 1328,
+    "neither": 9
+  }
+}

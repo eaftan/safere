@@ -145,6 +145,9 @@ sealed interface RejectPrefilter
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         return utf8Scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
       }
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        return regionScanner.indexOf(literal, searchFrom, regionScanner.length()) < 0;
+      }
       if (text != null) {
         return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
       }
@@ -359,7 +362,18 @@ sealed interface RejectPrefilter
     @Override
     public boolean canReject(
         InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
-      if (!options.literalFastPaths() || text == null || searchFrom > 0) {
+      if (!options.literalFastPaths() || searchFrom > 0) {
+        return false;
+      }
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        for (String literal : literals) {
+          if (regionScanner.indexOf(literal, searchFrom, regionScanner.length()) >= 0) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (text == null) {
         return false;
       }
       for (String literal : literals) {
@@ -408,6 +422,9 @@ sealed interface RejectPrefilter
       }
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         return !utf8Scanner.endsWith(suffixUtf8, wasDollar, unixLines, foldCase);
+      }
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        return !regionScanner.endsWith(suffix, wasDollar, unixLines, foldCase);
       }
       if (text != null) {
         return !endsWith(text, suffix, wasDollar, unixLines, foldCase);
@@ -476,6 +493,9 @@ sealed interface RejectPrefilter
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         return canReject(utf8Scanner, searchFrom, options);
       }
+      if (scanner instanceof StringRegionInputScanner) {
+        return canRejectTerminal(scanner);
+      }
       if (text != null) {
         return canReject(text);
       }
@@ -487,6 +507,10 @@ sealed interface RejectPrefilter
       if (!options.charClassMatchFastPaths()) {
         return false;
       }
+      return canRejectTerminal(scanner);
+    }
+
+    private boolean canRejectTerminal(InputScanner scanner) {
       int len = scanner.length();
       if (len == 0) {
         return true;

@@ -1187,6 +1187,8 @@ final class Dfa {
               utf8StartAccelerator != null ? utf8StartAccelerator.policy() : null;
           case StringInputScanner unusedString ->
               stringStartAccelerator != null ? stringStartAccelerator.policy() : null;
+          case StringRegionInputScanner unusedRegion ->
+              stringStartAccelerator != null ? stringStartAccelerator.policy() : null;
         };
     if (policy != null) {
       return policy;
@@ -1875,6 +1877,10 @@ final class Dfa {
     if (text instanceof StringInputScanner stringScanner && stringStartAccelerator != null) {
       return StringStartAccelerator.findNextCandidate(
           stringStartAccelerator, stringScanner.text(), pos, prog.lineStartUnixLines());
+    }
+    if (text instanceof StringRegionInputScanner region && stringStartAccelerator != null) {
+      return StringStartAccelerator.findNextCandidate(
+          stringStartAccelerator, region, pos, prog.lineStartUnixLines());
     }
     return fastForwardStartState(text, pos, posDepThreshold, startState);
   }

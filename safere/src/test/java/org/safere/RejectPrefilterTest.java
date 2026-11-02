@@ -15,6 +15,37 @@ import org.junit.jupiter.api.Test;
 class RejectPrefilterTest {
 
   @Test
+  void terminalRejectionDoesNotSearchForMissingInteriorContent() {
+    Pattern pattern = Pattern.compile("^.*missing.*END\\z");
+    String input = "x".repeat(4096) + "END";
+    assertThat(pattern.terminalPrefilterRejects(new StringInputScanner(input), 0, null)).isFalse();
+    assertThat(pattern.terminalPrefilterRejects(utf8Scanner(input), 0, null)).isFalse();
+    assertThat(pattern.matcher(input).matches()).isFalse();
+    assertThat(pattern.terminalPrefilterRejects(new StringInputScanner(input + "X"), 0, null))
+        .isTrue();
+    assertThat(pattern.terminalPrefilterRejects(utf8Scanner(input + "X"), 0, null)).isTrue();
+  }
+
+  @Test
+  void terminalRejectionRetainsAnchorAndOptionEligibility() {
+    for (String regex : new String[] {"missing", "^(a|b)*$"}) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.terminalPrefilterRejects(new StringInputScanner("c"), 0, null))
+          .as(regex)
+          .isFalse();
+      assertThat(pattern.terminalPrefilterRejects(utf8Scanner("c"), 0, null)).as(regex).isFalse();
+    }
+    Pattern dollar = Pattern.compile("^.*END$");
+    assertThat(dollar.terminalPrefilterRejects(new StringInputScanner("END\r\n"), 0, null))
+        .isFalse();
+    assertThat(dollar.terminalPrefilterRejects(utf8Scanner("END\r\n"), 0, null)).isFalse();
+    EnginePathOptions disabled = EnginePathOptions.builder().literalFastPaths(false).build();
+    Pattern pattern = Pattern.compile("^.*END\\z", 0, disabled);
+    assertThat(pattern.terminalPrefilterRejects(new StringInputScanner("ENX"), 0, null)).isFalse();
+    assertThat(pattern.terminalPrefilterRejects(utf8Scanner("ENX"), 0, null)).isFalse();
+  }
+
+  @Test
   void nullAndNoneDescriptorsProduceNullPrefilter() {
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor) null)).isNull();
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor.RejectPlan) null)).isNull();
