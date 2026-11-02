@@ -378,8 +378,6 @@ final class BitState {
   /** Straight-line capture/consumer/capture sequences, or null when none exist. */
   private final CaptureRune[] captureRunes;
 
-  private record CaptureRune(Inst rune, int endRegister, int out) {}
-
   private static final byte NOT_ALT = 0;
   private static final byte ALT = 1;
   private static final byte CYCLE_ALT = 2;
@@ -432,9 +430,7 @@ final class BitState {
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
 
     boolean[] cycleAlts = prog.epsilonCycleAlts();
-    boolean[] reachable = prog.computeReachableInstructions();
     this.altKind = new byte[progSize];
-    CaptureRune[] fused = null;
     for (int i = 0; i < progSize; i++) {
       Inst instruction = prog.inst(i);
       if (cycleAlts[i]) {
@@ -445,21 +441,8 @@ final class BitState {
           altKind[i] = ALT;
         }
       }
-      // Discarded fragments may retain unresolved patch-list links instead of successor IDs.
-      if (reachable[i] && instruction.opCode == InstOp.OP_CAPTURE) {
-        Inst rune = prog.inst(instruction.out);
-        if (rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS) {
-          Inst end = prog.inst(rune.out);
-          if (end.opCode == InstOp.OP_CAPTURE) {
-            if (fused == null) {
-              fused = new CaptureRune[progSize];
-            }
-            fused[i] = new CaptureRune(rune, end.arg, end.out);
-          }
-        }
-      }
     }
-    this.captureRunes = fused;
+    this.captureRunes = prog.captureRunes();
 
     int totalBits = progSize * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -663,6 +646,8 @@ final class BitState {
             if (fused != null) {
               // These two successors are not alternatives, assertions, or loop instructions.
               // Execute the same writes/restores and budget charges without redispatching them.
+              // Charge each logical successor before continuation pruning, including revisits,
+              // so the budget conservatively accounts for all fused work.
               if (!stepWithinBudget()) {
                 return false;
               }

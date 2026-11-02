@@ -29,6 +29,26 @@ class BitStateTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void fusionMetadataIsSharedWhenInputGrowthRequiresANewWorkspace() {
+    String regex = "(?:(a)b(c)|a(b)d|)+";
+    Prog prog = Pattern.compile(regex).prog();
+    BitState small = BitState.getOrCreate(null, prog, "abc", 0, 3, 2, false, false);
+    assertThat(small.doSearch(0, 3, true)).containsExactly(0, 3);
+    CaptureRune[] captures = prog.captureRunes();
+    assertThat(captures).isNotEmpty();
+
+    String input = "abcabd".repeat(32);
+    BitState grown =
+        BitState.getOrCreate(
+            small, prog, input, 0, input.length(), 2 * prog.numCaptures(), false, false);
+    assertThat(grown).isNotSameAs(small);
+    assertThat(prog.captureRunes()).isSameAs(captures);
+    int[] expected =
+        Nfa.search(prog, input, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    assertCapturesEqual(regex, input, grown.doSearch(0, input.length(), true), expected);
+  }
+
+  @Test
   void unreachableCaptureAlternativesDoNotAffectFusion() {
     for (String alternatives : List.of("(a)|(b)", "(a)|(b)|(c)|(d)|(e)", "((a)|(b))", "(é)|(😀)")) {
       for (String impossible : List.of("[^\\s\\S]", "[a&&b]")) {
