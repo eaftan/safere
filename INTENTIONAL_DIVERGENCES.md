@@ -161,6 +161,9 @@ divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
 `()*+`. The same holds for a counted repetition with no operand of its own, as in
 `{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
+An operand made zero-width by an inner zero-count repetition is also supported,
+as in `(?:a{0})*+`. The immediate-operand rule still rejects `a{0}+`, since its
+possessive quantifier applies directly to consuming `a`.
 
 ## Canonical Equivalence
 

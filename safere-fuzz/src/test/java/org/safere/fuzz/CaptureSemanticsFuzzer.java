@@ -53,6 +53,38 @@ public final class CaptureSemanticsFuzzer {
 
     assertMatchOperations(pattern, input, named);
     assertReplacementOperations(pattern, input, named);
+    assertZeroCountPossessive(data);
+  }
+
+  private static void assertZeroCountPossessive(FuzzedDataProvider data) {
+    // Keep zero-count operands as a separate axis so existing corpus inputs retain their decoding.
+    // Refs #1130: descendants below {0} cannot consume, even if they contain consuming branches.
+    boolean named = data.consumeBoolean();
+    String atom = named ? pick(data, "(?<word>a)", "(?<word>a|aa)") : pick(data, ATOMS);
+    String zero = "(?:" + atom + ")" + pick(data, "{0}", "{0,0}", "{0}?", "{0,0}?");
+    String operand =
+        switch (data.consumeInt(0, 5)) {
+          case 0 -> zero;
+          case 1 -> "(" + zero + ")";
+          case 2 -> zero + "(b){0}";
+          case 3 -> zero + "|(b){0}";
+          case 4 -> "(?:" + zero + "){2}";
+          case 5 -> "(?:" + zero + ")*";
+          default -> throw new AssertionError();
+        };
+    String regex =
+        pick(data, PREFIXES)
+            + "(?:"
+            + operand
+            + ")"
+            + pick(data, "*+", "?+", "++", "{0}+", "{1}+", "{2}+", "{0,2}+", "{1,}+")
+            + pick(data, SUFFIXES);
+    String input = consumeCaptureInput(data);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+    if (pattern != null) {
+      assertMatchOperations(pattern, input, named);
+      assertReplacementOperations(pattern, input, named);
+    }
   }
 
   private static String consumeRegex(FuzzedDataProvider data, boolean named) {

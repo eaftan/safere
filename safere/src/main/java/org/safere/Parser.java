@@ -584,8 +584,13 @@ final class Parser {
             END_TEXT -> {
           // Zero-width by definition.
         }
-        case CAPTURE, NON_CAPTURE, STAR, PLUS, QUEST, REPEAT ->
+        case CAPTURE, NON_CAPTURE, STAR, PLUS, QUEST -> pending.add(current.subs.getFirst());
+        case REPEAT -> {
+          // A zero-count repetition never executes its child, regardless of the child's width.
+          if (current.max != 0) {
             pending.add(current.subs.getFirst());
+          }
+        }
         case CONCAT, ALTERNATE -> pending.addAll(current.subs);
         default -> {
           return false;
