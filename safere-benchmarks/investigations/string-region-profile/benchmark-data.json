@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "regionProfile.plain.32",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x ",
+        "suffix": "qabck b",
+        "length": 32
+      },
+      "shared": true
+    },
+    {
+      "id": "regionProfile.region.32",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "!",
+        "unit": "x ",
+        "suffix": "qabck b!",
+        "length": 34
+      },
+      "shared": true
+    },
+    {
+      "id": "regionProfile.plain.4096",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x ",
+        "suffix": "qabck b",
+        "length": 4096
+      },
+      "shared": true
+    },
+    {
+      "id": "regionProfile.region.4096",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "!",
+        "unit": "x ",
+        "suffix": "qabck b!",
+        "length": 4098
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "StringRegionProfile.literal.32.plain",
+      "operation": "find",
+      "patterns": [
+        "q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.plain.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
+      }
+    },
+    {
+      "id": "StringRegionProfile.literal.32.region",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.region.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "StringRegionProfile.nullable.32.plain",
+      "operation": "find",
+      "patterns": [
+        "[a-z]*q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.plain.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
+      }
+    },
+    {
+      "id": "StringRegionProfile.nullable.32.region",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]*q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.region.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "StringRegionProfile.literal.4096.plain",
+      "operation": "find",
+      "patterns": [
+        "q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.plain.4096"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
+      }
+    },
+    {
+      "id": "StringRegionProfile.literal.4096.region",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.region.4096"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4097
+          }
+        ]
+      }
+    },
+    {
+      "id": "StringRegionProfile.nullable.4096.plain",
+      "operation": "find",
+      "patterns": [
+        "[a-z]*q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.plain.4096"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
+      }
+    },
+    {
+      "id": "StringRegionProfile.nullable.4096.region",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]*q[a-z]+k\\s+b"
+      ],
+      "inputs": [
+        "regionProfile.region.4096"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4097
+          }
+        ]
+      }
+    }
+  ]
+}

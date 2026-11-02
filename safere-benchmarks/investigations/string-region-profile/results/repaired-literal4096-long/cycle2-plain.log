@@ -1,0 +1,78 @@
+=== Long mode (confirmation run) ===
+=== Fast Building safere-benchmarks only ===
+=== Materializing shared benchmark inputs ===
+Materialized 738 benchmark inputs in /tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmark-corpus
+UTF-8 scan provider startup check passed: default
+=== Running StringRegionProfileBenchmark.find (-f 2 -wi 3 -w 1 -i 5 -r 1 -p plainTrial=StringRegionProfile.literal.4096.plain@safere-string -p regionTrial=StringRegionProfile.literal.4096.region@safere-string -p history=plain -jvmArgsAppend -Xmx512m -foe true -rf json -rff /tmp/safere-1119-evidence/repaired-literal4096-long/cycle2-plain.json) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1119-evidence/repaired/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmark-corpus -Dsafere.benchmark.scanProvider=default -Xmx512m
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.StringRegionProfileBenchmark.find
+# Parameters: (history = plain, plainTrial = StringRegionProfile.literal.4096.plain@safere-string, regionTrial = StringRegionProfile.literal.4096.region@safere-string)
+
+# Run progress: 0.00% complete, ETA 00:00:16
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 312.962 ns/op
+# Warmup Iteration   2: 284.904 ns/op
+# Warmup Iteration   3: 283.020 ns/op
+Iteration   1: 146.904 ns/op
+Iteration   2: 145.732 ns/op
+Iteration   3: 142.452 ns/op
+Iteration   4: 141.817 ns/op
+Iteration   5: 143.053 ns/op
+
+# Run progress: 50.00% complete, ETA 00:00:08
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 306.278 ns/op
+# Warmup Iteration   2: 280.522 ns/op
+# Warmup Iteration   3: 280.481 ns/op
+Iteration   1: 141.085 ns/op
+Iteration   2: 138.715 ns/op
+Iteration   3: 138.092 ns/op
+Iteration   4: 139.930 ns/op
+Iteration   5: 139.504 ns/op
+
+
+Result "org.safere.benchmark.StringRegionProfileBenchmark.find":
+  141.728 ±(99.9%) 4.394 ns/op [Average]
+  (min, avg, max) = (138.092, 141.728, 146.904), stdev = 2.906
+  CI (99.9%): [137.335, 146.122] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:00:17
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                          (history)                                          (plainTrial)                                          (regionTrial)  Mode  Cnt    Score   Error  Units
+StringRegionProfileBenchmark.find      plain  StringRegionProfile.literal.4096.plain@safere-string  StringRegionProfile.literal.4096.region@safere-string  avgt   10  141.728 ± 4.394  ns/op
+
+Benchmark result is saved to /tmp/safere-1119-evidence/repaired-literal4096-long/cycle2-plain.json

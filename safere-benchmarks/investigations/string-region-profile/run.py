@@ -15,9 +15,11 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("plain_workload")
     parser.add_argument("region_workload")
-    parser.add_argument("--long", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--long", action="store_true")
+    mode.add_argument("--smoke", action="store_true", help="Check execution only; no performance evidence")
     args = parser.parse_args()
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     commands = []
@@ -27,8 +29,11 @@ def main():
             command = [str(root / "run-java-benchmarks.sh")]
             if args.long:
                 command.append("--long")
+            elif args.smoke:
+                command.append("--smoke")
             command += [
-                "--fastbuild", "StringRegionProfileBenchmark.find", "--",
+                "--fastbuild", "--investigation", "string-region-profile",
+                "StringRegionProfileBenchmark.find", "--",
                 "-p", f"plainTrial={args.plain_workload}@safere-string",
                 "-p", f"regionTrial={args.region_workload}@safere-string",
                 "-p", f"history={history}",
@@ -41,8 +46,9 @@ def main():
             with prefix.with_suffix(".log").open("w") as log:
                 subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True)
             results = json.loads(prefix.with_suffix(".json").read_text())
-            if len(results) != 1 or len(results[0]["primaryMetric"]["rawData"]) != 2:
-                raise RuntimeError(f"Expected one successful result with two forks: {prefix}")
+            expected_forks = 0 if args.smoke else 2
+            if len(results) != 1 or results[0]["forks"] != expected_forks:
+                raise RuntimeError(f"Unexpected benchmark result or fork count: {prefix}")
             print(f"Finished: {results[0]['primaryMetric']['score']:.2f} ns/op", flush=True)
 
 

@@ -1,0 +1,553 @@
+{
+  "base-plain": {
+    "executionSamples": 531,
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        218
+      ],
+      [
+        "java.lang.StringLatin1.indexOf",
+        29
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        25
+      ],
+      [
+        "java.lang.StringLatin1.charAt",
+        23
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        21
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        20
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        20
+      ],
+      [
+        "java.lang.String.length",
+        12
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        12
+      ],
+      [
+        "java.lang.String.checkIndex",
+        11
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        10
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        10
+      ]
+    ],
+    "firstLibraryFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        218
+      ],
+      [
+        "org.safere.StringLiteralSearch.indexOfChar",
+        33
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        28
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        25
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        25
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        24
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        22
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        12
+      ],
+      [
+        "org.safere.StringInputScanner.isCodePointBoundary",
+        11
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        10
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        10
+      ],
+      [
+        "org.safere.Pattern.matcher",
+        9
+      ]
+    ],
+    "dfaCompilations": [
+      {
+        "compileId": "1733",
+        "stamp": "0.833",
+        "calls": [
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "7303"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "base-mixed": {
+    "executionSamples": 539,
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        213
+      ],
+      [
+        "java.lang.StringLatin1.indexOf",
+        40
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        24
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        19
+      ],
+      [
+        "java.lang.StringLatin1.charAt",
+        18
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        18
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        17
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        14
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        12
+      ],
+      [
+        "org.safere.Matcher$OnePassAnchoredPreparedRunner.find",
+        11
+      ],
+      [
+        "java.lang.String.length",
+        9
+      ],
+      [
+        "org.safere.Dfa.beginSearch",
+        9
+      ]
+    ],
+    "firstLibraryFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        213
+      ],
+      [
+        "org.safere.StringLiteralSearch.indexOfChar",
+        50
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        24
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        19
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        18
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        18
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        18
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        17
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        15
+      ],
+      [
+        "org.safere.Matcher.applyDeferredMatchResult",
+        12
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        12
+      ],
+      [
+        "org.safere.Matcher$OnePassAnchoredPreparedRunner.find",
+        11
+      ]
+    ],
+    "dfaCompilations": [
+      {
+        "compileId": "1764",
+        "stamp": "0.801",
+        "calls": [
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "2733"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "repaired-plain": {
+    "executionSamples": 534,
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        239
+      ],
+      [
+        "java.lang.StringLatin1.indexOf",
+        31
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        29
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        26
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        17
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        13
+      ],
+      [
+        "java.lang.StringLatin1.charAt",
+        12
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        12
+      ],
+      [
+        "org.safere.Matcher.threadCache",
+        10
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        10
+      ],
+      [
+        "java.lang.String.checkIndex",
+        9
+      ],
+      [
+        "org.safere.Matcher.diagnosticsAccumulator",
+        8
+      ]
+    ],
+    "firstLibraryFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        239
+      ],
+      [
+        "org.safere.StringLiteralSearch.indexOfChar",
+        36
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        30
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        26
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        17
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        17
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        16
+      ],
+      [
+        "org.safere.Dfa.fastStartIndex",
+        12
+      ],
+      [
+        "org.safere.Matcher.applyDeferredMatchResult",
+        10
+      ],
+      [
+        "org.safere.Matcher.threadCache",
+        10
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        10
+      ],
+      [
+        "org.safere.Matcher.diagnosticsAccumulator",
+        8
+      ]
+    ],
+    "dfaCompilations": [
+      {
+        "compileId": "1745",
+        "stamp": "0.808",
+        "calls": [
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "5191"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "repaired-mixed": {
+    "executionSamples": 547,
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        270
+      ],
+      [
+        "org.safere.StringStartAccelerator.findNextCandidate",
+        18
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        17
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        15
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        15
+      ],
+      [
+        "org.safere.Matcher.findNextStringStartCandidate",
+        15
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        13
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        11
+      ],
+      [
+        "org.safere.Matcher$OnePassAnchoredPreparedRunner.find",
+        10
+      ],
+      [
+        "java.lang.String.length",
+        10
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        10
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        10
+      ]
+    ],
+    "firstLibraryFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        270
+      ],
+      [
+        "org.safere.Matcher.releaseEnginesOwnedByOtherThread",
+        21
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        19
+      ],
+      [
+        "org.safere.Pattern.existingThreadCache",
+        19
+      ],
+      [
+        "org.safere.StringStartAccelerator.findNextCandidate",
+        18
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        15
+      ],
+      [
+        "org.safere.Matcher.<init>",
+        15
+      ],
+      [
+        "org.safere.Matcher.findNextStringStartCandidate",
+        15
+      ],
+      [
+        "org.safere.Dfa$State.isMatch",
+        13
+      ],
+      [
+        "org.safere.Matcher$OnePassAnchoredPreparedRunner.find",
+        10
+      ],
+      [
+        "org.safere.Dfa.doSearch",
+        10
+      ],
+      [
+        "org.safere.Pattern.matcher",
+        9
+      ]
+    ],
+    "dfaCompilations": [
+      {
+        "compileId": "1766",
+        "stamp": "0.806",
+        "calls": [
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringRegionInputScanner": "2050",
+              "org.safere.StringInputScanner": "2050"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "2141",
+              "org.safere.StringRegionInputScanner": "2140"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "trailingLineTerminatorStart",
+            "receivers": {
+              "org.safere.StringInputScanner": "2141",
+              "org.safere.StringRegionInputScanner": "2140"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "2141",
+              "org.safere.StringRegionInputScanner": "2140"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "asciiAt",
+            "receivers": {
+              "org.safere.StringRegionInputScanner": "14350",
+              "org.safere.StringInputScanner": "14350"
+            }
+          }
+        ]
+      },
+      {
+        "compileId": "1825",
+        "stamp": "0.843",
+        "calls": [
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringRegionInputScanner": "19218",
+              "org.safere.StringInputScanner": "19218"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "3911",
+              "org.safere.StringRegionInputScanner": "3910"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "trailingLineTerminatorStart",
+            "receivers": {
+              "org.safere.StringInputScanner": "3911",
+              "org.safere.StringRegionInputScanner": "3910"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "length",
+            "receivers": {
+              "org.safere.StringInputScanner": "3911",
+              "org.safere.StringRegionInputScanner": "3910"
+            }
+          },
+          {
+            "holder": "org.safere.InputScanner",
+            "method": "asciiAt",
+            "receivers": {
+              "org.safere.StringRegionInputScanner": "134554",
+              "org.safere.StringInputScanner": "134529"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

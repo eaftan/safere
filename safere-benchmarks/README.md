@@ -36,41 +36,14 @@ It compares SafeRE and `java.util.regex` on compatible workloads adapted from
 OpenJDK's regex microbenchmarks. That suite is GPL-2.0-only, so its source is
 not vendored here or included in the `safere-benchmarks` Maven module.
 
-### String region profile history
+### Investigative benchmarks
 
-To investigate ordinary `find()` performance after region use in the same JVM
-([#1119](https://github.com/eaftan/safere/issues/1119)), run:
-
-```bash
-python3 safere-benchmarks/scripts/run-region-profile.py --long \
-  /tmp/region-profile-literal32 \
-  StringRegionProfile.literal.32.plain StringRegionProfile.literal.32.region
-```
-
-The output directory must not exist. Each cycle runs the `plain` and `mixed`
-histories in separate fresh-fork invocations of `run-java-benchmarks.sh`, then
-the next cycle reverses their order. The wrapper owns all JMH timing and fork
-settings. Omit `--long` for standard screening. Raw JSON, logs, and exact
-commands remain in the output directory. Run revision comparisons sequentially
-on isolated snapshots carrying identical benchmark declarations and harnesses;
-record each production revision and any benchmark-only overlays separately.
-
-During each JMH warmup invocation, both histories search the target and an
-equivalent companion. In `plain`, both use independent String input; in `mixed`,
-the companion exposes the same visible text through a region of a padded String.
-All measurement invocations search only the ordinary input, using the same
-matcher construction policy and benchmark method. No region search runs during
-measurement. This measures persistent warmup history effects, not concurrent
-region traffic or the transient latency of the first search after a region.
-Inspect individual measurement iterations for recovery or recompilation.
-
-The declared pairs cover literal and nullable search starts at 32 and 4,096
-UTF-16 code units, with a match near the end. Substitute `nullable` or `4096`
-in both workload IDs to select the other pairs. These ordinary workloads also
-run through the generic engine matrix; the paired history probe is excluded
-from default runs because it requires explicit paired parameters. Compare
-unprofiled measurements first, then collect separate JIT or CPU profiles when
-investigating a reproduced difference.
+Preserved diagnostic experiments live under [investigations/](investigations/README.md).
+They have their own sources, workload definitions, protocols, and historical evidence.
+They require explicit invocation and are excluded from the regular benchmark corpus,
+collection plan, and recurring reports. See the
+[String region profile investigation](investigations/string-region-profile/README.md)
+for the first example.
 
 ### Benchmark Collection
 

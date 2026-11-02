@@ -1,0 +1,72 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.StringRegionProfileBenchmark.find",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1119-evidence/repaired/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1119-evidence/repaired/safere-benchmarks/target/benchmark-corpus",
+            "-Dsafere.benchmark.scanProvider=default",
+            "-Xmx512m"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "history" : "plain",
+            "plainTrial" : "StringRegionProfile.literal.4096.plain@safere-string",
+            "regionTrial" : "StringRegionProfile.literal.4096.region@safere-string"
+        },
+        "primaryMetric" : {
+            "score" : 136.59586310792253,
+            "scoreError" : 9.718265503162113,
+            "scoreConfidence" : [
+                126.87759760476041,
+                146.31412861108464
+            ],
+            "scorePercentiles" : {
+                "0.0" : 129.30299646303052,
+                "50.0" : 136.42103495172418,
+                "90.0" : 147.77244850052705,
+                "95.0" : 148.42717126553814,
+                "99.0" : 148.42717126553814,
+                "99.9" : 148.42717126553814,
+                "99.99" : 148.42717126553814,
+                "99.999" : 148.42717126553814,
+                "99.9999" : 148.42717126553814,
+                "100.0" : 148.42717126553814
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    132.0113888800532,
+                    129.30299646303052,
+                    133.84595922524076,
+                    130.29441018580434,
+                    130.09782189086823
+                ],
+                [
+                    141.87994361542738,
+                    138.9961106782076,
+                    139.28200819177323,
+                    141.82082068328214,
+                    148.42717126553814
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

@@ -1,0 +1,12 @@
+{
+  "productionCommits": {
+    "base": "67b5a558688b309fedb9311fd80d084bce26e670",
+    "repaired": "fbbe9a2ca01d244326eb21183e27d8c79b63d616",
+    "main": "3a998603c5c9ed3555175873bfa7b91ad457a22e"
+  },
+  "benchmarkOverlays": {
+    "safere-benchmarks/benchmark-data.json": "8e261c94449ee3add0a96bd700ae44e51ee931c53d95ae56c82c348a9f785331",
+    "safere-benchmarks/src/main/java/org/safere/benchmark/StringRegionProfileBenchmark.java": "22dc776c6628a360793aab018b031b98090f1c3666d02356029e3593b78b6f6d",
+    "safere-benchmarks/scripts/run-region-profile.py": "b0cf20635e56b6c4db6288fdca94d3adce6d96800bb4de284522ded585aaba8e"
+  }
+}

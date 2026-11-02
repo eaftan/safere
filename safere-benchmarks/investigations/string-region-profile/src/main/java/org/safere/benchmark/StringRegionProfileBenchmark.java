@@ -6,6 +6,7 @@
 package org.safere.benchmark;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -58,7 +59,10 @@ public class StringRegionProfileBenchmark {
   /** Loads and checks the paired workloads without exercising region matching in the control. */
   @Setup(Level.Trial)
   public void setup() {
-    CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+    setup(CrossEngineBenchmarkPlan.load(), BenchmarkData.get()::getInputString);
+  }
+
+  void setup(CrossEngineBenchmarkPlan plan, Function<String, String> inputs) {
     CrossEngineBenchmarkPlan.Trial plain = plan.resolve(plainTrial);
     CrossEngineBenchmarkPlan.Trial region = plan.resolve(regionTrial);
     if (plain.variant() != RegexEngineVariant.SAFERE_STRING
@@ -79,9 +83,8 @@ public class StringRegionProfileBenchmark {
     if (bounds.kind() != DeclarativeBenchmarkPlan.LifecycleStepKind.REGION) {
       throw new IllegalArgumentException("Companion must declare region bounds");
     }
-    plainInput = BenchmarkData.get().getInputString(plain.workload().inputKeys().getFirst());
-    String regionInput =
-        BenchmarkData.get().getInputString(region.workload().inputKeys().getFirst());
+    plainInput = inputs.apply(plain.workload().inputKeys().getFirst());
+    String regionInput = inputs.apply(region.workload().inputKeys().getFirst());
     regionStart = bounds.start();
     regionEnd = bounds.end();
     if (!regionInput.substring(regionStart, regionEnd).equals(plainInput)) {
