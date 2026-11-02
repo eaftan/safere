@@ -41,8 +41,9 @@
 # Workloads that declare the noFork constraint run through the generic
 # CrossEngineNoForkBenchmark entry point with -f 0.
 #
-# CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
-# explicitly when working on safere-crosscheck performance.
+# CrosscheckOverheadBenchmark and StringRegionProfileBenchmark are excluded from
+# default no-argument runs. The latter requires an explicitly paired experiment;
+# see safere-benchmarks/scripts/run-region-profile.py.
 #
 # Arguments after the mode flag are passed directly to JMH as benchmark regex
 # filters. Use `--` to pass additional options directly to JMH, for example:
@@ -56,7 +57,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
-DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
+DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|StringRegionProfileBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
 
 # Empirically selected Java benchmark settings. See
 # safere-benchmarks/CONFIGURATION_EVALUATION.md.
