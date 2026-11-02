@@ -203,6 +203,38 @@ describe the accepted match, not incidental state from abandoned paths. Copying
 the JDK trace exactly would require replaying or preserving backtracking
 history that SafeRE deliberately does not have.
 
+## Empty Captures under Repetition
+
+SafeRE follows the [repetition and capture policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md):
+a completed empty iteration publishes the captures it writes. Greedy finite
+repetition accepts its empty copies; greedy unbounded repetition accepts one
+terminal empty iteration once its minimum is met. Redundant noncapturing
+wrappers preserve participation and bounds. Required empty iterations count
+toward the minimum; zero-count repeats keep group numbering without executing
+the operand, and reluctant zero-minimum repeats can omit it.
+
+On empty input, `()*`, `(?:())*`, `(){0,2}`, and `(?:()){0,2}` therefore all
+report group 1 as empty at `[0,0)`. Observed OpenJDK 26.0.2 reports that group
+as unmatched for the two direct spellings, but participating for the wrapped
+spellings. The same spelling dependence can affect captures around zero-width
+assertions. SafeRE deliberately keeps wrapper transparency and ordinary capture
+updates instead of exposing that implementation distinction. `()*?` still
+reports the group as unmatched because its first complete success omits it.
+
+The [JDK capture documentation](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+and [group accessor contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#group(int))
+describe capture retention and distinguish a participating empty capture from
+an unmatched group. They do not prescribe a complete empty-iteration algorithm.
+This is the approved SafeRE policy choice, not a claim that the JDK explicitly
+specifies terminal-empty acceptance or that its observed behavior cannot be
+implemented in linear time. Ordinary capture instructions and existing loop
+progress checks implement SafeRE's rule without retries or capture repair.
+
+`EmptyCaptureSemanticsTest` and `CaptureSemanticsFuzzer.emptyCaptures` pin the
+participation policy, wrappers, matcher operations, snapshots, replacement,
+regions, and String/UTF-8 coordinates. Broad JDK differential fuzzing continues
+to report these intentional differences.
+
 ## Earlier Captures in Nested Repetitions
 
 Issue reference: #1079.
