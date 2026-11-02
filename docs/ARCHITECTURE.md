@@ -39,6 +39,18 @@ when abandoning a path. Public capture access must not repair results by reinter
 Enumerating candidate repeat partitions after a match is chosen could make
 capture access superlinear in the input length.
 
+Exact counts and nonnullable operands use ordinary copies. General nullable
+finite repeats with optional iterations retain their bounds through
+simplification.
+The compiler emits distinct copies sharing source capture identities, with one
+invocation-local progress register starting at the final required iteration.
+An empty iteration then exits once the minimum is met; required earlier empty
+iterations still count. The same progress instructions and register rollback
+used by unbounded loops handle these finite boundaries. DFA copies without
+progress guards are rejection supersets, not authoritative match producers.
+Proved capture-preserving equivalences, such as compact statically zero-width
+repetition, can avoid these copies and guards.
+
 The compiler uses Thompson construction to connect instruction fragments.
 `Prog` holds the resulting program and analysis metadata. Instructions express
 ordered alternatives, character consumption, captures, assertions, repetition

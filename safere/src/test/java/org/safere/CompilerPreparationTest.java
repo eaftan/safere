@@ -112,7 +112,7 @@ class CompilerPreparationTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"(a?)*b"})
+  @ValueSource(strings = {"(a?)*b", "(a?){0,2}b", "(a?){1,3}b"})
   void progressChecksPrepareDfaWithoutUnsupportedOnePassAnalysis(String regex)
       throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile(regex);

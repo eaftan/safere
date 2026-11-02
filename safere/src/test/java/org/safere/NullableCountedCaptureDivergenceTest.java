@@ -13,14 +13,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Pins the approved successful-path capture divergence for nullable counted repeats. */
+/** Minimum-respecting empty-stop agrees with Java except for exact-count path selection. */
 @DisabledForCrosscheck("intentional divergence in nullable counted-repeat capture boundaries")
 class NullableCountedCaptureDivergenceTest {
   private static Stream<Arguments> captureCases() {
     return Stream.of(
-        Arguments.of("(?:()|\\W+){0,2}y", true),
-        Arguments.of("(?:()|\\W+){1,2}y", true),
-        Arguments.of("(?:(?<empty>)|\\W+){0,2}y", true),
+        Arguments.of("(?:()|\\W+){0,2}y", false),
+        Arguments.of("(?:()|\\W+){1,2}y", false),
+        Arguments.of("(?:(?<empty>)|\\W+){0,2}y", false),
+        Arguments.of("(?:()|\\W+){2}y", true),
         Arguments.of("(?:()|\\W+)*y", false),
         Arguments.of("(?:\\W+|()){0,2}y", false));
   }
@@ -71,14 +72,14 @@ class NullableCountedCaptureDivergenceTest {
     assertThat(matcher.find()).isTrue();
     assertThat(matcher.start()).isEqualTo(8);
     assertThat(matcher.end()).isEqualTo(10);
-    assertThat(matcher.start(1)).isEqualTo(8);
-    assertThat(matcher.end(1)).isEqualTo(8);
+    assertThat(matcher.start(1)).isEqualTo(9);
+    assertThat(matcher.end(1)).isEqualTo(9);
     var second = matcher.toMatchResult();
     matcher.reset();
     assertThat(matcher.find()).isTrue();
     assertThat(first.start(1)).isEqualTo(5);
     assertThat(first.end(1)).isEqualTo(5);
-    assertThat(second.start(1)).isEqualTo(8);
-    assertThat(second.end(1)).isEqualTo(8);
+    assertThat(second.start(1)).isEqualTo(9);
+    assertThat(second.end(1)).isEqualTo(9);
   }
 }

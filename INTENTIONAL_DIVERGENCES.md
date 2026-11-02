@@ -265,39 +265,38 @@ replacement, regions, and UTF-8 coordinates.
 
 ## Empty Captures in Nullable Counted Repetitions
 
-Issue reference: #1051.
+Issue references: #1051 and #1091.
 
-This section records current implementation behavior pending the
-[repetition policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md). The selected
-contract now uses minimum-respecting empty-stop for finite and unbounded
-repetition, superseding the earlier choice to preserve finite expansion for
-simplicity. The implementation and its pinned observations still need to be
-aligned with that contract.
+SafeRE follows the
+[minimum-respecting empty-stop policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md):
+accept a completed empty iteration and its captures, then stop that invocation
+once its minimum is met. Empty iterations before the minimum is met still count
+and must be followed by the remaining required iterations.
 
-For `(?:()|\W+){0,2}y` on `" y"`, both implementations match `[0,2)` and
-return `""` for group 1. Current SafeRE reports `[0,0)`: an empty iteration
-precedes the iteration consuming the space. JDK 26 reports `[1,1)`. The chosen
-policy now also requires `[1,1)`, selecting the consuming iteration before the
-terminal empty capture. The same target applies to `{1,2}`. Exact `{2}` still
-requires two iterations and retains `[0,0)` under the policy, a remaining JDK
-path-selection difference.
+For `(?:()|\\W+){0,2}y` and `{1,2}` on `" y"`, both SafeRE and JDK 26 capture
+group 1 at `[1,1)`. Exact `{2}` instead retains `[0,0)` under SafeRE's ordered
+required-copy paths, while the JDK reports `[1,1)`. The optional-count mismatch
+previously documented here is resolved; the exact-count difference remains
+intentional.
+
+Similarly, `(?:b?|a){0,2}b` and `{1,2}` on `abb` select `abb` in both engines.
+Exact `{2}` finds `ab` and then `b` in SafeRE, while the JDK finds `abb`.
+Full-match acceptance can select `abb` for all three counts. Replacement and
+split follow the chosen search sequence.
 
 The [JDK 26 capture specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
-does not fully specify nullable repetition's path selection. The
+does not fully specify nullable repetition's ordered executions. These remaining
+differences follow the explicit SafeRE policy; they are not claimed to be forced
+by the JDK specification or by linear time. The
 [policy appendix](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md#empty-stop-rather-than-finite-expansion)
-records the compatibility comparison and its limits. Empty-stop is the chosen
-interpretation for better observed Java compatibility, subject to linear time,
-stack safety, and implementation performance; exact JDK emulation is not claimed.
+records the compatibility rationale. Tests in `RepetitionPolicyTest` and
+`NullableCountedCaptureDivergenceTest` distinguish optional from exact counts,
+including captures, acceptance conditions, snapshots, and successive searches.
 
-`NullableCountedCaptureDivergenceTest` currently pins the existing implementation's
-capture boundaries. It must be updated with the implementation change rather
-than treated as continued approval of finite expansion. This boundary concerns
-successful-path selection, separately from failed-path capture leakage.
-
-The previous compatibility implementation and optimizations are preserved at
+This successful-path selection policy is separate from failed-path capture
+leakage. The previous copy-based compatibility implementation is preserved at
 [commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
-for reference; their existence does not establish compliance with the selected
-policy or acceptable performance for its eventual implementation.
+for reference.
 
 ## ASCII Word Boundaries around Combining Marks
 

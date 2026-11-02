@@ -13,18 +13,18 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Simplifies a {@link Regexp} AST so that it uses only basic operators ({@link RegexpOp#STAR},
- * {@link RegexpOp#PLUS}, {@link RegexpOp#QUEST}, {@link RegexpOp#CONCAT}, {@link
- * RegexpOp#ALTERNATE}, {@link RegexpOp#CAPTURE}) instead of {@link RegexpOp#REPEAT}. Also
- * simplifies character classes (empty → NO_MATCH, full → ANY_CHAR).
+ * Simplifies a {@link Regexp} AST using basic operators such as {@link RegexpOp#STAR}, {@link
+ * RegexpOp#PLUS}, {@link RegexpOp#QUEST}, and {@link RegexpOp#CONCAT}. Nullable finite {@link
+ * RegexpOp#REPEAT} nodes with optional iterations retain their invocation boundaries for the
+ * compiler. Also simplifies character classes (empty → NO_MATCH, full → ANY_CHAR).
  *
  * <p>The simplification is done in two passes:
  *
  * <ol>
  *   <li><b>Coalesce</b>: Merges adjacent repetitions of the same sub-expression in CONCAT nodes
  *       (e.g., {@code a*a+} → {@code REPEAT(a, 1, -1)}).
- *   <li><b>Simplify</b>: Converts REPEAT nodes into STAR/PLUS/QUEST/CONCAT and simplifies character
- *       classes.
+ *   <li><b>Simplify</b>: Lowers copy-equivalent REPEAT nodes into STAR/PLUS/QUEST/CONCAT, preserves
+ *       progress-sensitive counts, and simplifies character classes.
  * </ol>
  *
  * <p>This is a port of RE2's {@code simplify.cc}.
@@ -733,11 +733,17 @@ final class Simplifier {
   }
 
   /**
-   * Simplifies the expression {@code re{min,max}} in terms of STAR, PLUS, QUEST, and CONCAT.
+   * Simplifies {@code re{min,max}}, retaining nullable finite counts that need progress checks.
    *
    * <p>Zero-width operands have already been reduced to at most one iteration by the caller.
    */
   private static Regexp simplifyRepeat(Regexp re, int min, int max, int flags) {
+    if (max > min && max > 1 && AstAnalysis.analyze(re).canMatchEmpty()) {
+      // The final required iteration and optional iterations share one empty-stop invocation.
+      // Preserve its bounds for the compiler instead of turning it into independent copies.
+      return Regexp.repeat(re, flags, min, max);
+    }
+
     // x{n,} means at least n matches.
     if (max == -1) {
       if (min == 0) {

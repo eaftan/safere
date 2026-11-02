@@ -38,6 +38,14 @@ under repetition. A group in a zero-count repetition keeps its number but does
 not participate. Unmatched captures use `-1` bounds; empty captures have equal
 nonnegative bounds.
 
+Finite and unbounded nullable repetitions accept an empty iteration and stop the
+current invocation once its minimum is satisfied. Required empty iterations
+still count toward that minimum. General nullable finite lowering retains
+invocation-local progress state; unguarded copy expansion requires a proof of
+contextual equivalence. Engines that ignore progress registers may reject
+candidates using a language superset, but must not publish match bounds or
+captures for them.
+
 Capture results belong to the selected prioritized path. Losing paths must not
 leak their writes into that result. Compiler transformations involving nested,
 nullable, lazy, or bounded repetitions need capture-aware tests, including a

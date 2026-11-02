@@ -80,6 +80,97 @@ public final class CaptureSemanticsFuzzer {
   }
 
   @FuzzTest(maxDuration = "30s")
+  void minimumRespectingEmptyStop(FuzzedDataProvider data) {
+    String atom = pick(data, "a", "ab", "é", "😀");
+    String prefix = pick(data, "", "x", "😀");
+    int count = data.consumeInt(0, 8);
+    int minimum = data.consumeInt(0, 4);
+    int maximum = data.consumeBoolean() ? -1 : data.consumeInt(minimum, 6);
+    boolean greedy = data.consumeBoolean();
+    String quantifier = "{" + minimum + "," + (maximum < 0 ? "" : maximum) + "}";
+    String operand = "(?:(?<empty>)|" + Pattern.quote(atom) + ")";
+    int wrappers = data.consumeInt(0, 3);
+    operand = "(?:".repeat(wrappers) + operand + ")".repeat(wrappers);
+    Pattern pattern =
+        Pattern.compile(
+            "\\A" + Pattern.quote(prefix) + operand + quantifier + (greedy ? "" : "?") + "!");
+    String input = prefix + atom.repeat(count) + "!";
+    // A bounded independent execution tree, never a production result-repair strategy. Every
+    // consuming iteration advances one atom; at most minimum + count + 1 iterations are needed.
+    Integer expected =
+        emptyStopCapture(
+            minimum, maximum < 0 ? minimum + count + 1 : maximum, greedy, count, 0, 0, -1);
+    for (int operation = 0; operation < 3; operation++) {
+      var matcher = pattern.matcher(input);
+      boolean matched =
+          switch (operation) {
+            case 0 -> matcher.find();
+            case 1 -> matcher.lookingAt();
+            default -> matcher.matches();
+          };
+      assertThat(matched).as("/%s/ on %s", pattern, input).isEqualTo(expected != null);
+      if (matched) {
+        int position = expected < 0 ? -1 : prefix.length() + expected * atom.length();
+        assertThat(matcher.start()).isZero();
+        assertThat(matcher.end()).isEqualTo(input.length());
+        assertThat(matcher.start(1)).isEqualTo(position);
+        assertThat(matcher.end(1)).isEqualTo(position);
+        assertThat(matcher.group(1)).isEqualTo(expected < 0 ? null : "");
+        var snapshot = matcher.toMatchResult();
+        matcher.reset();
+        assertThat(snapshot.start(1)).isEqualTo(position);
+      }
+    }
+    var bytes = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    assertThat(bytes.find()).isEqualTo(expected != null);
+    if (expected != null) {
+      int position =
+          expected < 0
+              ? -1
+              : prefix.getBytes(UTF_8).length + expected * atom.getBytes(UTF_8).length;
+      assertThat(bytes.start(1)).isEqualTo(position);
+      assertThat(bytes.end(1)).isEqualTo(position);
+    }
+    assertThat(
+            pattern
+                .matcher(input)
+                .replaceAll(result -> result.group(1) == null ? "omitted" : "empty"))
+        .isEqualTo(expected == null ? input : expected < 0 ? "omitted" : "empty");
+  }
+
+  private static Integer emptyStopCapture(
+      int minimum,
+      int maximum,
+      boolean greedy,
+      int length,
+      int iterations,
+      int position,
+      int capture) {
+    if (iterations == maximum) {
+      return position == length ? capture : null;
+    }
+    if (!greedy && iterations >= minimum && position == length) {
+      return capture;
+    }
+    Integer empty =
+        iterations + 1 >= minimum
+            ? (position == length ? position : null)
+            : emptyStopCapture(
+                minimum, maximum, greedy, length, iterations + 1, position, position);
+    if (empty != null) {
+      return empty;
+    }
+    if (position < length) {
+      Integer consuming =
+          emptyStopCapture(minimum, maximum, greedy, length, iterations + 1, position + 1, capture);
+      if (consuming != null) {
+        return consuming;
+      }
+    }
+    return greedy && iterations >= minimum && position == length ? capture : null;
+  }
+
+  @FuzzTest(maxDuration = "30s")
   void emptyCaptures(FuzzedDataProvider data) {
     int minimum = data.consumeInt(0, 4);
     int maximum = data.consumeBoolean() ? -1 : data.consumeInt(Math.max(2, minimum), 8);
