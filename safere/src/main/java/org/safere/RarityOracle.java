@@ -344,6 +344,39 @@ final class RarityOracle {
   }
 
   /**
+   * Returns whether scanning for exact-case {@code startLiteral} before exact-case {@code
+   * rejectLiteral} avoids trading a fast rare-byte reject scan for a substantially weaker or
+   * unanchored start scan.
+   */
+  static boolean startLiteralCompetitiveWithReject(String startLiteral, String rejectLiteral) {
+    int startRarity = maxExactAsciiAnchorRarity(startLiteral);
+    int rejectRarity = maxExactAsciiAnchorRarity(rejectLiteral);
+    if (rejectRarity > POISONOUS_ANCHOR_MAX_RARITY && startRarity <= POISONOUS_ANCHOR_MAX_RARITY) {
+      return false;
+    }
+    return startRarity + MIN_LITERAL_RARITY_ADVANTAGE >= rejectRarity;
+  }
+
+  private static int maxExactAsciiAnchorRarity(String literal) {
+    if (literal == null
+        || literal.isEmpty()
+        || literal.length() > StringLiteralSearch.MAX_ANCHORED_LITERAL_LENGTH) {
+      return -1;
+    }
+    int maxRank = -1;
+    for (int i = 0; i < literal.length(); i++) {
+      char c = literal.charAt(i);
+      if (c < 128) {
+        int rank = exactByteRarity(c);
+        if (rank > maxRank) {
+          maxRank = rank;
+        }
+      }
+    }
+    return maxRank;
+  }
+
+  /**
    * The most non-ASCII members a class may have and still be scored by its ASCII members, matching
    * the {@link CharClassScanInfo.UnicodeSmallSet} cap.
    */

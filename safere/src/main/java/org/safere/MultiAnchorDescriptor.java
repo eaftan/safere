@@ -77,6 +77,31 @@ final class MultiAnchorDescriptor {
     return startPlan instanceof StartPlan.CharClass cc ? cc.scanInfo() : null;
   }
 
+  /**
+   * Returns whether {@code find()} should run the start accelerator before {@code
+   * findRejectPrefilter}.
+   *
+   * <p>Requires an exact-case literal-driven {@link StartPlan} ({@link StartPlan.Literal} with
+   * {@code !foldCase} or {@link StartPlan.FixedOffset}) so slower case-folded or non-exact start
+   * kernels never preempt an exact-case {@link RejectPrefilter}, and requires the start literal's
+   * anchor rarity to be competitive with any {@link RejectPlan.RequiredLiteral}. O(1) end-anchored
+   * boundary checks still run first when present.
+   */
+  boolean startPrecedesFindReject() {
+    if (startAnchored || !(rejectPlan instanceof RejectPlan.RequiredLiteral rl)) {
+      return false;
+    }
+    String startLiteral =
+        switch (startPlan) {
+          case StartPlan.Literal lit -> lit.foldCase() ? null : lit.prefix();
+          case StartPlan.FixedOffset fo -> fo.fol().literal();
+          default -> null;
+        };
+    return startLiteral != null
+        && !startLiteral.isEmpty()
+        && RarityOracle.startLiteralCompetitiveWithReject(startLiteral, rl.literal());
+  }
+
   sealed interface StartPlan {
     record None() implements StartPlan {
       static final None INSTANCE = new None();
