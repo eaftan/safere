@@ -33,6 +33,10 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int indexOfAscii(int ascii, int fromIndex, int limit) {
+    return indexOfAscii(text, ascii, fromIndex, limit);
+  }
+
+  static int indexOfAscii(String text, int ascii, int fromIndex, int limit) {
     if (WorkCounterConfig.ENABLED) {
       int end = Math.min(limit, text.length());
       for (int i = Math.max(0, fromIndex); i < end; i++) {
@@ -260,6 +264,11 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start, int limit) {
+    return indexOfCodePointClass(text, ranges, bitmap0, bitmap1, start, limit);
+  }
+
+  static int indexOfCodePointClass(
+      String text, int[] ranges, long bitmap0, long bitmap1, int start, int limit) {
     int position = Math.max(0, start);
     int bound = Math.min(limit, text.length());
     while (position < bound) {
@@ -285,11 +294,41 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public long decodeForward(int pos, int limit) {
+    if (pos >= limit) {
+      return InputScanner.decoded(END_OF_INPUT, limit);
+    }
+    char first = text.charAt(pos);
+    int codePoint =
+        Character.isHighSurrogate(first)
+                && pos + 1 < limit
+                && Character.isLowSurrogate(text.charAt(pos + 1))
+            ? Character.toCodePoint(first, text.charAt(pos + 1))
+            : first;
+    return InputScanner.decoded(codePoint, pos + Character.charCount(codePoint));
+  }
+
+  @Override
   public long decodeBackward(int pos) {
     if (pos <= 0) {
       return InputScanner.decoded(END_OF_INPUT, 0);
     }
     int codePoint = text.codePointBefore(pos);
+    return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
+  }
+
+  @Override
+  public long decodeBackward(int pos, int start) {
+    if (pos <= start) {
+      return InputScanner.decoded(END_OF_INPUT, start);
+    }
+    char last = text.charAt(pos - 1);
+    int codePoint =
+        Character.isLowSurrogate(last)
+                && pos - 2 >= start
+                && Character.isHighSurrogate(text.charAt(pos - 2))
+            ? Character.toCodePoint(text.charAt(pos - 2), last)
+            : last;
     return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
   }
 

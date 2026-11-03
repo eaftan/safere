@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,32 @@ class DfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
+
+  @Test
+  void unpairedSurrogateWordTransitionsRemainCacheableInEveryScanDirection() {
+    Pattern pattern = Pattern.compile("(?U)\\b");
+    for (String unit : List.of("\uD800", "\uDC00")) {
+      InputScanner scanner = new StringInputScanner(unit.repeat(64));
+      for (int operation = 0; operation < 3; operation++) {
+        boolean reverse = operation == 1;
+        Prog prog = reverse ? pattern.reverseProg() : pattern.prog();
+        Dfa dfa = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        Dfa.State start = dfa.startState(scanner, reverse ? scanner.length() : 0, false, reverse);
+        boolean matched =
+            switch (operation) {
+              case 0 -> dfa.doSearch(scanner, false, false).matched();
+              case 1 -> dfa.doSearchReverse(scanner, scanner.length(), 0, false, false).matched();
+              default -> dfa.doSearchMany(scanner, false).matched();
+            };
+        assertThat(matched).isFalse();
+        // Exclude the EOF slot: ordinary unpaired halves must populate a consuming transition.
+        assertThat(
+                Arrays.stream(start.next, 0, start.next.length - 1).anyMatch(next -> next != null))
+            .as("unpaired %s operation=%s", Integer.toHexString(unit.charAt(0)), operation)
+            .isTrue();
+      }
+    }
+  }
 
   @Test
   void anchoredStartCachingDoesNotDiscardAnUnanchoredMatch() {

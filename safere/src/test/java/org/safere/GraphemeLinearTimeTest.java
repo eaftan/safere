@@ -142,6 +142,55 @@ class GraphemeLinearTimeTest {
     }
   }
 
+  @Test
+  void immediateOpaqueGraphemeMatchDoesNotScanTheWholeRegion() {
+    Pattern pattern = Pattern.compile("\\X");
+    String small = "a".repeat(256);
+    String large = "a".repeat(65_536);
+    for (boolean find : new boolean[] {false, true}) {
+      Consumer<String> match =
+          input -> {
+            Matcher matcher = pattern.matcher(input).region(1, input.length());
+            assertThat(find ? matcher.find() : matcher.lookingAt()).isTrue();
+            assertThat(matcher.start()).isEqualTo(1);
+            assertThat(matcher.end()).isEqualTo(2);
+          };
+      long smallWork = WorkCounter.countForTesting(() -> match.accept(small));
+      long largeWork = WorkCounter.countForTesting(() -> match.accept(large));
+      assertThat(smallWork).isPositive();
+      assertThat(largeWork)
+          .as("first match must not copy or scan the full region")
+          .isLessThanOrEqualTo(smallWork * 2);
+    }
+  }
+
+  @Test
+  void opaqueFindSequencesReuseTheirRegionAndGraphemeContext() {
+    for (String regex : new String[] {"\\X", "\\b{g}\\X\\b{g}", "\\X(?m:$)?"}) {
+      Pattern pattern = Pattern.compile(regex);
+      for (boolean anchoring : new boolean[] {true, false}) {
+        assertFourXInputStaysNearLinear(
+            "opaque repeated find: " + regex + " anchoring=" + anchoring,
+            "\uD83C\uDDE6\uD83C\uDDE7".repeat(500),
+            "\uD83C\uDDE6\uD83C\uDDE7".repeat(2_000),
+            middle -> {
+              Matcher matcher =
+                  pattern
+                      .matcher("x" + middle + "y")
+                      .region(1, middle.length() + 1)
+                      .useAnchoringBounds(anchoring);
+              int matches = 0;
+              while (matcher.find()) {
+                assertThat(matcher.start()).isGreaterThanOrEqualTo(1);
+                assertThat(matcher.end()).isLessThanOrEqualTo(middle.length() + 1);
+                matches++;
+              }
+              assertThat(matches).isPositive();
+            });
+      }
+    }
+  }
+
   private static void assertFourXInputStaysNearLinear(
       String scenario, String smallerInput, String largerInput, Consumer<String> task) {
     task.accept(smallerInput);

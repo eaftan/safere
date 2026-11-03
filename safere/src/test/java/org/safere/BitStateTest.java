@@ -28,6 +28,85 @@ class BitStateTest {
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
+  @Test
+  void fusionMetadataIsSharedWhenInputGrowthRequiresANewWorkspace() {
+    String regex = "(?:(a)b(c)|a(b)d|)+";
+    Prog prog = Pattern.compile(regex).prog();
+    BitState small = BitState.getOrCreate(null, prog, "abc", 0, 3, 2, false, false);
+    assertThat(small.doSearch(0, 3, true)).containsExactly(0, 3);
+    CaptureRune[] captures = prog.captureRunes();
+    assertThat(captures).isNotEmpty();
+
+    String input = "abcabd".repeat(32);
+    BitState grown =
+        BitState.getOrCreate(
+            small, prog, input, 0, input.length(), 2 * prog.numCaptures(), false, false);
+    assertThat(grown).isNotSameAs(small);
+    assertThat(prog.captureRunes()).isSameAs(captures);
+    int[] expected =
+        Nfa.search(prog, input, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    assertCapturesEqual(regex, input, grown.doSearch(0, input.length(), true), expected);
+  }
+
+  @Test
+  void unreachableCaptureAlternativesDoNotAffectFusion() {
+    for (String alternatives : List.of("(a)|(b)", "(a)|(b)|(c)|(d)|(e)", "((a)|(b))", "(é)|(😀)")) {
+      for (String impossible : List.of("[^\\s\\S]", "[a&&b]")) {
+        String deadBranch = "(?:" + alternatives + ")" + impossible;
+        for (String regex : List.of(deadBranch, deadBranch + "|x|xx", "x|xx|" + deadBranch)) {
+          for (String input : List.of("", "ab", "xxy", "é😀")) {
+            assertConsistentAnchored(regex, input, false, false);
+            assertConsistentAnchored(regex, input, true, true);
+            assertConsistentUnanchored(regex, input);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void capturesAndLoopRegistersRollBackAcrossNestedRepeatAlternatives() {
+    for (String atom : List.of("(a)", "((a))", "(a|aa)", "(é|😀)")) {
+      for (String inner : List.of("{0,2}", "{1,2}", "+?")) {
+        for (String outer : List.of("*", "+?")) {
+          for (String suffix : List.of("b", "ab")) {
+            String regex = "(?:" + atom + inner + ")" + outer + suffix;
+            for (String input :
+                List.of("", "a", "ab", "aab", "aaaab", "aaaaab", "aaac", "é😀b", "é😀ab")) {
+              assertConsistentAnchored(regex, input, false, false);
+              assertConsistentAnchored(regex, input, true, false);
+              assertConsistentAnchored(regex, input, true, true);
+              assertConsistentUnanchored(regex, input);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void captureBoundariesAndPartialCaptureTrackingSurviveFailedAlternatives() {
+    for (String regex :
+        List.of("(a)b(c)", "(a)b(c)|ab(d)", "(a)b()c", "((a))b(c)", "(é).(😀)", "(?i:(a)b(c))")) {
+      Prog prog = Compiler.compile(Parser.parse(regex, FLAGS));
+      for (String input : List.of("", "ab", "abc", "abd", "abcc", "ABc", "éa😀", "é😀")) {
+        for (int submatches = 0; submatches <= prog.numCaptures(); submatches++) {
+          for (boolean full : new boolean[] {false, true}) {
+            int[] result = BitState.search(prog, input, true, false, full, submatches);
+            int[] expected =
+                Nfa.search(
+                    prog,
+                    input,
+                    Nfa.Anchor.ANCHORED,
+                    full ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH,
+                    submatches);
+            assertCapturesEqual(regex, input, result, expected);
+          }
+        }
+      }
+    }
+  }
+
   /** Asserts BitState and NFA agree on an anchored search. */
   private static void assertConsistentAnchored(
       String pattern, String text, boolean longest, boolean endMatch) {
@@ -422,6 +501,62 @@ class BitStateTest {
           assertConsistentUnanchored(pattern, text);
           assertConsistentUnanchored(pattern, text.repeat(40));
         }
+      }
+    }
+
+    @Test
+    void pruningActivatesMidStartAndPreservesReuseAcrossShortAndBoundedSearches() {
+      Regexp re = Parser.parse("((?:.+?)*)c", FLAGS);
+      Prog prog = Compiler.compile(re);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+
+      // Short unanchored search finishes below PRUNE_ACTIVATION_STEPS.
+      String shortText = "abbc";
+      BitState bs =
+          BitState.getOrCreate(null, prog, shortText, 0, shortText.length(), ncap, false, false);
+      assertThat(bs.doSearch(0, shortText.length(), false))
+          .isEqualTo(
+              Nfa.search(
+                  prog, shortText, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, ncap / 2));
+
+      // Long unanchored search crosses PRUNE_ACTIVATION_STEPS mid-start and fails.
+      String missText = "a".repeat(120);
+      bs = BitState.getOrCreate(bs, prog, missText, 0, missText.length(), ncap, false, false);
+      assertThat(bs.doSearch(0, missText.length(), false)).isNull();
+
+      // Bounded single-start search (startPos == searchLimit, anchored == false, as used by
+      // preselected starts in Matcher) exceeds PRUNE_ACTIVATION_STEPS while revisiting shared ALTs.
+      String singleStartText = "xx" + "a".repeat(80) + "c";
+      bs =
+          BitState.getOrCreate(
+              bs, prog, singleStartText, 2, singleStartText.length(), ncap, false, false);
+      assertThat(bs.doSearch(2, 2, false)).containsExactly(2, 83, 2, 82);
+
+      // Reusing again for an unanchored search that matches after crossing the threshold.
+      String laterHitText = "b".repeat(80) + "xac";
+      Regexp greedyRe = Parser.parse("(a*)c", FLAGS);
+      Prog greedyProg = Compiler.compile(greedyRe);
+      BitState greedyBs =
+          BitState.getOrCreate(
+              null,
+              greedyProg,
+              laterHitText,
+              0,
+              laterHitText.length(),
+              2 * greedyProg.numCaptures(),
+              false,
+              false);
+      assertThat(greedyBs.doSearch(0, laterHitText.length(), false))
+          .containsExactly(81, 83, 81, 82);
+    }
+
+    @Test
+    void epsilonCycleAltsRemainExactAcrossPruningThresholdTransitions() {
+      String[] patterns = {"(a*)*c", "((?:a?)*)c", "(?:b|(a*)*)+c"};
+      for (String pattern : patterns) {
+        assertConsistentUnanchored(pattern, "bbbbaac");
+        assertConsistentUnanchored(pattern, "b".repeat(80) + "aac");
+        assertConsistentUnanchored(pattern, "a".repeat(80));
       }
     }
   }

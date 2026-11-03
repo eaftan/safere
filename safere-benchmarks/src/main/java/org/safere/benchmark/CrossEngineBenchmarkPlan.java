@@ -36,10 +36,13 @@ final class CrossEngineBenchmarkPlan {
           DeclarativeBenchmarkPlan.Operation.SPLIT_LENGTH_SUM,
           DeclarativeBenchmarkPlan.Operation.COMPILE,
           DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND,
+          DeclarativeBenchmarkPlan.Operation.COMPILE_AND_MATCHES,
           DeclarativeBenchmarkPlan.Operation.FIND_ROTATING_UTF16,
           DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND_ROTATING_UTF16,
           DeclarativeBenchmarkPlan.Operation.MATCHER_RESET_FIND,
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
+          DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_MATCHES,
+          DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_TOKENIZE,
           DeclarativeBenchmarkPlan.Operation.FIND_SAMPLED_GROUP,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);

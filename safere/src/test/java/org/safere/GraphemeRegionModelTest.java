@@ -78,7 +78,7 @@ class GraphemeRegionModelTest {
                 "\uD83D\uDC4D\uD83C\uDFFB",
                 1,
                 3,
-                List.of("1-2;g0=U+DC4D", "2-4;g0=U+1F3FB"))),
+                List.of("1-2;g0=U+DC4D", "2-3;g0=U+D83C"))),
         Arguments.of(
             new Case(
                 "explicit leading boundary composes at opaque ZWJ region start",

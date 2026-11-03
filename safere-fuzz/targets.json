@@ -14,7 +14,9 @@
     "oss_fuzz": false,
     "seeds": "src/test/resources/org/safere/fuzz/CaptureSemanticsFuzzerInputs",
     "methods": [
-      "quantifiedCaptures"
+      "quantifiedCaptures",
+      "acceptedPaths",
+      "emptyCaptures"
     ]
   },
   {
@@ -104,7 +106,9 @@
     "oss_fuzz": false,
     "seeds": "src/test/resources/org/safere/fuzz/RegionBoundsFuzzerInputs",
     "methods": [
-      "regionBounds"
+      "regionBounds",
+      "assertionComposition",
+      "opaqueSubstring"
     ]
   },
   {

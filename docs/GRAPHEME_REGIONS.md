@@ -5,6 +5,9 @@ Unicode coordinates. It complements the [intentional divergences](../INTENTIONAL
 which record approved differences from observed JDK behavior. UTF-8 matching
 uses the byte-coordinate contract in [Direct UTF-8 matching](UTF8.md).
 
+The opaque contract, including the distinction between anchoring modes, is
+specified in [Opaque String region bounds](OPAQUE_REGION_BOUNDS.md).
+
 `\X` consumes an extended grapheme cluster. `\b{g}` is a zero-width predicate
 on a boundary. Their composition must have a consistent meaning independent
 of the execution strategy used to evaluate it.
@@ -15,14 +18,15 @@ For String matching, the supported contract is:
 
 1. Public positions are UTF-16 indices.
 2. Candidate starts for `find()` remain inside the matcher region.
-3. Ordinary consuming atoms never report bounds that end inside a valid
-   surrogate pair.
-4. A consuming `\X` may complete a surrogate pair whose high surrogate starts
-   inside the region.
-5. `matches()` remains strict about the logical region end, even when `\X`
-   completion lets `find()` or `lookingAt()` report a bound past `regionEnd`.
-6. End anchors in `find()` and `lookingAt()` may accept the `\X` scalar
-   completion end when the logical region end splits that scalar.
+3. All consuming constructs decode within the consumption range. A surrogate
+   pair wholly inside that range is one code point; a half exposed at either
+   region edge is unpaired, even if it belongs to a pair in the full input.
+4. `\X` consumes using that same range and cannot complete a pair or cluster
+   by consuming outside it.
+5. `matches()` must cover the entire region. `find()` and `lookingAt()` also
+   keep their match and capture bounds inside the region.
+6. Anchoring bounds determine whether line and text anchors use the independent
+   region input or the original input. They do not change other boundary context.
 7. Opaque bounds make region edges grapheme-boundary context edges.
 8. Transparent bounds let grapheme boundary predicates and `\X` segmentation
    see context outside the region, while still keeping candidate starts inside
@@ -47,21 +51,51 @@ currently SafeRE compatibility requirements.
 
 ## Consumption and boundary visibility
 
-The engine separates the consumption range from the boundary context. Ordinary
-atoms consume Unicode scalars visible in the active range. A valid surrogate
-pair inside the range is one scalar. A low surrogate at the region start can
-be visible as an unpaired value. An ordinary consuming atom cannot finish
-between a valid pair split by the region end.
+The engine separates the consumption range from the boundary context. Consuming
+constructs decode code points within the active range. A valid surrogate pair inside
+the range is one code point. A low surrogate at the region start can be visible
+as an unpaired value. A high surrogate exposed by the region end is
+also unpaired, and a consuming construct may finish immediately after it.
+Transparent bounds do not extend the consuming range. For region `[0, 1)` over a
+supplementary character, both `.` and `\X` match the exposed high surrogate at
+`[0, 1)`.
 
-Grapheme consumption has a separate completion limit: `\X` can complete a
-surrogate pair whose high surrogate starts inside the region. For region
-`[0, 1]` over a supplementary character, `\X.find()` may report `[0, 2]`;
-`\X.matches()` still fails the strict logical region-end check.
+Opaque grapheme execution reads an immutable region view of the retained input,
+without copying the region. Segmentation caches use coordinates within that view.
+Other opaque execution paths may reuse a cached substring. Both representations
+implement the same independent-input contract, and their caches are reused across
+successive searches.
 
 Opaque bounds make the region the boundary context. Transparent bounds allow
 boundary predicates and grapheme segmentation to inspect outside it. Anchoring
 bounds are a separate setting for line and text anchors. Candidate starts
 remain inside the region in either mode.
+
+The following decision table distinguishes the bounds used by each operation:
+
+| Operation | Opaque bounds | Transparent bounds | At or beyond the logical region end |
+|---|---|---|---|
+| Character consumer | Decode within the region | Decode within the region | Cannot consume past the end; an exposed high surrogate is unpaired |
+| Word assertion | Classify the characters visible within the region | Classify using full-input context | Opaque context ends at the region end |
+| Grapheme assertion | Use the independent region text and its text edges | Use full-input grapheme context | The opaque region end is a boundary |
+| Consuming `\X` | Region-local grapheme context | Full-input grapheme context | Cannot consume past the region end |
+| Line/text anchor | Controlled by anchoring bounds | Controlled by anchoring bounds | No consuming construct extends the region end |
+| `matches()` | Must cover the region | Must cover the region | All consumption stays within the region |
+
+Adding an alternative that cannot match must preserve an existing branch's
+`matches()` and `lookingAt()` result, including captures. This applies to nullable
+and repeated atoms as well as to individual characters. It prevents a `\X`
+instruction elsewhere in the program from changing ordinary assertion context.
+
+For `find()`, candidate-start and continuation rules are also part of the contract.
+Ordinary prefix searches can skip complete code points; consuming grapheme
+programs can try each UTF-16 offset, including the low half of a complete pair.
+Changing the grapheme constructs can therefore change the available search
+candidates without changing the meaning of an anchored branch. The generic
+composition comparison of complete find traces uses inputs without complete
+pairs; supplementary search behavior has separate explicit expectations.
+Boundary-only grapheme programs retain scalar candidate starts, including when
+start acceleration is disabled.
 
 ## Progress and context
 
@@ -118,6 +152,48 @@ comparisons do not independently validate ICU's data. The existing official
 the ICU oracle. Generated sequences contain Unicode scalars; lone surrogates and
 regions splitting a pair follow the String contract above and retain separate
 coverage in `LinebreakGraphemeTest` and the region tests.
+
+`RegionAssertionCompositionTest` makes the decision table executable and checks
+the Cartesian product of a bounded `left atom + assertion + right atom` grammar,
+curated Unicode inputs, every region in those inputs, and both bounds settings.
+The inputs include sliced LF, NEL, and CRLF regions. The focused split-CRLF
+regression from [#1038](https://github.com/eaftan/safere/issues/1038) is active.
+`OpaqueRegionContractTest` compares all matching operations, captures, and find
+sequences against independent substrings, and checks original-input anchors when
+anchoring is disabled.
+The grammar includes scalar/category atoms, optional and repeated captures,
+ASCII/Unicode word assertions, grapheme assertions, text anchors, and scoped
+multiline/UNIX_LINES anchors. Both positions of an unreachable grapheme
+alternative must preserve anchored results and captures. Comparable find traces
+include empty-match progress; separate expectations pin the different candidate
+policies. `GraphemeAlternativePriorityTest` checks successful competing branches
+against their standalone results, including assertion-bearing branches.
+
+`RegionBoundsFuzzer#assertionComposition` uses the same pattern grammar with
+generated Unicode/context fragments and regions, including sliced CRLF.
+`RegionBoundsFuzzer#opaqueSubstring` independently generates consuming constructs,
+assertions, regions, and anchoring modes and checks substring equivalence where
+that mode permits it. No individual patterns are waived.
+
+The matrix runs with the ordinary library tests in CI. Run it directly with:
+
+```bash
+mvn -pl safere -Dtest=RegionAssertionCompositionTest,GraphemeAlternativePriorityTest test
+```
+
+Replay region fuzz seeds with:
+
+```bash
+mvn -pl safere-fuzz -am -Dtest=RegionBoundsFuzzer -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+Run a bounded model-only fuzz campaign with:
+
+```bash
+JAZZER_FUZZ=1 mvn -pl safere-fuzz -am \
+  '-Dtest=RegionBoundsFuzzer#assertionComposition' \
+  -Dsurefire.failIfNoSpecifiedTests=false -Djazzer.max_duration=30s test
+```
 
 Exercise split surrogate pairs, base-plus-mark sequences, Hangul, regional
 indicators, pictographic/ZWJ sequences, and Indic conjuncts. Vary region ends,

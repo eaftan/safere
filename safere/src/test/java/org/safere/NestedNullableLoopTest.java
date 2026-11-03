@@ -54,7 +54,58 @@ class NestedNullableLoopTest {
     cases.add(Arguments.of("((x?)+?)*", "xxx"));
     cases.add(Arguments.of("(?:(?:x|)+?)*", ""));
     cases.add(Arguments.of("(?:(?:x|)+?)*", "!xx!xxx"));
+    // Empty paths must be revisited when a loop's progress state changes, including NOPs
+    // and assertions shared by a consuming iteration and the final zero-width iteration.
+    for (String empty : List.of("", "\\b", "\\B", "\\b\\b", "(?:)")) {
+      for (String quantifier : List.of("+", "*", "+?", "{1,3}")) {
+        for (String atom : List.of("a", "é", "😀")) {
+          String regex = "(?:" + atom + "?(?:" + empty + "|.))" + quantifier;
+          for (String input : List.of(atom + "!" + atom + "!", "!" + atom + "!", atom.repeat(3))) {
+            cases.add(Arguments.of(regex, input));
+            cases.add(Arguments.of(regex + "!", input));
+          }
+        }
+      }
+    }
     return cases.stream();
+  }
+
+  private static Stream<String> nestedNullableEpsilonCases() {
+    List<String> cases = new ArrayList<>();
+    for (String body : List.of("(?:a?(?:|.))", "(?:a?(?:\\b|.))")) {
+      for (String firstQuantifier : List.of("+", "+?")) {
+        String regex = body;
+        String quantifier = firstQuantifier;
+        for (int depth = 1; depth <= 7; depth++) {
+          regex = "(?:" + regex + ")" + quantifier;
+          cases.add(regex);
+          quantifier = quantifier.equals("+") ? "+?" : "+";
+        }
+      }
+    }
+    return cases.stream();
+  }
+
+  @ParameterizedTest(name = "[{index}] /{0}/")
+  @MethodSource("nestedNullableEpsilonCases")
+  void nestedNullableEpsilonFindSequencesMatchJdk(String regex) {
+    String input = "!a!".repeat(300) + "z";
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = pattern.matcher(input);
+    Utf8Matcher utf8 = pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    // The ASCII input gives both representations the same offsets and empty-match advancement.
+    while (jdk.find()) {
+      assertThat(safere.find()).isTrue();
+      assertGroupsMatch(jdk, safere);
+      assertThat(utf8.find()).isTrue();
+      assertThat(utf8.start()).isEqualTo(jdk.start());
+      assertThat(utf8.end()).isEqualTo(jdk.end());
+    }
+    assertThat(safere.find()).isFalse();
+    assertThat(utf8.find()).isFalse();
   }
 
   @ParameterizedTest(name = "[{index}] /{0}/ on {1}")

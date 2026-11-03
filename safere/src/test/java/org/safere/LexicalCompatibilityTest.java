@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Compatibility at boundaries within lexical constructs, rather than only between atoms. */
 class LexicalCompatibilityTest {
@@ -202,6 +204,28 @@ class LexicalCompatibilityTest {
   }
 
   @Test
+  void quotedClassSpansKeepCodePointsAndRangeEndpointsAcrossLengths() {
+    List<String> inputs =
+        List.of("", "a", "b", "z", "Z", "A", "~", "😀", "𠀀", "#", " ", "&", "-", "]");
+    for (int length : List.of(3, 4, 5, 7, 8, 9, 15, 16, 17, 64, 65, 257)) {
+      for (String unit : List.of("a", "😀", "# &-]")) {
+        String quote = "\\QZ" + unit.repeat(length) + "z\\E";
+        for (String regex :
+            List.of(
+                "[" + quote + "]",
+                "[^" + quote + "]",
+                "[" + quote + "-~]",
+                "[A-" + quote + "]",
+                "[[" + quote + "]&&[^z]]",
+                "[\\Q\\E" + quote + "\\Qab\\E]")) {
+          assertSame(regex, 0, inputs);
+          assertSame(regex, Pattern.COMMENTS, inputs);
+        }
+      }
+    }
+  }
+
+  @Test
   void rangeEndpointsConsumeOneAmpersandBeforeRecognizingIntersections() {
     for (String lower : List.of("!", "%", "&", "\\Q&\\E")) {
       for (String upperAndTail : List.of("&&", "\\Q&\\E&")) {
@@ -294,9 +318,13 @@ class LexicalCompatibilityTest {
     }
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(strings = {"a", "ab", "😀", "ab😀# &-]abcdefghi"})
   @DisabledForCrosscheck("Compilation allocation is a SafeRE complexity invariant")
-  void manyShortQuotedClassFragmentsAllocateLinearly() throws ReflectiveOperationException {
+  void manyShortQuotedClassFragmentsAllocateLinearly(String span)
+      throws ReflectiveOperationException {
+    // #1059: suffix-sized buffers made short quoted spans allocate quadratically. The streaming
+    // lexer introduced in #1071 must keep allocation linear for every span length and code point.
     // ThreadMXBean is a supported public JDK management API, accessed reflectively so this
     // optional assertion does not add a jdk.management module dependency to the library.
     Object bean =
@@ -309,19 +337,29 @@ class LexicalCompatibilityTest {
         (Boolean) type.getMethod("isThreadAllocatedMemorySupported").invoke(bean));
     type.getMethod("setThreadAllocatedMemoryEnabled", boolean.class).invoke(bean, true);
     Method allocated = type.getMethod("getThreadAllocatedBytes", long.class);
-    String small = "[" + "\\Qa\\E".repeat(128) + "]";
-    String large = "[" + "\\Qa\\E".repeat(512) + "]";
-    for (int i = 0; i < 50; i++) {
-      Pattern.compile(small);
-      Pattern.compile(large);
+    String[] patterns = new String[3];
+    for (int i = 0; i < patterns.length; i++) {
+      patterns[i] = "[" + ("\\Q" + span + "\\E").repeat(128 << (2 * i)) + "]";
+    }
+    for (int i = 0; i < 12; i++) {
+      for (String regex : patterns) {
+        Pattern.compile(regex);
+      }
     }
     long thread = Thread.currentThread().threadId();
-    long before = (Long) allocated.invoke(bean, thread);
-    Pattern.compile(small);
-    long middle = (Long) allocated.invoke(bean, thread);
-    Pattern.compile(large);
-    long after = (Long) allocated.invoke(bean, thread);
-    assertThat(after - middle).isLessThan((middle - before) * 6);
+    long previous = 0;
+    for (String regex : patterns) {
+      long before = (Long) allocated.invoke(bean, thread);
+      Pattern.compile(regex);
+      long bytes = (Long) allocated.invoke(bean, thread) - before;
+      if (previous != 0) {
+        // Four times as many fixed-size spans may allocate proportionally, not quadratically.
+        assertThat(bytes)
+            .as("allocation for %s UTF-16 units", regex.length())
+            .isLessThan(previous * 6);
+      }
+      previous = bytes;
+    }
   }
 
   private static void assertSame(String regex, int flags) {

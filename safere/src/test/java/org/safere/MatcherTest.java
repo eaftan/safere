@@ -26,6 +26,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 class MatcherTest {
   private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
+  @Test
+  void capturesInImpossibleAlternativesRemainUnmatched() {
+    for (String alternatives : List.of("(a)|(b)", "(a)|(b)|(c)|(d)|(e)", "((a)|(b))", "(é)|(😀)")) {
+      for (String impossible : List.of("[^\\s\\S]", "[a&&b]")) {
+        String deadBranch = "(?:" + alternatives + ")" + impossible;
+        for (String regex : List.of(deadBranch + "|x|xx", "x|xx|" + deadBranch)) {
+          Matcher matcher = Pattern.compile(regex).matcher("xxy");
+          for (int start = 0; start < 2; start++) {
+            assertThat(matcher.find()).as(regex).isTrue();
+            assertThat(matcher.group()).isEqualTo("x");
+            assertThat(matcher.start()).isEqualTo(start);
+            for (int group = 1; group <= matcher.groupCount(); group++) {
+              assertThat(matcher.group(group)).as("/%s/ group %s", regex, group).isNull();
+              assertThat(matcher.start(group)).isEqualTo(-1);
+              assertThat(matcher.end(group)).isEqualTo(-1);
+            }
+          }
+          assertThat(matcher.find()).isFalse();
+        }
+      }
+    }
+  }
+
   @Nested
   @DisplayName("matches() and lookingAt()")
   class MatchesTests {
@@ -1088,41 +1111,59 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("find() matches JDK captures for repeated empty groups")
-    void findMatchesJdkCapturesForRepeatedEmptyGroups() {
-      assertFirstFindMatchesJdk("()*", "");
-      assertFirstFindMatchesJdk("(())*", "");
-      assertFirstFindMatchesJdk("(?:())*", "");
-      assertFirstFindMatchesJdk("(a?)*", "");
-      assertFirstFindMatchesJdk("(?:((^){2}))*", "");
-      assertFirstFindMatchesJdk("$|^Fe|()\u00fc|()*|||||^D*4", "\u007f*\u007f");
+    @DisabledForCrosscheck("JDK suppresses completed empty captures for direct repeat operands")
+    @DisplayName("find() publishes completed captures in empty iterations")
+    void findPublishesCompletedCapturesInEmptyIterations() {
+      for (String regex : List.of("()*", "(())*", "(?:())*", "(a?)*", "(?:((^){2}))*")) {
+        Matcher matcher = Pattern.compile(regex).matcher("");
+        assertThat(matcher.find()).as("/%s/", regex).isTrue();
+        for (int group = 0; group <= matcher.groupCount(); group++) {
+          assertThat(matcher.start(group)).isZero();
+          assertThat(matcher.end(group)).isZero();
+          assertThat(matcher.group(group)).isEmpty();
+        }
+      }
+      Matcher alternatives = Pattern.compile("$|^Fe|()ü|()*|||||^D*4").matcher("\u007f*\u007f");
+      assertThat(alternatives.find()).isTrue();
+      assertThat(alternatives.start()).isZero();
+      assertThat(alternatives.end()).isZero();
+      assertThat(alternatives.group(1)).isNull();
+      assertThat(alternatives.start(2)).isZero();
+      assertThat(alternatives.end(2)).isZero();
     }
 
     @Test
-    @DisplayName("find() preserves counted-repeat captures retained by JDK")
-    void findPreservesCountedRepeatCapturesRetainedByJdk() {
+    @DisabledForCrosscheck("JDK nested repeats can retain an earlier accepted capture")
+    @DisplayName("counted repetitions expose their latest accepted capture")
+    void countedRepetitionsExposeTheirLatestAcceptedCapture() {
       assertFirstFindMatchesJdk("(?:(a){1}){0}$", "ab");
       assertFirstFindMatchesJdk("(?:(a){1}){0,1}$", "ab");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2,}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2,}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
-      assertFullMatchMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
-      assertFirstFindMatchesJdk("(?:(a){0,2})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){0,2})*", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,2})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,2})*", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aa");
-      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aa");
-      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aaa");
-      assertFirstFindMatchesJdk("(?:(a){3,4})*", "aaaaaa");
-      assertFullMatchMatchesJdk("(?:(a){3,4})*", "aaaaaa");
-      assertFirstFindMatchesJdk("(?:(a){0,1})*", "aaa");
-      assertFullMatchMatchesJdk("(?:(a){0,1})*", "aaa");
+      assertLatestRepeatedCapture("(?:(a){1,}){2}", "aaa");
+      assertLatestRepeatedCapture("(?:(a){1,}){2}", "aa");
+      assertLatestRepeatedCapture("(?:(a){1,}){2,}", "aaa");
+      assertLatestRepeatedCapture("(?:(a){1,}){2,3}", "aaaaa");
+      assertLatestRepeatedCapture("(?:(a){0,2})*", "aaa");
+      assertLatestRepeatedCapture("(?:(a){1,2})*", "aaa");
+      assertLatestRepeatedCapture("(?:(a){1,2}){2}", "aa");
+      assertLatestRepeatedCapture("(?:(a){1,2}){2}", "aaa");
+      assertLatestRepeatedCapture("(?:(a){3,4})*", "aaaaaa");
+      assertLatestRepeatedCapture("(?:(a){0,1})*", "aaa");
+    }
+
+    @Test
+    void nestedCapturesPreserveWholeMatchPriority() {
+      Pattern pattern = Pattern.compile("(?:(ab?)+(a){0,2})+");
+      String input = "aaab";
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.group()).isEqualTo(input);
+      assertThat(matcher.start(1)).isEqualTo(2);
+      assertThat(matcher.group(1)).isEqualTo("ab");
+      assertThat(matcher.group(2)).isNull();
+      assertThat(matcher.find()).isFalse();
+      assertThat(pattern.matcher(input).replaceAll("X")).isEqualTo("X");
+      assertThat(pattern.matcher(input).replaceAll(result -> "X")).isEqualTo("X");
+      assertThat(pattern.split(input, -1)).containsExactly("", "");
     }
 
     @Test
@@ -3426,25 +3467,13 @@ class MatcherTest {
     }
   }
 
-  private static void assertFullMatchMatchesJdk(String regex, String input) {
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
-    Matcher safere = Pattern.compile(regex).matcher(input);
-
-    assertThat(safere.matches()).isEqualTo(jdk.matches());
-    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
-    assertThat(safere.group()).isEqualTo(jdk.group());
-    assertThat(safere.start()).isEqualTo(jdk.start());
-    assertThat(safere.end()).isEqualTo(jdk.end());
-    for (int group = 1; group <= jdk.groupCount(); group++) {
-      assertThat(safere.group(group))
-          .as("group(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.group(group));
-      assertThat(safere.start(group))
-          .as("start(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.start(group));
-      assertThat(safere.end(group))
-          .as("end(%d) for /%s/ on %s", group, regex, input)
-          .isEqualTo(jdk.end(group));
+  private static void assertLatestRepeatedCapture(String regex, String input) {
+    for (boolean fullMatch : new boolean[] {false, true}) {
+      Matcher matcher = Pattern.compile(regex).matcher(input);
+      assertThat(fullMatch ? matcher.matches() : matcher.find()).as("/%s/", regex).isTrue();
+      assertThat(matcher.start(1)).isEqualTo(matcher.end() - 1);
+      assertThat(matcher.end(1)).isEqualTo(matcher.end());
+      assertThat(matcher.group(1)).isEqualTo("a");
     }
   }
 

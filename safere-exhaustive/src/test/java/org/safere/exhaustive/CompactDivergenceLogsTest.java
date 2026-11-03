@@ -283,6 +283,12 @@ class CompactDivergenceLogsTest {
 
   @Test
   void auditSamplesKnownIntentionalBucketsAndReportsCurrentClassification() throws Exception {
+    long capturedEmptyRepeat =
+        ZeroWidthQuantifierDivergenceSweep.cartesianCaseIndexForTesting("()", "%s", "*", "%s");
+    long wrappedEmptyRepeat =
+        ZeroWidthQuantifierDivergenceSweep.cartesianCaseIndexForTesting("()", "(?:%s)", "*", "%s");
+    // ()* now publishes its empty capture under SafeRE's policy; the sweep still reports that
+    // JDK difference as UNKNOWN. (?:())* agrees with the JDK and remains a no-divergence control.
     int sourceClass =
         ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames()
             .indexOf("POSSESSIVE_QUANTIFIER_UNSUPPORTED");
@@ -291,20 +297,22 @@ class CompactDivergenceLogsTest {
             tempDir,
             "zero-width-quantifier",
             0,
-            100,
+            ZeroWidthQuantifierDivergenceSweep.totalCasesForTesting(),
             ZeroWidthQuantifierDivergenceSweep.totalCasesForTesting(),
             1,
             ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames(),
             ZeroWidthQuantifierDivergenceSweep.divergenceClassificationStatuses())) {
-      logs.record(0, 0, sourceClass);
+      logs.record(0, capturedEmptyRepeat, sourceClass);
+      logs.record(0, wrappedEmptyRepeat, sourceClass);
     }
 
     CompactDivergenceAudit.main(new String[] {"--input-dir=" + tempDir});
 
     assertThat(Files.readString(tempDir.resolve("audit/source-counts.tsv")))
-        .contains("POSSESSIVE_QUANTIFIER_UNSUPPORTED\t1\t1");
+        .contains("POSSESSIVE_QUANTIFIER_UNSUPPORTED\t2\t2");
     assertThat(Files.readString(tempDir.resolve("audit/transition-counts.tsv")))
         .contains(
+            "POSSESSIVE_QUANTIFIER_UNSUPPORTED\tKNOWN_INTENTIONAL\tUNKNOWN\tUNKNOWN\t1",
             "POSSESSIVE_QUANTIFIER_UNSUPPORTED\tKNOWN_INTENTIONAL\tNO_DIVERGENCE\t"
                 + "NO_DIVERGENCE\t1");
   }

@@ -102,15 +102,7 @@ class EntryPointWorkParityTest {
   private static final Map<String, String> KNOWN_GAPS = knownGaps();
 
   private static Map<String, String> knownGaps() {
-    String splitHasNoEndAnchoredSearch =
-        "findNextMatchPacked, which split uses, has no end-anchored search";
-    return Map.of(
-        "/(?:foo|fax)$/ + ' foo' split",
-        splitHasNoEndAnchoredSearch,
-        "/\\s*(?:foo|fax)\\z/ + ' foo' split",
-        splitHasNoEndAnchoredSearch,
-        "/(?i)\\b(?:foo|bar|baz)\\b/ + ' bar' split",
-        "findNextMatchPacked has no KeywordAlternation fast path");
+    return Map.of();
   }
 
   @Test

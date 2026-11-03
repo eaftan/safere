@@ -80,8 +80,12 @@ def test_brief_checkpoint_separates_evidence_and_copy_preserving_done_and_audit(
   assert state['issues'] == {'8': {'keep': True}}
   check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=None, check_worktrees=False)
   assert m.audit(check)['mechanicalChecksPassed']
-  (args.root / 'artifacts/run/pr-7/copy-paste-review.md').write_text('Stale review.')
+  copy_path = args.root / 'artifacts/run/pr-7/copy-paste-review.md'
+  assert m.standalone_copy_text(copy_path.read_text()) == args.author_copy.read_text()
+  copy_path.write_text('```markdown\nStale review.\n```\n')
   assert any('differs' in p for p in m.audit(check)['problems'])
+  copy_path.write_text(args.author_copy.read_text())
+  assert any('fenced Markdown block' in p for p in m.audit(check)['problems'])
   detail.unlink()
   assert not m.audit(check)['mechanicalChecksPassed']
 
@@ -144,7 +148,9 @@ def test_audit_checks_structure_and_keeps_semantic_review_explicit(assessment):
   check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=args.root / 'copies', check_worktrees=False)
   assert m.audit(check)['mechanicalChecksPassed']
   assert 'cannot assess factual completeness' in m.audit(check)['semanticAuditRequired']
-  assert (check.output_dir / 'author-copy-7.md').read_text().endswith('LGTM.\n')
+  extracted = (check.output_dir / 'author-copy-7.md').read_text()
+  assert extracted.startswith('```markdown\n') and extracted.endswith('LGTM.\n```\n')
+  assert m.standalone_copy_text(extracted) == args.author_copy.read_text()
   report.write_text(report.read_text().replace('The change preserves its invariant.', 'Run mvn in my worktree.'))
   assert not m.audit(check)['mechanicalChecksPassed']
   report.write_text(report.read_text().replace('Run mvn in my worktree.', 'The shared compiler artifacts preserve ownership.'))
@@ -178,6 +184,9 @@ def test_checkpoint_and_audit_preserve_nested_code_examples(assessment):
   check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=None, check_worktrees=False)
   assert m.audit(check)['mechanicalChecksPassed']
   assert m.copy_text(report.read_text()) == args.author_copy.read_text()
+  saved = (args.root / 'artifacts/run/pr-7/copy-paste-review.md').read_text()
+  assert saved.startswith('````markdown\n')
+  assert m.standalone_copy_text(saved) == args.author_copy.read_text()
 
 
 def test_audit_benchmark_table_requirement_does_not_invent_measurements(assessment):

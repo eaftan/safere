@@ -798,6 +798,13 @@ class ParserTest {
     }
 
     @Test
+    void possessiveRepeatAfterDeeplyNestedZeroCountOperandIsStackSafe() {
+      Regexp re = parse(nestedNonCapturingGroups(5000, "a{0}") + "++");
+
+      assertThat(re.op).isEqualTo(RegexpOp.PLUS);
+    }
+
+    @Test
     void starAfterEscapedBrace() {
       Regexp re = parse("a*\\{");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);

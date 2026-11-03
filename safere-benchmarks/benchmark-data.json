@@ -411,6 +411,34 @@
       }
     },
     {
+      "id": "shiftDfa.trueFalse.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "false "
+      }
+    },
+    {
+      "id": "shiftDfa.trueFalse.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "false!"
+      }
+    },
+    {
+      "id": "shiftDfa.overBudget.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "aaaaaaaaabc"
+      }
+    },
+    {
+      "id": "shiftDfa.overBudget.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "aaaaaaaaacb"
+      }
+    },
+    {
       "id": "compile.firstFind.ing.match",
       "recipe": {
         "kind": "literal",
@@ -1249,6 +1277,74 @@
         "kind": "suffixToLength",
         "prefixUnit": "é😀",
         "suffix": "終点😀",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.literal.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "aEND",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.literal.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "!aEND",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.class.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "a5",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fullyAnchoredFind.class.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "!a5",
         "length": "{size}"
       },
       "shared": true
@@ -3299,6 +3395,38 @@
       }
     },
     {
+      "id": "matcherApi.tokenizer.16384",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "word 12 ",
+        "length": 16384
+      }
+    },
+    {
+      "id": "matcherApi.tokenizer.65536",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "word 12 ",
+        "length": 65536
+      }
+    },
+    {
+      "id": "matcherApi.fixedRegion.32",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 34
+      }
+    },
+    {
+      "id": "matcherApi.fixedRegion.32768",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32770
+      }
+    },
+    {
       "id": "matcherApi.lookingAt.input",
       "recipe": {
         "kind": "literal",
@@ -4296,6 +4424,14 @@
       }
     },
     {
+      "id": "keywordSplit.16384",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "the quick brown fox jumps over the lazy Bar dog ",
+        "length": 16384
+      }
+    },
+    {
       "id": "denseDelimited.html.{size}",
       "axes": {
         "size": [
@@ -4362,6 +4498,136 @@
       "recipe": {
         "kind": "repeatToLength",
         "unit": "{key=1} {value=2} ",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "nfaEpsilon.words.{size}",
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "word,",
+        "count": "{size}"
+      }
+    },
+    {
+      "id": "graphemePriority.ascii.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096,
+          65536
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "surrogateRegion.splitEnd.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud83d\udc4d",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.combining.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "a\u0301",
+        "count": "{count}"
+      }
+    },
+    {
+      "id": "regionDecoding.emoji.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "\ud83d\udc69\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66",
+        "count": "{count}"
+      }
+    },
+    {
+      "id": "regionDecoding.unicodePrefix.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud83d\udc4da\ud83d\udc4d",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.nfaAscii.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.nfaUtf16.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "\ud801\udc00",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "regionDecoding.wordUtf16.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u00e9",
         "length": "{size}"
       }
     }
@@ -5440,6 +5706,106 @@
       "measurement": {
         "mode": "compileOnly",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredLiteral.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)END\\z"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.literal.match.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredLiteral.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)END\\z"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.literal.interiorFailure.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredClass.match.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)[0-9]$"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.class.match.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fullyAnchoredClass.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          64,
+          1024,
+          16384
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "^([a-z]+)[0-9]$"
+      ],
+      "inputs": [
+        "fullyAnchoredFind.class.interiorFailure.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     },
     {
@@ -10040,6 +10406,122 @@
       }
     },
     {
+      "id": "ShiftDfaBenchmark.compileAndMatches.trueFalse.{outcome}",
+      "axes": {
+        "outcome": [
+          "match",
+          "noMatch"
+        ]
+      },
+      "operation": "compileAndMatches",
+      "patterns": [
+        "(?:true|false) ?"
+      ],
+      "inputs": [
+        "shiftDfa.trueFalse.{outcome}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "ShiftDfa runs on String and pre-encoded UTF-8 input; timed conversion would hide the first-use cost.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ShiftDfaBenchmark.compileAndMatches.overBudget.{outcome}",
+      "axes": {
+        "outcome": [
+          "match",
+          "noMatch"
+        ]
+      },
+      "operation": "compileAndMatches",
+      "patterns": [
+        "a{9}b?c?"
+      ],
+      "inputs": [
+        "shiftDfa.overBudget.{outcome}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "ShiftDfa runs on String and pre-encoded UTF-8 input; timed conversion would hide the first-use cost.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ShiftDfaBenchmark.matches.trueFalse.{outcome}",
+      "axes": {
+        "outcome": [
+          "match",
+          "noMatch"
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "(?:true|false) ?"
+      ],
+      "inputs": [
+        "shiftDfa.trueFalse.{outcome}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "ShiftDfa runs on String and pre-encoded UTF-8 input; timed conversion would hide the first-use cost.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ShiftDfaBenchmark.matches.overBudget.{outcome}",
+      "axes": {
+        "outcome": [
+          "match",
+          "noMatch"
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "a{9}b?c?"
+      ],
+      "inputs": [
+        "shiftDfa.overBudget.{outcome}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "ShiftDfa runs on String and pre-encoded UTF-8 input; timed conversion would hide the first-use cost.",
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "CompileBenchmark.compileAndFindIngMatch",
       "operation": "compileAndFind",
       "patterns": [
@@ -11560,6 +12042,568 @@
       },
       "arguments": {
         "replacement": ""
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.regionTokenize.16384",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "[A-Za-z0-9]+| +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.regionTokenize.65536",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "[A-Za-z0-9]+| +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.65536"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 32768
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literal.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.alternation.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "aa|ab"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.class.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.requiredLiteralAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a+zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literal.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.alternation.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "aa|ab"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.class.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.requiredLiteralAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "a+zebra"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.classMatches.32",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalFoldAbsent.32",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?i:zebra)"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 33
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.classMatches.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "[a-z]+"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.literalFoldAbsent.32768",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?i:zebra)"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.terminalSuffixAbsent.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^a+b$"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.fixedRegion.terminalClassAbsent.32768",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^a+[0-9]$"
+      ],
+      "inputs": [
+        "matcherApi.fixedRegion.32768"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 32769
+          }
+        ]
       }
     },
     {
@@ -17732,6 +18776,54 @@
       }
     },
     {
+      "id": "EndAnchoredSplitBenchmark.{regex}.match.16384",
+      "axes": {
+        "regex": [
+          {
+            "id": "fooOrFax",
+            "value": "(foo|fax)$"
+          },
+          {
+            "id": "optionalWhitespaceEndOfInput",
+            "value": "\\s*(foo|fax)\\z"
+          }
+        ]
+      },
+      "operation": "splitLengthSum",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "endAnchoredReplace.noLiteral.16384.foo"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "KeywordSplitBenchmark.caseInsensitiveKeywords.16384",
+      "operation": "splitLengthSum",
+      "patterns": [
+        "(?i)\\b(?:foo|bar|baz)\\b"
+      ],
+      "inputs": [
+        "keywordSplit.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "LexicalCompileBenchmark.shortLiteral",
       "operation": "compile",
       "patterns": [
@@ -18203,6 +19295,1180 @@
       "arguments": {
         "replacement": "X"
       }
+    },
+    {
+      "id": "NfaEpsilonBenchmark.wordBoundaries.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:\\b(?:[a-z]+|[a-z]{2,})\\b[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.nullableAlternatives.{size}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "^((?:[a-z]?(?:|[,;]))+)$"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.nullableAssertions.{size}",
+      "operation": "matches",
+      "patterns": [
+        "(?:[a-z]?(?:\\b?|[,;]))+"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.optionalBoundaries.{count}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:(?:\\b?){{count}}(?:[a-z]+|[a-z]{2,})[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.32768"
+      ],
+      "axes": {
+        "count": [
+          8,
+          24
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "NfaEpsilonBenchmark.optionalEmptyBranches.{count}",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "((?:(?:(?:|x)?){{count}}(?:[a-wy-z]+|[a-wy-z]{2,})[,;])+)"
+      ],
+      "inputs": [
+        "nfaEpsilon.words.32768"
+      ],
+      "axes": {
+        "count": [
+          8,
+          24
+        ]
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "arguments": {
+        "group": 1
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "reason": "The JDK backtracking matcher throws StackOverflowError on these long repeated-token inputs."
+        }
+      ]
+    },
+    {
+      "id": "GraphemePriorityBenchmark.graphemeFindAll.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "GraphemePriorityBenchmark.graphemeFirst.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:\\X|.)"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "GraphemePriorityBenchmark.scalarFirst.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SurrogateRegionBenchmark.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "SurrogateRegionBenchmark.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.combining.grapheme.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "regionDecoding.combining.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.combining.scalarFirst.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "regionDecoding.combining.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.emoji.grapheme.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "regionDecoding.emoji.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.emoji.scalarFirst.{count}",
+      "axes": {
+        "count": [
+          128,
+          2048
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:.|\\X)"
+      ],
+      "inputs": [
+        "regionDecoding.emoji.{count}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.scalarFirst.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:.|\\X)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.graphemeFirst.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:\\X|.)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.scalarFirst.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:.|\\X)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.graphemeFirst.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "(?:\\X|.)*"
+      ],
+      "inputs": [
+        "surrogateRegion.splitEnd.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodePrefix.splitEndFind.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "regionDecoding.unicodePrefix.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 255
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodePrefix.splitEndFind.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        ".*"
+      ],
+      "inputs": [
+        "regionDecoding.unicodePrefix.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted UTF-16 split-end comparison measures SafeRE String revisions"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 0,
+            "end": 4095
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.ordinaryNfaAscii.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "(a?)*"
+      ],
+      "inputs": [
+        "regionDecoding.nfaAscii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
+        }
+      ]
+    },
+    {
+      "id": "RegionDecodingBenchmark.ordinaryNfaUtf16.{size}",
+      "axes": {
+        "size": [
+          65536,
+          262144
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "(\\p{L}?)*"
+      ],
+      "inputs": [
+        "regionDecoding.nfaUtf16.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "safere-utf8",
+            "safere-utf8-vector",
+            "jdk-string"
+          ],
+          "reason": "This targeted NFA control compares SafeRE String revisions; other representations and engines are outside its scope"
+        }
+      ]
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 256
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.retained.firstGrapheme.65536",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.65536"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 65536
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.256",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.256"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 256
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.4096",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.4096"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 4096
+          }
+        ]
+      }
+    },
+    {
+      "id": "OpaqueRegionBenchmark.newPerInvocation.firstGrapheme.65536",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\X"
+      ],
+      "inputs": [
+        "graphemePriority.ascii.65536"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "These engines do not support the \\X grapheme escape"
+        }
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 1,
+            "end": 65536
+          }
+        ]
+      }
+    },
+    {
+      "id": "RegionDecodingBenchmark.unicodeWordBoundary.{size}",
+      "axes": {
+        "size": [
+          256,
+          4096
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?U)\\b"
+      ],
+      "inputs": [
+        "regionDecoding.wordUtf16.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 2
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string",
+            "re2-ffm-string-conversion",
+            "re2_cpp",
+            "go_regexp",
+            "rust_regex",
+            "dotnet_nonbacktracking"
+          ],
+          "reason": "This control uses Java Unicode word-boundary flag semantics"
+        }
+      ]
     }
   ]
 }

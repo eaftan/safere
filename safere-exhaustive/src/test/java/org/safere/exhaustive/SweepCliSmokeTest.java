@@ -155,15 +155,19 @@ class SweepCliSmokeTest {
   }
 
   @Test
-  void regionScalarSweepClassifiesQuantifiedSplitSurrogateCompositionAsIntentional() {
+  void regionScalarSweepClassifiesRegionLocalSplitSurrogateConsumptionAsIntentional() {
     assertThat(
             RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
-                ".", "%s+", Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
-        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+                ".", "%s", Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isEqualTo("REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END");
     assertThat(
             RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
                 "[\\s\\S]", "%s*", 0, "a\uD83D\uDE00", 1, 2))
-        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+        .isEqualTo("REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END");
+    assertThat(
+            RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
+                ".", "^%s", 0, "\uD83D\uDE00", 0, 1))
+        .isEqualTo("UNKNOWN");
   }
 
   @Test
@@ -224,6 +228,10 @@ class SweepCliSmokeTest {
             RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
                 "\\B", 0, "x\uD83D\uDE00y", 1, 4, true, true))
         .isEqualTo("NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION");
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "\\B[\\s\\S]", 0, "x\uD83D\uDE00y", 1, 4, true, true))
+        .isEqualTo("BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION");
     assertThat(
             RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
                 "y|\\B.", Pattern.DOTALL, "x\uD83D\uDE00y", 1, 4, true, false))

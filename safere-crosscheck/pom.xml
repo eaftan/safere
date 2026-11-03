@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.safere</groupId>
     <artifactId>safere-parent</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.2.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>safere-crosscheck</artifactId>
@@ -146,6 +146,7 @@
                         <include name="*Test.java"/>
                         <include name="DisabledForCrosscheck.java"/>
                         <include name="ExhaustiveUtils.java"/>
+                        <include name="OpaqueRegionChecks.java"/>
                         <excludesfile name="${project.build.directory}/crosscheck-selection/crosscheck-excludes.txt"/>
                       </fileset>
                       <filterchain>

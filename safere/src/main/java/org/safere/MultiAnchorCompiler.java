@@ -674,9 +674,11 @@ final class MultiAnchorCompiler {
               : foldCase
                   ? new PrefixResult(lit.toLowerCase(Locale.ROOT), true)
                   : new PrefixResult(lit, false);
-      // bestRequiredLiteral only feeds DisjointLiterals, which runs on String inputs only.
-      // A lone surrogate is safe there because any String match contains the same UTF-16 code unit,
-      // but adjacent high/low surrogate runes would coalesce into a supplementary code point.
+      // bestRequiredLiteral only feeds DisjointLiterals. A lone surrogate is safe on String inputs
+      // because any String match contains the same UTF-16 code unit, while DisjointLiterals.create
+      // omits branches with unpaired surrogates from its UTF-8 table (UTF-8 inputs never decode
+      // surrogate code points). Adjacent high/low surrogate runes are still excluded here because a
+      // String literal would coalesce them into a supplementary code point.
       String reqLit =
           !foldCase && canRepresentAsCodePointString(node.runes) && node.runes.length >= 1
               ? (lit != null ? lit : new String(node.runes, 0, node.runes.length))
@@ -1340,24 +1342,30 @@ final class MultiAnchorCompiler {
     int minRepetition;
     int maxRepetition;
     Regexp repeated;
-    if (first.op == RegexpOp.STAR) {
-      minRepetition = 0;
-      maxRepetition = Integer.MAX_VALUE;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.PLUS) {
-      minRepetition = 1;
-      maxRepetition = Integer.MAX_VALUE;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.REPEAT) {
-      minRepetition = first.min;
-      maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
-      repeated = unwrapCaptures(first.sub());
-    } else if (first.op == RegexpOp.QUEST) {
-      minRepetition = 0;
-      maxRepetition = 1;
-      repeated = unwrapCaptures(first.sub());
-    } else {
-      return null;
+    switch (first.op) {
+      case STAR -> {
+        minRepetition = 0;
+        maxRepetition = Integer.MAX_VALUE;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case PLUS -> {
+        minRepetition = 1;
+        maxRepetition = Integer.MAX_VALUE;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case REPEAT -> {
+        minRepetition = first.min;
+        maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
+        repeated = unwrapCaptures(first.sub());
+      }
+      case QUEST -> {
+        minRepetition = 0;
+        maxRepetition = 1;
+        repeated = unwrapCaptures(first.sub());
+      }
+      default -> {
+        return null;
+      }
     }
 
     if (repeated == null || repeated.op == RegexpOp.ANY_CHAR || repeated.op == RegexpOp.ANY_BYTE) {

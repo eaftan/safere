@@ -103,6 +103,21 @@ def copy_text(section):
   return matches[0]["copy"]
 
 
+def fenced_markdown(text):
+  text = text.strip()
+  fence = "`" * max(3, max((len(run) + 1 for run in re.findall(r"`{3,}", text)), default=3))
+  return f"{fence}markdown\n{text}\n{fence}\n"
+
+
+def standalone_copy_text(document):
+  match = re.fullmatch(
+    r"(?P<fence>`{3,})markdown\n(?P<copy>.*?)\n(?P=fence)", document.strip(), re.S,
+  )
+  if not match or not match["copy"].strip():
+    raise ValueError("standalone author review must be one nonempty fenced Markdown block")
+  return match["copy"]
+
+
 def summary_span(report):
   visible = outside_fences(report)
   match = re.search(r"^## PR Summary\s*\n", visible, re.M)
@@ -160,10 +175,10 @@ def checkpoint(args):
     raise ValueError("section must start with its PR heading and contain no PR anchors")
   if "### Copy/Paste PR Review" in section:
     raise ValueError("provide section and unfenced author review separately")
-  fence = "`" * max(3, max((len(run) + 1 for run in re.findall(r"`{3,}", author_copy)), default=3))
+  author_block = fenced_markdown(author_copy)
   replacement = (
     f'<a id="pr-{number}"></a>\n{section}\n\n### Copy/Paste PR Review\n\n'
-    f"{fence}markdown\n{author_copy}\n{fence}\n\n"
+    f"{author_block}\n"
   )
   copy_text(replacement)
   full_section = replacement
@@ -217,7 +232,7 @@ def checkpoint(args):
   # Save the complete proposed update first. Repeating the same command replaces the section;
   # it does not append duplicates and can recover a report/state write interrupted mid-checkpoint.
   write_json(artifact / "checkpoint.json", {"spec": spec, "reportPath": str(report_path), "record": state["prs"][str(number)]})
-  atomic_text(artifact / "copy-paste-review.md", author_copy + "\n")
+  atomic_text(artifact / "copy-paste-review.md", author_block)
   if brief_format:
     atomic_text(detail_path, full_section)
     atomic_text(artifact / "brief.md", brief + "\n")
@@ -294,7 +309,7 @@ def audit(args):
       try:
         if f"]({copy_link})" not in report[span[0]:span[1]]:
           raise ValueError("brief lacks its author-copy link")
-        if copy_path.read_text(encoding="utf-8").strip() != text.strip():
+        if standalone_copy_text(copy_path.read_text(encoding="utf-8")).strip() != text.strip():
           raise ValueError("linked author copy differs from the full review")
       except (OSError, ValueError) as error:
         problems.append(f"PR #{number}: {error}")
@@ -308,7 +323,7 @@ def audit(args):
       if not re.search(r"^\|\s*:?-", text, re.M):
         problems.append(f"PR #{number}: detailed benchmark table is missing from the author review")
     if args.output_dir:
-      atomic_text(args.output_dir / f"author-copy-{number}.md", text + "\n")
+      atomic_text(args.output_dir / f"author-copy-{number}.md", fenced_markdown(text))
   if args.check_worktrees:
     worktrees = git(args.repository, "worktree", "list", "--porcelain").stdout.split("\n\n")
     for number in queue:

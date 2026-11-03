@@ -161,6 +161,9 @@ divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
 `()*+`. The same holds for a counted repetition with no operand of its own, as in
 `{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
+An operand made zero-width by an inner zero-count repetition is also supported,
+as in `(?:a{0})*+`. The immediate-operand rule still rejects `a{0}+`, since its
+possessive quantifier applies directly to consuming `a`.
 
 ## Canonical Equivalence
 
@@ -203,40 +206,98 @@ describe the accepted match, not incidental state from abandoned paths. Copying
 the JDK trace exactly would require replaying or preserving backtracking
 history that SafeRE deliberately does not have.
 
+## Empty Captures under Repetition
+
+SafeRE follows the [repetition and capture policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md):
+a completed empty iteration publishes the captures it writes. Finite and
+unbounded repetitions stop that invocation on the first completed empty
+iteration that satisfies the minimum, including the final required iteration.
+Redundant noncapturing
+wrappers preserve participation and bounds. Required empty iterations count
+toward the minimum; zero-count repeats keep group numbering without executing
+the operand, and reluctant zero-minimum repeats can omit it.
+
+On empty input, `()*`, `(?:())*`, `(){0,2}`, and `(?:()){0,2}` therefore all
+report group 1 as empty at `[0,0)`. Observed OpenJDK 26.0.2 reports that group
+as unmatched for the two direct spellings, but participating for the wrapped
+spellings. The same spelling dependence can affect captures around zero-width
+assertions. SafeRE deliberately keeps wrapper transparency and ordinary capture
+updates instead of exposing that implementation distinction. `()*?` still
+reports the group as unmatched because its first complete success omits it.
+
+The [JDK capture documentation](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+and [group accessor contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#group(int))
+describe capture retention and distinguish a participating empty capture from
+an unmatched group. They do not prescribe a complete empty-iteration algorithm.
+This is the approved SafeRE policy choice, not a claim that the JDK explicitly
+specifies terminal-empty acceptance or that its observed behavior cannot be
+implemented in linear time. Ordinary capture instructions and existing loop
+progress checks implement SafeRE's rule without retries or capture repair.
+
+`EmptyCaptureSemanticsTest` and `CaptureSemanticsFuzzer.emptyCaptures` pin the
+participation policy, wrappers, matcher operations, snapshots, replacement,
+regions, and String/UTF-8 coordinates. Broad JDK differential fuzzing continues
+to report these intentional differences.
+
+## Earlier Captures in Nested Repetitions
+
+Issue reference: #1079.
+
+SafeRE reports the most recent completed participation of each group on the
+accepted path. For `(?:(a){0,2})*` and `(?:(?:(a)){0,2})*` on `aaaa`, group 1 is
+`[3,4)` in both spellings. A terminal empty outer iteration omits `(a)` and
+retains that value. On `(?:(a){1,2}b)*` and `aabab`, the later consuming chunk
+also updates group 1 to `[3,4)`; no empty iteration is involved.
+
+Observed OpenJDK 26.0.2 returns `[1,2)` for the first and third patterns, but
+`[3,4)` for the redundant-wrapper spelling. SafeRE follows the
+[JDK capture contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+that each group records its latest successful capture. Preserving an earlier
+value despite later accepted participation conflicts with that rule. This is
+an approved specification-based divergence, independent of linear-time limits
+and separate from failed-path capture leakage.
+
+Every repeat copy keeps its ordinary capture instructions. Capture updates and
+rollback remain part of the engines' bounded execution; no match retries or
+capture-history reconstruction are needed. `AcceptedPathCaptureTest` and `MatcherTest` pin
+capture retention, later participation, ordered whole-match selection, snapshots,
+replacement, regions, and UTF-8 coordinates.
+
 ## Empty Captures in Nullable Counted Repetitions
 
 Issue reference: #1051.
 
-SafeRE preserves its existing counted-repeat expansion when the repeated
-operand can match the empty string. An empty iteration can be followed by a
-consuming iteration in a later copy. Observed JDK behavior can instead terminate
-the repetition after an empty iteration and reconsider earlier alternatives,
-selecting a different successful path and different inner capture boundaries.
+This section records current implementation behavior pending the
+[repetition policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md). The selected
+contract now uses minimum-respecting empty-stop for finite and unbounded
+repetition, superseding the earlier choice to preserve finite expansion for
+simplicity. The implementation and its pinned observations still need to be
+aligned with that contract.
 
-For `(?:()|\W+){0,2}y` on `" y"`, both implementations match the entire input at
-`[0,2)` and return `""` for group 1. SafeRE reports group 1 at `[0,0)`: the first
-iteration captures empty and the second consumes the space. JDK 26 reports
-`[1,1)`: the successful path consumes the space before capturing empty. The same
-difference occurs with `{1,2}`. The corresponding unbounded `*` form reports
-`[1,1)` in both implementations.
+For `(?:()|\W+){0,2}y` on `" y"`, both implementations match `[0,2)` and
+return `""` for group 1. Current SafeRE reports `[0,0)`: an empty iteration
+precedes the iteration consuming the space. JDK 26 reports `[1,1)`. The chosen
+policy now also requires `[1,1)`, selecting the consuming iteration before the
+terminal empty capture. The same target applies to `{1,2}`. Exact `{2}` still
+requires two iterations and retains `[0,0)` under the policy, a remaining JDK
+path-selection difference.
 
 The [JDK 26 capture specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
-says that a group retains its most recent successful capture, but does not fully
-specify path selection for nullable counted repetitions. Both results describe
-successful paths consistent with the documented repetition bounds. SafeRE does
-not claim that the JDK violates its specification or that reproducing its
-behavior is impossible in linear time. This is an approved compatibility
-tradeoff: preserving the simpler expansion avoids additional repeat state and
-matching overhead solely to reproduce this underspecified path choice.
+does not fully specify nullable repetition's path selection. The
+[policy appendix](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md#empty-stop-rather-than-finite-expansion)
+records the compatibility comparison and its limits. Empty-stop is the chosen
+interpretation for better observed Java compatibility, subject to linear time,
+stack safety, and implementation performance; exact JDK emulation is not claimed.
 
-`NullableCountedCaptureDivergenceTest` pins the capture boundaries for fresh
-`find()`, `matches()`, and `lookingAt()` operations, repeated finds, and snapshots,
-along with unbounded and reversed-alternative controls. This boundary concerns
-successful-path selection; it is separate from failed-path capture leakage.
+`NullableCountedCaptureDivergenceTest` currently pins the existing implementation's
+capture boundaries. It must be updated with the implementation change rather
+than treated as continued approval of finite expansion. This boundary concerns
+successful-path selection, separately from failed-path capture leakage.
 
-The evaluated compatibility implementation and its performance optimizations are
-preserved at [commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
-for possible future work.
+The previous compatibility implementation and optimizations are preserved at
+[commit db84b9a5](https://github.com/eaftan/safere/commit/db84b9a5618c4ad299b666fd0311a8a65720b457)
+for reference; their existence does not establish compliance with the selected
+policy or acceptable performance for its eventual implementation.
 
 ## ASCII Word Boundaries around Combining Marks
 
@@ -654,32 +715,48 @@ is correct because transparent bounds should make the surrounding context
 visible, and once that context is visible the Unicode grapheme rules should be
 applied normally.
 
-## Quantified Scalar Atoms at Split Surrogate Region Ends
+## Region-Local Scalar Consumption at Split Surrogate Region Ends
 
 Sweep names:
 
-- `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION`
+- `REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END`
 - `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION`
 
 When a matcher region ends immediately after the high surrogate of a valid
-surrogate pair, SafeRE treats ordinary scalar-consuming atoms compositionally:
-if the unquantified atom cannot consume a Unicode scalar at that boundary, then
-greedy quantified forms such as `.*`, `.+`, `[\\s\\S]*`, and `[\\s\\S]+` do not
-consume that split high surrogate either.
+surrogate pair, SafeRE decodes ordinary consuming atoms within the region. The
+exposed high surrogate is therefore an unpaired character, just as it would be
+in the corresponding substring. A complete pair inside the region remains one
+code point. This rule applies to unquantified and quantified atoms, and to
+positive and negated categories: `\p{Cs}` accepts the exposed high surrogate,
+while `\P{Cs}` rejects it. Transparent bounds can affect assertions, but do
+not change the decoding limit for consuming atoms.
 
-Observed JDK behavior is non-compositional for this edge. Selected unquantified
-scalar atoms reject the split high surrogate, while greedy quantified wrappers
-can still consume it as a one-code-unit match. SafeRE keeps the compositional
-model because it is a coherent scalar-consumption rule and avoids quantifier-
-specific special cases that expose java.util.regex implementation mechanics.
+Opaque execution uses the corresponding independent region text for character
+classification, word boundaries, and grapheme segmentation. `\X` follows the same
+consumption limit as other constructs; it cannot complete a surrogate pair beyond
+the region. With anchoring enabled, match results and captures equal matching the
+substring, with translated offsets. With anchoring disabled, only line and text
+anchors retain original-input context. The precise contract is in
+[Opaque String region bounds](docs/OPAQUE_REGION_BOUNDS.md).
 
-The zero-width region sweep also reports
-`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a narrower JDK
-implementation detail: under transparent bounds at a split surrogate boundary,
-observed JDK behavior can allow `.` after `\B` while rejecting an equivalent
-explicit any-character class such as `[\s\S]`. SafeRE keeps explicit any
-classes compositional with ordinary scalar-consuming atoms rather than making
-their region behavior depend on this spelling distinction.
+The JDK 26 Matcher Javadoc defines the region as the searched range but does
+not explicitly specify surrogate decoding at its edges. Observed JDK behavior
+rejects a split high surrogate for selected unquantified atoms, while greedy
+quantified wrappers such as `.*` can consume it; `\X` can instead extend beyond
+the region. SafeRE chooses consistent region-local semantics. Upstream identifies
+the reported behaviors as inconsistencies requiring fixes or clarification and
+specifically identifies grapheme consumption beyond the region as a bug;
+[JDK-8394894](https://bugs.openjdk.org/browse/JDK-8394894) tracks that investigation.
+The implementation preserves linear-time matching by reusing the independent
+region input and its segmentation context across successive searches.
+
+The zero-width region sweep still reports
+`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a separate JDK
+implementation detail. In a transparent region `[1,4)` over `x` followed by a
+surrogate pair and `y`, observed JDK behavior finds `\B.` at the position
+between the pair's halves while rejecting `\B[\s\S]` there. SafeRE rejects
+both at that interior position: transparent bounds supply assertion context,
+but ordinary consuming atoms do not start inside a complete code point.
 
 The same sweep classifies `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION`
 as intentional: observed JDK traces expose a `\B` match at the interior UTF-16
@@ -719,7 +796,7 @@ pre-region text when opaque bounds are active.
 | `GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `REGION_LOCAL_CONTINUATION_CLUSTER` | Intentional | Region-Local Grapheme Continuation Clusters |
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
-| `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
-| `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
-| `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
+| `REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
+| `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
+| `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
 | `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

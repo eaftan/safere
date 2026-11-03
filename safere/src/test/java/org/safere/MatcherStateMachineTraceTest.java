@@ -20,6 +20,40 @@ import org.junit.jupiter.api.Test;
 class MatcherStateMachineTraceTest {
 
   @Test
+  void nullableRepeatFindPreservesPriorityWithinTransparentRegions() {
+    // OSS-Fuzz 575905869: the empty alternative must win before the dot alternative.
+    for (String regex :
+        List.of(
+            "(?:[a-c]{0,2}(?:|.))+",
+            "(?:a{0,2}(?:|.))+",
+            "(?:a?(?:|.))+",
+            "(?:a*(?:|.))+",
+            "(?:a{0,2}(?:|.))*",
+            "(?:a{0,2}(?:|.)){1,3}",
+            "(?:([a-c]{0,2})(?:|.))+")) {
+      for (String body : List.of("!a!a!", "!a中a!", "!a😀a!", "!a\udc00a!")) {
+        for (int padding : List.of(0, 1, 5)) {
+          String input = "x".repeat(padding) + body + "z";
+          for (boolean anchoring : List.of(false, true)) {
+            for (boolean transparent : List.of(false, true)) {
+              assertTrace(
+                  regex,
+                  input,
+                  Step.region(padding, padding + body.length()),
+                  Step.useAnchoringBounds(anchoring),
+                  Step.useTransparentBounds(transparent),
+                  Step.lookingAt(),
+                  Step.findWithBounds(),
+                  Step.findWithBounds(),
+                  Step.findWithBounds());
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void failedExplicitFindStartRetainsResetContinuation() {
     for (String regex : List.of("^[ab]*", "\\A(a?)", "a")) {
       assertTrace(

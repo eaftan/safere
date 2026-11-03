@@ -37,6 +37,61 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void nullableLoopEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String regex : new String[] {"(?:a?(?:|.))+", "(?:a?(?:\\b|.))+"}) {
+      Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher("!a!".repeat(size))::find, "String epsilon revisits");
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.trusted("!a!".repeat(size).getBytes(UTF_8)))::find,
+          "UTF-8 epsilon revisits");
+    }
+  }
+
+  @Test
+  void nestedNullableEpsilonRevisitsKeepFindWorkLinear() {
+    EnginePathOptions nfaOnly =
+        EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build();
+    for (String body : new String[] {"(?:a?(?:|.))", "(?:a?(?:\\b|.))"}) {
+      for (String firstQuantifier : new String[] {"+", "+?"}) {
+        String regex = body;
+        String quantifier = firstQuantifier;
+        for (int depth = 1; depth <= 7; depth++) {
+          regex = "(?:" + regex + ")" + quantifier;
+          quantifier = quantifier.equals("+") ? "+?" : "+";
+          Pattern pattern = Pattern.compile(regex, 0, nfaOnly);
+          assertFindAllWorkIsLinear(
+              size -> pattern.matcher("!a!".repeat(size) + "z")::find,
+              "String nested epsilon revisits " + regex);
+          assertFindAllWorkIsLinear(
+              size ->
+                  pattern.matcher(Utf8Input.trusted(("!a!".repeat(size) + "z").getBytes(UTF_8)))
+                      ::find,
+              "UTF-8 nested epsilon revisits " + regex);
+        }
+      }
+    }
+  }
+
+  @Test
+  void optionalEpsilonChainsKeepWorkLinearInPatternSize() {
+    for (String template : new String[] {"(?:\\b?){%d}a", "(?:(?:|b)?){%d}a"}) {
+      long[] work = new long[2];
+      for (int index = 0; index < work.length; index++) {
+        Pattern pattern = Pattern.compile(template.formatted(8 * (index + 1)));
+        Matcher matcher = pattern.matcher("a!").region(0, 1).useTransparentBounds(true);
+        work[index] = WorkCounter.countForTesting(() -> assertThat(matcher.lookingAt()).isTrue());
+      }
+      assertThat(work[0]).as("epsilon work must be observed for %s", template).isPositive();
+      assertThat(work[1])
+          .as("doubling optional epsilon chains must not enumerate their paths: %s", template)
+          .isLessThan(work[0] * 4);
+    }
+  }
+
+  @Test
   void alternatingNestedNullableLoopWorkIsPolynomialInDepth() {
     // Alternating lazy and greedy nullable loops do not simplify away. Each fresh entry must be
     // expanded at most once per position, or every enclosing iteration re-expands the inner loops
@@ -937,15 +992,126 @@ class SearchScalingRegressionTest {
     // Infix "<<!nav>>" is rare and absent.
     Pattern pattern = Pattern.compile("(\\{Link:[^}]*?)<<!nav>>([^}]*?\\})");
     String input = "{Link: target=home_page, category=general, priority=high}\n".repeat(1_000);
+    Utf8Input utf8 = Utf8Input.trusted(input.getBytes(UTF_8));
 
-    long work =
-        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse());
-
-    assertThat(work)
-        .as(
-            "Infix literal prefilter must reject dense-prefix noise in a single pass without DFA"
-                + " churn")
+    assertThat(
+            WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse()))
+        .as("String Matcher.find must reject dense-prefix noise in a single pass")
         .isLessThanOrEqualTo(input.length() + 100);
+    assertThat(
+            WorkCounter.countForTesting(() -> assertThat(pattern.matcher(utf8).find()).isFalse()))
+        .as("Utf8Matcher.find must reject dense-prefix noise in a single pass")
+        .isLessThanOrEqualTo(input.length() + 100);
+    assertThat(WorkCounter.countForTesting(() -> assertThat(pattern.find(utf8)).isFalse()))
+        .as("Pattern.find(Utf8Input) must reject dense-prefix noise in a single pass")
+        .isLessThanOrEqualTo(input.length() + 100);
+    assertThat(
+            WorkCounter.countForTesting(
+                () -> assertThat(pattern.asPredicate().test(input)).isFalse()))
+        .as("Pattern.asPredicate must reject dense-prefix noise in a single pass")
+        .isLessThanOrEqualTo(input.length() + 100);
+  }
+
+  @Test
+  void literalStartAcceleratorAvoidsRedundantInfixPrefilterScan() {
+    for (String regex :
+        new String[] {"status=3\\d\\d took=(\\d+)ms", "[ab]status=3\\d\\d took=(\\d+)ms"}) {
+      Pattern pattern = Pattern.compile(regex);
+      // On a short input, the required infix literal (" took=") appears halfway through while the
+      // start literal ("status=3") is absent. Running the infix prefilter before start
+      // acceleration would scan [0, 200] for " took=" and then rescan the whole input for
+      // "status=3".
+      String missingPrefix = "x".repeat(200) + " took=12ms\n" + "y".repeat(200);
+      Utf8Input missingPrefixUtf8 = Utf8Input.trusted(missingPrefix.getBytes(UTF_8));
+
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.matcher(missingPrefix).find()).isFalse()))
+          .as("%s String Matcher.find should scan once when start literal is absent", regex)
+          .isLessThanOrEqualTo(missingPrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.matcher(missingPrefixUtf8).find()).isFalse()))
+          .as("%s Utf8Matcher.find should scan once when start literal is absent", regex)
+          .isLessThanOrEqualTo(missingPrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.find(missingPrefixUtf8)).isFalse()))
+          .as("%s Pattern.find(Utf8Input) should scan once when start literal is absent", regex)
+          .isLessThanOrEqualTo(missingPrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.asPredicate().test(missingPrefix)).isFalse()))
+          .as("%s Pattern.asPredicate should scan once when start literal is absent", regex)
+          .isLessThanOrEqualTo(missingPrefix.length() + 64);
+
+      // Longer inputs keep the single-pass infix prefilter first: when the start literal appears at
+      // 4,000 and repeats densely without the infix literal, the prefilter rejects in one pass.
+      String lateDensePrefix = "x".repeat(4_000) + "astatus=300 nope\n".repeat(250);
+      Utf8Input lateDensePrefixUtf8 = Utf8Input.trusted(lateDensePrefix.getBytes(UTF_8));
+
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.matcher(lateDensePrefix).find()).isFalse()))
+          .as("%s String Matcher.find should reject long dense prefix noise in one pass", regex)
+          .isLessThanOrEqualTo(lateDensePrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.matcher(lateDensePrefixUtf8).find()).isFalse()))
+          .as("%s Utf8Matcher.find should reject long dense prefix noise in one pass", regex)
+          .isLessThanOrEqualTo(lateDensePrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.find(lateDensePrefixUtf8)).isFalse()))
+          .as("%s Pattern.find(Utf8Input) should reject long dense prefix noise in one pass", regex)
+          .isLessThanOrEqualTo(lateDensePrefix.length() + 64);
+      assertThat(
+              WorkCounter.countForTesting(
+                  () -> assertThat(pattern.asPredicate().test(lateDensePrefix)).isFalse()))
+          .as("%s Pattern.asPredicate should reject long dense prefix noise in one pass", regex)
+          .isLessThanOrEqualTo(lateDensePrefix.length() + 64);
+    }
+
+    // Overlapping start and required literals across short and long windows.
+    Pattern overlapping = Pattern.compile("abc[0-9]?bcd");
+    for (String prefix : new String[] {"", "z".repeat(1_000)}) {
+      for (String tail : new String[] {"", "z".repeat(1_000)}) {
+        for (String hit : new String[] {"abcbcd", "abc7bcd"}) {
+          String s = prefix + hit + tail;
+          Utf8Input u = Utf8Input.trusted(s.getBytes(UTF_8));
+          assertThat(overlapping.matcher(s).find()).isTrue();
+          assertThat(overlapping.matcher(u).find()).isTrue();
+          assertThat(overlapping.find(u)).isTrue();
+          assertThat(overlapping.asPredicate().test(s)).isTrue();
+        }
+        String miss = prefix + "abc7bcz" + tail;
+        Utf8Input uMiss = Utf8Input.trusted(miss.getBytes(UTF_8));
+        assertThat(overlapping.matcher(miss).find()).isFalse();
+        assertThat(overlapping.matcher(uMiss).find()).isFalse();
+        assertThat(overlapping.find(uMiss)).isFalse();
+        assertThat(overlapping.asPredicate().test(miss)).isFalse();
+      }
+    }
+
+    // When the start literal is case-folded or has a much weaker anchor than the required infix
+    // literal, RejectPrefilter runs first so frequent false start-anchor hits do not add work.
+    Pattern weakPrefix = Pattern.compile("er\\d+<<!nav>>\\d+");
+    String denseR = "re ra ri ro ru rt rg ".repeat(400);
+    Utf8Input denseRUtf8 = Utf8Input.trusted(denseR.getBytes(UTF_8));
+    assertThat(
+            WorkCounter.countForTesting(
+                () -> assertThat(weakPrefix.matcher(denseR).find()).isFalse()))
+        .isLessThanOrEqualTo(denseR.length() + 32);
+    assertThat(
+            WorkCounter.countForTesting(
+                () -> assertThat(weakPrefix.matcher(denseRUtf8).find()).isFalse()))
+        .isLessThanOrEqualTo(denseR.length() + 32);
+    assertThat(WorkCounter.countForTesting(() -> assertThat(weakPrefix.find(denseRUtf8)).isFalse()))
+        .isLessThanOrEqualTo(denseR.length() + 32);
+    assertThat(
+            WorkCounter.countForTesting(
+                () -> assertThat(weakPrefix.asPredicate().test(denseR)).isFalse()))
+        .isLessThanOrEqualTo(denseR.length() + 32);
   }
 
   @Test

@@ -89,6 +89,10 @@ action while preserving its `Done` cell, and records both main and detail paths 
 Brief-format runs require `--brief` and spec.nextAction. Legacy inline reports remain readable.
 It never writes issue checkpoints, authored-feedback state, `LATEST.md`, or completion.
 
+The `--author-copy` source is unfenced comment text. Saved standalone comments and audit extracts
+wrap that text in a fenced `markdown` block; nested code examples use a longer outer fence. The
+audit compares the contents of that block with the author review in the full assessment.
+
 The proposed record and author copy are saved under `artifacts/<runId>/pr-<number>/` before the
 report/state writes. Each file is replaced atomically; the pair is not a database transaction.
 Repeat the same command after an interrupted write: section replacement is idempotent and will

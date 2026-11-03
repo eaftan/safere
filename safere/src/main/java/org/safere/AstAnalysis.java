@@ -27,10 +27,9 @@ record AstAnalysis(
     if (re == null) {
       return new AstAnalysis(false, false, false, true, false, 0, Map.of());
     }
-    Map<String, Integer> named = new HashMap<>();
-    AnalysisNode root =
-        new AstAnalysisWalker(named)
-            .walk(re, new AnalysisNode(false, false, false, true, false, 0));
+    AstAnalysisWalker walker = new AstAnalysisWalker();
+    AnalysisNode root = walker.walk(re, new AnalysisNode(false, false, false, true, false, 0));
+    Map<String, Integer> named = walker.named;
     return new AstAnalysis(
         root.hasLazy,
         root.hasAlt,
@@ -38,7 +37,7 @@ record AstAnalysis(
         root.canMatchEmpty,
         root.hasUserCaptures,
         root.minMatchLength,
-        named.isEmpty() ? Map.of() : Collections.unmodifiableMap(named));
+        named == null ? Map.of() : Collections.unmodifiableMap(named));
   }
 
   private record AnalysisNode(
@@ -50,11 +49,7 @@ record AstAnalysis(
       int minMatchLength) {}
 
   private static final class AstAnalysisWalker extends Walker<AnalysisNode> {
-    private final Map<String, Integer> named;
-
-    AstAnalysisWalker(Map<String, Integer> named) {
-      this.named = named;
-    }
+    private Map<String, Integer> named;
 
     @Override
     protected AnalysisNode shortVisit(Regexp re, AnalysisNode parentArg) {
@@ -68,6 +63,9 @@ record AstAnalysis(
         WorkCounter.record();
       }
       if (re.op == RegexpOp.CAPTURE && re.name != null && !re.name.isEmpty()) {
+        if (named == null) {
+          named = new HashMap<>();
+        }
         named.put(re.name, re.cap);
       }
 

@@ -66,7 +66,7 @@ final class Utf16 {
   }
 
   /** Finds a Unicode simple-folded prefix in a String in linear time. */
-  static int indexOfUnicodeIgnoreCase(String input, String pattern, int start) {
+  static int indexOfUnicodeIgnoreCase(CharSequence input, String pattern, int start) {
     if (pattern.isEmpty()) {
       return Math.min(Math.max(0, start), input.length());
     }
@@ -74,7 +74,7 @@ final class Utf16 {
     int[] failure = unicodeFailure(patternCodePoints);
     int matched = 0;
     for (int i = Math.max(0, start); i < input.length(); ) {
-      int codePoint = input.codePointAt(i);
+      int codePoint = Character.codePointAt(input, i);
       int next = i + Character.charCount(codePoint);
       while (matched > 0 && !unicodeEqualsIgnoreCase(codePoint, patternCodePoints[matched])) {
         matched = failure[matched - 1];

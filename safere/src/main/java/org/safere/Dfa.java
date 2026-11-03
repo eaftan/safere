@@ -1187,6 +1187,8 @@ final class Dfa {
               utf8StartAccelerator != null ? utf8StartAccelerator.policy() : null;
           case StringInputScanner unusedString ->
               stringStartAccelerator != null ? stringStartAccelerator.policy() : null;
+          case StringRegionInputScanner unusedRegion ->
+              stringStartAccelerator != null ? stringStartAccelerator.policy() : null;
         };
     if (policy != null) {
       return policy;
@@ -1431,6 +1433,10 @@ final class Dfa {
     return position >= threshold || cp == '\r';
   }
 
+  private boolean hasSurrogateWordContext(int cp) {
+    return cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE && prog.hasWordBoundary();
+  }
+
   /**
    * Computes the next DFA state from the current state for a given code point.
    *
@@ -1511,6 +1517,25 @@ final class Dfa {
           (isUnicodeWord != wasUnicodeWord)
               ? EmptyOp.UNICODE_WORD_BOUNDARY
               : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      if (hasSurrogateWordContext(cp)) {
+        // A cursor can start inside a pair. Consumption then sees an unpaired half, but the
+        // assertions on either side of it still classify their adjacent character in the input
+        // context. The following assertion is recorded in the next state. Reverse search that
+        // resumes inside a pair also consumes the low half; the assertion at its right edge must
+        // see the whole pair, not the half.
+        // Only split-pair cursors bypass the cache; truly unpaired halves remain cacheable.
+        if (prog.reversed()
+            && Character.isLowSurrogate((char) cp)
+            && !text.isCodePointBoundary(nextPos)) {
+          boolean pairIsUnicodeWord = Nfa.isUnicodeWordChar(text.codePointBefore(nextPos + 1));
+          unicodeWordBeforeFlags =
+              (pairIsUnicodeWord != wasUnicodeWord)
+                  ? EmptyOp.UNICODE_WORD_BOUNDARY
+                  : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+        }
+        int adjacent = prog.reversed() ? text.codePointAt(nextPos) : text.codePointBefore(nextPos);
+        isUnicodeWord = Nfa.isUnicodeWordChar(adjacent);
+      }
     }
     boolean endLineHere = Nfa.isLineTerminator(cp);
     if ((s.flags & FLAG_CRLF_CONTEXT) != 0 && cp == (prog.reversed() ? '\r' : '\n')) {
@@ -1864,6 +1889,10 @@ final class Dfa {
     if (text instanceof StringInputScanner stringScanner && stringStartAccelerator != null) {
       return StringStartAccelerator.findNextCandidate(
           stringStartAccelerator, stringScanner.text(), pos, prog.lineStartUnixLines());
+    }
+    if (text instanceof StringRegionInputScanner region && stringStartAccelerator != null) {
+      return StringStartAccelerator.findNextCandidate(
+          stringStartAccelerator, region, pos, prog.lineStartUnixLines());
     }
     return fastForwardStartState(text, pos, posDepThreshold, startState);
   }
@@ -2316,7 +2345,8 @@ final class Dfa {
         // is always safe to cache because it always means "at text end".
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
+        if ((hasSurrogateWordContext(cp) && !text.isCodePointBoundary(pos))
+            || transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
           ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
           if (ns == null) {
             return completeForwardSearch(null, pos, backoff); // budget exceeded
@@ -2629,7 +2659,9 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if (transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
+      if ((hasSurrogateWordContext(cp)
+              && !(text.isCodePointBoundary(pos) && text.isCodePointBoundary(effectivePrevPos)))
+          || transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
         ns = computeNextOrReset(s, cp, text, effectivePrevPos, pos);
         if (ns == null) {
           return completeSearch(null, pos); // budget exceeded
@@ -2854,7 +2886,8 @@ final class Dfa {
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
+        if ((hasSurrogateWordContext(cp) && !text.isCodePointBoundary(pos))
+            || transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
           ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
           if (ns == null) {
             return completeSearch(null, pos); // budget exceeded
