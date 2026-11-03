@@ -42,6 +42,9 @@ class NullableFullMatchDfaTest {
       for (boolean utf8 : List.of(false, true)) {
         Pattern pattern = Pattern.compile(regex);
         assertThat(pattern.prog().numLoopRegs()).isPositive();
+        assertThat(pattern.analysis().capabilities())
+            .contains(
+                PatternCapability.DFA_BOUNDARY_SEARCH, PatternCapability.DFA_REJECT_PREFILTER);
         List<OperationDiagnostics> events = new ArrayList<>();
         Pattern.setDiagnostics(
             new SafeReMatchDiagnostics() {
@@ -61,6 +64,8 @@ class NullableFullMatchDfaTest {
             .satisfies(
                 event -> {
                   assertThat(event.boundaryStrategy()).as(regex).isEqualTo(MatchStrategy.DFA);
+                  assertThat(event.pattern().analysis().capabilities())
+                      .contains(PatternCapability.DFA_BOUNDARY_SEARCH);
                   assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
                   assertThat(event.forwardDfaSearchCount()).isEqualTo(1);
                   assertThat(event.strategyDecisions())
@@ -71,6 +76,18 @@ class NullableFullMatchDfaTest {
                               StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED));
                 });
       }
+    }
+  }
+
+  @Test
+  void staticDfaCapabilitiesRespectEngineAndGraphemeEligibility() {
+    Pattern disabled = Pattern.compile("(?:a?){0,32}b", 0, engineOptions(false));
+    Pattern grapheme = Pattern.compile("(?:\\X?){0,2}b");
+    for (Pattern pattern : List.of(disabled, grapheme)) {
+      assertThat(pattern.analysis().capabilities())
+          .contains(PatternCapability.NFA)
+          .doesNotContain(
+              PatternCapability.DFA_BOUNDARY_SEARCH, PatternCapability.DFA_REJECT_PREFILTER);
     }
   }
 
