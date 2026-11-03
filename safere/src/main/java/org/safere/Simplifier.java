@@ -8,6 +8,7 @@ package org.safere;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -487,6 +488,7 @@ final class Simplifier {
 
   /** Converts REPEAT nodes to STAR/PLUS/QUEST/CONCAT and simplifies character classes. */
   private static final class SimplifyWalker extends Walker<Regexp> {
+    private ZeroWidthWalker zeroWidth;
 
     @Override
     protected Regexp copy(Regexp re) {
@@ -542,16 +544,7 @@ final class Simplifier {
           }
 
         case NON_CAPTURE:
-          {
-            Regexp newsub = childArgs.get(0);
-            if (!isPureEmpty(newsub) || !hasCapture(newsub)) {
-              return newsub;
-            }
-            if (newsub == re.subs.getFirst()) {
-              return re;
-            }
-            return Regexp.nonCapture(newsub, re.flags);
-          }
+          return childArgs.get(0);
 
         case CAPTURE:
           {
@@ -587,6 +580,18 @@ final class Simplifier {
             if (newsub.op == RegexpOp.EMPTY_MATCH) {
               return newsub;
             }
+            if (re.max != 0 && (re.min > 1 || re.max > 1)) {
+              if (zeroWidth == null) {
+                zeroWidth = new ZeroWidthWalker();
+              }
+              if (zeroWidth.walk(newsub, false)) {
+                // At a fixed position, another zero-width iteration makes the same choices and
+                // writes the same capture bounds. Keep one required or optional iteration, so
+                // reluctant zero-minimum repeats can still omit it and failed assertions can
+                // still reject a required iteration. Never suppress the iteration's captures.
+                return re.min == 0 ? rawQuantifier(RegexpOp.QUEST, newsub, re.flags) : newsub;
+              }
+            }
             return simplifyRepeat(newsub, re.min, re.max, re.flags);
           }
 
@@ -599,23 +604,18 @@ final class Simplifier {
     }
   }
 
-  /** Returns true if re is an empty-width assertion op. */
-  private static boolean isEmptyOp(Regexp re) {
-    return re.op == RegexpOp.BEGIN_LINE
-        || re.op == RegexpOp.END_LINE
-        || re.op == RegexpOp.WORD_BOUNDARY
-        || re.op == RegexpOp.NO_WORD_BOUNDARY
-        || re.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
-        || re.op == RegexpOp.BEGIN_TEXT
-        || re.op == RegexpOp.END_TEXT;
-  }
+  /** Classifies zero-width operands without rescanning shared or nested simplified subtrees. */
+  private static final class ZeroWidthWalker extends Walker<Boolean> {
+    private final IdentityHashMap<Regexp, Boolean> known = new IdentityHashMap<>();
 
-  private static boolean isPureEmpty(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      switch (node.op) {
+    @Override
+    protected Boolean preVisit(Regexp re, Boolean parentArg, boolean[] stop) {
+      Boolean result = known.get(re);
+      if (result != null) {
+        stop[0] = true;
+        return result;
+      }
+      return switch (re.op) {
         case EMPTY_MATCH,
             BEGIN_LINE,
             END_LINE,
@@ -623,36 +623,35 @@ final class Simplifier {
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY -> {}
-        case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
-        case CONCAT -> {
-          for (Regexp sub : node.subs) {
-            stack.push(sub);
-          }
-        }
+            GRAPHEME_CLUSTER_BOUNDARY,
+            CAPTURE,
+            NON_CAPTURE,
+            CONCAT,
+            ALTERNATE,
+            STAR,
+            PLUS,
+            QUEST ->
+            null;
         default -> {
-          return false;
+          stop[0] = true;
+          known.put(re, false);
+          yield false;
         }
-      }
+      };
     }
-    return true;
-  }
 
-  private static boolean hasCapture(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
+    @Override
+    protected Boolean postVisit(
+        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
+      boolean result = !childArgs.contains(false);
+      known.put(re, result);
+      return result;
     }
-    return false;
+
+    @Override
+    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
+      return false;
+    }
   }
 
   /**
@@ -736,21 +735,9 @@ final class Simplifier {
   /**
    * Simplifies the expression {@code re{min,max}} in terms of STAR, PLUS, QUEST, and CONCAT.
    *
-   * <p>For empty-width ops (or concatenations/alternations of them), the repetition count is capped
-   * at 1.
+   * <p>Zero-width operands have already been reduced to at most one iteration by the caller.
    */
   private static Regexp simplifyRepeat(Regexp re, int min, int max, int flags) {
-    if (re.op == RegexpOp.CAPTURE && isPureEmpty(re)) {
-      return simplifyDirectPureEmptyCaptureRepeat(re, min, max, flags);
-    }
-
-    // Cap repetition of empty-width ops at 1.
-    if (isEmptyOp(re)
-        || ((re.op == RegexpOp.CONCAT || re.op == RegexpOp.ALTERNATE) && allEmptyOp(re))) {
-      min = Math.min(min, 1);
-      max = Math.min(max, 1);
-    }
-
     // x{n,} means at least n matches.
     if (max == -1) {
       if (min == 0) {
@@ -812,38 +799,6 @@ final class Simplifier {
       return Regexp.noMatch(flags);
     }
     return nre;
-  }
-
-  /**
-   * Lowers a counted repetition whose source operand is a directly captured pure-empty expression.
-   *
-   * <p>The JDK exposes the loop category through capture participation: {@code (){0,1}} behaves
-   * like {@code ()?}, {@code (){0,2}} behaves like {@code ()*}, and {@code (){1,2}} behaves like
-   * {@code ()+}. Preserve that distinction instead of expanding bounded repeats into nested
-   * optional copies.
-   */
-  private static Regexp simplifyDirectPureEmptyCaptureRepeat(
-      Regexp re, int min, int max, int flags) {
-    if (min == 0) {
-      if (max == 0) {
-        return Regexp.emptyMatch(flags);
-      }
-      return rawQuantifier(max == 1 ? RegexpOp.QUEST : RegexpOp.STAR, re, flags);
-    }
-    if (min == 1 && max == 1) {
-      return re;
-    }
-    return rawQuantifier(RegexpOp.PLUS, re, flags);
-  }
-
-  /** Returns true if all children of re are empty-width ops. */
-  private static boolean allEmptyOp(Regexp re) {
-    for (Regexp sub : re.subs) {
-      if (!isEmptyOp(sub)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /** Simplifies a character class: empty → NO_MATCH, full → ANY_CHAR. */

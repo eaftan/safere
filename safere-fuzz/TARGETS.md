@@ -100,6 +100,12 @@ It checks String and UTF-8 results without using the JDK's inconsistent
 nested-repeat captures as an oracle. The broad `quantifiedCaptures` method also
 generates these shapes and continues to expose intentional JDK differences.
 
+`CaptureSemanticsFuzzer.emptyCaptures` generates finite and unbounded empty
+capturing repetitions, redundant wrappers, greedy/reluctant/possessive modes,
+and Unicode literal context. Its independent participation oracle checks
+String and UTF-8 coordinates, snapshots, and replacement callbacks, following
+the empty-iteration policy rather than JDK wrapper-dependent suppression.
+
 `SplitFuzzer` checks its fixed CRLF/interior-boundary matrix against Unicode
 GB3, separately from arbitrary differential inputs. `ExploratoryGraphemeTest`
 confirms that the broad split comparator still reports the intentional JDK
