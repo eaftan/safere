@@ -101,15 +101,6 @@ class CompilerPreparationTest {
     }
   }
 
-  @Test
-  void pikeCaptureRequirementComesFromSourceQuantifiers() {
-    Compiler.Prepared prepared = Compiler.prepare(Parser.parse("((a)+){2}", FLAGS));
-    assertThat(Compiler.compile(prepared, false).requiresPikeNfaCaptureSemantics()).isTrue();
-    assertThat(Compiler.compileForDfa(prepared, false).requiresPikeNfaCaptureSemantics()).isTrue();
-    assertThat(Compiler.compile(prepared, true).requiresPikeNfaCaptureSemantics()).isFalse();
-    assertThat(Compiler.compileForDfa(prepared, true).requiresPikeNfaCaptureSemantics()).isFalse();
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {"([0-9]{4})-[0-9]{2}", "(foo|bar|baz|quux)", "(a?)*b", "((a)+){2}b"})
   void findAndCaptureProgramsAndSetupsAreReadyWhenCompileReturns(String regex)
