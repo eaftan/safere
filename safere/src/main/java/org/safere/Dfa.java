@@ -1402,6 +1402,10 @@ final class Dfa {
    * always safe to cache because it always represents "at text end".
    */
   private int positionDependentThreshold(InputScanner text) {
+    if (!hasPositionDependentTransitions) {
+      // Without position-dependent assertions, trailing line endings cannot affect cached steps.
+      return text.length();
+    }
     if (hasGraphemeSemantics) {
       return 0;
     }
