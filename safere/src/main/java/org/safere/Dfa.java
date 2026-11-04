@@ -1404,6 +1404,7 @@ final class Dfa {
   private int positionDependentThreshold(InputScanner text) {
     if (!hasPositionDependentTransitions) {
       // Without position-dependent assertions, trailing line endings cannot affect cached steps.
+      // The reverse ASCII fast path can also include those trailing line endings.
       return text.length();
     }
     if (hasGraphemeSemantics) {
