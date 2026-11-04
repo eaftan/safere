@@ -41,6 +41,7 @@
 # Workloads that declare the noFork constraint run through the generic
 # CrossEngineNoForkBenchmark entry point with -f 0.
 #
+# CapturePolicySharedBenchmark requires explicit trials and a thread count.
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
 #
@@ -56,7 +57,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
-DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
+DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CapturePolicySharedBenchmark|CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
 
 # Empirically selected Java benchmark settings. See
 # safere-benchmarks/CONFIGURATION_EVALUATION.md.

@@ -1599,6 +1599,7 @@ final class DeclarativeBenchmarkPlan {
     MATCHES_CORPUS("matchesCorpus", false, true, Feature.MATCHES),
     MATCHES_GROUP_LENGTH_SUM(
         "matchesGroupLengthSum", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
+    FIND_USAGE("findUsage", true, true, Feature.FIND, Feature.CAPTURE_TEXT, Feature.MATCHER_STATE),
     FIND_SAMPLED_GROUP(
         "findSampledGroup",
         true,
@@ -1761,7 +1762,8 @@ final class DeclarativeBenchmarkPlan {
         case PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
             consumption == ResultConsumption.BOOLEAN
                 || consumption == ResultConsumption.BLACKHOLE_OBJECT;
-        case FIND_ALL_COUNT,
+        case FIND_USAGE,
+            FIND_ALL_COUNT,
             FIND_ALL_LENGTH_SUM,
             FIND_ALL_GROUP_LENGTH_SUM,
             MATCHES_CORPUS,
@@ -1796,6 +1798,16 @@ final class DeclarativeBenchmarkPlan {
                 "groups", RecipeValueType.INTEGER_LIST,
                 "bounds", RecipeValueType.STRING,
                 "expectedBounds", RecipeValueType.INTEGER_LIST);
+        case FIND_USAGE ->
+            Map.of(
+                "group",
+                RecipeValueType.INTEGER,
+                "count",
+                RecipeValueType.INTEGER,
+                "mode",
+                RecipeValueType.STRING,
+                "limit",
+                RecipeValueType.INTEGER);
         case FIND_SAMPLED_GROUP ->
             Map.of(
                 "group",
@@ -1837,6 +1849,7 @@ final class DeclarativeBenchmarkPlan {
         case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
             Set.of("groups");
         case UTF8_CAPTURE_BOUNDS -> Set.of("groups", "expectedBounds");
+        case FIND_USAGE -> Set.of("group", "count", "mode", "limit");
         case FIND_SAMPLED_GROUP -> Set.of("group", "count", "mode");
         case FIND_GROUP_PRESENT, FIND_GROUP -> Set.of("group");
         case REPLACE_FIRST,
@@ -1853,6 +1866,15 @@ final class DeclarativeBenchmarkPlan {
     }
 
     void validateArguments(String id, Map<String, RecipeValue> arguments) {
+      if (this == FIND_USAGE) {
+        String mode = ((RecipeString) arguments.get("mode")).value();
+        if (((RecipeInteger) arguments.get("limit")).value() <= 0) {
+          throw new IllegalArgumentException(id + " phase length must be positive");
+        }
+        if (!Set.of("text", "offset", "phase", "boolean").contains(mode)) {
+          throw new IllegalArgumentException(id + " invalid capture usage mode");
+        }
+      }
       if (this == FIND_SAMPLED_GROUP) {
         String mode = ((RecipeString) arguments.get("mode")).value();
         if (!mode.equals("boolean") && !mode.equals("capture")) {
