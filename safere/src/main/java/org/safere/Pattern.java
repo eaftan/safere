@@ -55,6 +55,10 @@ public final class Pattern implements Serializable {
   private static final int MIN_END_ANCHORED_PROBE_UNITS = 64;
   // Short inputs retain the forward path to avoid reverse-search setup overhead.
   private static final int MIN_REVERSE_FIRST_LEN = 1024;
+  // A competitive literal start accelerator runs before the find reject prefilter only on inputs
+  // shorter than this, where the separate prefilter call dominates. Longer inputs keep the
+  // single-pass reject prefilter first.
+  static final int MAX_LITERAL_START_FIRST_LENGTH = 512;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
   private static final MethodType DIAGNOSTICS_TYPE =
       MethodType.methodType(SafeReMatchDiagnostics.class);
@@ -166,6 +170,10 @@ public final class Pattern implements Serializable {
    * before running automata.
    */
   private final transient RejectPrefilter rejectPrefilter;
+
+  private final transient RejectPrefilter utf8FindRejectPrefilter;
+
+  private final boolean startPrecedesFindReject;
 
   /**
    * OnePass analysis results, computed during construction when eligible analysis can support
@@ -314,6 +322,13 @@ public final class Pattern implements Serializable {
                 && !lit.foldCase()
             ? InnerLiteralSearch.compile(ast, rejectPrefilter)
             : null;
+    this.startPrecedesFindReject =
+        enginePathOptions.startAcceleration()
+            && !prog.anchorStart()
+            && findRejectPrefilter() != null
+            && stringStartAccelerator != null
+            && utf8StartAccelerator != null
+            && this.multiAnchor.startPrecedesFindReject();
     // The literal-alternation runner skips canReject on its initial String find().
     // The filter's type still selects its window policy; fallback operations retain the filter.
     this.literalAlternation =
@@ -344,6 +359,15 @@ public final class Pattern implements Serializable {
     // loop-register instructions, and therefore already establishes support.
     Prog forwardProgram = flatDfaProg != null ? flatDfaProg : flatProg != null ? flatProg : prog;
     this.forwardDfaSupported = enginePathOptions.dfa() && supportsForwardDfa(forwardProgram);
+    RejectPrefilter baseFindReject =
+        this.innerLiteralSearch == null || !this.forwardDfaSupported ? this.rejectPrefilter : null;
+    this.utf8FindRejectPrefilter =
+        baseFindReject != null
+                && enginePathOptions.startAcceleration()
+                && this.utf8StartAccelerator != null
+                && !prog.anchorStart()
+            ? RejectPrefilter.withoutDisjointLiterals(baseFindReject)
+            : baseFindReject;
 
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
@@ -461,11 +485,7 @@ public final class Pattern implements Serializable {
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
     // simplification deliberately lowers away.
-    Regexp metadataAst =
-        prepared.simplifiedSource() != null ? prepared.simplifiedSource() : Simplifier.simplify(re);
-    if (metadataAst == null) {
-      throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
-    }
+    Regexp metadataAst = prepared.simplifiedSource();
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
     MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, astAnalysis, flags);
@@ -654,9 +674,10 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
     if (findRejectPrefilter != null
-        && findRejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
+        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)
+        && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -746,11 +767,16 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart, diagnostics)) {
       return true;
     }
-    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
     if (findRejectPrefilter != null
-        && findRejectPrefilter.canRejectWithDiagnostics(
-            scanner, 0, enginePathOptions, diagnostics)) {
-      return false;
+        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)) {
+      MatchStrategy rejection =
+          findRejectPrefilter.rejectionStrategy(null, scanner, 0, enginePathOptions);
+      if (rejection != null) {
+        diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+        diagnostics.boundary(rejection);
+        return false;
+      }
     }
     int searchStart = 0;
     boolean startPositionPreselected = false;
@@ -874,16 +900,8 @@ public final class Pattern implements Serializable {
         || !canUseReverseDfa()) {
       return END_ANCHORED_SEARCH_FALLBACK;
     }
-    if (rejectPrefilter != null) {
-      MatchStrategy rejection =
-          rejectPrefilter.endAnchoredRejectionStrategy(scanner, searchFrom, enginePathOptions);
-      if (rejection != null) {
-        if (diagnostics != null) {
-          diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
-          diagnostics.boundary(rejection);
-        }
-        return -1;
-      }
+    if (terminalPrefilterRejects(scanner, searchFrom, diagnostics)) {
+      return -1;
     }
     Prog reverseProgram = flatReverseDfaProg();
     if (reverseProgram == null
@@ -1287,8 +1305,10 @@ public final class Pattern implements Serializable {
     if (endAnchoredStart >= 0 && findAt(scanner, endAnchoredStart)) {
       return true;
     }
-    if (rejectPrefilter != null
-        && rejectPrefilter.canReject(scanner, input, 0, enginePathOptions)) {
+    RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    if (findRejectPrefilter != null
+        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)
+        && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
       return false;
     }
     int searchStart = 0;
@@ -1669,6 +1689,7 @@ public final class Pattern implements Serializable {
     return enginePathOptions.onePass()
         && !astAnalysis.hasLazy()
         && !astAnalysis.hasNullableAlt()
+        && prog.numLoopRegs() == 0
         && !prog.hasGraphemeSemantics()
         && prog.numCaptures() <= OnePass.MAX_CAPTURE_GROUPS;
   }
@@ -1921,9 +1942,39 @@ public final class Pattern implements Serializable {
     return rejectPrefilter;
   }
 
+  /** Applies bounded terminal rejection and records the rejecting diagnostic strategy. */
+  boolean terminalPrefilterRejects(
+      InputScanner scanner, int searchFrom, DiagnosticAccumulator diagnostics) {
+    if (rejectPrefilter == null) {
+      return false;
+    }
+    MatchStrategy rejection =
+        rejectPrefilter.endAnchoredRejectionStrategy(scanner, searchFrom, enginePathOptions);
+    if (rejection == null) {
+      return false;
+    }
+    if (diagnostics != null) {
+      diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+      diagnostics.boundary(rejection);
+    }
+    return true;
+  }
+
   /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
   RejectPrefilter findRejectPrefilter() {
     return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
+  }
+
+  /**
+   * UTF-8 {@code find()} counterpart to {@link #findRejectPrefilter()}: also omits {@link
+   * RejectPrefilter.DisjointLiterals} when UTF-8 start acceleration already covers the search.
+   */
+  RejectPrefilter utf8FindRejectPrefilter() {
+    return utf8FindRejectPrefilter;
+  }
+
+  boolean startPrecedesFindReject() {
+    return startPrecedesFindReject;
   }
 
   MultiAnchorDescriptor multiAnchor() {

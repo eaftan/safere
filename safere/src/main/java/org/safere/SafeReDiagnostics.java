@@ -258,9 +258,6 @@ public final class SafeReDiagnostics {
     json.append(',');
     appendBooleanField(json, "unixLines", prog.unixLines());
     json.append(',');
-    appendBooleanField(
-        json, "requiresPikeNfaCaptureSemantics", prog.requiresPikeNfaCaptureSemantics());
-    json.append(',');
     appendBooleanField(json, "hasGraphemeSemantics", prog.hasGraphemeSemantics());
     json.append(',');
     appendBooleanField(json, "hasGraphemeClusterInstruction", prog.hasGraphemeClusterInstruction());

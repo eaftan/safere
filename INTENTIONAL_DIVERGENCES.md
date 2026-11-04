@@ -161,6 +161,9 @@ divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
 `()*+`. The same holds for a counted repetition with no operand of its own, as in
 `{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
+An operand made zero-width by an inner zero-count repetition is also supported,
+as in `(?:a{0})*+`. The immediate-operand rule still rejects `a{0}+`, since its
+possessive quantifier applies directly to consuming `a`.
 
 ## Canonical Equivalence
 
@@ -202,6 +205,63 @@ SafeRE's behavior is the correct model for this project because captures should
 describe the accepted match, not incidental state from abandoned paths. Copying
 the JDK trace exactly would require replaying or preserving backtracking
 history that SafeRE deliberately does not have.
+
+## Empty Captures under Repetition
+
+SafeRE follows the [repetition and capture policy](docs/REPETITION_MATCH_SELECTION_AND_CAPTURES.md):
+a completed empty iteration publishes the captures it writes. Finite and
+unbounded repetitions stop that invocation on the first completed empty
+iteration that satisfies the minimum, including the final required iteration.
+Redundant noncapturing
+wrappers preserve participation and bounds. Required empty iterations count
+toward the minimum; zero-count repeats keep group numbering without executing
+the operand, and reluctant zero-minimum repeats can omit it.
+
+On empty input, `()*`, `(?:())*`, `(){0,2}`, and `(?:()){0,2}` therefore all
+report group 1 as empty at `[0,0)`. Observed OpenJDK 26.0.2 reports that group
+as unmatched for the two direct spellings, but participating for the wrapped
+spellings. The same spelling dependence can affect captures around zero-width
+assertions. SafeRE deliberately keeps wrapper transparency and ordinary capture
+updates instead of exposing that implementation distinction. `()*?` still
+reports the group as unmatched because its first complete success omits it.
+
+The [JDK capture documentation](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+and [group accessor contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#group(int))
+describe capture retention and distinguish a participating empty capture from
+an unmatched group. They do not prescribe a complete empty-iteration algorithm.
+This is the approved SafeRE policy choice, not a claim that the JDK explicitly
+specifies terminal-empty acceptance or that its observed behavior cannot be
+implemented in linear time. Ordinary capture instructions and existing loop
+progress checks implement SafeRE's rule without retries or capture repair.
+
+`EmptyCaptureSemanticsTest` and `CaptureSemanticsFuzzer.emptyCaptures` pin the
+participation policy, wrappers, matcher operations, snapshots, replacement,
+regions, and String/UTF-8 coordinates. Broad JDK differential fuzzing continues
+to report these intentional differences.
+
+## Earlier Captures in Nested Repetitions
+
+Issue reference: #1079.
+
+SafeRE reports the most recent completed participation of each group on the
+accepted path. For `(?:(a){0,2})*` and `(?:(?:(a)){0,2})*` on `aaaa`, group 1 is
+`[3,4)` in both spellings. A terminal empty outer iteration omits `(a)` and
+retains that value. On `(?:(a){1,2}b)*` and `aabab`, the later consuming chunk
+also updates group 1 to `[3,4)`; no empty iteration is involved.
+
+Observed OpenJDK 26.0.2 returns `[1,2)` for the first and third patterns, but
+`[3,4)` for the redundant-wrapper spelling. SafeRE follows the
+[JDK capture contract](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#groupname)
+that each group records its latest successful capture. Preserving an earlier
+value despite later accepted participation conflicts with that rule. This is
+an approved specification-based divergence, independent of linear-time limits
+and separate from failed-path capture leakage.
+
+Every repeat copy keeps its ordinary capture instructions. Capture updates and
+rollback remain part of the engines' bounded execution; no match retries or
+capture-history reconstruction are needed. `AcceptedPathCaptureTest` and `MatcherTest` pin
+capture retention, later participation, ordered whole-match selection, snapshots,
+replacement, regions, and UTF-8 coordinates.
 
 ## Empty Captures in Nullable Counted Repetitions
 

@@ -107,6 +107,41 @@ public final class MatchFuzzer {
     assertNullableFindInsideSurrogatePairMatchesJdk(data);
     assertUnicodeIPrefixFindsMatchJdk(data);
     assertNestedNullableLoopEntriesMatchJdk(data);
+    assertImpossibleCaptureAlternativesMatchJdk(data);
+  }
+
+  private static void assertImpossibleCaptureAlternativesMatchJdk(FuzzedDataProvider data) {
+    FuzzSupport.CompiledPattern regression =
+        FuzzSupport.compileCompatibleOrSkip("(?:(a)|(b)|(c)|(d)|(e))[^\\s\\S]|x|xx", 0);
+    if (regression != null) {
+      FuzzSupport.MatcherPair matcher = regression.matcher("xxy");
+      while (matcher.find()) {}
+    }
+
+    // Discarded concatenations leave unreachable capture patch lists in the compiled program.
+    int branches = data.consumeInt(2, 12);
+    StringBuilder alternatives = new StringBuilder();
+    for (int i = 0; i < branches; i++) {
+      if (i > 0) {
+        alternatives.append('|');
+      }
+      String atom = data.pickValue(List.of("a", "b", "é", "😀"));
+      alternatives.append('(').append(data.consumeBoolean() ? "(" + atom + ")" : atom).append(')');
+    }
+    String impossible = data.pickValue(List.of("[^\\s\\S]", "[a&&b]"));
+    String deadBranch = "(?:" + alternatives + ")" + impossible;
+    String atom = data.pickValue(List.of("x", "é", "😀"));
+    String liveBranches = atom + "|" + atom + atom;
+    for (String regex :
+        List.of(deadBranch, deadBranch + "|" + liveBranches, liveBranches + "|" + deadBranch)) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern != null) {
+        FuzzSupport.MatcherPair matcher = pattern.matcher(atom.repeat(2) + "!");
+        while (matcher.find()) {}
+        matcher.reset().lookingAt();
+        matcher.reset().matches();
+      }
+    }
   }
 
   private static void assertNestedNullableLoopEntriesMatchJdk(FuzzedDataProvider data) {

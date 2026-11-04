@@ -25,29 +25,16 @@ sealed interface RejectPrefilter
         RejectPrefilter.EndAnchoredCharClass,
         RejectPrefilter.Composite {
 
-  /** Returns whether the input starting from {@code searchFrom} can be rejected. */
-  boolean canReject(InputScanner scanner, String text, int searchFrom, EnginePathOptions options);
+  /**
+   * Returns whether the input starting from {@code searchFrom} can be rejected. Callers pass either
+   * a non-null {@code text} or a non-null {@code scanner}.
+   */
+  boolean canReject(String text, InputScanner scanner, int searchFrom, EnginePathOptions options);
 
   /** Returns the strategy that rejected the input, or {@code null} if it cannot be rejected. */
   default MatchStrategy rejectionStrategy(
-      InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
-    return canReject(scanner, text, searchFrom, options) ? strategy() : null;
-  }
-
-  /** Returns whether the UTF-8 input starting from {@code searchFrom} can be rejected. */
-  boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options);
-
-  default boolean canRejectWithDiagnostics(
-      Utf8InputScanner scanner,
-      int searchFrom,
-      EnginePathOptions options,
-      DiagnosticAccumulator diagnostics) {
-    if (canReject(scanner, searchFrom, options)) {
-      diagnostics.participate(strategy(), StrategyRole.REJECT_PREFILTER);
-      diagnostics.boundary(strategy());
-      return true;
-    }
-    return false;
+      String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+    return canReject(text, scanner, searchFrom, options) ? strategy() : null;
   }
 
   MatchStrategy strategy();
@@ -57,13 +44,13 @@ sealed interface RejectPrefilter
       InputScanner scanner, int searchFrom, EnginePathOptions options) {
     String text = scanner instanceof StringInputScanner stringScanner ? stringScanner.text() : null;
     if (this instanceof EndAnchoredSuffix || this instanceof EndAnchoredCharClass) {
-      return rejectionStrategy(scanner, text, searchFrom, options);
+      return rejectionStrategy(text, scanner, searchFrom, options);
     }
     if (this instanceof Composite composite) {
       // Composite construction flattens the filters, so this remains an iterative bounded walk.
       for (RejectPrefilter filter : composite.filters()) {
         if (filter instanceof EndAnchoredSuffix || filter instanceof EndAnchoredCharClass) {
-          MatchStrategy rejection = filter.rejectionStrategy(scanner, text, searchFrom, options);
+          MatchStrategy rejection = filter.rejectionStrategy(text, scanner, searchFrom, options);
           if (rejection != null) {
             return rejection;
           }
@@ -71,6 +58,41 @@ sealed interface RejectPrefilter
       }
     }
     return null;
+  }
+
+  /**
+   * Drops {@link DisjointLiterals} when UTF-8 start acceleration is already active, so {@code
+   * find()} does not add multi-literal full-input scans ahead of a single-pass start accelerator.
+   */
+  static RejectPrefilter withoutDisjointLiterals(RejectPrefilter filter) {
+    if (filter instanceof DisjointLiterals) {
+      return null;
+    }
+    if (filter instanceof Composite(RejectPrefilter[] filters)) {
+      List<RejectPrefilter> kept = null;
+      for (int i = 0; i < filters.length; i++) {
+        if (filters[i] instanceof DisjointLiterals) {
+          if (kept == null) {
+            kept = new ArrayList<>(filters.length - 1);
+            for (int j = 0; j < i; j++) {
+              kept.add(filters[j]);
+            }
+          }
+        } else if (kept != null) {
+          kept.add(filters[i]);
+        }
+      }
+      if (kept == null) {
+        return filter;
+      }
+      if (kept.isEmpty()) {
+        return null;
+      }
+      return kept.size() == 1
+          ? kept.getFirst()
+          : new Composite(kept.toArray(RejectPrefilter[]::new));
+    }
+    return filter;
   }
 
   static RejectPrefilter create(MultiAnchorDescriptor descriptor) {
@@ -85,7 +107,7 @@ sealed interface RejectPrefilter
       return null;
     }
     return switch (plan) {
-      case MultiAnchorDescriptor.RejectPlan.None unusedNone -> null;
+      case MultiAnchorDescriptor.RejectPlan.None ignored -> null;
       case MultiAnchorDescriptor.RejectPlan.RequiredLiteral l -> Literal.create(l.literal());
       case MultiAnchorDescriptor.RejectPlan.RequiredCharClass c -> CharClass.create(c.scanInfo());
       case MultiAnchorDescriptor.RejectPlan.DisjointLiterals d ->
@@ -138,25 +160,25 @@ sealed interface RejectPrefilter
 
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       if (!options.literalFastPaths()) {
         return false;
       }
-      if (scanner instanceof Utf8InputScanner utf8Scanner) {
-        return utf8Scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
-      }
-      if (text != null) {
-        return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
-      }
-      return false;
+      return text != null ? canReject(text, searchFrom) : canReject(scanner, searchFrom);
     }
 
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      if (!options.literalFastPaths()) {
-        return false;
+    private boolean canReject(String text, int searchFrom) {
+      return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
+    }
+
+    private boolean canReject(InputScanner scanner, int searchFrom) {
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        return utf8Scanner.indexOf(this.utf8, failure, shifts, searchFrom) < 0;
       }
-      return scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        return regionScanner.indexOf(literal, searchFrom, regionScanner.length()) < 0;
+      }
+      return false;
     }
 
     @Override
@@ -229,24 +251,30 @@ sealed interface RejectPrefilter
 
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       if (!options.charClassMatchFastPaths()) {
         return false;
       }
-      if (scanner instanceof Utf8InputScanner utf8Scanner) {
-        return canReject(utf8Scanner, searchFrom, options);
-      }
-      if (smallChars != null) {
-        String haystack = scanner instanceof StringInputScanner s ? s.text() : text;
-        if (haystack != null) {
-          return rejectsSmall(haystack, searchFrom);
+      if (text != null) {
+        if (smallChars != null) {
+          return rejectsSmall(text, searchFrom);
         }
+        int length = text.length();
+        return (singleAscii >= 0
+                ? StringInputScanner.indexOfAscii(text, singleAscii, searchFrom, length)
+                : StringInputScanner.indexOfCodePointClass(
+                    text, ranges, bitmap0, bitmap1, searchFrom, length))
+            < 0;
+      }
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        return canRejectUtf8(utf8Scanner, searchFrom);
       }
       if (scanner != null) {
-        return indexOf(scanner, searchFrom, scanner.length()) < 0;
-      }
-      if (text != null) {
-        return indexOf(new StringInputScanner(text), searchFrom, text.length()) < 0;
+        int limit = scanner.length();
+        return (singleAscii >= 0
+                ? scanner.indexOfAscii(singleAscii, searchFrom, limit)
+                : scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, limit))
+            < 0;
       }
       return false;
     }
@@ -296,14 +324,8 @@ sealed interface RejectPrefilter
       return true;
     }
 
-    private int indexOf(InputScanner scanner, int searchFrom, int limit) {
-      return singleAscii >= 0
-          ? scanner.indexOfAscii(singleAscii, searchFrom, limit)
-          : scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, limit);
-    }
-
     /**
-     * {@inheritDoc}
+     * Checks UTF-8 rejection.
      *
      * <p>A class with a non-ASCII member is only checked from the start of the input. The UTF-8
      * scanner has no memo, so repeating the check from every {@code find()} position would rescan
@@ -318,15 +340,13 @@ sealed interface RejectPrefilter
      * Utf8InputScanner#indexOfCodePointClass} does, costs several nanoseconds per character on text
      * with no ASCII to skip, such as CJK.
      */
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      if (!options.charClassMatchFastPaths()
-          || (searchFrom > 0 && ranges[ranges.length - 1] >= 0x80)) {
+    private boolean canRejectUtf8(Utf8InputScanner scanner, int searchFrom) {
+      if (searchFrom > 0 && ranges[ranges.length - 1] >= 0x80) {
         return false;
       }
+      int length = scanner.length();
       if (nonAsciiUtf8 != null) {
         int ascii = smallChars[0];
-        int length = scanner.length();
         int first = scanner.indexOfAsciiOrNonAscii(ascii, searchFrom, length);
         if (first < 0) {
           return true;
@@ -336,8 +356,10 @@ sealed interface RejectPrefilter
         }
         return scanner.indexOfMixedPair(ascii, nonAsciiUtf8, first, length) < 0;
       }
-      return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, scanner.length())
-          < 0;
+      if (singleAscii >= 0) {
+        return scanner.indexOfAscii(singleAscii, searchFrom, length) < 0;
+      }
+      return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, length) < 0;
     }
 
     @Override
@@ -347,36 +369,88 @@ sealed interface RejectPrefilter
   }
 
   @SuppressWarnings("ArrayRecordComponent")
-  record DisjointLiterals(String[] literals) implements RejectPrefilter {
+  record DisjointLiterals(
+      String[] literals, byte[][] utf8Literals, int[][] failures, int[][] shifts)
+      implements RejectPrefilter {
 
     static DisjointLiterals create(String[] literals) {
       if (literals == null || literals.length == 0) {
         return null;
       }
-      return new DisjointLiterals(literals);
+      int utf8Count = 0;
+      for (String literal : literals) {
+        if (!hasUnpairedSurrogate(literal)) {
+          utf8Count++;
+        }
+      }
+      byte[][] utf8Literals = new byte[utf8Count][];
+      int[][] failures = new int[utf8Count][];
+      int[][] shifts = new int[utf8Count][];
+      int idx = 0;
+      for (String literal : literals) {
+        if (!hasUnpairedSurrogate(literal)) {
+          byte[] utf8 = literal.getBytes(StandardCharsets.UTF_8);
+          utf8Literals[idx] = utf8;
+          failures[idx] = Pattern.literalFailure(utf8);
+          shifts[idx] = Pattern.literalShifts(utf8);
+          idx++;
+        }
+      }
+      return new DisjointLiterals(literals, utf8Literals, failures, shifts);
+    }
+
+    private static boolean hasUnpairedSurrogate(String s) {
+      int len = s.length();
+      for (int i = 0; i < len; i++) {
+        char c = s.charAt(i);
+        if (Character.isHighSurrogate(c)) {
+          if (i + 1 < len && Character.isLowSurrogate(s.charAt(i + 1))) {
+            i++;
+          } else {
+            return true;
+          }
+        } else if (Character.isLowSurrogate(c)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
-      if (!options.literalFastPaths() || text == null || searchFrom > 0) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+      if (!options.literalFastPaths() || searchFrom > 0) {
         return false;
       }
-      for (String literal : literals) {
-        int idx = text.indexOf(literal, searchFrom);
-        if (WorkCounterConfig.ENABLED) {
-          int scanned = idx >= 0 ? idx - searchFrom + literal.length() : text.length() - searchFrom;
-          WorkCounter.record(Math.max(0, scanned));
+      if (text != null) {
+        for (String literal : literals) {
+          int idx = text.indexOf(literal);
+          if (WorkCounterConfig.ENABLED) {
+            int scanned = idx >= 0 ? idx + literal.length() : text.length();
+            WorkCounter.record(scanned);
+          }
+          if (idx >= 0) {
+            return false;
+          }
         }
-        if (idx >= 0) {
-          return false;
-        }
+        return true;
       }
-      return true;
-    }
-
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
+      if (scanner instanceof Utf8InputScanner utf8) {
+        for (int i = 0; i < utf8Literals.length; i++) {
+          if (utf8.indexOf(utf8Literals[i], failures[i], shifts[i], 0) >= 0) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        for (String literal : literals) {
+          if (regionScanner.indexOf(literal, searchFrom, regionScanner.length()) >= 0) {
+            return false;
+          }
+        }
+        return true;
+      }
       return false;
     }
 
@@ -402,25 +476,20 @@ sealed interface RejectPrefilter
 
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       if (!options.literalFastPaths()) {
         return false;
-      }
-      if (scanner instanceof Utf8InputScanner utf8Scanner) {
-        return !utf8Scanner.endsWith(suffixUtf8, wasDollar, unixLines, foldCase);
       }
       if (text != null) {
         return !endsWith(text, suffix, wasDollar, unixLines, foldCase);
       }
-      return false;
-    }
-
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      if (!options.literalFastPaths()) {
-        return false;
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        return !utf8Scanner.endsWith(suffixUtf8, wasDollar, unixLines, foldCase);
       }
-      return !scanner.endsWith(suffixUtf8, wasDollar, unixLines, foldCase);
+      if (scanner instanceof StringRegionInputScanner regionScanner) {
+        return !regionScanner.endsWith(suffix, wasDollar, unixLines, foldCase);
+      }
+      return false;
     }
 
     @Override
@@ -469,24 +538,20 @@ sealed interface RejectPrefilter
 
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       if (!options.charClassMatchFastPaths()) {
         return false;
-      }
-      if (scanner instanceof Utf8InputScanner utf8Scanner) {
-        return canReject(utf8Scanner, searchFrom, options);
       }
       if (text != null) {
         return canReject(text);
       }
+      if (scanner instanceof Utf8InputScanner || scanner instanceof StringRegionInputScanner) {
+        return canRejectTerminal(scanner);
+      }
       return false;
     }
 
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      if (!options.charClassMatchFastPaths()) {
-        return false;
-      }
+    private boolean canRejectTerminal(InputScanner scanner) {
       int len = scanner.length();
       if (len == 0) {
         return true;
@@ -552,9 +617,9 @@ sealed interface RejectPrefilter
   record Composite(RejectPrefilter[] filters) implements RejectPrefilter {
     @Override
     public boolean canReject(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       for (RejectPrefilter filter : filters) {
-        if (filter.canReject(scanner, text, searchFrom, options)) {
+        if (filter.canReject(text, scanner, searchFrom, options)) {
           return true;
         }
       }
@@ -563,38 +628,14 @@ sealed interface RejectPrefilter
 
     @Override
     public MatchStrategy rejectionStrategy(
-        InputScanner scanner, String text, int searchFrom, EnginePathOptions options) {
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       for (RejectPrefilter filter : filters) {
-        MatchStrategy strategy = filter.rejectionStrategy(scanner, text, searchFrom, options);
+        MatchStrategy strategy = filter.rejectionStrategy(text, scanner, searchFrom, options);
         if (strategy != null) {
           return strategy;
         }
       }
       return null;
-    }
-
-    @Override
-    public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      for (RejectPrefilter filter : filters) {
-        if (filter.canReject(scanner, searchFrom, options)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    @Override
-    public boolean canRejectWithDiagnostics(
-        Utf8InputScanner scanner,
-        int searchFrom,
-        EnginePathOptions options,
-        DiagnosticAccumulator diagnostics) {
-      for (RejectPrefilter filter : filters) {
-        if (filter.canRejectWithDiagnostics(scanner, searchFrom, options, diagnostics)) {
-          return true;
-        }
-      }
-      return false;
     }
 
     @Override

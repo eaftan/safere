@@ -45,6 +45,33 @@ class DiagnosticsTest {
   }
 
   @Test
+  void anchoredOnePassUsesTerminalRejectionBeforeScanning() {
+    Pattern.setDiagnostics(diagnostics);
+    String input = "a".repeat(4096) + "c";
+    for (String regex : List.of("^(a)*b$", "^([a-z]+)[0-9]$", "^([a-z]+)END\\z")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.canOnePassPrimary()).as("/%s/", regex).isTrue();
+      assertThat(pattern.matcher(input).matches()).isFalse();
+      assertThat(pattern.matcher(input).find()).isFalse();
+      assertThat(pattern.matcher(input).replaceAll("$1")).isEqualTo(input);
+      Utf8Input utf8 = Utf8Input.validated(input.getBytes(UTF_8));
+      assertThat(pattern.matcher(utf8).matches()).isFalse();
+      assertThat(pattern.matcher(utf8).find()).isFalse();
+      assertThat(operationsFor(pattern))
+          .hasSize(5)
+          .allSatisfy(
+              event -> {
+                assertThat(event.boundaryStrategy())
+                    .isIn(MatchStrategy.LITERAL, MatchStrategy.CHARACTER_CLASS);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+                assertThat(event.forwardDfaSearchCount()).isZero();
+                assertThat(event.auxiliaryStrategies())
+                    .anyMatch(strategy -> strategy.role() == StrategyRole.REJECT_PREFILTER);
+              });
+    }
+  }
+
+  @Test
   void patternIdentityIsStableAndDistinctWithoutDiagnostics() {
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     Pattern first = Pattern.compile("abc");
@@ -1134,11 +1161,6 @@ class DiagnosticsTest {
     assertThat(lookingAtMatcher.lookingAt()).isTrue();
     assertThat(lookingAtMatcher.capturesResolved()).isTrue();
 
-    Pattern regionBitState = Pattern.compile("(a+?)b");
-    Matcher regionMatcher = regionBitState.matcher("xaabx").region(1, 4);
-    assertThat(regionMatcher.find()).isTrue();
-    assertThat(regionMatcher.capturesResolved()).isTrue();
-
     assertThat(operationsFor(nullableLoopBitState))
         .hasSize(2)
         .allSatisfy(
@@ -1147,15 +1169,6 @@ class DiagnosticsTest {
               assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
               assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
             });
-    assertThat(operationsFor(regionBitState))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
-            });
-
     Pattern nfaPattern = Pattern.compile("(\\X)b");
     Matcher nfaMatches = nfaPattern.matcher("ab");
     assertThat(nfaMatches.matches()).isTrue();
@@ -1171,6 +1184,32 @@ class DiagnosticsTest {
             event -> {
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
               assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+  }
+
+  @Test
+  void regionFindReportsIndependentTextBoundsAndEagerCaptureAttribution() {
+    Pattern.setDiagnostics(diagnostics);
+
+    Pattern independentPattern = Pattern.compile("(a+?)b");
+    Matcher independentMatcher = independentPattern.matcher("aab");
+    assertThat(independentMatcher.find()).isTrue();
+    assertThat(operationsFor(independentPattern)).hasSize(1);
+    OperationDiagnostics independentEvent = operationsFor(independentPattern).getFirst();
+
+    Pattern regionPattern = Pattern.compile("(a+?)b");
+    Matcher regionMatcher = regionPattern.matcher("xaabx").region(1, 4);
+    assertThat(regionMatcher.find()).isTrue();
+    assertThat(regionMatcher.capturesResolved()).isTrue();
+
+    assertThat(operationsFor(regionPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(independentEvent.boundaryStrategy());
+              // Region captures are resolved before restoring the original input coordinates.
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
               assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
             });
   }
@@ -1287,10 +1326,12 @@ class DiagnosticsTest {
     Pattern.setDiagnostics(diagnostics);
 
     Pattern onePassPattern = Pattern.compile("^([a-z]+):(\\d+)$");
-    assertThat(onePassPattern.matcher("abc:nope").matches()).isFalse();
-    assertThat(onePassPattern.matcher("abc:nope").find()).isFalse();
-    assertThat(onePassPattern.matcher("abc:nope").replaceFirst("$1")).isEqualTo("abc:nope");
-    assertThat(onePassPattern.matcher("abc:nope").replaceAll("$1")).isEqualTo("abc:nope");
+    // A valid final digit passes terminal rejection so OnePass observes the interior failure.
+    String rejectedInput = "abc:nope1";
+    assertThat(onePassPattern.matcher(rejectedInput).matches()).isFalse();
+    assertThat(onePassPattern.matcher(rejectedInput).find()).isFalse();
+    assertThat(onePassPattern.matcher(rejectedInput).replaceFirst("$1")).isEqualTo(rejectedInput);
+    assertThat(onePassPattern.matcher(rejectedInput).replaceAll("$1")).isEqualTo(rejectedInput);
 
     Pattern onePassPrefixPattern = Pattern.compile("^([a-z]+):(\\d+)");
     assertThat(onePassPrefixPattern.matcher("abc:nope").lookingAt()).isFalse();
@@ -1328,6 +1369,51 @@ class DiagnosticsTest {
                 assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.KEYWORD);
                 assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
                 assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+              });
+    }
+  }
+
+  @Test
+  void literalStartAcceleratorShortCircuitsBeforeInfixRejectPrefilter() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("status=3\\d\\d took=(\\d+)ms");
+    String input = "id=42 status=200 took=12ms\nid=43 status=201 took=8ms\n";
+
+    assertThat(pattern.matcher(input).find()).isFalse();
+    assertThat(pattern.find(Utf8Input.trusted(input.getBytes(UTF_8)))).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactly(
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION));
+            });
+
+    for (String regex :
+        new String[] {
+          "(?i:status=3\\d\\d) took=(\\d+)ms", "\u03b1\u03b2\\d+<<!nav>>\\d+", "er\\d+<<!nav>>\\d+",
+        }) {
+      diagnostics.operations.clear();
+      Pattern rejectFirst = Pattern.compile(regex);
+      String miss = "id=42 status=200 elapsed=12ms\nid=43 status=201 elapsed=8ms\n";
+      assertThat(rejectFirst.matcher(miss).find()).isFalse();
+      assertThat(rejectFirst.find(Utf8Input.trusted(miss.getBytes(UTF_8)))).isFalse();
+      assertThat(operationsFor(rejectFirst))
+          .as("%s should run exact rare-anchor REJECT_PREFILTER first", regex)
+          .hasSize(2)
+          .allSatisfy(
+              event -> {
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                assertThat(event.forwardDfaSearchCount()).isZero();
+                assertThat(event.auxiliaryStrategies())
+                    .containsExactly(
+                        new StrategyParticipation(
+                            MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
               });
     }
   }

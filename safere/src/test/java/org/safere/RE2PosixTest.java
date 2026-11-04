@@ -271,7 +271,18 @@ class RE2PosixTest {
   }
 
   static Stream<Arguments> basicTests() throws IOException {
-    return parseFile("basic.dat").stream();
+    return parseFile("basic.dat").stream()
+        .filter(test -> !hasIntentionalEmptyCaptureDifference(test));
+  }
+
+  static Stream<Arguments> basicEmptyCapturePolicyTests() throws IOException {
+    return parseFile("basic.dat").stream()
+        .filter(RE2PosixTest::hasIntentionalEmptyCaptureDifference);
+  }
+
+  private static boolean hasIntentionalEmptyCaptureDifference(Arguments test) {
+    // This imported fixture exercises the documented direct captured-assertion divergence.
+    return ((PosixTestCase) test.get()[0]).pattern().equals("(^)*");
   }
 
   static Stream<Arguments> nullsubexprTests() throws IOException {
@@ -285,6 +296,13 @@ class RE2PosixTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("basicTests")
   void testBasic(PosixTestCase tc) {
+    runTest(tc);
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("basicEmptyCapturePolicyTests")
+  @DisabledForCrosscheck("completed empty assertion captures follow SafeRE's repetition policy")
+  void testBasicEmptyCapturePolicy(PosixTestCase tc) {
     runTest(tc);
   }
 
