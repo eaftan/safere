@@ -3,7 +3,13 @@
 This investigation addresses [#1119](https://github.com/eaftan/safere/issues/1119):
 whether String region use changes the performance of subsequent ordinary `find()`
 operations in the same JVM. It is an investigative benchmark, excluded from the
-regular corpus, collection plan, and recurring reports. It implements no runtime fix.
+regular corpus, collection plan, and recurring reports.
+
+This draft branch also contains a diagnostic DFA specialization: ordinary String
+input enters a separate forward-search method from regions and UTF-8 input. It
+preserves a successful experiment in isolating JIT receiver profiles. The method
+duplicates roughly 500 lines of search logic and is a demonstrator, not a proposed
+production design. The PR description records its measured benefits and limits.
 
 Run the paired experiment from the repository root, choosing an output directory
 that does not exist:
@@ -44,5 +50,9 @@ unprofiled comparisons.
 
 [Historical results](results/README.md) preserve the initial comparison of the
 original #1095 base and its repaired head. These are a dated investigation snapshot,
-not results expected in regular benchmark reports. A separate runtime optimization
-remains warranted for evaluation; the root cause has not been fully established.
+not results expected in regular benchmark reports. They predate the specialization
+on this branch. Later disassembly confirmed that region use changes C2 compilation
+of the shared DFA method, including its code size and loop register allocation.
+Isolating the full String search recovers much of the original slowdown; smaller
+refactorings did not preserve that gain. The contribution of individual machine
+instructions remains unresolved, and some input histories still slow down.

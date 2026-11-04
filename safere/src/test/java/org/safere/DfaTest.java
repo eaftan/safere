@@ -32,6 +32,57 @@ class DfaTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void cachedSearchResultsAreIndependentOfStringStorageOffsetsAndEncoding() {
+    for (String regex :
+        List.of(
+            "a*",
+            "q[a-z]+k\\s+b",
+            "[a-z]*q[a-z]+k\\s+b",
+            "q[a-z]+k\\s+b\\b",
+            "q[a-z]+k\\s+b(?m:$)")) {
+      Prog prog = Pattern.compile(regex).prog();
+      Dfa.Setup setup = Dfa.buildSetup(prog);
+      for (boolean longest : new boolean[] {false, true}) {
+        Dfa cached = new Dfa(prog, 10000, setup, longest);
+        for (String input :
+            List.of(
+                "",
+                "aa qabck b",
+                "qabck b\r\n",
+                "é qabck b",
+                "😀qabck b",
+                "\uDC00qabck b",
+                "qabck b\uD800",
+                "qabck b\u2028")) {
+          int length = input.length();
+          List<InputScanner> views =
+              List.of(
+                  new StringInputScanner(input),
+                  new StringRegionInputScanner("!" + input + "!", 1, 1 + length),
+                  new StringRegionInputScanner("\uD800" + input + "\uDC00", 1, 1 + length),
+                  new StringRegionInputScanner("😀!" + input + "!😀", 2, 4 + length)
+                      .subSequence(1, 1 + length));
+          for (int start = 0; start <= length; start++) {
+            for (boolean anchored : new boolean[] {false, true}) {
+              Dfa fresh = new Dfa(prog, 10000, setup, longest);
+              Dfa.SearchResult expected =
+                  fresh.doSearch(new StringInputScanner(input), start, anchored, longest);
+              assertThat(expected).as("/%s/, start=%s", regex, start).isNotNull();
+              for (InputScanner view : views) {
+                assertThat(cached.doSearch(view, start, anchored, longest))
+                    .as(
+                        "/%s/, start=%s, anchored=%s, longest=%s, view=%s",
+                        regex, start, anchored, longest, view.getClass().getSimpleName())
+                    .isEqualTo(expected);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void unpairedSurrogateWordTransitionsRemainCacheableInEveryScanDirection() {
     Pattern pattern = Pattern.compile("(?U)\\b");
     for (String unit : List.of("\uD800", "\uDC00")) {
