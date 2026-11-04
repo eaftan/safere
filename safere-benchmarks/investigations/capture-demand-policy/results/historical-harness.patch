@@ -1,0 +1,3245 @@
+diff --git a/run-java-benchmarks.sh b/run-java-benchmarks.sh
+index ca0e7865..073bd5d1 100755
+--- a/run-java-benchmarks.sh
++++ b/run-java-benchmarks.sh
+@@ -41,6 +41,7 @@
+ # Workloads that declare the noFork constraint run through the generic
+ # CrossEngineNoForkBenchmark entry point with -f 0.
+ #
++# CapturePolicySharedBenchmark requires explicit trials and a thread count.
+ # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
+ # explicitly when working on safere-crosscheck performance.
+ #
+@@ -56,7 +57,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
+ BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
+ RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
+-DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
++DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CapturePolicySharedBenchmark|CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
+ 
+ # Empirically selected Java benchmark settings. See
+ # safere-benchmarks/CONFIGURATION_EVALUATION.md.
+diff --git a/safere-benchmarks/benchmark-data.json b/safere-benchmarks/benchmark-data.json
+index 0cf21894..b1557be7 100644
+--- a/safere-benchmarks/benchmark-data.json
++++ b/safere-benchmarks/benchmark-data.json
+@@ -4552,6 +4552,286 @@
+         "unit": "\u00e9",
+         "length": "{size}"
+       }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pr\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary proseCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinarCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordin\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinaryCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordina\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinar\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通のCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
+     }
+   ],
+   "workloads": [
+@@ -20130,6 +20410,2406 @@
+           "reason": "This control uses Java Unicode word-boundary flag semantics"
+         }
+       ]
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -533340672
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -533340672
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.offset1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 30720
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.offset1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 30720
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text4.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1207075840
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text4.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1207075840
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.phase1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -355559936
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.phase1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -355559936
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.boolean1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1536
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.boolean1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1536
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1375511072
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1375511072
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.offset1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1920
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.offset1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1920
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text4.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -343877696
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text4.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 1,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -343877696
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.phase1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 514648416
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.phase1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 514648416
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.boolean1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 96
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.boolean1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 1,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 96
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 397837312
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 397837312
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.offset1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 10752
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.offset1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 10752
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text4.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -2048023168
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text4.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -2048023168
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.phase1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1696881152
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.phase1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1696881152
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.boolean1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1536
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.boolean1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 1536
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1585747904
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": -1585747904
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.offset1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 672
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.offset1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "offset",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 672
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text4.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 677304920
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text4.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "text",
++        "group": 2,
++        "count": 4,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 677304920
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.phase1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 374490528
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.phase1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "phase",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 374490528
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.boolean1.newPerInvocation",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 96
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.boolean1.retained",
++      "operation": "findUsage",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "integer",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "boolean",
++        "group": 2,
++        "count": 1,
++        "limit": 32
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "integer",
++        "value": 96
++      }
+     }
+   ]
+ }
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkOperation.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkOperation.java
+index a6406baf..3897437b 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkOperation.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkOperation.java
+@@ -35,6 +35,7 @@ enum BenchmarkOperation {
+   MATCHER_REGION_FIND(EngineCapability.FIND, EngineCapability.REGIONS),
+   MATCHER_REGION_MATCHES(EngineCapability.MATCHES, EngineCapability.REGIONS),
+   MATCHER_REGION_TOKENIZE(EngineCapability.LOOKING_AT, EngineCapability.REGIONS),
++  FIND_USAGE(EngineCapability.FIND, EngineCapability.GROUP_TEXT, EngineCapability.MATCHER_RESET),
+   FIND_SAMPLED_GROUP(
+       EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION, EngineCapability.MATCHER_RESET),
+   FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION),
+@@ -74,6 +75,7 @@ enum BenchmarkOperation {
+       case MATCHER_REGION_FIND -> MATCHER_REGION_FIND;
+       case MATCHER_REGION_MATCHES -> MATCHER_REGION_MATCHES;
+       case MATCHER_REGION_TOKENIZE -> MATCHER_REGION_TOKENIZE;
++      case FIND_USAGE -> FIND_USAGE;
+       case FIND_SAMPLED_GROUP -> FIND_SAMPLED_GROUP;
+       case FIND_GROUP_PRESENT -> FIND_GROUP_PRESENT;
+       case FIND_GROUP -> FIND_GROUP;
+@@ -204,6 +206,7 @@ enum BenchmarkOperation {
+                     retainedMatcher != null ? retainedMatcher : pattern.matcher(input),
+                     input.nativeLength()));
+       }
++      case FIND_USAGE -> usageTask(pattern, inputs, groups[0], lifecycle, limit, count, mode);
+       case FIND_SAMPLED_GROUP -> {
+         boolean capture = mode.equals("capture");
+         primeCaptureDemand(pattern, inputs, groups[0], capture);
+@@ -307,6 +310,15 @@ enum BenchmarkOperation {
+         yield matcher.matches();
+       }
+       case MATCHER_REGION_TOKENIZE -> tokenize(pattern.matcher(input), input.nativeLength());
++      case FIND_USAGE ->
++          usageSum(
++              pattern,
++              inputs,
++              retainedUsageMatchers(pattern, inputs, lifecycle),
++              groups[0],
++              limit,
++              count,
++              mode);
+       case FIND_SAMPLED_GROUP -> {
+         primeCaptureDemand(pattern, inputs, groups[0], mode.equals("capture"));
+         yield findSampledGroup(pattern.matcher(input), groups[0], mode.equals("capture"));
+@@ -475,6 +487,67 @@ enum BenchmarkOperation {
+     return sum;
+   }
+ 
++  // Input frequency controls match rate; count independently controls capture reads per hit.
++  // Each invocation completes a bounded cycle so phases cannot depend on JMH iteration timing.
++  private static BenchmarkTask usageTask(
++      RegexEngineVariant.CompiledRegex pattern,
++      List<RegexEngineVariant.RegexInput> inputs,
++      int group,
++      DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
++      int rounds,
++      int count,
++      String mode) {
++    List<RegexEngineVariant.MatchCursor> retained =
++        retainedUsageMatchers(pattern, inputs, lifecycle);
++    return blackhole ->
++        blackhole.consume(usageSum(pattern, inputs, retained, group, rounds, count, mode));
++  }
++
++  private static List<RegexEngineVariant.MatchCursor> retainedUsageMatchers(
++      RegexEngineVariant.CompiledRegex pattern,
++      List<RegexEngineVariant.RegexInput> inputs,
++      DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle) {
++    return lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
++        ? inputs.stream().map(pattern::matcher).toList()
++        : null;
++  }
++
++  private static int usageSum(
++      RegexEngineVariant.CompiledRegex pattern,
++      List<RegexEngineVariant.RegexInput> inputs,
++      List<RegexEngineVariant.MatchCursor> retained,
++      int group,
++      int rounds,
++      int count,
++      String mode) {
++    int sum = 0;
++    int hits = 0;
++    for (int phase = 0; phase < 3; phase++) {
++      for (int round = 0; round < rounds; round++) {
++        for (int i = 0; i < inputs.size(); i++) {
++          RegexEngineVariant.MatchCursor matcher =
++              retained == null ? pattern.matcher(inputs.get(i)) : retained.get(i);
++          if (retained != null) {
++            matcher.reset();
++          }
++          while (matcher.find()) {
++            sum++;
++            boolean read = hits++ % count == 0 && !mode.equals("boolean");
++            if (read && !(mode.equals("phase") && phase == 1)) {
++              if (mode.equals("offset")) {
++                sum += matcher.end(group) - matcher.start(group);
++              } else {
++                String text = matcher.group(group);
++                sum += text == null ? 0 : text.hashCode();
++              }
++            }
++          }
++        }
++      }
++    }
++    return sum;
++  }
++
+   private static void primeCaptureDemand(
+       RegexEngineVariant.CompiledRegex pattern,
+       List<RegexEngineVariant.RegexInput> inputs,
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java b/safere-benchmarks/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java
+new file mode 100644
+index 00000000..1a084156
+--- /dev/null
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java
+@@ -0,0 +1,87 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.util.List;
++import java.util.concurrent.TimeUnit;
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++import org.openjdk.jmh.annotations.OutputTimeUnit;
++import org.openjdk.jmh.annotations.Param;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++import org.openjdk.jmh.annotations.TearDown;
++import org.openjdk.jmh.infra.Blackhole;
++import org.openjdk.jmh.infra.ThreadParams;
++
++/** Concurrent readers and boolean consumers sharing one compiled pattern. */
++@BenchmarkMode(Mode.AverageTime)
++@OutputTimeUnit(TimeUnit.NANOSECONDS)
++@State(Scope.Benchmark)
++public class CapturePolicySharedBenchmark {
++  /** Declarative findUsage trial; run with an even number of JMH threads. */
++  @Param({})
++  public String crossEngineTrial;
++
++  private RegexEngineVariant.CompiledRegex pattern;
++  private ThreadLocal<Tasks> tasks;
++
++  /** Shares the pattern while keeping mutable cursors private to each executing thread. */
++  @Setup
++  public void setup() {
++    CrossEngineBenchmarkPlan.Trial trial =
++        CrossEngineBenchmarkPlan.load().resolve(crossEngineTrial);
++    CrossEngineWorkload workload = trial.workload();
++    if (workload.operation() != BenchmarkOperation.FIND_USAGE) {
++      throw new IllegalArgumentException("Shared policy trials require findUsage");
++    }
++    pattern = trial.variant().compile(workload.patterns().getFirst());
++    List<RegexEngineVariant.RegexInput> inputs =
++        trial.variant().prepareInputs(BenchmarkData.get(), workload.inputKeys());
++    tasks =
++        ThreadLocal.withInitial(
++            () -> new Tasks(bind(trial, inputs, workload.mode()), bind(trial, inputs, "boolean")));
++  }
++
++  private BenchmarkOperation.BenchmarkTask bind(
++      CrossEngineBenchmarkPlan.Trial trial,
++      List<RegexEngineVariant.RegexInput> inputs,
++      String mode) {
++    CrossEngineWorkload w = trial.workload();
++    return w.operation()
++        .bind(
++            trial.variant(),
++            w.patterns(),
++            List.of(pattern),
++            inputs,
++            w.groups(),
++            null,
++            w.limit(),
++            w.lifecycle(),
++            w.flagSet(),
++            w.seed(),
++            w.count(),
++            mode);
++  }
++
++  /** Alternates thread roles so boolean consumers cannot overwrite other matchers' history. */
++  @Benchmark
++  public void run(Blackhole blackhole, ThreadParams thread) {
++    Tasks local = tasks.get();
++    ((thread.getThreadIndex() & 1) == 0 ? local.reader() : local.booleanConsumer()).run(blackhole);
++  }
++
++  /** Releases the shared compiled pattern after all worker threads finish. */
++  @TearDown
++  public void tearDown() {
++    pattern.close();
++  }
++
++  private record Tasks(
++      BenchmarkOperation.BenchmarkTask reader, BenchmarkOperation.BenchmarkTask booleanConsumer) {}
++}
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/CrossEngineBenchmarkPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/CrossEngineBenchmarkPlan.java
+index 076371f4..99215300 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/CrossEngineBenchmarkPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/CrossEngineBenchmarkPlan.java
+@@ -43,6 +43,7 @@ final class CrossEngineBenchmarkPlan {
+           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
+           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_MATCHES,
+           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_TOKENIZE,
++          DeclarativeBenchmarkPlan.Operation.FIND_USAGE,
+           DeclarativeBenchmarkPlan.Operation.FIND_SAMPLED_GROUP,
+           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
+           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/DeclarativeBenchmarkPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/DeclarativeBenchmarkPlan.java
+index cb05690b..9b31f894 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/DeclarativeBenchmarkPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/DeclarativeBenchmarkPlan.java
+@@ -1599,6 +1599,7 @@ final class DeclarativeBenchmarkPlan {
+     MATCHES_CORPUS("matchesCorpus", false, true, Feature.MATCHES),
+     MATCHES_GROUP_LENGTH_SUM(
+         "matchesGroupLengthSum", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
++    FIND_USAGE("findUsage", true, true, Feature.FIND, Feature.CAPTURE_TEXT, Feature.MATCHER_STATE),
+     FIND_SAMPLED_GROUP(
+         "findSampledGroup",
+         true,
+@@ -1761,7 +1762,8 @@ final class DeclarativeBenchmarkPlan {
+         case PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
+             consumption == ResultConsumption.BOOLEAN
+                 || consumption == ResultConsumption.BLACKHOLE_OBJECT;
+-        case FIND_ALL_COUNT,
++        case FIND_USAGE,
++            FIND_ALL_COUNT,
+             FIND_ALL_LENGTH_SUM,
+             FIND_ALL_GROUP_LENGTH_SUM,
+             MATCHES_CORPUS,
+@@ -1796,6 +1798,16 @@ final class DeclarativeBenchmarkPlan {
+                 "groups", RecipeValueType.INTEGER_LIST,
+                 "bounds", RecipeValueType.STRING,
+                 "expectedBounds", RecipeValueType.INTEGER_LIST);
++        case FIND_USAGE ->
++            Map.of(
++                "group",
++                RecipeValueType.INTEGER,
++                "count",
++                RecipeValueType.INTEGER,
++                "mode",
++                RecipeValueType.STRING,
++                "limit",
++                RecipeValueType.INTEGER);
+         case FIND_SAMPLED_GROUP ->
+             Map.of(
+                 "group",
+@@ -1837,6 +1849,7 @@ final class DeclarativeBenchmarkPlan {
+         case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
+             Set.of("groups");
+         case UTF8_CAPTURE_BOUNDS -> Set.of("groups", "expectedBounds");
++        case FIND_USAGE -> Set.of("group", "count", "mode", "limit");
+         case FIND_SAMPLED_GROUP -> Set.of("group", "count", "mode");
+         case FIND_GROUP_PRESENT, FIND_GROUP -> Set.of("group");
+         case REPLACE_FIRST,
+@@ -1853,6 +1866,15 @@ final class DeclarativeBenchmarkPlan {
+     }
+ 
+     void validateArguments(String id, Map<String, RecipeValue> arguments) {
++      if (this == FIND_USAGE) {
++        String mode = ((RecipeString) arguments.get("mode")).value();
++        if (((RecipeInteger) arguments.get("limit")).value() <= 0) {
++          throw new IllegalArgumentException(id + " phase length must be positive");
++        }
++        if (!Set.of("text", "offset", "phase", "boolean").contains(mode)) {
++          throw new IllegalArgumentException(id + " invalid capture usage mode");
++        }
++      }
+       if (this == FIND_SAMPLED_GROUP) {
+         String mode = ((RecipeString) arguments.get("mode")).value();
+         if (!mode.equals("boolean") && !mode.equals("capture")) {
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/RegexEngineVariant.java b/safere-benchmarks/src/main/java/org/safere/benchmark/RegexEngineVariant.java
+index 26ccb284..9452386d 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/RegexEngineVariant.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/RegexEngineVariant.java
+@@ -118,6 +118,7 @@ enum RegexEngineVariant {
+           EngineCapability.MATCHES,
+           EngineCapability.LOOKING_AT,
+           EngineCapability.GROUP_PARTICIPATION,
++          EngineCapability.GROUP_TEXT,
+           EngineCapability.REPLACE,
+           EngineCapability.APPEND_REPLACEMENT,
+           EngineCapability.MATCHER_RESET,
+@@ -155,6 +156,17 @@ enum RegexEngineVariant {
+               return matcher.lookingAt();
+             }
+ 
++            @Override
++            public String group(int group) {
++              int start = matcher.start(group);
++              int end = matcher.end(group);
++              if (start < 0) {
++                return null;
++              }
++              byte[] bytes = ((Utf8RegexInput) input).bytes;
++              return new String(bytes, start, end - start, StandardCharsets.UTF_8);
++            }
++
+             @Override
+             public int start(int group) {
+               return matcher.start(group);
+@@ -597,7 +609,7 @@ enum RegexEngineVariant {
+     List<RegexInput> inputs = new ArrayList<>(inputKeys.size());
+     for (String inputKey : inputKeys) {
+       if (inputRepresentation == InputRepresentation.PREEXISTING_UTF8) {
+-        inputs.add(new Utf8RegexInput(org.safere.Utf8Input.trusted(data.getInputBytes(inputKey))));
++        inputs.add(utf8Input(data.getInputBytes(inputKey)));
+       } else {
+         inputs.add(new StringRegexInput(data.getInputString(inputKey)));
+       }
+@@ -710,7 +722,23 @@ enum RegexEngineVariant {
+ 
+   record StringRegexInput(String value) implements RegexInput {}
+ 
+-  record Utf8RegexInput(org.safere.Utf8Input value) implements RegexInput {}
++  static RegexInput utf8Input(byte[] bytes) {
++    return new Utf8RegexInput(bytes);
++  }
++
++  private static final class Utf8RegexInput implements RegexInput {
++    private final byte[] bytes;
++    private final org.safere.Utf8Input value;
++
++    private Utf8RegexInput(byte[] bytes) {
++      this.bytes = bytes;
++      this.value = org.safere.Utf8Input.trusted(bytes);
++    }
++
++    private org.safere.Utf8Input value() {
++      return value;
++    }
++  }
+ 
+   sealed interface PreparedReplacement permits StringReplacement, Utf8Replacement {}
+ 
+diff --git a/safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkOperationTest.java b/safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkOperationTest.java
+index a9c03c06..39f41f27 100644
+--- a/safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkOperationTest.java
++++ b/safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkOperationTest.java
+@@ -15,6 +15,106 @@ import org.junit.jupiter.params.provider.EnumSource;
+ import org.openjdk.jmh.infra.Blackhole;
+ 
+ class BenchmarkOperationTest {
++  @ParameterizedTest
++  @CsvSource({"RETAINED, 2, 12", "NEW_PER_INVOCATION, 12, 0"})
++  void usageValidationHonorsMatcherLifetime(
++      DeclarativeBenchmarkPlan.MatcherReuse reuse, int expectedCreations, int expectedResets) {
++    int[] creations = {0};
++    int[] resets = {0};
++    int[] reads = {0};
++    RegexEngineVariant.RegexInput hit = new RegexEngineVariant.StringRegexInput("hit");
++    RegexEngineVariant.RegexInput miss = new RegexEngineVariant.StringRegexInput("miss");
++    RegexEngineVariant.CompiledRegex pattern =
++        new RegexEngineVariant.CompiledRegex() {
++          @Override
++          public RegexEngineVariant.MatchCursor matcher(RegexEngineVariant.RegexInput input) {
++            creations[0]++;
++            return new RegexEngineVariant.MatchCursor() {
++              private boolean exhausted;
++
++              @Override
++              public boolean find() {
++                if (exhausted) {
++                  return false;
++                }
++                exhausted = true;
++                return input.equals(hit);
++              }
++
++              @Override
++              public String group(int group) {
++                assertThat(group).isEqualTo(1);
++                reads[0]++;
++                return "payload";
++              }
++
++              @Override
++              public void reset() {
++                resets[0]++;
++                exhausted = false;
++              }
++            };
++          }
++        };
++    BenchmarkOperation.FIND_USAGE.execute(
++        RegexEngineVariant.SAFERE_STRING,
++        List.of("(hit)"),
++        List.of(pattern),
++        List.of(hit, miss),
++        new int[] {1},
++        null,
++        2,
++        new DeclarativeBenchmarkPlan.MatcherLifecycle(reuse, List.of()),
++        null,
++        0,
++        1,
++        "phase");
++    assertThat(creations[0]).isEqualTo(expectedCreations);
++    assertThat(resets[0]).isEqualTo(expectedResets);
++    assertThat(reads[0]).isEqualTo(4);
++  }
++
++  @ParameterizedTest
++  @CsvSource({"text, 1, 1404", "text, 4, 472", "phase, 1, 938", "boolean, 1, 6", "offset, 1, 12"})
++  void usageSeparatesReadFrequencyFromInputMatchRate(String mode, int count, int expected) {
++    byte[] bytes = "é é".getBytes(java.nio.charset.StandardCharsets.UTF_8);
++    for (RegexEngineVariant variant :
++        List.of(
++            RegexEngineVariant.SAFERE_STRING,
++            RegexEngineVariant.SAFERE_UTF8,
++            RegexEngineVariant.JDK_STRING)) {
++      RegexEngineVariant.RegexInput hit =
++          variant == RegexEngineVariant.SAFERE_UTF8
++              ? RegexEngineVariant.utf8Input(bytes)
++              : new RegexEngineVariant.StringRegexInput("é é");
++      byte[] missBytes = "x".getBytes(java.nio.charset.StandardCharsets.UTF_8);
++      RegexEngineVariant.RegexInput miss =
++          variant == RegexEngineVariant.SAFERE_UTF8
++              ? RegexEngineVariant.utf8Input(missBytes)
++              : new RegexEngineVariant.StringRegexInput("x");
++      try (RegexEngineVariant.CompiledRegex pattern = variant.compile("(é)")) {
++        Object actual =
++            BenchmarkOperation.FIND_USAGE.execute(
++                variant,
++                List.of("(é)"),
++                List.of(pattern),
++                List.of(hit, miss),
++                new int[] {1},
++                null,
++                1,
++                new DeclarativeBenchmarkPlan.MatcherLifecycle(
++                    DeclarativeBenchmarkPlan.MatcherReuse.NEW_PER_INVOCATION, List.of()),
++                null,
++                0,
++                count,
++                mode);
++        int nativeExpected =
++            mode.equals("offset") && variant == RegexEngineVariant.SAFERE_UTF8 ? 18 : expected;
++        assertThat(actual).as("%s %s", variant, mode).isEqualTo(nativeExpected);
++      }
++    }
++  }
++
+   @ParameterizedTest
+   @EnumSource(
+       value = RegexEngineVariant.class,
+@@ -22,9 +122,8 @@ class BenchmarkOperationTest {
+   void tokenizerAdvancesInNativeCoordinatesAndCanReuseItsMatcher(RegexEngineVariant variant) {
+     RegexEngineVariant.RegexInput input =
+         variant == RegexEngineVariant.SAFERE_UTF8
+-            ? new RegexEngineVariant.Utf8RegexInput(
+-                org.safere.Utf8Input.validated(
+-                    "é 12 é ".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
++            ? RegexEngineVariant.utf8Input(
++                "é 12 é ".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+             : new RegexEngineVariant.StringRegexInput("é 12 é ");
+     try (RegexEngineVariant.CompiledRegex pattern = variant.compile("[^ ]+| +")) {
+       BenchmarkOperation operation = BenchmarkOperation.MATCHER_REGION_TOKENIZE;
+diff --git a/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java b/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
+index 13c9938b..0a301d91 100644
+--- a/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
++++ b/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
+@@ -273,7 +273,7 @@ class CrossEngineBenchmarkPlanTest {
+   }
+ 
+   @Test
+-  void utf8ParticipatesInEveryOperationSupportedByItsNativeApi() {
++  void utf8AdapterSupportsNativeOperationsAndExplicitCaptureDecoding() {
+     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+     List<CrossEngineBenchmarkPlan.Trial> utf8Trials =
+         List.of(
+@@ -299,11 +299,11 @@ class CrossEngineBenchmarkPlanTest {
+             BenchmarkOperation.REPLACE_FIRST,
+             BenchmarkOperation.REPLACE_ALL,
+             BenchmarkOperation.REPLACE_ALL_LENGTH_SUM,
+-            BenchmarkOperation.MANUAL_REPLACE_ALL)
+-        .doesNotContain(
++            BenchmarkOperation.MANUAL_REPLACE_ALL,
+             BenchmarkOperation.CAPTURE_GROUPS,
+             BenchmarkOperation.FIND_GROUP,
+-            BenchmarkOperation.SPLIT_LENGTH_SUM);
++            BenchmarkOperation.FIND_USAGE)
++        .doesNotContain(BenchmarkOperation.SPLIT_LENGTH_SUM);
+   }
+ 
+   @Test
+@@ -332,10 +332,10 @@ class CrossEngineBenchmarkPlanTest {
+     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+ 
+     assertThat(plan.resolve("RegexBenchmark.literalMatch@safere-utf8")).isNotNull();
+-    assertThatThrownBy(() -> plan.resolve("HttpBenchmark.httpExtract@safere-utf8"))
++    assertThatThrownBy(() -> plan.resolve("Issue481ScalingBenchmark.splitWords.128@safere-utf8"))
+         .isInstanceOf(IllegalArgumentException.class)
+         .hasMessageContaining("Unsupported cross-engine combination")
+-        .hasMessageContaining("captureText");
++        .hasMessageContaining("split");
+     assertThatThrownBy(() -> plan.resolve("missing.workload@safere-string"))
+         .isInstanceOf(IllegalArgumentException.class)
+         .hasMessage("Unknown cross-engine workload ID: missing.workload");
+@@ -613,8 +613,7 @@ class CrossEngineBenchmarkPlanTest {
+   void utf8ReplacementAdapterExpandsLiteralNumberedAndNamedTemplates() {
+     RegexEngineVariant variant = RegexEngineVariant.SAFERE_UTF8;
+     RegexEngineVariant.RegexInput input =
+-        new RegexEngineVariant.Utf8RegexInput(
+-            org.safere.Utf8Input.trusted("alpha=one&beta=two".getBytes(StandardCharsets.UTF_8)));
++        RegexEngineVariant.utf8Input("alpha=one&beta=two".getBytes(StandardCharsets.UTF_8));
+ 
+     try (RegexEngineVariant.CompiledRegex literal = variant.compile("&");
+         RegexEngineVariant.CompiledRegex numbered = variant.compile("([a-z]+)=([a-z]+)");
+@@ -1037,6 +1036,7 @@ class CrossEngineBenchmarkPlanTest {
+                   .map(path -> path.getFileName().toString())
+                   .sorted())
+           .containsExactly(
++              "CapturePolicySharedBenchmark.java",
+               "CrossEngineBenchmark.java",
+               "CrossEngineColdStartBenchmark.java",
+               "CrossEngineNoForkBenchmark.java",

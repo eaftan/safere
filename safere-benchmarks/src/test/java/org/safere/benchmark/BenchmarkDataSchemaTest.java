@@ -33,6 +33,21 @@ class BenchmarkDataSchemaTest {
   }
 
   @Test
+  void investigationOwnsItsProtocolConfiguration() {
+    JsonObject root =
+        JsonParser.parseString(
+                """
+                {"schemaVersion":2,"inputs":[],"workloads":[],
+                 "configuration":{"investigation":{"rounds":32,"usages":{"text":{"readEvery":1}}}}}
+                """)
+            .getAsJsonObject();
+    BenchmarkDataSchema.validate(root);
+    root.getAsJsonObject("configuration").addProperty("investigation", "invalid");
+    assertThatThrownBy(() -> BenchmarkDataSchema.validate(root))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void rejectsUnknownTopLevelFields() {
     JsonObject root =
         JsonParser.parseString(

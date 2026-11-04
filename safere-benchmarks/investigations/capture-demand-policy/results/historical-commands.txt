@@ -1,0 +1,67 @@
+#!/bin/bash
+set -euo pipefail
+cd /home/eaftan/safere-issue-1075
+trap 'python3 /tmp/safere-1075/policy.py baseline' EXIT
+for policy in baseline dfa1073 local4 hybrid4 hybrid16 localSticky; do
+  python3 /tmp/safere-1075/policy.py "$policy"
+  date -u '+%FT%TZ'
+  echo "Starting corrected $policy"
+  ./run-java-benchmarks.sh --fastbuild CrossEngineBenchmark.run -- \
+    -p "crossEngineTrial=$(cat "/tmp/safere-1075/$policy-trials.txt")" \
+    -foe true -rf json -rff "/tmp/safere-1075/$policy.json" \
+    > "/tmp/safere-1075/$policy.log" 2>&1
+  python3 - "$policy" <<'PY'
+import json,sys
+from pathlib import Path
+p=sys.argv[1];rows=json.loads(Path('/tmp/safere-1075/'+p+'.json').read_text())
+expected=Path('/tmp/safere-1075/'+p+'-trials.txt').read_text().split(',')
+assert {r['params']['crossEngineTrial'] for r in rows}==set(expected)
+assert len(rows)==len(expected)
+print('Completed corrected',p,len(rows),'rows',flush=True)
+PY
+  ./run-java-benchmarks.sh --fastbuild CapturePolicySharedBenchmark.run -- \
+    -p 'crossEngineTrial=CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string,CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8,CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string,CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8' \
+    -t 4 -foe true -rf json -rff "/tmp/safere-1075/$policy-shared.json" \
+    > "/tmp/safere-1075/$policy-shared.log" 2>&1
+  echo "Completed corrected $policy shared-pattern measurements"
+done
+
+#!/bin/bash
+set -euo pipefail
+cd /home/eaftan/safere-issue-1075
+trap 'python3 /tmp/safere-1075/policy.py baseline' EXIT
+for policy in baseline dfa1073 local4; do
+  python3 /tmp/safere-1075/policy.py "$policy"
+  echo "Confirming $policy"
+  ./run-java-benchmarks.sh --long --fastbuild CrossEngineBenchmark.run -- \
+    -p "crossEngineTrial=$(cat /tmp/safere-1075/confirmation-trials.txt)" \
+    -foe true -rf json -rff "/tmp/safere-1075/$policy-long.json" \
+    > "/tmp/safere-1075/$policy-long.log" 2>&1
+  java -cp safere-benchmarks/target/benchmarks.jar:/tmp/safere-1075/probe-classes \
+    Probe /tmp/safere-1075/scheme-pattern.txt /tmp/safere-1075/scheme-input.txt \
+    > "/tmp/safere-1075/$policy-state-probe.log"
+  if [ "$policy" = baseline ] || [ "$policy" = dfa1073 ]; then
+    java -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints \
+      "-XX:StartFlightRecording=settings=profile,duration=30s,filename=/tmp/safere-1075/$policy-reject.jfr" \
+      -Dsafere.benchmark.corpus=safere-benchmarks/target/benchmark-corpus \
+      -jar safere-benchmarks/target/benchmarks.jar CrossEngineBenchmark.run \
+      -p crossEngineTrial=CapturePolicyBenchmark.scheme.ascii.128.rare.text1.retained@safere-string \
+      -f 0 -wi 1 -i 3 -w 1s -r 10s -foe true \
+      > "/tmp/safere-1075/$policy-reject-profile.log" 2>&1
+  fi
+  if [ "$policy" = baseline ] || [ "$policy" = local4 ]; then
+    java -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints \
+      "-XX:StartFlightRecording=settings=profile,duration=30s,filename=/tmp/safere-1075/$policy-extract.jfr" \
+      -Dsafere.benchmark.corpus=safere-benchmarks/target/benchmark-corpus \
+      -jar safere-benchmarks/target/benchmarks.jar CrossEngineBenchmark.run \
+      -p crossEngineTrial=CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string \
+      -f 0 -wi 1 -i 3 -w 1s -r 10s -foe true \
+      > "/tmp/safere-1075/$policy-extract-profile.log" 2>&1
+  fi
+  ./run-java-benchmarks.sh --fastbuild CrossEngineScalingBenchmark.run -- \
+    -p 'crossEngineScalingTrial=Issue481ScalingBenchmark.schemeExtract.128@safere-string,Issue481ScalingBenchmark.schemeExtract.128@safere-utf8' \
+    -foe true -rf json -rff "/tmp/safere-1075/$policy-document.json" \
+    > "/tmp/safere-1075/$policy-document.log" 2>&1
+  echo "Confirmed $policy"
+done
+echo "Completed long confirmations"

@@ -1,0 +1,101 @@
+--- a/safere/src/main/java/org/safere/Matcher.java
++++ b/safere/src/main/java/org/safere/Matcher.java
+@@ -523,6 +523,8 @@
+ 
+   @SuppressWarnings("ReferenceEquality")
+   private boolean applyFullMatchResult(int[] resultGroups) {
++    experimentalResultRead = false;
++    experimentalResultRetired = false;
+     findExhaustedAfterTerminalEmptyMatch = false;
+     hasMatch = resultGroups != null;
+     if (hasMatch && resultGroups != this.groups) {
+@@ -534,6 +536,8 @@
+   }
+ 
+   private boolean applyGroupZeroMatchResult(int start, int end) {
++    experimentalResultRead = false;
++    experimentalResultRetired = false;
+     findExhaustedAfterTerminalEmptyMatch = false;
+     groups[0] = start;
+     groups[1] = end;
+@@ -552,6 +556,8 @@
+ 
+   private boolean applyDeferredMatchResult(
+       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
++    experimentalResultRead = false;
++    experimentalResultRetired = false;
+     findExhaustedAfterTerminalEmptyMatch = false;
+     Arrays.fill(groups, -1);
+     groups[0] = start;
+@@ -567,6 +573,7 @@
+   }
+ 
+   private void clearCurrentResult() {
++    retireExperimentalCaptureResult();
+     findExhaustedAfterTerminalEmptyMatch = false;
+     hasMatch = false;
+     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
+@@ -693,12 +700,29 @@
+     return parentPattern.enginePathOptions();
+   }
+ 
++  private int experimentalCaptureLease = 0;
++  private boolean experimentalResultRead;
++  private boolean experimentalResultRetired;
++
++  private void retireExperimentalCaptureResult() {
++    if (!experimentalResultRetired && hasMatch && !experimentalResultRead
++        && experimentalCaptureLease > 0) {
++      experimentalCaptureLease--;
++    }
++    experimentalResultRetired = true;
++  }
++
+   private void recordInnerCaptureDemand() {
++    experimentalCaptureLease = 4;
++    experimentalResultRead = true;
+     parentPattern.recordInnerCaptureAccess();
+   }
+ 
+   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
+-    return parentPattern.innerCapturesObserved()
++    if (experimentalCaptureLease < 0) {
++      experimentalCaptureLease = parentPattern.innerCapturesObserved() ? 4 : 0;
++    }
++    return experimentalCaptureLease > 0
+         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
+         && enginePathOptions().bitState()
+         && !fullTextRegionContext
+@@ -1135,6 +1159,7 @@
+   }
+ 
+   private boolean matchesImpl() {
++    retireExperimentalCaptureResult();
+     modCount++;
+     prepareAnchoredAttempt();
+ 
+@@ -1385,6 +1410,7 @@
+   }
+ 
+   private boolean lookingAtImpl() {
++    retireExperimentalCaptureResult();
+     modCount++;
+     prepareAnchoredAttempt();
+ 
+@@ -1507,6 +1533,7 @@
+   }
+ 
+   private boolean findImpl() {
++    retireExperimentalCaptureResult();
+     modCount++;
+     rememberPreviousMatchEnd();
+     if (findExhaustedAfterTerminalEmptyMatch) {
+@@ -4382,6 +4409,8 @@
+       this.groups = new int[2 * newPattern.prog().numCaptures()];
+       clearCurrentResult();
+     }
++    experimentalCaptureLease = 0;
++    experimentalResultRetired = true;
+     invalidatePatternCaches();
+     replacementNeedsCaptures = false;
+     if (preservedGroupZero) {
