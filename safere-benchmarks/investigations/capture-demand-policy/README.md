@@ -81,7 +81,7 @@ original shared sticky preference: DFA-first, local sticky history, a local leas
 and two Pattern-seeded local leases. No alternative is applied by the runner or
 adopted as production policy.
 
-[Historical results](results/README.md) preserve the completed comparisons using
+[Results and assessment](results/README.md) explain the completed comparisons using
 the original harness at `2c562a0a`. The no-aging ownership control also obtains the
 large rejection benefit; seeding history retains rejection costs. DFA-first trades
 large rejection gains for material successful-extraction costs, with different
