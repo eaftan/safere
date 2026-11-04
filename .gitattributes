@@ -14,6 +14,6 @@ safere-benchmarks/investigations/*/results/** -text
 safere-benchmarks/investigations/*/results/**/*.json -diff
 safere-benchmarks/investigations/*/results/**/*.log -diff
 # Preserve unified-diff context prefixes and original profiler output.
-safere-benchmarks/investigations/*/policies/*.patch whitespace=-blank-at-eol
+safere-benchmarks/investigations/*/policies/*.patch whitespace=-blank-at-eol,-blank-at-eof
 safere-benchmarks/investigations/*/results/**/*.patch whitespace=-blank-at-eol
 safere-benchmarks/investigations/*/results/**/profile-summary.txt whitespace=-blank-at-eof
