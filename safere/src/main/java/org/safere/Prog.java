@@ -92,6 +92,11 @@ final class Prog {
     return instArray[index];
   }
 
+  /** Returns the frozen instruction array. Callers must not modify it or its instructions. */
+  Inst[] frozenInstructions() {
+    return instArray;
+  }
+
   /**
    * Returns the instruction at the given index from the mutable instruction list. Used during
    * compilation before the program is frozen.
@@ -395,10 +400,13 @@ final class Prog {
   private static final class BitStateAnalysis {
     final boolean[] epsilonCycleAlts;
     final CaptureRune[] captureRunes;
+    final LoopEntry[] loopEntries;
 
-    BitStateAnalysis(boolean[] epsilonCycleAlts, CaptureRune[] captureRunes) {
+    BitStateAnalysis(
+        boolean[] epsilonCycleAlts, CaptureRune[] captureRunes, LoopEntry[] loopEntries) {
       this.epsilonCycleAlts = epsilonCycleAlts;
       this.captureRunes = captureRunes;
+      this.loopEntries = loopEntries;
     }
   }
 
@@ -420,12 +428,21 @@ final class Prog {
     return bitStateAnalysis().captureRunes;
   }
 
+  /** Returns shared entry/check fusion targets, or null when no pairs can be fused. */
+  LoopEntry[] loopEntries() {
+    return bitStateAnalysis().loopEntries;
+  }
+
   private BitStateAnalysis bitStateAnalysis() {
     BitStateAnalysis result = bitStateAnalysis;
     if (result == null) {
       boolean[] reachable = computeReachableInstructions();
+      CaptureRune[] captures = computeCaptureRunes(reachable);
       result =
-          new BitStateAnalysis(computeEpsilonCycleAlts(reachable), computeCaptureRunes(reachable));
+          new BitStateAnalysis(
+              computeEpsilonCycleAlts(reachable),
+              captures,
+              computeLoopEntries(reachable, captures));
       bitStateAnalysis = result;
     }
     return result;
@@ -466,6 +483,30 @@ final class Prog {
       }
     }
     return fused;
+  }
+
+  private LoopEntry[] computeLoopEntries(boolean[] reachable, CaptureRune[] captures) {
+    LoopEntry[] entries = null;
+    for (int i = 0; i < size(); i++) {
+      Inst entry = inst(i);
+      if (reachable[i] && entry.opCode == InstOp.OP_LOOP_ENTER) {
+        Inst check = inst(entry.out);
+        if (check.opCode == InstOp.OP_PROGRESS_CHECK && check.arg == entry.arg && check.out != 0) {
+          if (entries == null) {
+            entries = new LoopEntry[size()];
+          }
+          Inst body = inst(check.out);
+          // Retain the existing capture/consumer/capture fusion when it can do more work.
+          if (body.opCode == InstOp.OP_CAPTURE
+              && (captures == null || captures[check.out] == null)) {
+            entries[i] = new LoopEntry(body.out, body.arg);
+          } else {
+            entries[i] = new LoopEntry(check.out, -1);
+          }
+        }
+      }
+    }
+    return entries;
   }
 
   /**

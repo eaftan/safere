@@ -329,6 +329,7 @@ final class BitState {
   // -------------------------------------------------------------------------
 
   private final Prog prog;
+  private final Inst[] instructions;
   private InputScanner text;
   private int textLen;
   private int endPos;
@@ -400,6 +401,9 @@ final class BitState {
   /** Straight-line capture/consumer/capture sequences, or null when none exist. */
   private final CaptureRune[] captureRunes;
 
+  /** Loop entry/check continuations, optionally including one adjacent capture write. */
+  private final LoopEntry[] loopEntries;
+
   private static final byte NOT_ALT = 0;
   private static final byte ALT = 1;
   private static final byte CYCLE_ALT = 2;
@@ -440,6 +444,7 @@ final class BitState {
       boolean longest,
       boolean endMatch) {
     this.prog = prog;
+    this.instructions = prog.frozenInstructions();
     this.text = text;
     this.textLen = text.length();
     this.basePos = startPos;
@@ -465,6 +470,7 @@ final class BitState {
       }
     }
     this.captureRunes = prog.captureRunes();
+    this.loopEntries = prog.loopEntries();
 
     int totalBits = progSize * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -644,7 +650,7 @@ final class BitState {
           break;
         }
 
-        Inst ip = prog.inst(id);
+        Inst ip = instructions[id];
         switch (ip.opCode) {
           case InstOp.OP_FAIL -> {}
 
@@ -739,6 +745,31 @@ final class BitState {
             int reg = ip.arg;
             push(-(ncap + reg + 1), loopRegs[reg]);
             loopRegs[reg] = -1;
+            LoopEntry entry = loopEntries == null ? null : loopEntries[id];
+            if (entry != null) {
+              // The adjacent check observes the register just reset by this entry, so it must
+              // enter the body. Keep one restore of the original value: the intermediate -1
+              // cannot be observed by an alternative. Still charge both logical instructions.
+              if (!stepWithinBudget()) {
+                return false;
+              }
+              loopRegs[reg] = pos;
+              int capture = entry.captureRegister();
+              if (capture >= 0) {
+                if (!stepWithinBudget()) {
+                  return false;
+                }
+                if (capture < ncap) {
+                  push(-(capture + 1), cap[capture]);
+                  cap[capture] = pos;
+                }
+              }
+              if (shouldVisit(entry.out(), pos)) {
+                id = entry.out();
+                continue;
+              }
+              break;
+            }
             if (shouldVisit(ip.out, pos)) {
               id = ip.out;
               continue;
