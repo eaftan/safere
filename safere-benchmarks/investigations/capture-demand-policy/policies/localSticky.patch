@@ -1,0 +1,27 @@
+--- a/safere/src/main/java/org/safere/Matcher.java
++++ b/safere/src/main/java/org/safere/Matcher.java
+@@ -693,12 +693,15 @@
+     return parentPattern.enginePathOptions();
+   }
+ 
++  private boolean experimentalLocalCaptureDemand;
++
+   private void recordInnerCaptureDemand() {
++    experimentalLocalCaptureDemand = true;
+     parentPattern.recordInnerCaptureAccess();
+   }
+ 
+   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
+-    return parentPattern.innerCapturesObserved()
++    return experimentalLocalCaptureDemand
+         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
+         && enginePathOptions().bitState()
+         && !fullTextRegionContext
+@@ -4382,6 +4385,7 @@
+       this.groups = new int[2 * newPattern.prog().numCaptures()];
+       clearCurrentResult();
+     }
++    experimentalLocalCaptureDemand = false;
+     invalidatePatternCaches();
+     replacementNeedsCaptures = false;
+     if (preservedGroupZero) {

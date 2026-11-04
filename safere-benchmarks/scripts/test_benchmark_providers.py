@@ -51,10 +51,14 @@ elif "org.safere.benchmark.BenchmarkCollectionPlan" in args:
 
 
 class BenchmarkProviderRunnerTest(unittest.TestCase):
-    def run_wrapper(self, wrapper, fail_vector=False, arguments=None):
+    def run_wrapper(self, wrapper, fail_vector=False, arguments=None, investigation=None):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             shutil.copyfile(ROOT / wrapper, root / wrapper)
+            if investigation:
+                study = root / "safere-benchmarks" / "investigations" / investigation
+                (study / "src/main/java").mkdir(parents=True)
+                (study / "benchmark-data.json").write_text("{}")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             for name, contents in {
@@ -80,6 +84,37 @@ class BenchmarkProviderRunnerTest(unittest.TestCase):
                      if calls_file.exists() else [])
             measurements = [call for call in calls if "-jvmArgs" in call["args"]]
             return result, measurements
+
+    def test_investigation_selection_is_explicit_and_uses_separate_inputs(self):
+        result, measurements = self.run_wrapper("run-java-benchmarks.sh", arguments=[
+            "--smoke", "--investigation", "example-study", "ExampleBenchmark.standard"],
+            investigation="example-study")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(measurements), 1)
+        args = measurements[0]["args"]
+        corpus = next(arg for arg in args if arg.startswith("-Dsafere.benchmark.corpus="))
+        self.assertTrue(corpus.endswith("/target/investigations/example-study/corpus"))
+        self.assertIn(corpus, args[args.index("-jvmArgs") + 1])
+
+    def test_investigation_cannot_join_regular_collections_or_implicit_selection(self):
+        for args in [
+            ["--investigation", "example-study"],
+            ["--investigation", "example-study", "--declared", "ExampleBenchmark.standard"],
+            ["--investigation", "../example-study", "ExampleBenchmark.standard"],
+            ["--investigation", "missing-study", "ExampleBenchmark.standard"],
+        ]:
+            with self.subTest(arguments=args):
+                result, measurements = self.run_wrapper("run-java-benchmarks.sh", arguments=args)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(measurements, [])
+
+    def test_regular_selection_keeps_regular_inputs_when_investigations_exist(self):
+        result, measurements = self.run_wrapper("run-java-benchmarks.sh",
+            arguments=["--smoke", "ExampleBenchmark.standard"], investigation="example-study")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = measurements[0]["args"]
+        corpus = next(arg for arg in args if arg.startswith("-Dsafere.benchmark.corpus="))
+        self.assertTrue(corpus.endswith("/target/benchmark-corpus"))
 
     def test_timing_and_allocation_launchers_isolate_and_forward_providers(self):
         for wrapper in ["run-java-benchmarks.sh", "run-java-memory-benchmarks.sh"]:

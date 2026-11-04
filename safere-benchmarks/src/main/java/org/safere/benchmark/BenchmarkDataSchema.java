@@ -15,7 +15,7 @@ final class BenchmarkDataSchema {
   private static final Set<String> ROOT_FIELDS =
       Set.of("schemaVersion", "configuration", "inputs", "workloads");
   private static final Set<String> CONFIGURATION_FIELDS =
-      Set.of("collection", "crosscheckOverhead", "vectorScan");
+      Set.of("collection", "crosscheckOverhead", "vectorScan", "investigation");
   private static final Set<String> COLLECTION_FIELDS = Set.of("allocationWorkloadPrefixes");
   private static final Set<String> CROSSCHECK_OVERHEAD_FIELDS = Set.of("pattern", "replacement");
   private static final Set<String> VECTOR_SCAN_FIELDS = Set.of("smokeTrials", "standardTrials");
@@ -43,6 +43,9 @@ final class BenchmarkDataSchema {
 
   private static void validateConfiguration(JsonObject configuration) {
     requireOnly(configuration, "benchmark-data.json configuration", CONFIGURATION_FIELDS);
+    if (configuration.has("investigation")) {
+      requiredObject(configuration, "investigation");
+    }
     if (configuration.has("collection")) {
       JsonObject collection = requiredObject(configuration, "collection");
       requireOnly(collection, "benchmark-data.json configuration.collection", COLLECTION_FIELDS);

@@ -101,7 +101,14 @@ build directory. Subsequent runs can use the default disconnected setting.
   collection as completed.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
-- **`benchmark-data.json` is the only checked-in workload definition.** Large
+- **`safere-benchmarks/benchmark-data.json` defines the durable reporting corpus.**
+  Preserved diagnostic experiments belong under
+  [`investigations/`](investigations/README.md), each with its own
+  `benchmark-data.json` using the same materialization schema. Their sources and
+  data require explicit selection with `--investigation NAME`; they are excluded
+  from regular collections and reports. A useful investigation does not by itself
+  establish a recurring reporting workload.
+- **Keep workload definitions in their corpus’s `benchmark-data.json`.** Large
   UTF-8 input files may be checked in under `safere-benchmarks/data/`
   and referenced by a `file` recipe with a pinned SHA-256 in the JSON. Keep
   source and license attribution with data copied from other projects.

@@ -16,114 +16,15 @@ import org.openjdk.jmh.infra.Blackhole;
 
 class BenchmarkOperationTest {
   @ParameterizedTest
-  @CsvSource({"RETAINED, 2, 12", "NEW_PER_INVOCATION, 12, 0"})
-  void usageValidationHonorsMatcherLifetime(
-      DeclarativeBenchmarkPlan.MatcherReuse reuse, int expectedCreations, int expectedResets) {
-    int[] creations = {0};
-    int[] resets = {0};
-    int[] reads = {0};
-    RegexEngineVariant.RegexInput hit = new RegexEngineVariant.StringRegexInput("hit");
-    RegexEngineVariant.RegexInput miss = new RegexEngineVariant.StringRegexInput("miss");
-    RegexEngineVariant.CompiledRegex pattern =
-        new RegexEngineVariant.CompiledRegex() {
-          @Override
-          public RegexEngineVariant.MatchCursor matcher(RegexEngineVariant.RegexInput input) {
-            creations[0]++;
-            return new RegexEngineVariant.MatchCursor() {
-              private boolean exhausted;
-
-              @Override
-              public boolean find() {
-                if (exhausted) {
-                  return false;
-                }
-                exhausted = true;
-                return input.equals(hit);
-              }
-
-              @Override
-              public String group(int group) {
-                assertThat(group).isEqualTo(1);
-                reads[0]++;
-                return "payload";
-              }
-
-              @Override
-              public void reset() {
-                resets[0]++;
-                exhausted = false;
-              }
-            };
-          }
-        };
-    BenchmarkOperation.FIND_USAGE.execute(
-        RegexEngineVariant.SAFERE_STRING,
-        List.of("(hit)"),
-        List.of(pattern),
-        List.of(hit, miss),
-        new int[] {1},
-        null,
-        2,
-        new DeclarativeBenchmarkPlan.MatcherLifecycle(reuse, List.of()),
-        null,
-        0,
-        1,
-        "phase");
-    assertThat(creations[0]).isEqualTo(expectedCreations);
-    assertThat(resets[0]).isEqualTo(expectedResets);
-    assertThat(reads[0]).isEqualTo(4);
-  }
-
-  @ParameterizedTest
-  @CsvSource({"text, 1, 1404", "text, 4, 472", "phase, 1, 938", "boolean, 1, 6", "offset, 1, 12"})
-  void usageSeparatesReadFrequencyFromInputMatchRate(String mode, int count, int expected) {
-    byte[] bytes = "é é".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    for (RegexEngineVariant variant :
-        List.of(
-            RegexEngineVariant.SAFERE_STRING,
-            RegexEngineVariant.SAFERE_UTF8,
-            RegexEngineVariant.JDK_STRING)) {
-      RegexEngineVariant.RegexInput hit =
-          variant == RegexEngineVariant.SAFERE_UTF8
-              ? RegexEngineVariant.utf8Input(bytes)
-              : new RegexEngineVariant.StringRegexInput("é é");
-      byte[] missBytes = "x".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      RegexEngineVariant.RegexInput miss =
-          variant == RegexEngineVariant.SAFERE_UTF8
-              ? RegexEngineVariant.utf8Input(missBytes)
-              : new RegexEngineVariant.StringRegexInput("x");
-      try (RegexEngineVariant.CompiledRegex pattern = variant.compile("(é)")) {
-        Object actual =
-            BenchmarkOperation.FIND_USAGE.execute(
-                variant,
-                List.of("(é)"),
-                List.of(pattern),
-                List.of(hit, miss),
-                new int[] {1},
-                null,
-                1,
-                new DeclarativeBenchmarkPlan.MatcherLifecycle(
-                    DeclarativeBenchmarkPlan.MatcherReuse.NEW_PER_INVOCATION, List.of()),
-                null,
-                0,
-                count,
-                mode);
-        int nativeExpected =
-            mode.equals("offset") && variant == RegexEngineVariant.SAFERE_UTF8 ? 18 : expected;
-        assertThat(actual).as("%s %s", variant, mode).isEqualTo(nativeExpected);
-      }
-    }
-  }
-
-  @ParameterizedTest
   @EnumSource(
       value = RegexEngineVariant.class,
       names = {"SAFERE_STRING", "SAFERE_UTF8", "JDK_STRING"})
   void tokenizerAdvancesInNativeCoordinatesAndCanReuseItsMatcher(RegexEngineVariant variant) {
     RegexEngineVariant.RegexInput input =
         variant == RegexEngineVariant.SAFERE_UTF8
-            ? RegexEngineVariant.utf8Input(
-                "é 12 é ".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            ? new RegexEngineVariant.Utf8RegexInput(
+                org.safere.Utf8Input.validated(
+                    "é 12 é ".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
             : new RegexEngineVariant.StringRegexInput("é 12 é ");
     try (RegexEngineVariant.CompiledRegex pattern = variant.compile("[^ ]+| +")) {
       BenchmarkOperation operation = BenchmarkOperation.MATCHER_REGION_TOKENIZE;

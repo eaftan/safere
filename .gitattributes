@@ -8,3 +8,12 @@ benchmark-results/published/**/*-tables.md -diff
 benchmark-results/published/**/*.csv -diff
 benchmark-results/published/**/*.log -diff
 benchmark-results/published/**/*.tar.gz -diff
+
+# Historical investigation evidence retains original harness bytes.
+safere-benchmarks/investigations/*/results/** -text
+safere-benchmarks/investigations/*/results/**/*.json -diff
+safere-benchmarks/investigations/*/results/**/*.log -diff
+# Preserve unified-diff context prefixes and original profiler output.
+safere-benchmarks/investigations/*/policies/*.patch whitespace=-blank-at-eol
+safere-benchmarks/investigations/*/results/**/*.patch whitespace=-blank-at-eol
+safere-benchmarks/investigations/*/results/**/profile-summary.txt whitespace=-blank-at-eof

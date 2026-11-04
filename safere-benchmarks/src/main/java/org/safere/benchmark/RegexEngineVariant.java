@@ -118,7 +118,6 @@ enum RegexEngineVariant {
           EngineCapability.MATCHES,
           EngineCapability.LOOKING_AT,
           EngineCapability.GROUP_PARTICIPATION,
-          EngineCapability.GROUP_TEXT,
           EngineCapability.REPLACE,
           EngineCapability.APPEND_REPLACEMENT,
           EngineCapability.MATCHER_RESET,
@@ -154,17 +153,6 @@ enum RegexEngineVariant {
             @Override
             public boolean lookingAt() {
               return matcher.lookingAt();
-            }
-
-            @Override
-            public String group(int group) {
-              int start = matcher.start(group);
-              int end = matcher.end(group);
-              if (start < 0) {
-                return null;
-              }
-              byte[] bytes = ((Utf8RegexInput) input).bytes;
-              return new String(bytes, start, end - start, StandardCharsets.UTF_8);
             }
 
             @Override
@@ -609,7 +597,7 @@ enum RegexEngineVariant {
     List<RegexInput> inputs = new ArrayList<>(inputKeys.size());
     for (String inputKey : inputKeys) {
       if (inputRepresentation == InputRepresentation.PREEXISTING_UTF8) {
-        inputs.add(utf8Input(data.getInputBytes(inputKey)));
+        inputs.add(new Utf8RegexInput(org.safere.Utf8Input.trusted(data.getInputBytes(inputKey))));
       } else {
         inputs.add(new StringRegexInput(data.getInputString(inputKey)));
       }
@@ -722,23 +710,7 @@ enum RegexEngineVariant {
 
   record StringRegexInput(String value) implements RegexInput {}
 
-  static RegexInput utf8Input(byte[] bytes) {
-    return new Utf8RegexInput(bytes);
-  }
-
-  private static final class Utf8RegexInput implements RegexInput {
-    private final byte[] bytes;
-    private final org.safere.Utf8Input value;
-
-    private Utf8RegexInput(byte[] bytes) {
-      this.bytes = bytes;
-      this.value = org.safere.Utf8Input.trusted(bytes);
-    }
-
-    private org.safere.Utf8Input value() {
-      return value;
-    }
-  }
+  record Utf8RegexInput(org.safere.Utf8Input value) implements RegexInput {}
 
   sealed interface PreparedReplacement permits StringReplacement, Utf8Replacement {}
 
