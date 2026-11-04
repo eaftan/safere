@@ -2023,11 +2023,10 @@ class MatcherTest {
     void nonAsciiDigitAfterDollarDoesNotSelectGroupByCodePointOffset() {
       // U+0661 - '0' == 1585, which is a valid group number in this pattern. It must not be
       // treated as a reference to group 1585.
-      Pattern p = Pattern.compile("(a)".repeat(1600));
-      String input = "a".repeat(1600);
-      assertThatThrownBy(() -> p.matcher(input).replaceAll("[$\u0661]"))
+      Pattern p = Pattern.compile("(a)" + "()".repeat(1599));
+      assertThatThrownBy(() -> p.matcher("a").replaceAll("[$\u0661]"))
           .isInstanceOf(IllegalArgumentException.class);
-      Matcher m = p.matcher(input);
+      Matcher m = p.matcher("a");
       assertThat(m.find()).isTrue();
       assertThatThrownBy(() -> m.appendReplacement(new StringBuilder(), "[$\u0661]"))
           .isInstanceOf(IllegalArgumentException.class);
@@ -2045,6 +2044,21 @@ class MatcherTest {
       StringBuilder sb = new StringBuilder();
       m.appendReplacement(sb, "$1\u0662");
       assertThat(sb.toString()).isEqualTo("a\u0662");
+    }
+
+    @Test
+    void nonAsciiDigitAfterGroupReferenceDoesNotAccumulateIntoLargeGroup() {
+      // With enough groups, "$1" + U+0662 must not accumulate to group 1596; it is group 1
+      // followed by a literal U+0662. Only group 1 captures text, so selecting another group
+      // would change the output.
+      Pattern p = Pattern.compile("(a)" + "()".repeat(1699));
+      assertThat(p.matcher("a").replaceAll("[$1\u0662]")).isEqualTo("[a\u0662]");
+      assertThat(p.matcher("a").replaceFirst("[$1\u0661]")).isEqualTo("[a\u0661]");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      StringBuilder sb = new StringBuilder();
+      m.appendReplacement(sb, "[$1\u0662]");
+      assertThat(sb.toString()).isEqualTo("[a\u0662]");
     }
 
     @Test
