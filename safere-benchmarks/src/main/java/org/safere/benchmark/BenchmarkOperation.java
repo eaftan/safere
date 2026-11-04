@@ -35,6 +35,7 @@ enum BenchmarkOperation {
   MATCHER_REGION_FIND(EngineCapability.FIND, EngineCapability.REGIONS),
   MATCHER_REGION_MATCHES(EngineCapability.MATCHES, EngineCapability.REGIONS),
   MATCHER_REGION_TOKENIZE(EngineCapability.LOOKING_AT, EngineCapability.REGIONS),
+  FIND_USAGE(EngineCapability.FIND, EngineCapability.GROUP_TEXT, EngineCapability.MATCHER_RESET),
   FIND_SAMPLED_GROUP(
       EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION, EngineCapability.MATCHER_RESET),
   FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION),
@@ -74,6 +75,7 @@ enum BenchmarkOperation {
       case MATCHER_REGION_FIND -> MATCHER_REGION_FIND;
       case MATCHER_REGION_MATCHES -> MATCHER_REGION_MATCHES;
       case MATCHER_REGION_TOKENIZE -> MATCHER_REGION_TOKENIZE;
+      case FIND_USAGE -> FIND_USAGE;
       case FIND_SAMPLED_GROUP -> FIND_SAMPLED_GROUP;
       case FIND_GROUP_PRESENT -> FIND_GROUP_PRESENT;
       case FIND_GROUP -> FIND_GROUP;
@@ -205,6 +207,7 @@ enum BenchmarkOperation {
                     input.nativeLength(),
                     mode));
       }
+      case FIND_USAGE -> usageTask(pattern, inputs, groups[0], lifecycle, limit, count, mode);
       case FIND_SAMPLED_GROUP -> {
         boolean capture = mode.equals("capture");
         primeCaptureDemand(pattern, inputs, groups[0], capture);
@@ -308,6 +311,15 @@ enum BenchmarkOperation {
         yield matcher.matches();
       }
       case MATCHER_REGION_TOKENIZE -> tokenize(pattern.matcher(input), input.nativeLength(), mode);
+      case FIND_USAGE ->
+          usageSum(
+              pattern,
+              inputs,
+              retainedUsageMatchers(pattern, inputs, lifecycle),
+              groups[0],
+              limit,
+              count,
+              mode);
       case FIND_SAMPLED_GROUP -> {
         primeCaptureDemand(pattern, inputs, groups[0], mode.equals("capture"));
         yield findSampledGroup(pattern.matcher(input), groups[0], mode.equals("capture"));
@@ -488,6 +500,67 @@ enum BenchmarkOperation {
     int sum = parts.length;
     for (String part : parts) {
       sum += part.length();
+    }
+    return sum;
+  }
+
+  // Input frequency controls match rate; count independently controls capture reads per hit.
+  // Each invocation completes a bounded cycle so phases cannot depend on JMH iteration timing.
+  private static BenchmarkTask usageTask(
+      RegexEngineVariant.CompiledRegex pattern,
+      List<RegexEngineVariant.RegexInput> inputs,
+      int group,
+      DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
+      int rounds,
+      int count,
+      String mode) {
+    List<RegexEngineVariant.MatchCursor> retained =
+        retainedUsageMatchers(pattern, inputs, lifecycle);
+    return blackhole ->
+        blackhole.consume(usageSum(pattern, inputs, retained, group, rounds, count, mode));
+  }
+
+  private static List<RegexEngineVariant.MatchCursor> retainedUsageMatchers(
+      RegexEngineVariant.CompiledRegex pattern,
+      List<RegexEngineVariant.RegexInput> inputs,
+      DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle) {
+    return lifecycle.matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED
+        ? inputs.stream().map(pattern::matcher).toList()
+        : null;
+  }
+
+  private static int usageSum(
+      RegexEngineVariant.CompiledRegex pattern,
+      List<RegexEngineVariant.RegexInput> inputs,
+      List<RegexEngineVariant.MatchCursor> retained,
+      int group,
+      int rounds,
+      int count,
+      String mode) {
+    int sum = 0;
+    int hits = 0;
+    for (int phase = 0; phase < 3; phase++) {
+      for (int round = 0; round < rounds; round++) {
+        for (int i = 0; i < inputs.size(); i++) {
+          RegexEngineVariant.MatchCursor matcher =
+              retained == null ? pattern.matcher(inputs.get(i)) : retained.get(i);
+          if (retained != null) {
+            matcher.reset();
+          }
+          while (matcher.find()) {
+            sum++;
+            boolean read = hits++ % count == 0 && !mode.equals("boolean");
+            if (read && !(mode.equals("phase") && phase == 1)) {
+              if (mode.equals("offset")) {
+                sum += matcher.end(group) - matcher.start(group);
+              } else {
+                String text = matcher.group(group);
+                sum += text == null ? 0 : text.hashCode();
+              }
+            }
+          }
+        }
+      }
     }
     return sum;
   }

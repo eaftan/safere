@@ -43,6 +43,7 @@ final class CrossEngineBenchmarkPlan {
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_MATCHES,
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_TOKENIZE,
+          DeclarativeBenchmarkPlan.Operation.FIND_USAGE,
           DeclarativeBenchmarkPlan.Operation.FIND_SAMPLED_GROUP,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);

@@ -4620,6 +4620,286 @@
         "unit": "\u00e9",
         "length": "{size}"
       }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pr\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary proseCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinarCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordin\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinaryCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordina\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinar\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通のCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
     }
   ],
   "workloads": [
@@ -20811,6 +21091,2406 @@
           "reason": "This control uses Java Unicode word-boundary flag semantics"
         }
       ]
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -533340672
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -533340672
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.offset1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 30720
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.offset1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 30720
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text4.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1207075840
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.text4.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1207075840
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.phase1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -355559936
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.phase1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -355559936
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.boolean1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1536
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.boolean1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1536
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1375511072
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1375511072
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.offset1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1920
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.offset1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1920
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text4.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -343877696
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.text4.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 1,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -343877696
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.phase1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 514648416
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.phase1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 514648416
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.boolean1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 96
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.boolean1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 1,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 96
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 397837312
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 397837312
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.offset1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 10752
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.offset1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 10752
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text4.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -2048023168
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.text4.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -2048023168
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.phase1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1696881152
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.phase1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1696881152
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.boolean1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1536
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.boolean1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1536
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1585747904
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": -1585747904
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.offset1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 672
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.offset1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "offset",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 672
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text4.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 677304920
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.text4.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "text",
+        "group": 2,
+        "count": 4,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 677304920
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.phase1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 374490528
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.phase1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "phase",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 374490528
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.boolean1.newPerInvocation",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 96
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.boolean1.retained",
+      "operation": "findUsage",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "integer",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "boolean",
+        "group": 2,
+        "count": 1,
+        "limit": 32
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 96
+      }
     }
   ]
 }
