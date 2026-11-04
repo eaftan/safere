@@ -589,6 +589,1033 @@
           "phase1": 374490528,
           "boolean1": 96
         }
+      },
+      "adaptive": {
+        "documentsPerPhase": 512,
+        "scheduleWidth": 64,
+        "scheduleSeed": 20261103,
+        "policies": [
+          "main",
+          "patchedMain",
+          "observe",
+          "dfa",
+          "localSticky",
+          "fraction",
+          "joint",
+          "replay",
+          "work",
+          "periodic",
+          "random"
+        ],
+        "randomSeeds": [
+          1,
+          17,
+          73
+        ],
+        "scenarios": {
+          "stack.all.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.all.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.all.boolean.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              }
+            ]
+          },
+          "stack.rare.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.all.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.rotate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.alternate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.shuffle.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "shuffled",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.blocks.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "blocked",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.reads.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.hits.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.multibyte.all.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.stack.multibyte.128.hit",
+            "missInput": "capturePolicy.stack.multibyte.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.multibyte.rare.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.stack.multibyte.128.hit",
+            "missInput": "capturePolicy.stack.multibyte.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.all.boolean.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              }
+            ]
+          },
+          "scheme.rare.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.rotate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.alternate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.shuffle.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "shuffled",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.blocks.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "blocked",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.reads.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.hits.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.multibyte.all.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
+            "missInput": "capturePolicy.scheme.multibyte.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.multibyte.rare.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
+            "missInput": "capturePolicy.scheme.multibyte.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.boundary.ascii.511": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.511.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.511.hit",
+            "missInput": "capturePolicy.scheme.ascii.511.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.boundary.ascii.513": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.513.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.513.hit",
+            "missInput": "capturePolicy.scheme.ascii.513.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.document": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+            "missInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+            "groups": [
+              1,
+              4
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.document": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "issue481Scaling.scheme.128",
+            "missInput": "issue481Scaling.scheme.128",
+            "groups": [
+              1,
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.none.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.half.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.all.offset.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "offset",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.none.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.half.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.all.offset.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "offset",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -872,6 +1899,29 @@
         "kind": "literal",
         "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
       }
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.scheme.{size}",
+      "axes": {
+        "size": [
+          128
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "ordinary prose without a custom scheme link ",
+        "suffix": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
+        "length": "{size}"
+      },
+      "shared": true
     }
   ],
   "workloads": [
