@@ -401,12 +401,17 @@ final class Prog {
     final boolean[] epsilonCycleAlts;
     final CaptureRune[] captureRunes;
     final LoopEntry[] loopEntries;
+    final Inst[] captureProgressChecks;
 
     BitStateAnalysis(
-        boolean[] epsilonCycleAlts, CaptureRune[] captureRunes, LoopEntry[] loopEntries) {
+        boolean[] epsilonCycleAlts,
+        CaptureRune[] captureRunes,
+        LoopEntry[] loopEntries,
+        Inst[] captureProgressChecks) {
       this.epsilonCycleAlts = epsilonCycleAlts;
       this.captureRunes = captureRunes;
       this.loopEntries = loopEntries;
+      this.captureProgressChecks = captureProgressChecks;
     }
   }
 
@@ -433,6 +438,11 @@ final class Prog {
     return bitStateAnalysis().loopEntries;
   }
 
+  /** Returns shared capture/check fusion targets, or null when no pairs can be fused. */
+  Inst[] captureProgressChecks() {
+    return bitStateAnalysis().captureProgressChecks;
+  }
+
   private BitStateAnalysis bitStateAnalysis() {
     BitStateAnalysis result = bitStateAnalysis;
     if (result == null) {
@@ -442,7 +452,8 @@ final class Prog {
           new BitStateAnalysis(
               computeEpsilonCycleAlts(reachable),
               captures,
-              computeLoopEntries(reachable, captures));
+              computeLoopEntries(reachable, captures),
+              computeCaptureProgressChecks(reachable));
       bitStateAnalysis = result;
     }
     return result;
@@ -507,6 +518,23 @@ final class Prog {
       }
     }
     return entries;
+  }
+
+  private Inst[] computeCaptureProgressChecks(boolean[] reachable) {
+    Inst[] checks = null;
+    for (int i = 0; i < size(); i++) {
+      Inst capture = inst(i);
+      if (reachable[i] && capture.opCode == InstOp.OP_CAPTURE) {
+        Inst next = inst(capture.out);
+        if (next.opCode == InstOp.OP_PROGRESS_CHECK) {
+          if (checks == null) {
+            checks = new Inst[size()];
+          }
+          checks[i] = next;
+        }
+      }
+    }
+    return checks;
   }
 
   /**
