@@ -2018,6 +2018,73 @@ class MatcherTest {
           .isInstanceOf(IllegalArgumentException.class);
     }
 
+    // Only the ASCII digits '0'-'9' can start or continue a numeric group reference, as in
+    // java.util.regex. Other Unicode decimal digits (Arabic-Indic, fullwidth, ...) after '$' are
+    // illegal group references, not group numbers derived from the code point's distance from '0'.
+    @ParameterizedTest
+    @ValueSource(strings = {"$\u0661", "$\u06F1", "$\u0966", "$\uFF11", "$\uFF19", "x$\uFF19y"})
+    void nonAsciiDigitAfterDollarIsIllegalGroupReference(String replacement) {
+      Pattern p = Pattern.compile("(a)");
+      assertThatThrownBy(() -> p.matcher("a").replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> p.matcher("a").replaceFirst(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      assertThatThrownBy(() -> m.appendReplacement(new StringBuilder(), replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> m.appendReplacement(new StringBuffer(), replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void nonAsciiDigitAfterDollarDoesNotSelectGroupByCodePointOffset() {
+      // U+0661 - '0' == 1585, which is a valid group number in this pattern. It must not be
+      // treated as a reference to group 1585.
+      Pattern p = Pattern.compile("(a)" + "()".repeat(1599));
+      assertThatThrownBy(() -> p.matcher("a").replaceAll("[$\u0661]"))
+          .isInstanceOf(IllegalArgumentException.class);
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      assertThatThrownBy(() -> m.appendReplacement(new StringBuilder(), "[$\u0661]"))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void nonAsciiDigitAfterGroupReferenceIsLiteral() {
+      // The first digit after '$' is a group reference; a following non-ASCII digit is not part of
+      // the reference and is copied literally.
+      Pattern p = Pattern.compile("(a)");
+      assertThat(p.matcher("a").replaceAll("$1\u0662")).isEqualTo("a\u0662");
+      assertThat(p.matcher("a").replaceAll("$1\uFF10")).isEqualTo("a\uFF10");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      StringBuilder sb = new StringBuilder();
+      m.appendReplacement(sb, "$1\u0662");
+      assertThat(sb.toString()).isEqualTo("a\u0662");
+    }
+
+    @Test
+    void nonAsciiDigitAfterGroupReferenceDoesNotAccumulateIntoLargeGroup() {
+      // With enough groups, "$1" + U+0662 must not accumulate to group 1596; it is group 1
+      // followed by a literal U+0662. Only group 1 captures text, so selecting another group
+      // would change the output.
+      Pattern p = Pattern.compile("(a)" + "()".repeat(1699));
+      assertThat(p.matcher("a").replaceAll("[$1\u0662]")).isEqualTo("[a\u0662]");
+      assertThat(p.matcher("a").replaceFirst("[$1\u0661]")).isEqualTo("[a\u0661]");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      StringBuilder sb = new StringBuilder();
+      m.appendReplacement(sb, "[$1\u0662]");
+      assertThat(sb.toString()).isEqualTo("[a\u0662]");
+    }
+
+    @Test
+    void escapedNonAsciiDigitIsLiteral() {
+      Pattern p = Pattern.compile("(a)");
+      assertThat(p.matcher("a").replaceAll("\\\u0661")).isEqualTo("\u0661");
+    }
+
     @Test
     void replaceAllEmptyMatches() {
       Pattern p = Pattern.compile("a*");
