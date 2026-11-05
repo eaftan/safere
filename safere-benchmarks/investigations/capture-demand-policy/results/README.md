@@ -1,5 +1,11 @@
 # Capture-demand policy investigation: results and assessment
 
+This is the historical study. The later [adaptive decision-rule results](decision-rules/README.md)
+compare consumption, outcome, replay, work, and exploration policies on a newer
+pinned main and harness. The studies' timings are not pooled. This directory's
+`SHA256SUMS` covers the original archive; `decision-rules/SHA256SUMS` separately
+covers the new study. The original `summary.txt` is unchanged.
+
 The measurements support retaining the production policy for now. They expose a
 large cost from sharing capture history with matchers that reject their inputs,
 but every alternative has material regressions in successful extraction or shared

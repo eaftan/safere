@@ -1,0 +1,20 @@
+[
+  "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+  "--fastbuild",
+  "--investigation",
+  "capture-demand-policy",
+  "CapturePolicyBenchmark.run",
+  "--",
+  "-p",
+  "captureTrial=CapturePolicyBenchmark.scheme.ascii.128.rare.retained@safere-string,CapturePolicyBenchmark.scheme.ascii.128.all.retained@safere-string",
+  "-p",
+  "consumption=text1",
+  "-prof",
+  "jfr:dir=/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/baseline-profile",
+  "-foe",
+  "true",
+  "-rf",
+  "json",
+  "-rff",
+  "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/baseline-profile.json"
+]

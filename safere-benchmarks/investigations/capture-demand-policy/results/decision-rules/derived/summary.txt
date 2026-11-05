@@ -1,0 +1,413 @@
+# Derived adaptive-policy tables
+
+Ratios are candidate time / main time. Geometric means weight each exact row equally.
+
+## Common core screen
+
+| Policy | Rows | Geomean | Minimum | Maximum |
+|---|---:|---:|---:|---:|
+| main | 32 | 1.000 | 1.000 | 1.000 |
+| dfa | 32 | 0.424 | 0.014 | 2.110 |
+| localSticky | 32 | 0.698 | 0.014 | 1.045 |
+| fraction | 32 | 0.717 | 0.016 | 1.658 |
+| joint | 32 | 0.502 | 0.015 | 1.663 |
+| replay | 32 | 0.434 | 0.016 | 1.299 |
+| work | 32 | 0.443 | 0.018 | 1.272 |
+| periodic | 32 | 0.608 | 0.018 | 1.296 |
+| random | 32 | 0.595 | 0.018 | 1.336 |
+| patchedMain | 32 | 1.003 | 0.972 | 1.147 |
+| observe | 32 | 1.038 | 0.939 | 1.172 |
+
+## Core screen: string
+
+| Policy | Rows | Geomean | Minimum | Maximum |
+|---|---:|---:|---:|---:|
+| main | 16 | 1.000 | 1.000 | 1.000 |
+| dfa | 16 | 0.510 | 0.014 | 2.110 |
+| localSticky | 16 | 0.712 | 0.014 | 1.045 |
+| fraction | 16 | 0.767 | 0.016 | 1.658 |
+| joint | 16 | 0.550 | 0.015 | 1.663 |
+| replay | 16 | 0.464 | 0.016 | 1.299 |
+| work | 16 | 0.472 | 0.018 | 1.228 |
+| periodic | 16 | 0.647 | 0.018 | 1.294 |
+| random | 16 | 0.635 | 0.018 | 1.336 |
+| patchedMain | 16 | 1.009 | 0.972 | 1.147 |
+| observe | 16 | 1.036 | 0.939 | 1.099 |
+
+## Core screen: utf8
+
+| Policy | Rows | Geomean | Minimum | Maximum |
+|---|---:|---:|---:|---:|
+| main | 16 | 1.000 | 1.000 | 1.000 |
+| dfa | 16 | 0.353 | 0.016 | 1.190 |
+| localSticky | 16 | 0.683 | 0.018 | 1.016 |
+| fraction | 16 | 0.670 | 0.017 | 1.197 |
+| joint | 16 | 0.459 | 0.016 | 1.195 |
+| replay | 16 | 0.407 | 0.019 | 1.220 |
+| work | 16 | 0.417 | 0.021 | 1.272 |
+| periodic | 16 | 0.573 | 0.020 | 1.296 |
+| random | 16 | 0.558 | 0.020 | 1.165 |
+| patchedMain | 16 | 0.998 | 0.975 | 1.020 |
+| observe | 16 | 1.039 | 0.994 | 1.172 |
+
+## Per-scenario standard ratios
+
+### string
+
+| Scenario | dfa | localSticky | fraction | joint | replay | work | periodic | random | patchedMain | observe |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| scheme.all.boolean.ascii.128 | 1.018 | 1.007 | 1.069 | 1.070 | 1.035 | 1.099 | 1.108 | 1.105 | 0.998 | 1.099 |
+| scheme.all.text.ascii.128 | 1.124 | 0.976 | 0.999 | 1.018 | 1.028 | 1.058 | 1.132 | 1.050 | 0.972 | 1.016 |
+| scheme.all.text4.ascii.128 | 1.107 | 1.000 | 1.162 | 1.162 | 1.209 | 1.063 | 1.016 | 1.059 | 1.002 | 0.982 |
+| scheme.document | 1.127 | 1.007 | 1.025 | 1.017 | 1.045 | 1.228 | 1.268 | 1.116 | 0.986 | 1.060 |
+| scheme.half.shuffle.ascii.128 | 0.077 | 1.027 | 1.117 | 1.109 | 0.087 | 0.093 | 0.342 | 0.342 | 1.004 | 1.020 |
+| scheme.rare.rotate.ascii.128 | 0.014 | 0.996 | 0.896 | 0.016 | 0.016 | 0.018 | 0.252 | 0.251 | 0.998 | 0.998 |
+| scheme.rare.text.ascii.128 | 0.014 | 0.014 | 0.016 | 0.015 | 0.016 | 0.018 | 0.018 | 0.018 | 1.147 | 1.077 |
+| scheme.reads.phase.ascii.128 | 1.127 | 1.008 | 1.088 | 1.092 | 1.230 | 1.051 | 1.133 | 1.047 | 1.022 | 1.023 |
+| stack.all.boolean.ascii.128 | 0.992 | 1.026 | 1.024 | 1.030 | 1.038 | 1.135 | 1.081 | 1.118 | 0.974 | 1.079 |
+| stack.all.text.ascii.128 | 2.110 | 0.996 | 1.037 | 1.021 | 1.026 | 1.060 | 1.105 | 1.108 | 0.997 | 1.055 |
+| stack.all.text4.ascii.128 | 1.585 | 0.985 | 1.658 | 1.663 | 1.299 | 1.073 | 1.231 | 1.158 | 1.002 | 1.068 |
+| stack.document | 1.842 | 1.045 | 1.030 | 1.065 | 1.052 | 1.070 | 1.294 | 1.336 | 1.019 | 1.066 |
+| stack.half.shuffle.ascii.128 | 0.780 | 1.001 | 1.027 | 0.916 | 0.827 | 0.865 | 0.919 | 0.916 | 1.005 | 0.939 |
+| stack.rare.rotate.ascii.128 | 0.304 | 0.995 | 1.016 | 0.312 | 0.313 | 0.325 | 0.532 | 0.521 | 0.985 | 1.030 |
+| stack.rare.text.ascii.128 | 0.307 | 0.283 | 0.290 | 0.292 | 0.291 | 0.299 | 0.307 | 0.311 | 1.002 | 1.030 |
+| stack.reads.phase.ascii.128 | 1.941 | 1.007 | 1.188 | 1.192 | 1.159 | 1.070 | 1.155 | 1.115 | 1.034 | 1.052 |
+
+### utf8
+
+| Scenario | dfa | localSticky | fraction | joint | replay | work | periodic | random | patchedMain | observe |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| scheme.all.boolean.ascii.128 | 1.007 | 1.000 | 1.059 | 1.066 | 1.060 | 1.109 | 1.091 | 1.077 | 1.008 | 1.101 |
+| scheme.all.text.ascii.128 | 1.190 | 0.993 | 1.015 | 1.013 | 1.031 | 1.066 | 1.141 | 1.062 | 0.978 | 1.058 |
+| scheme.all.text4.ascii.128 | 1.149 | 0.990 | 1.197 | 1.195 | 1.208 | 1.041 | 1.143 | 1.058 | 0.975 | 1.017 |
+| scheme.document | 1.175 | 0.994 | 1.020 | 1.017 | 1.033 | 1.272 | 1.296 | 1.165 | 0.998 | 1.070 |
+| scheme.half.shuffle.ascii.128 | 0.081 | 0.999 | 1.021 | 1.017 | 0.090 | 0.091 | 0.302 | 0.308 | 0.978 | 1.008 |
+| scheme.rare.rotate.ascii.128 | 0.018 | 0.992 | 1.050 | 0.020 | 0.019 | 0.023 | 0.289 | 0.269 | 0.998 | 0.994 |
+| scheme.rare.text.ascii.128 | 0.016 | 0.018 | 0.017 | 0.016 | 0.020 | 0.021 | 0.020 | 0.020 | 1.003 | 1.006 |
+| scheme.reads.phase.ascii.128 | 1.166 | 1.001 | 1.121 | 1.105 | 1.220 | 1.043 | 1.158 | 1.102 | 0.989 | 1.032 |
+| stack.all.boolean.ascii.128 | 1.076 | 1.016 | 1.061 | 1.076 | 1.056 | 1.155 | 1.154 | 1.139 | 1.018 | 1.172 |
+| stack.all.text.ascii.128 | 0.507 | 0.977 | 1.034 | 1.006 | 0.990 | 1.010 | 1.003 | 0.990 | 0.984 | 1.036 |
+| stack.all.text4.ascii.128 | 0.404 | 0.999 | 0.392 | 0.396 | 0.907 | 1.002 | 0.866 | 0.942 | 1.015 | 1.040 |
+| stack.document | 0.762 | 1.002 | 1.053 | 1.015 | 1.021 | 1.025 | 1.100 | 1.010 | 1.001 | 1.023 |
+| stack.half.shuffle.ascii.128 | 0.478 | 0.994 | 0.996 | 1.009 | 0.486 | 0.489 | 0.625 | 0.628 | 0.998 | 1.004 |
+| stack.rare.rotate.ascii.128 | 0.140 | 1.016 | 1.003 | 0.133 | 0.134 | 0.139 | 0.376 | 0.355 | 1.020 | 1.021 |
+| stack.rare.text.ascii.128 | 0.107 | 0.127 | 0.132 | 0.131 | 0.132 | 0.138 | 0.139 | 0.141 | 1.014 | 1.023 |
+| stack.reads.phase.ascii.128 | 1.127 | 0.996 | 1.046 | 1.034 | 1.141 | 1.029 | 1.012 | 1.034 | 0.987 | 1.036 |
+
+## Long confirmations, µs/document
+
+| Scenario / representation | main | dfa | localSticky | replay | work | periodic | random |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| scheme.all.fresh.ascii.128 / string | 0.5574 ± 0.0118 | 0.6418 ± 0.0134 | 0.6311 ± 0.0063 | 0.6574 ± 0.0111 | 0.6916 ± 0.0201 | – | – |
+| scheme.all.fresh.ascii.128 / utf8 | 0.5891 ± 0.0088 | 0.6751 ± 0.0059 | 0.7031 ± 0.0395 | 0.7043 ± 0.0061 | 0.7300 ± 0.0083 | – | – |
+| scheme.all.text.ascii.128 / string | 0.5398 ± 0.0169 | 0.6294 ± 0.0325 | 0.5644 ± 0.0202 | 0.5731 ± 0.0302 | 0.5819 ± 0.0104 | 0.6113 ± 0.0038 | 0.5713 ± 0.0267 |
+| scheme.all.text.ascii.128 / utf8 | 0.5705 ± 0.0109 | 0.6670 ± 0.0125 | 0.5689 ± 0.0131 | 0.5950 ± 0.0110 | 0.5964 ± 0.0546 | 0.6377 ± 0.0328 | 0.5939 ± 0.0086 |
+| scheme.document / string | 1.0436 ± 0.0549 | 1.1719 ± 0.0204 | 1.0242 ± 0.0203 | 1.0500 ± 0.0083 | 1.2807 ± 0.0058 | 1.3073 ± 0.0176 | 1.1553 ± 0.0145 |
+| scheme.document / utf8 | 1.0484 ± 0.0278 | 1.2562 ± 0.0132 | 1.0436 ± 0.0131 | 1.0820 ± 0.0340 | 1.3643 ± 0.0182 | 1.3423 ± 0.0286 | 1.2305 ± 0.0135 |
+| scheme.rare.rotate.ascii.128 / string | 10.2396 ± 0.1562 | 0.1418 ± 0.0063 | 10.3558 ± 0.4215 | 0.1635 ± 0.0063 | 0.1910 ± 0.0018 | 2.5528 ± 0.0187 | 2.6698 ± 0.0184 |
+| scheme.rare.rotate.ascii.128 / utf8 | 8.7595 ± 0.1652 | 0.1588 ± 0.0073 | 8.7665 ± 0.1054 | 0.1678 ± 0.0041 | 0.2019 ± 0.0022 | 2.4926 ± 0.0799 | 2.3541 ± 0.0805 |
+| scheme.rare.text.ascii.128 / string | 10.1900 ± 0.0577 | 0.1368 ± 0.0138 | 0.1346 ± 0.0016 | 0.1498 ± 0.0081 | 0.1795 ± 0.0146 | 0.1722 ± 0.0027 | 0.1717 ± 0.0054 |
+| scheme.rare.text.ascii.128 / utf8 | 9.3033 ± 0.1576 | 0.1459 ± 0.0018 | 0.1370 ± 0.0019 | 0.1868 ± 0.0545 | 0.1746 ± 0.0022 | 0.1729 ± 0.0044 | 0.1737 ± 0.0053 |
+| scheme.reads.phase.ascii.128 / string | 0.5371 ± 0.0132 | 0.6138 ± 0.0034 | 0.5352 ± 0.0094 | 0.6791 ± 0.0082 | 0.5625 ± 0.0197 | 0.5901 ± 0.0569 | 0.5571 ± 0.0222 |
+| scheme.reads.phase.ascii.128 / utf8 | 0.5735 ± 0.0093 | 0.6845 ± 0.0055 | 0.5675 ± 0.0070 | 0.7102 ± 0.0073 | 0.6055 ± 0.0094 | 0.6636 ± 0.0064 | 0.5993 ± 0.0090 |
+| stack.all.fresh.ascii.128 / string | 0.6515 ± 0.0097 | 1.4467 ± 0.0796 | 1.4004 ± 0.0240 | 1.4291 ± 0.0222 | 1.5040 ± 0.0441 | – | – |
+| stack.all.fresh.ascii.128 / utf8 | 2.5977 ± 0.0167 | 1.3446 ± 0.0308 | 1.3965 ± 0.0137 | 1.4639 ± 0.0123 | 1.5804 ± 0.0476 | – | – |
+| stack.all.text.ascii.128 / string | 0.6453 ± 0.0135 | 1.3980 ± 0.0405 | 0.6442 ± 0.0173 | 0.6749 ± 0.0121 | 0.6843 ± 0.0076 | 0.7025 ± 0.0091 | 0.6927 ± 0.0051 |
+| stack.all.text.ascii.128 / utf8 | 2.6695 ± 0.1114 | 1.3584 ± 0.0129 | 2.6886 ± 0.0896 | 2.6913 ± 0.1149 | 2.7748 ± 0.0799 | 2.6603 ± 0.1089 | 2.6741 ± 0.1041 |
+| stack.document / string | 2.4154 ± 0.0636 | 4.3778 ± 0.0484 | 2.4418 ± 0.0058 | 2.5001 ± 0.0648 | 2.5459 ± 0.0761 | 3.0554 ± 0.0538 | 3.1400 ± 0.1428 |
+| stack.document / utf8 | 5.7563 ± 0.0766 | 4.3321 ± 0.0712 | 5.7455 ± 0.0489 | 5.8849 ± 0.1263 | 5.9883 ± 0.1362 | 6.3336 ± 0.2266 | 5.6793 ± 0.0797 |
+| stack.rare.rotate.ascii.128 / string | 1.6102 ± 0.0341 | 0.4802 ± 0.0048 | 1.5707 ± 0.0136 | 0.4937 ± 0.0151 | 0.5168 ± 0.0164 | 0.8371 ± 0.0066 | 0.8076 ± 0.0126 |
+| stack.rare.rotate.ascii.128 / utf8 | 4.5453 ± 0.1369 | 0.5729 ± 0.0040 | 4.4424 ± 0.0315 | 0.6043 ± 0.0137 | 0.6269 ± 0.0136 | 1.6398 ± 0.0457 | 1.5616 ± 0.0543 |
+| stack.rare.text.ascii.128 / string | 1.5571 ± 0.0333 | 0.4727 ± 0.0065 | 0.4343 ± 0.0070 | 0.4460 ± 0.0053 | 0.4824 ± 0.0095 | 0.4653 ± 0.0039 | 0.4619 ± 0.0074 |
+| stack.rare.text.ascii.128 / utf8 | 4.4097 ± 0.0450 | 0.4607 ± 0.0095 | 0.5485 ± 0.0079 | 0.5760 ± 0.0108 | 0.5944 ± 0.0152 | 0.6051 ± 0.0131 | 0.5934 ± 0.0044 |
+| stack.reads.phase.ascii.128 / string | 0.6350 ± 0.0027 | 1.2143 ± 0.0312 | 0.6450 ± 0.0084 | 0.7449 ± 0.0168 | 0.6729 ± 0.0032 | 0.7007 ± 0.0092 | 0.7061 ± 0.0093 |
+| stack.reads.phase.ascii.128 / utf8 | 2.7090 ± 0.1129 | 3.0602 ± 0.0372 | 2.7193 ± 0.0909 | 3.1116 ± 0.0589 | 2.7789 ± 0.0616 | 2.7382 ± 0.1014 | 2.7676 ± 0.0753 |
+
+## shared
+
+| Scenario | Input | Policy | Seed | µs/doc | Time/main |
+|---|---:|---:|---:|---:|---:|
+| scheme.all.text.ascii.128 | string | dfa | 1 | 0.8395 | 1.377 |
+| scheme.all.text.ascii.128 | string | main | 1 | 0.6099 | 1.000 |
+| scheme.all.text.ascii.128 | string | replay | 1 | 0.7621 | 1.250 |
+| scheme.all.text.ascii.128 | string | work | 1 | 0.7500 | 1.230 |
+| scheme.all.text.ascii.128 | utf8 | dfa | 1 | 0.8399 | 1.225 |
+| scheme.all.text.ascii.128 | utf8 | main | 1 | 0.6855 | 1.000 |
+| scheme.all.text.ascii.128 | utf8 | replay | 1 | 0.7616 | 1.111 |
+| scheme.all.text.ascii.128 | utf8 | work | 1 | 0.8018 | 1.170 |
+| scheme.rare.rotate.ascii.128 | string | dfa | 1 | 0.1755 | 0.014 |
+| scheme.rare.rotate.ascii.128 | string | main | 1 | 12.4022 | 1.000 |
+| scheme.rare.rotate.ascii.128 | string | replay | 1 | 0.2083 | 0.017 |
+| scheme.rare.rotate.ascii.128 | string | work | 1 | 0.2356 | 0.019 |
+| scheme.rare.rotate.ascii.128 | utf8 | dfa | 1 | 0.1945 | 0.018 |
+| scheme.rare.rotate.ascii.128 | utf8 | main | 1 | 10.5481 | 1.000 |
+| scheme.rare.rotate.ascii.128 | utf8 | replay | 1 | 0.2126 | 0.020 |
+| scheme.rare.rotate.ascii.128 | utf8 | work | 1 | 0.2521 | 0.024 |
+| stack.all.text.ascii.128 | string | dfa | 1 | 1.3641 | 1.717 |
+| stack.all.text.ascii.128 | string | main | 1 | 0.7946 | 1.000 |
+| stack.all.text.ascii.128 | string | replay | 1 | 0.9096 | 1.145 |
+| stack.all.text.ascii.128 | string | work | 1 | 0.9468 | 1.191 |
+| stack.all.text.ascii.128 | utf8 | dfa | 1 | 1.3852 | 0.437 |
+| stack.all.text.ascii.128 | utf8 | main | 1 | 3.1666 | 1.000 |
+| stack.all.text.ascii.128 | utf8 | replay | 1 | 2.1675 | 0.684 |
+| stack.all.text.ascii.128 | utf8 | work | 1 | 2.2374 | 0.707 |
+| stack.rare.rotate.ascii.128 | string | dfa | 1 | 0.5766 | 0.279 |
+| stack.rare.rotate.ascii.128 | string | main | 1 | 2.0631 | 1.000 |
+| stack.rare.rotate.ascii.128 | string | replay | 1 | 0.6194 | 0.300 |
+| stack.rare.rotate.ascii.128 | string | work | 1 | 0.6262 | 0.304 |
+| stack.rare.rotate.ascii.128 | utf8 | dfa | 1 | 0.6887 | 0.120 |
+| stack.rare.rotate.ascii.128 | utf8 | main | 1 | 5.7360 | 1.000 |
+| stack.rare.rotate.ascii.128 | utf8 | replay | 1 | 0.7096 | 0.124 |
+| stack.rare.rotate.ascii.128 | utf8 | work | 1 | 0.7475 | 0.130 |
+
+## phases
+
+| Scenario | Input | Policy | Seed | Phase 0 µs/doc | Phase 1 µs/doc | Phase 2 µs/doc |
+|---|---:|---:|---:|---:|---:|---:|
+| scheme.hits.phase.ascii.128 | string | dfa | 1 | 0.6585 | 0.1449 | 0.6576 |
+| scheme.hits.phase.ascii.128 | string | main | 1 | 0.5428 | 8.3548 | 0.5373 |
+| scheme.hits.phase.ascii.128 | string | periodic | 1 | 0.6611 | 2.5512 | 0.6816 |
+| scheme.hits.phase.ascii.128 | string | random | 1 | 0.6133 | 2.2361 | 0.6274 |
+| scheme.hits.phase.ascii.128 | string | replay | 1 | 0.7145 | 0.1615 | 0.7134 |
+| scheme.hits.phase.ascii.128 | string | work | 1 | 0.7305 | 0.1886 | 0.7295 |
+| scheme.hits.phase.ascii.128 | utf8 | dfa | 1 | 0.7059 | 0.1681 | 0.7043 |
+| scheme.hits.phase.ascii.128 | utf8 | main | 1 | 0.5773 | 8.7003 | 0.5874 |
+| scheme.hits.phase.ascii.128 | utf8 | periodic | 1 | 0.6620 | 2.5301 | 0.6788 |
+| scheme.hits.phase.ascii.128 | utf8 | random | 1 | 0.6526 | 2.3579 | 0.6725 |
+| scheme.hits.phase.ascii.128 | utf8 | replay | 1 | 0.7326 | 0.1765 | 0.7323 |
+| scheme.hits.phase.ascii.128 | utf8 | work | 1 | 0.7883 | 0.2039 | 0.7886 |
+| scheme.reads.phase.ascii.128 | string | dfa | 1 | 0.6365 | 0.6151 | 0.6336 |
+| scheme.reads.phase.ascii.128 | string | main | 1 | 0.5457 | 0.5280 | 0.5458 |
+| scheme.reads.phase.ascii.128 | string | periodic | 1 | 0.6164 | 0.5932 | 0.6167 |
+| scheme.reads.phase.ascii.128 | string | random | 1 | 0.5770 | 0.5551 | 0.5771 |
+| scheme.reads.phase.ascii.128 | string | replay | 1 | 0.6907 | 0.6682 | 0.6911 |
+| scheme.reads.phase.ascii.128 | string | work | 1 | 0.5867 | 0.5637 | 0.5895 |
+| scheme.reads.phase.ascii.128 | utf8 | dfa | 1 | 0.7030 | 0.6761 | 0.6966 |
+| scheme.reads.phase.ascii.128 | utf8 | main | 1 | 0.5924 | 0.5674 | 0.5890 |
+| scheme.reads.phase.ascii.128 | utf8 | periodic | 1 | 0.6814 | 0.6550 | 0.6801 |
+| scheme.reads.phase.ascii.128 | utf8 | random | 1 | 0.6067 | 0.5822 | 0.6082 |
+| scheme.reads.phase.ascii.128 | utf8 | replay | 1 | 0.7284 | 0.7027 | 0.7270 |
+| scheme.reads.phase.ascii.128 | utf8 | work | 1 | 0.6188 | 0.5937 | 0.6197 |
+| stack.hits.phase.ascii.128 | string | dfa | 1 | 1.4009 | 0.4921 | 1.4056 |
+| stack.hits.phase.ascii.128 | string | main | 1 | 0.6806 | 1.7147 | 0.6759 |
+| stack.hits.phase.ascii.128 | string | periodic | 1 | 0.7319 | 0.8994 | 0.7648 |
+| stack.hits.phase.ascii.128 | string | random | 1 | 0.7224 | 0.8545 | 0.7568 |
+| stack.hits.phase.ascii.128 | string | replay | 1 | 0.7034 | 0.5615 | 0.7134 |
+| stack.hits.phase.ascii.128 | string | work | 1 | 1.5522 | 0.5440 | 1.5491 |
+| stack.hits.phase.ascii.128 | utf8 | dfa | 1 | 3.0730 | 0.5857 | 3.0736 |
+| stack.hits.phase.ascii.128 | utf8 | main | 1 | 2.7649 | 4.4952 | 2.7486 |
+| stack.hits.phase.ascii.128 | utf8 | periodic | 1 | 2.7043 | 1.6633 | 2.7317 |
+| stack.hits.phase.ascii.128 | utf8 | random | 1 | 2.6883 | 1.5980 | 2.7172 |
+| stack.hits.phase.ascii.128 | utf8 | replay | 1 | 3.0788 | 0.6039 | 3.0958 |
+| stack.hits.phase.ascii.128 | utf8 | work | 1 | 3.1065 | 0.6327 | 3.1170 |
+| stack.reads.phase.ascii.128 | string | dfa | 1 | 1.4022 | 0.8430 | 1.4036 |
+| stack.reads.phase.ascii.128 | string | main | 1 | 0.6529 | 0.6258 | 0.6509 |
+| stack.reads.phase.ascii.128 | string | periodic | 1 | 0.6988 | 0.6746 | 0.7147 |
+| stack.reads.phase.ascii.128 | string | random | 1 | 0.7218 | 0.6932 | 0.7455 |
+| stack.reads.phase.ascii.128 | string | replay | 1 | 0.6865 | 0.8904 | 0.7014 |
+| stack.reads.phase.ascii.128 | string | work | 1 | 0.6961 | 0.6606 | 0.6946 |
+| stack.reads.phase.ascii.128 | utf8 | dfa | 1 | 3.0960 | 3.0313 | 3.0677 |
+| stack.reads.phase.ascii.128 | utf8 | main | 1 | 2.7860 | 2.7372 | 2.7802 |
+| stack.reads.phase.ascii.128 | utf8 | periodic | 1 | 2.7111 | 2.6624 | 2.7124 |
+| stack.reads.phase.ascii.128 | utf8 | random | 1 | 2.7459 | 2.7023 | 2.7451 |
+| stack.reads.phase.ascii.128 | utf8 | replay | 1 | 3.1824 | 3.1352 | 3.1806 |
+| stack.reads.phase.ascii.128 | utf8 | work | 1 | 2.7847 | 2.7317 | 2.7679 |
+
+## latency
+
+| Scenario | Input | Policy | Seed | Mean µs/doc | p50 | p95 | p99 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| scheme.all.text.ascii.128 | string | dfa | 1 | 0.7993 | 0.6460 | 0.7230 | 4.9431 |
+| scheme.all.text.ascii.128 | string | main | 1 | 0.6999 | 0.5460 | 0.6010 | 1.5640 |
+| scheme.all.text.ascii.128 | string | periodic | 1 | 0.7133 | 0.5990 | 0.6480 | 1.0953 |
+| scheme.all.text.ascii.128 | string | random | 1 | 0.6355 | 0.5650 | 0.6660 | 0.9490 |
+| scheme.all.text.ascii.128 | string | replay | 1 | 0.7162 | 0.5830 | 0.6370 | 1.4020 |
+| scheme.all.text.ascii.128 | string | work | 1 | 0.7037 | 0.5760 | 0.6340 | 1.8940 |
+| scheme.all.text.ascii.128 | utf8 | dfa | 1 | 0.8404 | 0.6790 | 0.7480 | 2.7044 |
+| scheme.all.text.ascii.128 | utf8 | main | 1 | 0.6727 | 0.5640 | 0.6150 | 1.1730 |
+| scheme.all.text.ascii.128 | utf8 | periodic | 1 | 0.7424 | 0.6460 | 0.7080 | 1.5858 |
+| scheme.all.text.ascii.128 | utf8 | random | 1 | 0.6984 | 0.6220 | 0.7230 | 1.0700 |
+| scheme.all.text.ascii.128 | utf8 | replay | 1 | 0.7210 | 0.6030 | 0.6550 | 1.0854 |
+| scheme.all.text.ascii.128 | utf8 | work | 1 | 0.7260 | 0.6060 | 0.6570 | 1.1240 |
+| scheme.rare.rotate.ascii.128 | string | dfa | 1 | 0.2272 | 0.1220 | 0.6350 | 0.7510 |
+| scheme.rare.rotate.ascii.128 | string | main | 1 | 10.6290 | 10.5600 | 11.8720 | 27.4240 |
+| scheme.rare.rotate.ascii.128 | string | periodic | 1 | 4.0671 | 0.1980 | 9.4560 | 16.7680 |
+| scheme.rare.rotate.ascii.128 | string | random | 1 | 2.9494 | 0.1800 | 10.7680 | 16.7680 |
+| scheme.rare.rotate.ascii.128 | string | replay | 1 | 0.2250 | 0.1350 | 0.1600 | 0.7440 |
+| scheme.rare.rotate.ascii.128 | string | work | 1 | 0.2894 | 0.1630 | 0.7670 | 0.9470 |
+| scheme.rare.rotate.ascii.128 | utf8 | dfa | 1 | 0.2127 | 0.1360 | 0.1650 | 0.7710 |
+| scheme.rare.rotate.ascii.128 | utf8 | main | 1 | 9.0347 | 8.9920 | 9.9840 | 24.4160 |
+| scheme.rare.rotate.ascii.128 | utf8 | periodic | 1 | 3.1306 | 0.1860 | 9.7120 | 14.9021 |
+| scheme.rare.rotate.ascii.128 | utf8 | random | 1 | 2.5686 | 0.1830 | 9.1360 | 13.5520 |
+| scheme.rare.rotate.ascii.128 | utf8 | replay | 1 | 0.2433 | 0.1480 | 0.1790 | 0.8380 |
+| scheme.rare.rotate.ascii.128 | utf8 | work | 1 | 0.2094 | 0.1700 | 0.1970 | 0.7830 |
+| stack.all.text.ascii.128 | string | dfa | 1 | 1.6297 | 1.3600 | 1.5260 | 11.5520 |
+| stack.all.text.ascii.128 | string | main | 1 | 0.7727 | 0.6420 | 0.7050 | 4.8326 |
+| stack.all.text.ascii.128 | string | periodic | 1 | 0.8008 | 0.6820 | 0.7510 | 1.8380 |
+| stack.all.text.ascii.128 | string | random | 1 | 0.8241 | 0.6680 | 1.1888 | 2.5254 |
+| stack.all.text.ascii.128 | string | replay | 1 | 0.8325 | 0.6660 | 0.7540 | 2.6389 |
+| stack.all.text.ascii.128 | string | work | 1 | 0.8267 | 0.6760 | 0.7540 | 6.3798 |
+| stack.all.text.ascii.128 | utf8 | dfa | 1 | 1.6835 | 1.4040 | 1.5260 | 11.4330 |
+| stack.all.text.ascii.128 | utf8 | main | 1 | 3.0239 | 2.6640 | 2.8600 | 15.5680 |
+| stack.all.text.ascii.128 | utf8 | periodic | 1 | 2.7365 | 2.5600 | 2.6960 | 8.7520 |
+| stack.all.text.ascii.128 | utf8 | random | 1 | 2.7517 | 2.5400 | 2.7080 | 9.2485 |
+| stack.all.text.ascii.128 | utf8 | replay | 1 | 2.9622 | 2.6840 | 2.9200 | 14.8173 |
+| stack.all.text.ascii.128 | utf8 | work | 1 | 2.9221 | 2.6120 | 2.9560 | 13.2365 |
+| stack.reads.phase.ascii.128 | string | dfa | 1 | 1.4749 | 1.3820 | 1.4920 | 10.2582 |
+| stack.reads.phase.ascii.128 | string | main | 1 | 0.7773 | 0.6370 | 0.7030 | 2.2432 |
+| stack.reads.phase.ascii.128 | string | periodic | 1 | 0.8649 | 0.6840 | 1.0600 | 2.1240 |
+| stack.reads.phase.ascii.128 | string | random | 1 | 0.8402 | 0.6850 | 1.0300 | 2.0600 |
+| stack.reads.phase.ascii.128 | string | replay | 1 | 0.9414 | 0.6850 | 0.9150 | 6.5426 |
+| stack.reads.phase.ascii.128 | string | work | 1 | 0.8356 | 0.6710 | 0.7330 | 3.6668 |
+| stack.reads.phase.ascii.128 | utf8 | dfa | 1 | 3.4078 | 2.9520 | 3.3040 | 16.2880 |
+| stack.reads.phase.ascii.128 | utf8 | main | 1 | 2.9116 | 2.5920 | 2.8480 | 13.5923 |
+| stack.reads.phase.ascii.128 | utf8 | periodic | 1 | 2.8881 | 2.6560 | 2.8720 | 8.8640 |
+| stack.reads.phase.ascii.128 | utf8 | random | 1 | 2.9174 | 2.6280 | 3.0520 | 10.2560 |
+| stack.reads.phase.ascii.128 | utf8 | replay | 1 | 3.5743 | 2.9920 | 3.8280 | 18.6979 |
+| stack.reads.phase.ascii.128 | utf8 | work | 1 | 2.9897 | 2.6920 | 2.9320 | 15.3603 |
+
+## seeds
+
+| Scenario | Input | Policy | Seed | µs/doc | Time/main |
+|---|---:|---:|---:|---:|---:|
+| scheme.hits.phase.ascii.128 | string | periodic | 1 | 1.2518 | 0.396 |
+| scheme.hits.phase.ascii.128 | string | random | 1 | 1.1827 | 0.374 |
+| scheme.hits.phase.ascii.128 | string | random | 17 | 1.2811 | 0.405 |
+| scheme.hits.phase.ascii.128 | string | random | 73 | 1.2526 | 0.396 |
+| scheme.hits.phase.ascii.128 | utf8 | periodic | 1 | 1.2735 | 0.388 |
+| scheme.hits.phase.ascii.128 | utf8 | random | 1 | 1.2240 | 0.373 |
+| scheme.hits.phase.ascii.128 | utf8 | random | 17 | 1.2424 | 0.378 |
+| scheme.hits.phase.ascii.128 | utf8 | random | 73 | 1.3083 | 0.398 |
+| scheme.rare.rotate.ascii.128 | string | periodic | 1 | 2.5643 | 0.249 |
+| scheme.rare.rotate.ascii.128 | string | random | 1 | 2.7220 | 0.264 |
+| scheme.rare.rotate.ascii.128 | string | random | 17 | 2.4285 | 0.236 |
+| scheme.rare.rotate.ascii.128 | string | random | 73 | 2.4382 | 0.237 |
+| scheme.rare.rotate.ascii.128 | utf8 | periodic | 1 | 2.4932 | 0.282 |
+| scheme.rare.rotate.ascii.128 | utf8 | random | 1 | 2.4089 | 0.273 |
+| scheme.rare.rotate.ascii.128 | utf8 | random | 17 | 2.4731 | 0.280 |
+| scheme.rare.rotate.ascii.128 | utf8 | random | 73 | 2.3537 | 0.267 |
+| scheme.reads.phase.ascii.128 | string | periodic | 1 | 0.6139 | 1.113 |
+| scheme.reads.phase.ascii.128 | string | random | 1 | 0.5657 | 1.026 |
+| scheme.reads.phase.ascii.128 | string | random | 17 | 0.6213 | 1.127 |
+| scheme.reads.phase.ascii.128 | string | random | 73 | 0.5770 | 1.046 |
+| scheme.reads.phase.ascii.128 | utf8 | periodic | 1 | 0.6676 | 1.138 |
+| scheme.reads.phase.ascii.128 | utf8 | random | 1 | 0.6429 | 1.096 |
+| scheme.reads.phase.ascii.128 | utf8 | random | 17 | 0.6807 | 1.160 |
+| scheme.reads.phase.ascii.128 | utf8 | random | 73 | 0.6623 | 1.129 |
+| stack.hits.phase.ascii.128 | string | periodic | 1 | 0.7565 | 0.762 |
+| stack.hits.phase.ascii.128 | string | random | 1 | 0.8048 | 0.811 |
+| stack.hits.phase.ascii.128 | string | random | 17 | 0.7946 | 0.800 |
+| stack.hits.phase.ascii.128 | string | random | 73 | 0.7962 | 0.802 |
+| stack.hits.phase.ascii.128 | utf8 | periodic | 1 | 2.3616 | 0.738 |
+| stack.hits.phase.ascii.128 | utf8 | random | 1 | 2.3675 | 0.739 |
+| stack.hits.phase.ascii.128 | utf8 | random | 17 | 2.4222 | 0.756 |
+| stack.hits.phase.ascii.128 | utf8 | random | 73 | 2.3765 | 0.742 |
+| stack.reads.phase.ascii.128 | string | periodic | 1 | 0.7098 | 1.112 |
+| stack.reads.phase.ascii.128 | string | random | 1 | 0.7157 | 1.121 |
+| stack.reads.phase.ascii.128 | string | random | 17 | 0.7257 | 1.136 |
+| stack.reads.phase.ascii.128 | string | random | 73 | 0.7061 | 1.106 |
+| stack.reads.phase.ascii.128 | utf8 | periodic | 1 | 2.7410 | 1.001 |
+| stack.reads.phase.ascii.128 | utf8 | random | 1 | 2.7759 | 1.014 |
+| stack.reads.phase.ascii.128 | utf8 | random | 17 | 2.7850 | 1.018 |
+| stack.reads.phase.ascii.128 | utf8 | random | 73 | 2.7639 | 1.010 |
+
+## robustness
+
+| Scenario | Input | Policy | Seed | µs/doc | Time/main |
+|---|---:|---:|---:|---:|---:|
+| scheme.all.fresh.ascii.128 | string | replay | 1 | 0.6858 | 1.258 |
+| scheme.all.fresh.ascii.128 | string | work | 1 | 0.6995 | 1.284 |
+| scheme.all.fresh.ascii.128 | utf8 | replay | 1 | 0.7162 | 1.202 |
+| scheme.all.fresh.ascii.128 | utf8 | work | 1 | 0.7667 | 1.287 |
+| scheme.all.offset.ascii.128 | string | replay | 1 | 0.5408 | 1.031 |
+| scheme.all.offset.ascii.128 | string | work | 1 | 0.5589 | 1.066 |
+| scheme.all.offset.ascii.128 | utf8 | replay | 1 | 0.5697 | 1.031 |
+| scheme.all.offset.ascii.128 | utf8 | work | 1 | 0.5792 | 1.048 |
+| scheme.boundary.ascii.511 | string | replay | 1 | 0.5565 | 1.028 |
+| scheme.boundary.ascii.511 | string | work | 1 | 0.5885 | 1.087 |
+| scheme.boundary.ascii.511 | utf8 | replay | 1 | 0.6114 | 1.096 |
+| scheme.boundary.ascii.511 | utf8 | work | 1 | 0.6090 | 1.092 |
+| scheme.boundary.ascii.513 | string | replay | 1 | 0.6940 | 1.034 |
+| scheme.boundary.ascii.513 | string | work | 1 | 0.7364 | 1.097 |
+| scheme.boundary.ascii.513 | utf8 | replay | 1 | 0.8396 | 1.039 |
+| scheme.boundary.ascii.513 | utf8 | work | 1 | 0.8536 | 1.056 |
+| scheme.half.alternate.ascii.128 | string | replay | 1 | 0.4152 | 0.085 |
+| scheme.half.alternate.ascii.128 | string | work | 1 | 0.4406 | 0.090 |
+| scheme.half.alternate.ascii.128 | utf8 | replay | 1 | 0.4793 | 0.089 |
+| scheme.half.alternate.ascii.128 | utf8 | work | 1 | 0.4806 | 0.089 |
+| scheme.half.blocks.ascii.128 | string | replay | 1 | 0.4423 | 0.091 |
+| scheme.half.blocks.ascii.128 | string | work | 1 | 0.4539 | 0.093 |
+| scheme.half.blocks.ascii.128 | utf8 | replay | 1 | 0.4765 | 0.088 |
+| scheme.half.blocks.ascii.128 | utf8 | work | 1 | 0.4813 | 0.089 |
+| scheme.half.text4.ascii.128 | string | replay | 1 | 0.4027 | 0.083 |
+| scheme.half.text4.ascii.128 | string | work | 1 | 0.3702 | 0.076 |
+| scheme.half.text4.ascii.128 | utf8 | replay | 1 | 0.4602 | 0.092 |
+| scheme.half.text4.ascii.128 | utf8 | work | 1 | 0.3756 | 0.075 |
+| scheme.hits.phase.ascii.128 | string | replay | 1 | 0.5244 | 0.166 |
+| scheme.hits.phase.ascii.128 | string | work | 1 | 0.5534 | 0.175 |
+| scheme.hits.phase.ascii.128 | utf8 | replay | 1 | 0.5515 | 0.168 |
+| scheme.hits.phase.ascii.128 | utf8 | work | 1 | 0.5995 | 0.182 |
+| scheme.multibyte.all.multibyte.128 | string | replay | 1 | 0.5926 | 1.048 |
+| scheme.multibyte.all.multibyte.128 | string | work | 1 | 0.5928 | 1.048 |
+| scheme.multibyte.all.multibyte.128 | utf8 | replay | 1 | 0.6021 | 1.038 |
+| scheme.multibyte.all.multibyte.128 | utf8 | work | 1 | 0.6022 | 1.038 |
+| scheme.multibyte.rare.multibyte.128 | string | replay | 1 | 0.1515 | 0.015 |
+| scheme.multibyte.rare.multibyte.128 | string | work | 1 | 0.1652 | 0.017 |
+| scheme.multibyte.rare.multibyte.128 | utf8 | replay | 1 | 0.1940 | 0.021 |
+| scheme.multibyte.rare.multibyte.128 | utf8 | work | 1 | 0.1806 | 0.019 |
+| scheme.none.text.ascii.128 | string | replay | 1 | 0.1169 | 1.194 |
+| scheme.none.text.ascii.128 | string | work | 1 | 0.1469 | 1.500 |
+| scheme.none.text.ascii.128 | utf8 | replay | 1 | 0.1204 | 1.136 |
+| scheme.none.text.ascii.128 | utf8 | work | 1 | 0.1413 | 1.333 |
+| scheme.rare.fresh.ascii.128 | string | replay | 1 | 0.1697 | 0.016 |
+| scheme.rare.fresh.ascii.128 | string | work | 1 | 0.1932 | 0.019 |
+| scheme.rare.fresh.ascii.128 | utf8 | replay | 1 | 0.1745 | 0.019 |
+| scheme.rare.fresh.ascii.128 | utf8 | work | 1 | 0.2114 | 0.023 |
+| scheme.rare.text4.ascii.128 | string | replay | 1 | 0.1478 | 0.014 |
+| scheme.rare.text4.ascii.128 | string | work | 1 | 0.1822 | 0.018 |
+| scheme.rare.text4.ascii.128 | utf8 | replay | 1 | 0.1615 | 0.014 |
+| scheme.rare.text4.ascii.128 | utf8 | work | 1 | 0.1919 | 0.016 |
+| stack.all.fresh.ascii.128 | string | replay | 1 | 1.4891 | 2.228 |
+| stack.all.fresh.ascii.128 | string | work | 1 | 1.5604 | 2.335 |
+| stack.all.fresh.ascii.128 | utf8 | replay | 1 | 1.4971 | 0.566 |
+| stack.all.fresh.ascii.128 | utf8 | work | 1 | 1.7280 | 0.654 |
+| stack.all.offset.ascii.128 | string | replay | 1 | 0.6422 | 1.028 |
+| stack.all.offset.ascii.128 | string | work | 1 | 0.7139 | 1.143 |
+| stack.all.offset.ascii.128 | utf8 | replay | 1 | 2.6748 | 1.039 |
+| stack.all.offset.ascii.128 | utf8 | work | 1 | 2.6184 | 1.017 |
+| stack.half.alternate.ascii.128 | string | replay | 1 | 1.6251 | 1.363 |
+| stack.half.alternate.ascii.128 | string | work | 1 | 1.0231 | 0.858 |
+| stack.half.alternate.ascii.128 | utf8 | replay | 1 | 1.8093 | 0.477 |
+| stack.half.alternate.ascii.128 | utf8 | work | 1 | 1.8625 | 0.491 |
+| stack.half.blocks.ascii.128 | string | replay | 1 | 0.8276 | 0.707 |
+| stack.half.blocks.ascii.128 | string | work | 1 | 0.9953 | 0.850 |
+| stack.half.blocks.ascii.128 | utf8 | replay | 1 | 1.7704 | 0.479 |
+| stack.half.blocks.ascii.128 | utf8 | work | 1 | 1.8151 | 0.491 |
+| stack.half.text4.ascii.128 | string | replay | 1 | 0.6474 | 0.549 |
+| stack.half.text4.ascii.128 | string | work | 1 | 0.6469 | 0.549 |
+| stack.half.text4.ascii.128 | utf8 | replay | 1 | 1.4557 | 0.406 |
+| stack.half.text4.ascii.128 | utf8 | work | 1 | 1.6243 | 0.453 |
+| stack.hits.phase.ascii.128 | string | replay | 1 | 0.6616 | 0.666 |
+| stack.hits.phase.ascii.128 | string | work | 1 | 1.1877 | 1.196 |
+| stack.hits.phase.ascii.128 | utf8 | replay | 1 | 2.2706 | 0.709 |
+| stack.hits.phase.ascii.128 | utf8 | work | 1 | 2.3126 | 0.722 |
+| stack.multibyte.all.multibyte.128 | string | replay | 1 | 0.7268 | 1.038 |
+| stack.multibyte.all.multibyte.128 | string | work | 1 | 0.7279 | 1.040 |
+| stack.multibyte.all.multibyte.128 | utf8 | replay | 1 | 4.6276 | 1.001 |
+| stack.multibyte.all.multibyte.128 | utf8 | work | 1 | 5.0861 | 1.100 |
+| stack.multibyte.rare.multibyte.128 | string | replay | 1 | 0.4571 | 0.280 |
+| stack.multibyte.rare.multibyte.128 | string | work | 1 | 0.4735 | 0.291 |
+| stack.multibyte.rare.multibyte.128 | utf8 | replay | 1 | 1.3281 | 0.195 |
+| stack.multibyte.rare.multibyte.128 | utf8 | work | 1 | 1.4407 | 0.211 |
+| stack.none.text.ascii.128 | string | replay | 1 | 0.4007 | 1.035 |
+| stack.none.text.ascii.128 | string | work | 1 | 0.4527 | 1.169 |
+| stack.none.text.ascii.128 | utf8 | replay | 1 | 0.3820 | 0.996 |
+| stack.none.text.ascii.128 | utf8 | work | 1 | 0.3909 | 1.019 |
+| stack.rare.fresh.ascii.128 | string | replay | 1 | 0.5295 | 0.333 |
+| stack.rare.fresh.ascii.128 | string | work | 1 | 0.5630 | 0.354 |
+| stack.rare.fresh.ascii.128 | utf8 | replay | 1 | 0.5369 | 0.119 |
+| stack.rare.fresh.ascii.128 | utf8 | work | 1 | 0.6217 | 0.137 |
+| stack.rare.text4.ascii.128 | string | replay | 1 | 0.4628 | 0.292 |
+| stack.rare.text4.ascii.128 | string | work | 1 | 0.4998 | 0.315 |
+| stack.rare.text4.ascii.128 | utf8 | replay | 1 | 0.5507 | 0.118 |
+| stack.rare.text4.ascii.128 | utf8 | work | 1 | 0.6046 | 0.129 |

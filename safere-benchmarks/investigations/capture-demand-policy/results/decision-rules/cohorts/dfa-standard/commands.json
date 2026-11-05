@@ -1,0 +1,28 @@
+[
+  [
+    "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+    "--fastbuild",
+    "--investigation",
+    "capture-demand-policy",
+    "^org\\.safere\\.benchmark\\.AdaptiveCaptureBenchmark\\.run$",
+    "--",
+    "-p",
+    "scenario=stack.all.text.ascii.128,stack.rare.text.ascii.128,stack.all.text4.ascii.128,stack.all.boolean.ascii.128,stack.rare.fresh.ascii.128,stack.all.fresh.ascii.128,stack.rare.rotate.ascii.128,stack.half.alternate.ascii.128,stack.half.shuffle.ascii.128,stack.half.blocks.ascii.128,stack.reads.phase.ascii.128,stack.hits.phase.ascii.128,stack.multibyte.all.multibyte.128,stack.multibyte.rare.multibyte.128,scheme.all.text.ascii.128,scheme.rare.text.ascii.128,scheme.all.text4.ascii.128,scheme.all.boolean.ascii.128,scheme.rare.fresh.ascii.128,scheme.all.fresh.ascii.128,scheme.rare.rotate.ascii.128,scheme.half.alternate.ascii.128,scheme.half.shuffle.ascii.128,scheme.half.blocks.ascii.128,scheme.reads.phase.ascii.128,scheme.hits.phase.ascii.128,scheme.multibyte.all.multibyte.128,scheme.multibyte.rare.multibyte.128,scheme.boundary.ascii.511,scheme.boundary.ascii.513,stack.document,scheme.document,stack.none.text.ascii.128,stack.rare.text4.ascii.128,stack.half.text4.ascii.128,stack.all.offset.ascii.128,scheme.none.text.ascii.128,scheme.rare.text4.ascii.128,scheme.half.text4.ascii.128,scheme.all.offset.ascii.128",
+    "-p",
+    "representation=string,utf8",
+    "-p",
+    "policy=dfa",
+    "-p",
+    "seed=1",
+    "-t",
+    "1",
+    "-foe",
+    "true",
+    "-rf",
+    "json",
+    "-rff",
+    "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/dfa-standard/results.json",
+    "-jvmArgsAppend",
+    "-Dsafere.experimental.bareControl=dfa"
+  ]
+]

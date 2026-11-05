@@ -1,0 +1,39 @@
+Candidate JFR execution samples (separate profiled runs; timing excluded).
+JMH reused each policy output path across forks; only the retained final-fork capture is summarized.
+Counts use the first org.safere frame in each execution sample; samples are not work or elapsed-time shares.
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-random-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1: 244 execution samples
+111 org.safere.BitState.trySearch
+40 org.safere.Prog.inst
+28 org.safere.BitState.shouldVisit
+16 org.safere.BitState.push
+14 org.safere.StringInputScanner.asciiAt
+9 org.safere.BitState.stepWithinBudget
+8 org.safere.Dfa.capturePolicyCharge
+3 org.safere.Dfa.doSearchInternal
+3 org.safere.Inst.matchesCharClass
+2 org.safere.CapturePolicyExperiment.update
+2 org.safere.Matcher.doFindCore
+2 org.safere.Inst.matchesChar
+1 org.safere.CapturePolicyExperiment.learnCost
+1 org.safere.Matcher.group
+1 org.safere.Matcher.reset
+1 org.safere.CapturePolicyExperiment.work
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-work-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1: 240 execution samples
+69 org.safere.Dfa.capturePolicyCharge
+43 org.safere.Dfa.doSearchInternal
+26 org.safere.StringInputScanner.asciiAt
+14 org.safere.BitState.trySearch
+6 org.safere.StringInputScanner.length
+5 org.safere.BitState.push
+5 org.safere.CapturePolicyExperiment.learnCost
+5 org.safere.Matcher.doFindCore
+4 org.safere.Prog.inst
+4 org.safere.StringLiteralSearch.indexOfChar
+3 org.safere.BitState.shouldVisitTracked
+3 org.safere.CapturePolicyExperiment.prefer
+3 org.safere.BitState.shouldVisit
+3 org.safere.CapturePolicyExperiment.work
+2 org.safere.Matcher.group
+2 org.safere.Matcher.invalidateInputDependentCaches
