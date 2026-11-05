@@ -29,6 +29,28 @@ Run Maven builds sequentially in one checkout so compilation does not replace
 class files in use by another run. Optional native benchmark engines have
 additional prerequisites; see [benchmark runners](../safere-benchmarks/README.md).
 
+## GitHub Actions dependencies
+
+All workflows use the generated
+[dependency lockfile](../.github/workflows/actions.lock). After adding a workflow
+or changing an action reference, regenerate it from the repository root:
+
+```bash
+gh extension install github/gh-actions-lock --pin v0.4.1
+gh actions-lock
+gh actions-lock --verify
+```
+
+Commit the workflow changes and lockfile together; do not edit the lockfile by
+hand. CI verifies dependency coverage and upstream provenance on every pull
+request, including documentation changes. Dependabot updates the lockfile with
+its GitHub Actions version updates using the existing configuration.
+
+Review changes to locked commits as dependency updates, and investigate changed
+repository or owner IDs. See GitHub's
+[lockfile guide](https://docs.github.com/en/actions/how-tos/secure-your-work/lock-workflow-dependencies)
+for handling moved references.
+
 ## Formatting
 
 SafeRE uses google-java-format through Spotless:

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-java@v6.1.0
         with:
           java-version-file: .sdkmanrc
@@ -22,7 +22,7 @@ jobs:
         run: safere-fuzz/scripts/run-fuzz-test.sh --suite broad --max-duration 2m --keep-going 3
       - name: Preserve findings and run provenance
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: exploratory-fuzz-evidence
           path: safere-fuzz/target/fuzz-logs/
