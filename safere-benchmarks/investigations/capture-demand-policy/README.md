@@ -81,7 +81,7 @@ original shared sticky preference: DFA-first, local sticky history, a local leas
 and two Pattern-seeded local leases. No alternative is applied by the runner or
 adopted as production policy.
 
-[Results and assessment](results/README.md) explain the completed comparisons using
+[Historical results and assessment](results/README.md) explain the comparisons using
 the original harness at `2c562a0a`. The no-aging ownership control also obtains the
 large rejection benefit; seeding history retains rejection costs. DFA-first trades
 large rejection gains for material successful-extraction costs, with different
@@ -96,5 +96,12 @@ the full performance study.
 
 For comparisons, use clean isolated snapshots with identical harnesses, inputs,
 wrapper settings, and JVMs. Keep new captures under ignored `benchmark-results/`.
-Broader application mixes, a single cursor with rotating input, and full
-reset/region/bounds/replacement transitions remain outside the measured evidence.
+The [adaptive decision-rule study](adaptive/README.md) adds consumption fraction,
+consumption plus search outcomes, replay credit, greedy work estimates, and
+uncertainty-based probabilistic exploration, with deterministic exploration and
+instrumentation controls. Its [results and assessment](results/decision-rules/README.md)
+compare every candidate on a common screen and selected candidates on expanded
+coverage, including single-cursor input/region rotation, separate phase and latency
+measurements, and lifecycle/work-bound validation. It uses a later pinned main and
+a different harness; the two studies' timings are not pooled. Neither study adopts
+a production policy. Broader application mixes remain unmeasured.

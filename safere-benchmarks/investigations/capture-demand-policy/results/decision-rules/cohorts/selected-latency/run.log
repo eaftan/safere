@@ -1,0 +1,2819 @@
+=== Standard mode ===
+=== Fast Building safere-benchmarks only ===
+=== Materializing benchmark inputs from /tmp/safere-1075-adaptive/safere-benchmarks/investigations/capture-demand-policy ===
+Materialized 42 benchmark inputs in /tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus
+UTF-8 scan provider startup check passed: default
+=== Running ^org\.safere\.benchmark\.AdaptiveCaptureLatencyBenchmark\.latency$ (-f 2 -wi 2 -w 500ms -i 5 -r 500ms -p scenario=scheme.all.text.ascii.128,scheme.rare.rotate.ascii.128,stack.all.text.ascii.128,stack.reads.phase.ascii.128 -p representation=string,utf8 -p policy=replay,work -p seed=1 -t 1 -foe true -rf json -rff /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/selected-latency/results.json) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = string, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 0.00% complete, ETA 00:01:52
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1266.472 ±(99.9%) 322.277 ns/op
+# Warmup Iteration   2: 746.017 ±(99.9%) 43.077 ns/op
+Iteration   1: 674.229 ±(99.9%) 35.194 ns/op
+                 p0.00:   518.000 ns/op
+                 p0.50:   547.000 ns/op
+                 p0.90:   579.000 ns/op
+                 p0.95:   607.450 ns/op
+                 p0.99:   1576.000 ns/op
+                 p0.999:  17716.128 ns/op
+                 p0.9999: 37884.179 ns/op
+                 p1.00:   38080.000 ns/op
+
+Iteration   2: 704.152 ±(99.9%) 166.790 ns/op
+                 p0.00:   513.000 ns/op
+                 p0.50:   555.000 ns/op
+                 p0.90:   584.000 ns/op
+                 p0.95:   602.000 ns/op
+                 p0.99:   904.520 ns/op
+                 p0.999:  17946.624 ns/op
+                 p0.9999: 438332.723 ns/op
+                 p1.00:   694272.000 ns/op
+
+Iteration   3: 701.209 ±(99.9%) 59.721 ns/op
+                 p0.00:   503.000 ns/op
+                 p0.50:   575.000 ns/op
+                 p0.90:   607.000 ns/op
+                 p0.95:   633.000 ns/op
+                 p0.99:   1358.880 ns/op
+                 p0.999:  17927.104 ns/op
+                 p0.9999: 143096.179 ns/op
+                 p1.00:   203520.000 ns/op
+
+Iteration   4: 708.366 ±(99.9%) 57.572 ns/op
+                 p0.00:   531.000 ns/op
+                 p0.50:   567.000 ns/op
+                 p0.90:   601.000 ns/op
+                 p0.95:   621.000 ns/op
+                 p0.99:   1633.320 ns/op
+                 p0.999:  17832.352 ns/op
+                 p0.9999: 130606.208 ns/op
+                 p1.00:   178944.000 ns/op
+
+Iteration   5: 653.028 ±(99.9%) 34.448 ns/op
+                 p0.00:   524.000 ns/op
+                 p0.50:   547.000 ns/op
+                 p0.90:   577.000 ns/op
+                 p0.95:   596.000 ns/op
+                 p0.99:   998.040 ns/op
+                 p0.999:  17840.064 ns/op
+                 p0.9999: 52825.933 ns/op
+                 p1.00:   67968.000 ns/op
+
+
+# Run progress: 3.13% complete, ETA 00:02:04
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1351.267 ±(99.9%) 311.049 ns/op
+# Warmup Iteration   2: 759.993 ±(99.9%) 71.265 ns/op
+Iteration   1: 683.618 ±(99.9%) 33.241 ns/op
+                 p0.00:   571.000 ns/op
+                 p0.50:   594.000 ns/op
+                 p0.90:   619.000 ns/op
+                 p0.95:   633.000 ns/op
+                 p0.99:   960.640 ns/op
+                 p0.999:  17654.528 ns/op
+                 p0.9999: 44381.875 ns/op
+                 p1.00:   49600.000 ns/op
+
+Iteration   2: 756.891 ±(99.9%) 73.330 ns/op
+                 p0.00:   574.000 ns/op
+                 p0.50:   594.000 ns/op
+                 p0.90:   623.000 ns/op
+                 p0.95:   649.000 ns/op
+                 p0.99:   1683.060 ns/op
+                 p0.999:  18291.232 ns/op
+                 p0.9999: 180401.421 ns/op
+                 p1.00:   235264.000 ns/op
+
+Iteration   3: 865.274 ±(99.9%) 423.880 ns/op
+                 p0.00:   557.000 ns/op
+                 p0.50:   594.000 ns/op
+                 p0.90:   631.000 ns/op
+                 p0.95:   655.000 ns/op
+                 p0.99:   4744.000 ns/op
+                 p0.999:  18269.440 ns/op
+                 p0.9999: 1174399.744 ns/op
+                 p1.00:   1677312.000 ns/op
+
+Iteration   4: 716.620 ±(99.9%) 36.290 ns/op
+                 p0.00:   572.000 ns/op
+                 p0.50:   595.000 ns/op
+                 p0.90:   628.000 ns/op
+                 p0.95:   655.000 ns/op
+                 p0.99:   1605.000 ns/op
+                 p0.999:  17844.000 ns/op
+                 p0.9999: 35240.000 ns/op
+                 p1.00:   35520.000 ns/op
+
+Iteration   5: 711.154 ±(99.9%) 40.230 ns/op
+                 p0.00:   553.000 ns/op
+                 p0.50:   592.000 ns/op
+                 p0.90:   621.000 ns/op
+                 p0.95:   639.000 ns/op
+                 p0.99:   1100.680 ns/op
+                 p0.999:  18088.576 ns/op
+                 p0.9999: 56800.474 ns/op
+                 p1.00:   63360.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 136335
+  mean =    716.226 ±(99.9%) 46.194 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 136330 
+    [ 125000.000,  250000.000) = 3 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 1 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 0 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 1 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    503.000 ns/op
+     p(50.0000) =    583.000 ns/op
+     p(90.0000) =    616.000 ns/op
+     p(95.0000) =    637.000 ns/op
+     p(99.0000) =   1402.000 ns/op
+     p(99.9000) =  17941.248 ns/op
+     p(99.9900) =  45863.526 ns/op
+     p(99.9990) = 1320114.586 ns/op
+     p(99.9999) = 1677312.000 ns/op
+    p(100.0000) = 1677312.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = string, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 6.25% complete, ETA 00:01:59
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 923.078 ±(99.9%) 524.870 ns/op
+# Warmup Iteration   2: 219.443 ±(99.9%) 54.921 ns/op
+Iteration   1: 306.138 ±(99.9%) 408.038 ns/op
+                 p0.00:   115.000 ns/op
+                 p0.50:   135.000 ns/op
+                 p0.90:   149.000 ns/op
+                 p0.95:   156.000 ns/op
+                 p0.99:   696.480 ns/op
+                 p0.999:  14772.096 ns/op
+                 p0.9999: 1210788.608 ns/op
+                 p1.00:   1464320.000 ns/op
+
+Iteration   2: 203.647 ±(99.9%) 58.094 ns/op
+                 p0.00:   115.000 ns/op
+                 p0.50:   135.000 ns/op
+                 p0.90:   152.000 ns/op
+                 p0.95:   159.000 ns/op
+                 p0.99:   734.460 ns/op
+                 p0.999:  15998.752 ns/op
+                 p0.9999: 160549.830 ns/op
+                 p1.00:   196096.000 ns/op
+
+Iteration   3: 218.287 ±(99.9%) 32.556 ns/op
+                 p0.00:   117.000 ns/op
+                 p0.50:   133.000 ns/op
+                 p0.90:   149.000 ns/op
+                 p0.95:   157.000 ns/op
+                 p0.99:   844.320 ns/op
+                 p0.999:  17514.240 ns/op
+                 p0.9999: 41542.144 ns/op
+                 p1.00:   45248.000 ns/op
+
+Iteration   4: 202.609 ±(99.9%) 27.449 ns/op
+                 p0.00:   115.000 ns/op
+                 p0.50:   136.000 ns/op
+                 p0.90:   153.000 ns/op
+                 p0.95:   160.000 ns/op
+                 p0.99:   757.930 ns/op
+                 p0.999:  16857.152 ns/op
+                 p0.9999: 25009.248 ns/op
+                 p1.00:   26560.000 ns/op
+
+Iteration   5: 193.277 ±(99.9%) 34.239 ns/op
+                 p0.00:   116.000 ns/op
+                 p0.50:   136.000 ns/op
+                 p0.90:   151.000 ns/op
+                 p0.95:   157.000 ns/op
+                 p0.99:   696.030 ns/op
+                 p0.999:  16032.864 ns/op
+                 p0.9999: 66984.646 ns/op
+                 p1.00:   68480.000 ns/op
+
+
+# Run progress: 9.38% complete, ETA 00:01:56
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1401.701 ±(99.9%) 503.830 ns/op
+# Warmup Iteration   2: 200.618 ±(99.9%) 28.953 ns/op
+Iteration   1: 349.121 ±(99.9%) 470.294 ns/op
+                 p0.00:   113.000 ns/op
+                 p0.50:   135.000 ns/op
+                 p0.90:   154.000 ns/op
+                 p0.95:   162.000 ns/op
+                 p0.99:   754.400 ns/op
+                 p0.999:  16221.120 ns/op
+                 p0.9999: 1371141.760 ns/op
+                 p1.00:   1720320.000 ns/op
+
+Iteration   2: 200.092 ±(99.9%) 27.179 ns/op
+                 p0.00:   116.000 ns/op
+                 p0.50:   141.000 ns/op
+                 p0.90:   160.000 ns/op
+                 p0.95:   169.000 ns/op
+                 p0.99:   766.740 ns/op
+                 p0.999:  16441.088 ns/op
+                 p0.9999: 47726.438 ns/op
+                 p1.00:   54336.000 ns/op
+
+Iteration   3: 179.240 ±(99.9%) 23.791 ns/op
+                 p0.00:   117.000 ns/op
+                 p0.50:   133.000 ns/op
+                 p0.90:   146.000 ns/op
+                 p0.95:   153.000 ns/op
+                 p0.99:   706.020 ns/op
+                 p0.999:  15808.160 ns/op
+                 p0.9999: 33510.682 ns/op
+                 p1.00:   33792.000 ns/op
+
+Iteration   4: 200.760 ±(99.9%) 39.864 ns/op
+                 p0.00:   114.000 ns/op
+                 p0.50:   132.000 ns/op
+                 p0.90:   146.000 ns/op
+                 p0.95:   154.000 ns/op
+                 p0.99:   717.150 ns/op
+                 p0.999:  16144.560 ns/op
+                 p0.9999: 92133.312 ns/op
+                 p1.00:   104704.000 ns/op
+
+Iteration   5: 197.600 ±(99.9%) 28.494 ns/op
+                 p0.00:   114.000 ns/op
+                 p0.50:   133.000 ns/op
+                 p0.90:   148.000 ns/op
+                 p0.95:   157.000 ns/op
+                 p0.99:   800.640 ns/op
+                 p0.999:  16220.928 ns/op
+                 p0.9999: 36113.459 ns/op
+                 p1.00:   37632.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 120221
+  mean =    224.994 ±(99.9%) 62.791 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 120218 
+    [ 125000.000,  250000.000) = 1 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 0 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 1 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 1 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    113.000 ns/op
+     p(50.0000) =    135.000 ns/op
+     p(90.0000) =    152.000 ns/op
+     p(95.0000) =    160.000 ns/op
+     p(99.0000) =    744.000 ns/op
+     p(99.9000) =  16176.000 ns/op
+     p(99.9900) =  37605.005 ns/op
+     p(99.9990) = 1668551.680 ns/op
+     p(99.9999) = 1720320.000 ns/op
+    p(100.0000) = 1720320.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = string, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 12.50% complete, ETA 00:01:51
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2161.665 ±(99.9%) 974.957 ns/op
+# Warmup Iteration   2: 819.948 ±(99.9%) 52.628 ns/op
+Iteration   1: 902.586 ±(99.9%) 201.326 ns/op
+                 p0.00:   603.000 ns/op
+                 p0.50:   670.000 ns/op
+                 p0.90:   731.000 ns/op
+                 p0.95:   861.950 ns/op
+                 p0.99:   2815.880 ns/op
+                 p0.999:  18528.544 ns/op
+                 p0.9999: 587853.107 ns/op
+                 p1.00:   660480.000 ns/op
+
+Iteration   2: 823.599 ±(99.9%) 73.592 ns/op
+                 p0.00:   589.000 ns/op
+                 p0.50:   665.000 ns/op
+                 p0.90:   718.000 ns/op
+                 p0.95:   738.000 ns/op
+                 p0.99:   1682.200 ns/op
+                 p0.999:  18320.192 ns/op
+                 p0.9999: 173008.653 ns/op
+                 p1.00:   185344.000 ns/op
+
+Iteration   3: 814.772 ±(99.9%) 44.752 ns/op
+                 p0.00:   587.000 ns/op
+                 p0.50:   666.000 ns/op
+                 p0.90:   721.000 ns/op
+                 p0.95:   743.250 ns/op
+                 p0.99:   6734.800 ns/op
+                 p0.999:  18156.320 ns/op
+                 p0.9999: 58247.328 ns/op
+                 p1.00:   62144.000 ns/op
+
+Iteration   4: 795.997 ±(99.9%) 37.938 ns/op
+                 p0.00:   594.000 ns/op
+                 p0.50:   663.000 ns/op
+                 p0.90:   721.000 ns/op
+                 p0.95:   849.550 ns/op
+                 p0.99:   1801.060 ns/op
+                 p0.999:  17633.632 ns/op
+                 p0.9999: 43820.179 ns/op
+                 p1.00:   46976.000 ns/op
+
+Iteration   5: 829.010 ±(99.9%) 52.404 ns/op
+                 p0.00:   606.000 ns/op
+                 p0.50:   676.000 ns/op
+                 p0.90:   737.000 ns/op
+                 p0.95:   771.000 ns/op
+                 p0.99:   4878.080 ns/op
+                 p0.999:  18520.064 ns/op
+                 p0.9999: 73099.315 ns/op
+                 p1.00:   73344.000 ns/op
+
+
+# Run progress: 15.63% complete, ETA 00:01:48
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1860.369 ±(99.9%) 450.741 ns/op
+# Warmup Iteration   2: 819.679 ±(99.9%) 44.925 ns/op
+Iteration   1: 772.413 ±(99.9%) 33.251 ns/op
+                 p0.00:   600.000 ns/op
+                 p0.50:   664.000 ns/op
+                 p0.90:   695.000 ns/op
+                 p0.95:   737.000 ns/op
+                 p0.99:   2209.480 ns/op
+                 p0.999:  17455.168 ns/op
+                 p0.9999: 36701.878 ns/op
+                 p1.00:   38400.000 ns/op
+
+Iteration   2: 823.956 ±(99.9%) 46.398 ns/op
+                 p0.00:   604.000 ns/op
+                 p0.50:   666.000 ns/op
+                 p0.90:   715.000 ns/op
+                 p0.95:   788.200 ns/op
+                 p0.99:   5349.760 ns/op
+                 p0.999:  18499.072 ns/op
+                 p0.9999: 43695.488 ns/op
+                 p1.00:   45632.000 ns/op
+
+Iteration   3: 810.377 ±(99.9%) 47.067 ns/op
+                 p0.00:   602.000 ns/op
+                 p0.50:   663.000 ns/op
+                 p0.90:   699.000 ns/op
+                 p0.95:   745.000 ns/op
+                 p0.99:   3232.960 ns/op
+                 p0.999:  18181.248 ns/op
+                 p0.9999: 70146.765 ns/op
+                 p1.00:   77056.000 ns/op
+
+Iteration   4: 792.800 ±(99.9%) 42.496 ns/op
+                 p0.00:   600.000 ns/op
+                 p0.50:   665.000 ns/op
+                 p0.90:   698.000 ns/op
+                 p0.95:   717.550 ns/op
+                 p0.99:   1416.160 ns/op
+                 p0.999:  18024.416 ns/op
+                 p0.9999: 51716.698 ns/op
+                 p1.00:   54336.000 ns/op
+
+Iteration   5: 960.636 ±(99.9%) 401.810 ns/op
+                 p0.00:   602.000 ns/op
+                 p0.50:   664.000 ns/op
+                 p0.90:   696.000 ns/op
+                 p0.95:   731.150 ns/op
+                 p0.99:   6206.080 ns/op
+                 p0.999:  23893.504 ns/op
+                 p0.9999: 1196840.474 ns/op
+                 p1.00:   1404928.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 116527
+  mean =    832.458 ±(99.9%) 47.054 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 116522 
+    [ 125000.000,  250000.000) = 3 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 1 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 1 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 0 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    587.000 ns/op
+     p(50.0000) =    666.000 ns/op
+     p(90.0000) =    717.000 ns/op
+     p(95.0000) =    754.000 ns/op
+     p(99.0000) =   2638.880 ns/op
+     p(99.9000) =  18255.104 ns/op
+     p(99.9900) =  55780.352 ns/op
+     p(99.9990) = 1281885.635 ns/op
+     p(99.9999) = 1404928.000 ns/op
+    p(100.0000) = 1404928.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = string, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 18.75% complete, ETA 00:01:44
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2266.368 ±(99.9%) 647.103 ns/op
+# Warmup Iteration   2: 969.180 ±(99.9%) 68.964 ns/op
+Iteration   1: 909.603 ±(99.9%) 46.257 ns/op
+                 p0.00:   607.000 ns/op
+                 p0.50:   695.000 ns/op
+                 p0.90:   877.000 ns/op
+                 p0.95:   1350.800 ns/op
+                 p0.99:   4945.280 ns/op
+                 p0.999:  20304.512 ns/op
+                 p0.9999: 45129.958 ns/op
+                 p1.00:   45248.000 ns/op
+
+Iteration   2: 877.983 ±(99.9%) 43.574 ns/op
+                 p0.00:   610.000 ns/op
+                 p0.50:   699.000 ns/op
+                 p0.90:   869.000 ns/op
+                 p0.95:   900.000 ns/op
+                 p0.99:   4181.600 ns/op
+                 p0.999:  17645.440 ns/op
+                 p0.9999: 41156.672 ns/op
+                 p1.00:   41280.000 ns/op
+
+Iteration   3: 1127.682 ±(99.9%) 596.333 ns/op
+                 p0.00:   591.000 ns/op
+                 p0.50:   683.000 ns/op
+                 p0.90:   859.000 ns/op
+                 p0.95:   880.000 ns/op
+                 p0.99:   7441.040 ns/op
+                 p0.999:  19048.320 ns/op
+                 p0.9999: 1729093.018 ns/op
+                 p1.00:   1806336.000 ns/op
+
+Iteration   4: 1075.657 ±(99.9%) 538.319 ns/op
+                 p0.00:   602.000 ns/op
+                 p0.50:   687.000 ns/op
+                 p0.90:   869.000 ns/op
+                 p0.95:   925.700 ns/op
+                 p0.99:   9151.040 ns/op
+                 p0.999:  19512.704 ns/op
+                 p0.9999: 1627414.694 ns/op
+                 p1.00:   1712128.000 ns/op
+
+Iteration   5: 848.792 ±(99.9%) 42.916 ns/op
+                 p0.00:   610.000 ns/op
+                 p0.50:   687.000 ns/op
+                 p0.90:   862.000 ns/op
+                 p0.95:   884.000 ns/op
+                 p0.99:   1913.780 ns/op
+                 p0.999:  18063.552 ns/op
+                 p0.9999: 62633.523 ns/op
+                 p1.00:   63680.000 ns/op
+
+
+# Run progress: 21.88% complete, ETA 00:01:40
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2397.682 ±(99.9%) 742.519 ns/op
+# Warmup Iteration   2: 902.709 ±(99.9%) 70.296 ns/op
+Iteration   1: 883.511 ±(99.9%) 49.139 ns/op
+                 p0.00:   596.000 ns/op
+                 p0.50:   680.000 ns/op
+                 p0.90:   858.000 ns/op
+                 p0.95:   883.050 ns/op
+                 p0.99:   5324.720 ns/op
+                 p0.999:  21163.264 ns/op
+                 p0.9999: 47523.514 ns/op
+                 p1.00:   48512.000 ns/op
+
+Iteration   2: 1016.027 ±(99.9%) 527.393 ns/op
+                 p0.00:   593.000 ns/op
+                 p0.50:   680.000 ns/op
+                 p0.90:   871.000 ns/op
+                 p0.95:   927.900 ns/op
+                 p0.99:   2468.720 ns/op
+                 p0.999:  17786.752 ns/op
+                 p0.9999: 1595090.010 ns/op
+                 p1.00:   1691648.000 ns/op
+
+Iteration   3: 860.168 ±(99.9%) 42.193 ns/op
+                 p0.00:   581.000 ns/op
+                 p0.50:   676.000 ns/op
+                 p0.90:   866.000 ns/op
+                 p0.95:   933.050 ns/op
+                 p0.99:   3987.400 ns/op
+                 p0.999:  19791.456 ns/op
+                 p0.9999: 58317.939 ns/op
+                 p1.00:   60992.000 ns/op
+
+Iteration   4: 915.224 ±(99.9%) 50.538 ns/op
+                 p0.00:   589.000 ns/op
+                 p0.50:   681.000 ns/op
+                 p0.90:   877.000 ns/op
+                 p0.95:   1095.300 ns/op
+                 p0.99:   8345.280 ns/op
+                 p0.999:  19117.952 ns/op
+                 p0.9999: 51765.197 ns/op
+                 p1.00:   52480.000 ns/op
+
+Iteration   5: 902.432 ±(99.9%) 52.719 ns/op
+                 p0.00:   586.000 ns/op
+                 p0.50:   677.000 ns/op
+                 p0.90:   865.000 ns/op
+                 p0.95:   906.650 ns/op
+                 p0.99:   7007.360 ns/op
+                 p0.999:  18937.696 ns/op
+                 p0.9999: 62049.370 ns/op
+                 p1.00:   63936.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 106316
+  mean =    941.405 ±(99.9%) 96.577 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 106312 
+    [ 125000.000,  250000.000) = 0 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 1 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 0 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 2 
+    [1750000.000, 1875000.000) = 1 
+
+  Percentiles, ns/op:
+      p(0.0000) =    581.000 ns/op
+     p(50.0000) =    685.000 ns/op
+     p(90.0000) =    867.000 ns/op
+     p(95.0000) =    915.000 ns/op
+     p(99.0000) =   6542.640 ns/op
+     p(99.9000) =  18507.712 ns/op
+     p(99.9900) =  49006.995 ns/op
+     p(99.9990) = 1800384.881 ns/op
+     p(99.9999) = 1806336.000 ns/op
+    p(100.0000) = 1806336.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = utf8, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 25.00% complete, ETA 00:01:36
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1426.593 ±(99.9%) 257.452 ns/op
+# Warmup Iteration   2: 754.510 ±(99.9%) 64.928 ns/op
+Iteration   1: 702.740 ±(99.9%) 34.967 ns/op
+                 p0.00:   561.000 ns/op
+                 p0.50:   604.000 ns/op
+                 p0.90:   636.000 ns/op
+                 p0.95:   651.000 ns/op
+                 p0.99:   891.280 ns/op
+                 p0.999:  17697.792 ns/op
+                 p0.9999: 42153.856 ns/op
+                 p1.00:   43200.000 ns/op
+
+Iteration   2: 717.027 ±(99.9%) 35.749 ns/op
+                 p0.00:   558.000 ns/op
+                 p0.50:   604.000 ns/op
+                 p0.90:   637.000 ns/op
+                 p0.95:   658.000 ns/op
+                 p0.99:   1617.040 ns/op
+                 p0.999:  17672.448 ns/op
+                 p0.9999: 34904.550 ns/op
+                 p1.00:   35264.000 ns/op
+
+Iteration   3: 791.290 ±(99.9%) 61.404 ns/op
+                 p0.00:   552.000 ns/op
+                 p0.50:   601.000 ns/op
+                 p0.90:   644.000 ns/op
+                 p0.95:   664.000 ns/op
+                 p0.99:   9285.120 ns/op
+                 p0.999:  18446.080 ns/op
+                 p0.9999: 124961.792 ns/op
+                 p1.00:   161024.000 ns/op
+
+Iteration   4: 716.383 ±(99.9%) 38.284 ns/op
+                 p0.00:   560.000 ns/op
+                 p0.50:   607.000 ns/op
+                 p0.90:   648.000 ns/op
+                 p0.95:   673.000 ns/op
+                 p0.99:   1022.140 ns/op
+                 p0.999:  17972.096 ns/op
+                 p0.9999: 54897.075 ns/op
+                 p1.00:   61120.000 ns/op
+
+Iteration   5: 685.619 ±(99.9%) 36.985 ns/op
+                 p0.00:   562.000 ns/op
+                 p0.50:   604.000 ns/op
+                 p0.90:   635.000 ns/op
+                 p0.95:   651.000 ns/op
+                 p0.99:   917.210 ns/op
+                 p0.999:  16896.672 ns/op
+                 p0.9999: 74138.880 ns/op
+                 p1.00:   85632.000 ns/op
+
+
+# Run progress: 28.13% complete, ETA 00:01:32
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1216.894 ±(99.9%) 219.855 ns/op
+# Warmup Iteration   2: 745.342 ±(99.9%) 57.600 ns/op
+Iteration   1: 756.654 ±(99.9%) 46.258 ns/op
+                 p0.00:   559.000 ns/op
+                 p0.50:   600.000 ns/op
+                 p0.90:   635.000 ns/op
+                 p0.95:   653.000 ns/op
+                 p0.99:   6728.000 ns/op
+                 p0.999:  21005.056 ns/op
+                 p0.9999: 60122.829 ns/op
+                 p1.00:   62656.000 ns/op
+
+Iteration   2: 723.351 ±(99.9%) 47.802 ns/op
+                 p0.00:   563.000 ns/op
+                 p0.50:   601.000 ns/op
+                 p0.90:   628.000 ns/op
+                 p0.95:   646.000 ns/op
+                 p0.99:   1129.000 ns/op
+                 p0.999:  18144.320 ns/op
+                 p0.9999: 85778.752 ns/op
+                 p1.00:   89344.000 ns/op
+
+Iteration   3: 706.197 ±(99.9%) 35.080 ns/op
+                 p0.00:   570.000 ns/op
+                 p0.50:   605.000 ns/op
+                 p0.90:   636.000 ns/op
+                 p0.95:   651.000 ns/op
+                 p0.99:   1048.240 ns/op
+                 p0.999:  17766.592 ns/op
+                 p0.9999: 38083.942 ns/op
+                 p1.00:   42304.000 ns/op
+
+Iteration   4: 685.526 ±(99.9%) 36.860 ns/op
+                 p0.00:   572.000 ns/op
+                 p0.50:   602.000 ns/op
+                 p0.90:   628.000 ns/op
+                 p0.95:   644.000 ns/op
+                 p0.99:   907.640 ns/op
+                 p0.999:  17630.272 ns/op
+                 p0.9999: 70594.918 ns/op
+                 p1.00:   76544.000 ns/op
+
+Iteration   5: 725.883 ±(99.9%) 39.364 ns/op
+                 p0.00:   570.000 ns/op
+                 p0.50:   605.000 ns/op
+                 p0.90:   636.000 ns/op
+                 p0.95:   654.000 ns/op
+                 p0.99:   1024.250 ns/op
+                 p0.999:  18084.160 ns/op
+                 p0.9999: 43684.640 ns/op
+                 p1.00:   46784.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 129227
+  mean =    721.047 ±(99.9%) 13.296 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  12500.000) = 128580 
+    [ 12500.000,  25000.000) = 603 
+    [ 25000.000,  37500.000) = 24 
+    [ 37500.000,  50000.000) = 10 
+    [ 50000.000,  62500.000) = 4 
+    [ 62500.000,  75000.000) = 1 
+    [ 75000.000,  87500.000) = 3 
+    [ 87500.000, 100000.000) = 1 
+    [100000.000, 112500.000) = 0 
+    [112500.000, 125000.000) = 0 
+    [125000.000, 137500.000) = 0 
+    [137500.000, 150000.000) = 0 
+    [150000.000, 162500.000) = 1 
+    [162500.000, 175000.000) = 0 
+    [175000.000, 187500.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    552.000 ns/op
+     p(50.0000) =    603.000 ns/op
+     p(90.0000) =    636.000 ns/op
+     p(95.0000) =    655.000 ns/op
+     p(99.0000) =   1085.440 ns/op
+     p(99.9000) =  17952.000 ns/op
+     p(99.9900) =  45602.816 ns/op
+     p(99.9990) = 140073.370 ns/op
+     p(99.9999) = 161024.000 ns/op
+    p(100.0000) = 161024.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = utf8, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 31.25% complete, ETA 00:01:28
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 895.366 ±(99.9%) 207.105 ns/op
+# Warmup Iteration   2: 296.854 ±(99.9%) 38.499 ns/op
+Iteration   1: 217.023 ±(99.9%) 55.497 ns/op
+                 p0.00:   124.000 ns/op
+                 p0.50:   152.000 ns/op
+                 p0.90:   170.000 ns/op
+                 p0.95:   180.000 ns/op
+                 p0.99:   785.350 ns/op
+                 p0.999:  15927.680 ns/op
+                 p0.9999: 154065.440 ns/op
+                 p1.00:   167936.000 ns/op
+
+Iteration   2: 369.760 ±(99.9%) 528.885 ns/op
+                 p0.00:   123.000 ns/op
+                 p0.50:   147.000 ns/op
+                 p0.90:   165.000 ns/op
+                 p0.95:   174.000 ns/op
+                 p0.99:   761.210 ns/op
+                 p0.999:  16281.088 ns/op
+                 p0.9999: 1585661.165 ns/op
+                 p1.00:   1794048.000 ns/op
+
+Iteration   3: 205.515 ±(99.9%) 28.590 ns/op
+                 p0.00:   124.000 ns/op
+                 p0.50:   146.000 ns/op
+                 p0.90:   166.000 ns/op
+                 p0.95:   175.000 ns/op
+                 p0.99:   772.090 ns/op
+                 p0.999:  16292.352 ns/op
+                 p0.9999: 47049.075 ns/op
+                 p1.00:   49856.000 ns/op
+
+Iteration   4: 190.789 ±(99.9%) 23.088 ns/op
+                 p0.00:   126.000 ns/op
+                 p0.50:   150.000 ns/op
+                 p0.90:   169.000 ns/op
+                 p0.95:   179.000 ns/op
+                 p0.99:   725.280 ns/op
+                 p0.999:  13271.936 ns/op
+                 p0.9999: 40637.901 ns/op
+                 p1.00:   42432.000 ns/op
+
+Iteration   5: 275.251 ±(99.9%) 51.404 ns/op
+                 p0.00:   127.000 ns/op
+                 p0.50:   147.000 ns/op
+                 p0.90:   169.000 ns/op
+                 p0.95:   202.950 ns/op
+                 p0.99:   1091.480 ns/op
+                 p0.999:  17992.768 ns/op
+                 p0.9999: 88013.658 ns/op
+                 p1.00:   90496.000 ns/op
+
+
+# Run progress: 34.38% complete, ETA 00:01:24
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 790.423 ±(99.9%) 179.552 ns/op
+# Warmup Iteration   2: 322.173 ±(99.9%) 66.570 ns/op
+Iteration   1: 244.539 ±(99.9%) 33.866 ns/op
+                 p0.00:   121.000 ns/op
+                 p0.50:   147.000 ns/op
+                 p0.90:   168.000 ns/op
+                 p0.95:   186.000 ns/op
+                 p0.99:   1027.220 ns/op
+                 p0.999:  16627.520 ns/op
+                 p0.9999: 37666.445 ns/op
+                 p1.00:   39744.000 ns/op
+
+Iteration   2: 284.151 ±(99.9%) 209.814 ns/op
+                 p0.00:   123.000 ns/op
+                 p0.50:   145.000 ns/op
+                 p0.90:   166.000 ns/op
+                 p0.95:   223.000 ns/op
+                 p0.99:   1235.160 ns/op
+                 p0.999:  16481.024 ns/op
+                 p0.9999: 626185.498 ns/op
+                 p1.00:   709632.000 ns/op
+
+Iteration   3: 188.211 ±(99.9%) 22.898 ns/op
+                 p0.00:   121.000 ns/op
+                 p0.50:   146.000 ns/op
+                 p0.90:   163.000 ns/op
+                 p0.95:   171.000 ns/op
+                 p0.99:   726.330 ns/op
+                 p0.999:  15802.560 ns/op
+                 p0.9999: 32755.936 ns/op
+                 p1.00:   34112.000 ns/op
+
+Iteration   4: 230.039 ±(99.9%) 34.729 ns/op
+                 p0.00:   121.000 ns/op
+                 p0.50:   145.000 ns/op
+                 p0.90:   164.000 ns/op
+                 p0.95:   177.000 ns/op
+                 p0.99:   835.710 ns/op
+                 p0.999:  16778.016 ns/op
+                 p0.9999: 42280.403 ns/op
+                 p1.00:   42304.000 ns/op
+
+Iteration   5: 227.479 ±(99.9%) 34.896 ns/op
+                 p0.00:   121.000 ns/op
+                 p0.50:   147.000 ns/op
+                 p0.90:   167.000 ns/op
+                 p0.95:   215.800 ns/op
+                 p0.99:   1099.520 ns/op
+                 p0.999:  16937.216 ns/op
+                 p0.9999: 63081.421 ns/op
+                 p1.00:   65408.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 111819
+  mean =    243.285 ±(99.9%) 57.875 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 111816 
+    [ 125000.000,  250000.000) = 1 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 1 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 0 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 0 
+    [1750000.000, 1875000.000) = 1 
+
+  Percentiles, ns/op:
+      p(0.0000) =    121.000 ns/op
+     p(50.0000) =    148.000 ns/op
+     p(90.0000) =    167.000 ns/op
+     p(95.0000) =    179.000 ns/op
+     p(99.0000) =    838.000 ns/op
+     p(99.9000) =  16512.000 ns/op
+     p(99.9900) =  42269.056 ns/op
+     p(99.9990) = 1665870.029 ns/op
+     p(99.9999) = 1794048.000 ns/op
+    p(100.0000) = 1794048.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = utf8, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 37.50% complete, ETA 00:01:20
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3483.593 ±(99.9%) 385.844 ns/op
+# Warmup Iteration   2: 3003.735 ±(99.9%) 208.579 ns/op
+Iteration   1: 3034.171 ±(99.9%) 219.678 ns/op
+                 p0.00:   2532.000 ns/op
+                 p0.50:   2708.000 ns/op
+                 p0.90:   2828.000 ns/op
+                 p0.95:   2904.000 ns/op
+                 p0.99:   15677.440 ns/op
+                 p0.999:  32925.312 ns/op
+                 p0.9999: 637255.066 ns/op
+                 p1.00:   703488.000 ns/op
+
+Iteration   2: 2935.554 ±(99.9%) 56.172 ns/op
+                 p0.00:   2548.000 ns/op
+                 p0.50:   2704.000 ns/op
+                 p0.90:   2784.000 ns/op
+                 p0.95:   2868.000 ns/op
+                 p0.99:   11212.800 ns/op
+                 p0.999:  24385.280 ns/op
+                 p0.9999: 48379.968 ns/op
+                 p1.00:   48768.000 ns/op
+
+Iteration   3: 2967.076 ±(99.9%) 67.439 ns/op
+                 p0.00:   2480.000 ns/op
+                 p0.50:   2676.000 ns/op
+                 p0.90:   2772.000 ns/op
+                 p0.95:   2931.200 ns/op
+                 p0.99:   13381.120 ns/op
+                 p0.999:  34328.320 ns/op
+                 p0.9999: 69406.080 ns/op
+                 p1.00:   72576.000 ns/op
+
+Iteration   4: 3042.081 ±(99.9%) 79.189 ns/op
+                 p0.00:   2496.000 ns/op
+                 p0.50:   2696.000 ns/op
+                 p0.90:   2836.000 ns/op
+                 p0.95:   3122.400 ns/op
+                 p0.99:   15921.920 ns/op
+                 p0.999:  37806.848 ns/op
+                 p0.9999: 96707.072 ns/op
+                 p1.00:   101504.000 ns/op
+
+Iteration   5: 2954.333 ±(99.9%) 55.689 ns/op
+                 p0.00:   2532.000 ns/op
+                 p0.50:   2704.000 ns/op
+                 p0.90:   2832.000 ns/op
+                 p0.95:   2944.000 ns/op
+                 p0.99:   13851.200 ns/op
+                 p0.999:  20437.184 ns/op
+                 p0.9999: 44543.552 ns/op
+                 p1.00:   44672.000 ns/op
+
+
+# Run progress: 40.63% complete, ETA 00:01:16
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3773.557 ±(99.9%) 519.216 ns/op
+# Warmup Iteration   2: 2821.093 ±(99.9%) 63.693 ns/op
+Iteration   1: 2769.794 ±(99.9%) 52.132 ns/op
+                 p0.00:   2364.000 ns/op
+                 p0.50:   2532.000 ns/op
+                 p0.90:   2668.000 ns/op
+                 p0.95:   2756.000 ns/op
+                 p0.99:   11838.400 ns/op
+                 p0.999:  21180.800 ns/op
+                 p0.9999: 53476.384 ns/op
+                 p1.00:   57856.000 ns/op
+
+Iteration   2: 2959.417 ±(99.9%) 70.802 ns/op
+                 p0.00:   2524.000 ns/op
+                 p0.50:   2680.000 ns/op
+                 p0.90:   2776.000 ns/op
+                 p0.95:   2863.600 ns/op
+                 p0.99:   15855.680 ns/op
+                 p0.999:  29964.992 ns/op
+                 p0.9999: 115883.302 ns/op
+                 p1.00:   129024.000 ns/op
+
+Iteration   3: 2936.390 ±(99.9%) 85.592 ns/op
+                 p0.00:   2528.000 ns/op
+                 p0.50:   2672.000 ns/op
+                 p0.90:   2764.000 ns/op
+                 p0.95:   2852.000 ns/op
+                 p0.99:   11604.000 ns/op
+                 p0.999:  33936.000 ns/op
+                 p0.9999: 191818.400 ns/op
+                 p1.00:   217600.000 ns/op
+
+Iteration   4: 3134.478 ±(99.9%) 221.101 ns/op
+                 p0.00:   2532.000 ns/op
+                 p0.50:   2688.000 ns/op
+                 p0.90:   2928.000 ns/op
+                 p0.95:   4688.000 ns/op
+                 p0.99:   15862.080 ns/op
+                 p0.999:  33760.256 ns/op
+                 p0.9999: 641380.698 ns/op
+                 p1.00:   711680.000 ns/op
+
+Iteration   5: 2907.235 ±(99.9%) 70.058 ns/op
+                 p0.00:   2516.000 ns/op
+                 p0.50:   2676.000 ns/op
+                 p0.90:   2756.000 ns/op
+                 p0.95:   2800.000 ns/op
+                 p0.99:   10964.480 ns/op
+                 p0.999:  32863.008 ns/op
+                 p0.9999: 131123.219 ns/op
+                 p1.00:   145920.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 114761
+  mean =   2962.247 ±(99.9%) 36.014 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  50000.000) = 114745 
+    [ 50000.000, 100000.000) = 9 
+    [100000.000, 150000.000) = 3 
+    [150000.000, 200000.000) = 1 
+    [200000.000, 250000.000) = 1 
+    [250000.000, 300000.000) = 0 
+    [300000.000, 350000.000) = 0 
+    [350000.000, 400000.000) = 0 
+    [400000.000, 450000.000) = 0 
+    [450000.000, 500000.000) = 0 
+    [500000.000, 550000.000) = 0 
+    [550000.000, 600000.000) = 0 
+    [600000.000, 650000.000) = 0 
+    [650000.000, 700000.000) = 0 
+    [700000.000, 750000.000) = 2 
+
+  Percentiles, ns/op:
+      p(0.0000) =   2364.000 ns/op
+     p(50.0000) =   2684.000 ns/op
+     p(90.0000) =   2792.000 ns/op
+     p(95.0000) =   2920.000 ns/op
+     p(99.0000) =  14817.280 ns/op
+     p(99.9000) =  32743.616 ns/op
+     p(99.9900) =  56728.358 ns/op
+     p(99.9990) = 710470.697 ns/op
+     p(99.9999) = 711680.000 ns/op
+    p(100.0000) = 711680.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = replay, representation = utf8, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 43.75% complete, ETA 00:01:12
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4721.523 ±(99.9%) 719.282 ns/op
+# Warmup Iteration   2: 3596.260 ±(99.9%) 360.285 ns/op
+Iteration   1: 3769.711 ±(99.9%) 474.445 ns/op
+                 p0.00:   2780.000 ns/op
+                 p0.50:   2944.000 ns/op
+                 p0.90:   3128.000 ns/op
+                 p0.95:   4234.800 ns/op
+                 p0.99:   18991.040 ns/op
+                 p0.999:  52905.216 ns/op
+                 p0.9999: 796310.528 ns/op
+                 p1.00:   796672.000 ns/op
+
+Iteration   2: 3401.480 ±(99.9%) 104.712 ns/op
+                 p0.00:   2828.000 ns/op
+                 p0.50:   2964.000 ns/op
+                 p0.90:   3116.000 ns/op
+                 p0.95:   3436.000 ns/op
+                 p0.99:   18496.000 ns/op
+                 p0.999:  41894.400 ns/op
+                 p0.9999: 155356.160 ns/op
+                 p1.00:   156928.000 ns/op
+
+Iteration   3: 3588.536 ±(99.9%) 138.333 ns/op
+                 p0.00:   2832.000 ns/op
+                 p0.50:   2988.000 ns/op
+                 p0.90:   3252.000 ns/op
+                 p0.95:   5552.400 ns/op
+                 p0.99:   18957.120 ns/op
+                 p0.999:  39329.472 ns/op
+                 p0.9999: 240150.682 ns/op
+                 p1.00:   241152.000 ns/op
+
+Iteration   4: 3517.113 ±(99.9%) 109.265 ns/op
+                 p0.00:   2840.000 ns/op
+                 p0.50:   2988.000 ns/op
+                 p0.90:   3200.000 ns/op
+                 p0.95:   3762.600 ns/op
+                 p0.99:   19425.920 ns/op
+                 p0.999:  43030.656 ns/op
+                 p0.9999: 126178.253 ns/op
+                 p1.00:   127104.000 ns/op
+
+Iteration   5: 3435.800 ±(99.9%) 96.290 ns/op
+                 p0.00:   2840.000 ns/op
+                 p0.50:   2960.000 ns/op
+                 p0.90:   3160.000 ns/op
+                 p0.95:   3859.800 ns/op
+                 p0.99:   18674.880 ns/op
+                 p0.999:  40198.912 ns/op
+                 p0.9999: 80465.670 ns/op
+                 p1.00:   80896.000 ns/op
+
+
+# Run progress: 46.88% complete, ETA 00:01:08
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4660.315 ±(99.9%) 659.332 ns/op
+# Warmup Iteration   2: 3475.382 ±(99.9%) 103.006 ns/op
+Iteration   1: 3707.537 ±(99.9%) 669.287 ns/op
+                 p0.00:   2852.000 ns/op
+                 p0.50:   3020.000 ns/op
+                 p0.90:   3212.000 ns/op
+                 p0.95:   3822.600 ns/op
+                 p0.99:   18578.560 ns/op
+                 p0.999:  37279.232 ns/op
+                 p0.9999: 1857536.000 ns/op
+                 p1.00:   1857536.000 ns/op
+
+Iteration   2: 3735.252 ±(99.9%) 677.624 ns/op
+                 p0.00:   2868.000 ns/op
+                 p0.50:   3072.000 ns/op
+                 p0.90:   3252.000 ns/op
+                 p0.95:   3807.800 ns/op
+                 p0.99:   19056.960 ns/op
+                 p0.999:  40003.840 ns/op
+                 p0.9999: 2009088.000 ns/op
+                 p1.00:   2009088.000 ns/op
+
+Iteration   3: 3832.657 ±(99.9%) 710.730 ns/op
+                 p0.00:   2828.000 ns/op
+                 p0.50:   3084.000 ns/op
+                 p0.90:   3228.000 ns/op
+                 p0.95:   3692.000 ns/op
+                 p0.99:   18387.200 ns/op
+                 p0.999:  41433.600 ns/op
+                 p0.9999: 1841152.000 ns/op
+                 p1.00:   1841152.000 ns/op
+
+Iteration   4: 3373.980 ±(99.9%) 83.803 ns/op
+                 p0.00:   2848.000 ns/op
+                 p0.50:   2976.000 ns/op
+                 p0.90:   3104.000 ns/op
+                 p0.95:   3565.800 ns/op
+                 p0.99:   17203.520 ns/op
+                 p0.999:  34485.056 ns/op
+                 p0.9999: 86508.211 ns/op
+                 p1.00:   86784.000 ns/op
+
+Iteration   5: 3395.631 ±(99.9%) 88.036 ns/op
+                 p0.00:   2856.000 ns/op
+                 p0.50:   2996.000 ns/op
+                 p0.90:   3156.000 ns/op
+                 p0.95:   3328.000 ns/op
+                 p0.99:   17892.480 ns/op
+                 p0.999:  36951.552 ns/op
+                 p0.9999: 87297.549 ns/op
+                 p1.00:   87552.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 101068
+  mean =   3574.299 ±(99.9%) 128.422 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  250000.000) = 101057 
+    [ 250000.000,  500000.000) = 2 
+    [ 500000.000,  750000.000) = 3 
+    [ 750000.000, 1000000.000) = 3 
+    [1000000.000, 1250000.000) = 0 
+    [1250000.000, 1500000.000) = 0 
+    [1500000.000, 1750000.000) = 0 
+    [1750000.000, 2000000.000) = 2 
+    [2000000.000, 2250000.000) = 1 
+    [2250000.000, 2500000.000) = 0 
+    [2500000.000, 2750000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =   2780.000 ns/op
+     p(50.0000) =   2992.000 ns/op
+     p(90.0000) =   3196.000 ns/op
+     p(95.0000) =   3828.000 ns/op
+     p(99.0000) =  18697.920 ns/op
+     p(99.9000) =  39159.168 ns/op
+     p(99.9900) = 490522.368 ns/op
+     p(99.9990) = 2007467.909 ns/op
+     p(99.9999) = 2009088.000 ns/op
+    p(100.0000) = 2009088.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = string, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 50.00% complete, ETA 00:01:04
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1155.278 ±(99.9%) 190.791 ns/op
+# Warmup Iteration   2: 661.414 ±(99.9%) 31.349 ns/op
+Iteration   1: 728.766 ±(99.9%) 44.462 ns/op
+                 p0.00:   537.000 ns/op
+                 p0.50:   567.000 ns/op
+                 p0.90:   652.000 ns/op
+                 p0.95:   927.000 ns/op
+                 p0.99:   2458.760 ns/op
+                 p0.999:  17943.616 ns/op
+                 p0.9999: 69080.038 ns/op
+                 p1.00:   71168.000 ns/op
+
+Iteration   2: 711.863 ±(99.9%) 40.179 ns/op
+                 p0.00:   536.000 ns/op
+                 p0.50:   565.000 ns/op
+                 p0.90:   601.000 ns/op
+                 p0.95:   635.000 ns/op
+                 p0.99:   3538.240 ns/op
+                 p0.999:  18035.872 ns/op
+                 p0.9999: 42875.597 ns/op
+                 p1.00:   43264.000 ns/op
+
+Iteration   3: 755.285 ±(99.9%) 329.013 ns/op
+                 p0.00:   537.000 ns/op
+                 p0.50:   563.000 ns/op
+                 p0.90:   597.000 ns/op
+                 p0.95:   619.000 ns/op
+                 p0.99:   1240.320 ns/op
+                 p0.999:  16961.024 ns/op
+                 p0.9999: 860148.122 ns/op
+                 p1.00:   1392640.000 ns/op
+
+Iteration   4: 640.466 ±(99.9%) 26.144 ns/op
+                 p0.00:   530.000 ns/op
+                 p0.50:   563.000 ns/op
+                 p0.90:   597.000 ns/op
+                 p0.95:   610.000 ns/op
+                 p0.99:   884.180 ns/op
+                 p0.999:  16710.976 ns/op
+                 p0.9999: 28532.346 ns/op
+                 p1.00:   31328.000 ns/op
+
+Iteration   5: 659.210 ±(99.9%) 34.213 ns/op
+                 p0.00:   538.000 ns/op
+                 p0.50:   560.000 ns/op
+                 p0.90:   595.000 ns/op
+                 p0.95:   611.000 ns/op
+                 p0.99:   973.950 ns/op
+                 p0.999:  17125.920 ns/op
+                 p0.9999: 50638.733 ns/op
+                 p1.00:   58688.000 ns/op
+
+
+# Run progress: 53.13% complete, ETA 00:01:00
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1432.892 ±(99.9%) 239.347 ns/op
+# Warmup Iteration   2: 876.116 ±(99.9%) 528.670 ns/op
+Iteration   1: 709.338 ±(99.9%) 36.517 ns/op
+                 p0.00:   549.000 ns/op
+                 p0.50:   584.000 ns/op
+                 p0.90:   623.000 ns/op
+                 p0.95:   652.000 ns/op
+                 p0.99:   1830.400 ns/op
+                 p0.999:  17225.856 ns/op
+                 p0.9999: 40437.197 ns/op
+                 p1.00:   41664.000 ns/op
+
+Iteration   2: 662.103 ±(99.9%) 26.754 ns/op
+                 p0.00:   555.000 ns/op
+                 p0.50:   580.000 ns/op
+                 p0.90:   611.000 ns/op
+                 p0.95:   625.500 ns/op
+                 p0.99:   1484.800 ns/op
+                 p0.999:  16564.160 ns/op
+                 p0.9999: 22692.672 ns/op
+                 p1.00:   24224.000 ns/op
+
+Iteration   3: 685.333 ±(99.9%) 37.400 ns/op
+                 p0.00:   560.000 ns/op
+                 p0.50:   584.000 ns/op
+                 p0.90:   616.000 ns/op
+                 p0.95:   632.000 ns/op
+                 p0.99:   969.300 ns/op
+                 p0.999:  17200.960 ns/op
+                 p0.9999: 63159.232 ns/op
+                 p1.00:   76160.000 ns/op
+
+Iteration   4: 709.774 ±(99.9%) 42.720 ns/op
+                 p0.00:   550.000 ns/op
+                 p0.50:   581.000 ns/op
+                 p0.90:   615.000 ns/op
+                 p0.95:   633.000 ns/op
+                 p0.99:   5180.800 ns/op
+                 p0.999:  17423.360 ns/op
+                 p0.9999: 80285.120 ns/op
+                 p1.00:   105216.000 ns/op
+
+Iteration   5: 776.449 ±(99.9%) 347.042 ns/op
+                 p0.00:   556.000 ns/op
+                 p0.50:   581.000 ns/op
+                 p0.90:   611.000 ns/op
+                 p0.95:   628.000 ns/op
+                 p0.99:   1118.480 ns/op
+                 p0.999:  17748.096 ns/op
+                 p0.9999: 943811.046 ns/op
+                 p1.00:   1404928.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 134691
+  mean =    703.692 ±(99.9%) 49.578 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 134689 
+    [ 125000.000,  250000.000) = 0 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 0 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 0 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 2 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 0 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    530.000 ns/op
+     p(50.0000) =    576.000 ns/op
+     p(90.0000) =    610.000 ns/op
+     p(95.0000) =    634.000 ns/op
+     p(99.0000) =   1894.000 ns/op
+     p(99.9000) =  17299.712 ns/op
+     p(99.9900) =  37779.712 ns/op
+     p(99.9990) = 1400665.047 ns/op
+     p(99.9999) = 1404928.000 ns/op
+    p(100.0000) = 1404928.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = string, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 56.25% complete, ETA 00:00:56
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1552.371 ±(99.9%) 222.667 ns/op
+# Warmup Iteration   2: 305.189 ±(99.9%) 40.451 ns/op
+Iteration   1: 231.131 ±(99.9%) 30.383 ns/op
+                 p0.00:   148.000 ns/op
+                 p0.50:   160.000 ns/op
+                 p0.90:   179.000 ns/op
+                 p0.95:   216.000 ns/op
+                 p0.99:   860.490 ns/op
+                 p0.999:  16084.768 ns/op
+                 p0.9999: 43527.856 ns/op
+                 p1.00:   44288.000 ns/op
+
+Iteration   2: 264.019 ±(99.9%) 33.208 ns/op
+                 p0.00:   147.000 ns/op
+                 p0.50:   161.000 ns/op
+                 p0.90:   181.000 ns/op
+                 p0.95:   196.000 ns/op
+                 p0.99:   1317.200 ns/op
+                 p0.999:  16292.960 ns/op
+                 p0.9999: 24248.928 ns/op
+                 p1.00:   24384.000 ns/op
+
+Iteration   3: 200.644 ±(99.9%) 20.003 ns/op
+                 p0.00:   149.000 ns/op
+                 p0.50:   164.000 ns/op
+                 p0.90:   181.000 ns/op
+                 p0.95:   188.000 ns/op
+                 p0.99:   712.300 ns/op
+                 p0.999:  13720.480 ns/op
+                 p0.9999: 20379.648 ns/op
+                 p1.00:   20512.000 ns/op
+
+Iteration   4: 217.817 ±(99.9%) 29.572 ns/op
+                 p0.00:   148.000 ns/op
+                 p0.50:   160.000 ns/op
+                 p0.90:   177.000 ns/op
+                 p0.95:   183.000 ns/op
+                 p0.99:   726.350 ns/op
+                 p0.999:  16395.200 ns/op
+                 p0.9999: 48743.856 ns/op
+                 p1.00:   50176.000 ns/op
+
+Iteration   5: 838.723 ±(99.9%) 41.804 ns/op
+                 p0.00:   149.000 ns/op
+                 p0.50:   761.000 ns/op
+                 p0.90:   788.000 ns/op
+                 p0.95:   812.000 ns/op
+                 p0.99:   1370.200 ns/op
+                 p0.999:  17530.560 ns/op
+                 p0.9999: 65462.304 ns/op
+                 p1.00:   67584.000 ns/op
+
+
+# Run progress: 59.38% complete, ETA 00:00:52
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 788.061 ±(99.9%) 192.810 ns/op
+# Warmup Iteration   2: 245.646 ±(99.9%) 32.201 ns/op
+Iteration   1: 226.557 ±(99.9%) 25.485 ns/op
+                 p0.00:   146.000 ns/op
+                 p0.50:   166.000 ns/op
+                 p0.90:   185.000 ns/op
+                 p0.95:   194.000 ns/op
+                 p0.99:   763.330 ns/op
+                 p0.999:  13599.952 ns/op
+                 p0.9999: 31018.400 ns/op
+                 p1.00:   31552.000 ns/op
+
+Iteration   2: 223.129 ±(99.9%) 34.688 ns/op
+                 p0.00:   147.000 ns/op
+                 p0.50:   160.000 ns/op
+                 p0.90:   180.000 ns/op
+                 p0.95:   187.000 ns/op
+                 p0.99:   762.680 ns/op
+                 p0.999:  15754.112 ns/op
+                 p0.9999: 75403.725 ns/op
+                 p1.00:   77440.000 ns/op
+
+Iteration   3: 275.732 ±(99.9%) 36.435 ns/op
+                 p0.00:   148.000 ns/op
+                 p0.50:   161.000 ns/op
+                 p0.90:   181.000 ns/op
+                 p0.95:   364.750 ns/op
+                 p0.99:   1213.700 ns/op
+                 p0.999:  17746.880 ns/op
+                 p0.9999: 35222.448 ns/op
+                 p1.00:   35712.000 ns/op
+
+Iteration   4: 214.289 ±(99.9%) 24.384 ns/op
+                 p0.00:   148.000 ns/op
+                 p0.50:   161.000 ns/op
+                 p0.90:   177.000 ns/op
+                 p0.95:   182.000 ns/op
+                 p0.99:   718.670 ns/op
+                 p0.999:  15503.104 ns/op
+                 p0.9999: 23925.114 ns/op
+                 p1.00:   24256.000 ns/op
+
+Iteration   5: 195.538 ±(99.9%) 17.637 ns/op
+                 p0.00:   149.000 ns/op
+                 p0.50:   164.000 ns/op
+                 p0.90:   184.000 ns/op
+                 p0.95:   191.000 ns/op
+                 p0.99:   325.200 ns/op
+                 p0.999:  12853.760 ns/op
+                 p0.9999: 25553.856 ns/op
+                 p1.00:   26016.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 106024
+  mean =    289.406 ±(99.9%) 9.753 ns/op
+
+  Histogram, ns/op:
+    [    0.000,  5000.000) = 105587 
+    [ 5000.000, 10000.000) = 161 
+    [10000.000, 15000.000) = 129 
+    [15000.000, 20000.000) = 120 
+    [20000.000, 25000.000) = 13 
+    [25000.000, 30000.000) = 4 
+    [30000.000, 35000.000) = 4 
+    [35000.000, 40000.000) = 2 
+    [40000.000, 45000.000) = 1 
+    [45000.000, 50000.000) = 0 
+    [50000.000, 55000.000) = 1 
+    [55000.000, 60000.000) = 0 
+    [60000.000, 65000.000) = 0 
+    [65000.000, 70000.000) = 1 
+    [70000.000, 75000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    146.000 ns/op
+     p(50.0000) =    163.000 ns/op
+     p(90.0000) =    737.000 ns/op
+     p(95.0000) =    767.000 ns/op
+     p(99.0000) =    947.000 ns/op
+     p(99.9000) =  16255.600 ns/op
+     p(99.9900) =  29474.960 ns/op
+     p(99.9990) =  76846.176 ns/op
+     p(99.9999) =  77440.000 ns/op
+    p(100.0000) =  77440.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = string, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 62.50% complete, ETA 00:00:48
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1945.915 ±(99.9%) 631.230 ns/op
+# Warmup Iteration   2: 922.874 ±(99.9%) 50.490 ns/op
+Iteration   1: 792.304 ±(99.9%) 48.445 ns/op
+                 p0.00:   596.000 ns/op
+                 p0.50:   665.000 ns/op
+                 p0.90:   703.000 ns/op
+                 p0.95:   743.000 ns/op
+                 p0.99:   2605.800 ns/op
+                 p0.999:  16776.352 ns/op
+                 p0.9999: 111403.853 ns/op
+                 p1.00:   130944.000 ns/op
+
+Iteration   2: 848.883 ±(99.9%) 84.837 ns/op
+                 p0.00:   595.000 ns/op
+                 p0.50:   671.000 ns/op
+                 p0.90:   721.000 ns/op
+                 p0.95:   764.000 ns/op
+                 p0.99:   7181.520 ns/op
+                 p0.999:  17930.816 ns/op
+                 p0.9999: 222630.490 ns/op
+                 p1.00:   247296.000 ns/op
+
+Iteration   3: 850.822 ±(99.9%) 72.912 ns/op
+                 p0.00:   606.000 ns/op
+                 p0.50:   677.000 ns/op
+                 p0.90:   722.000 ns/op
+                 p0.95:   775.000 ns/op
+                 p0.99:   6040.960 ns/op
+                 p0.999:  18641.856 ns/op
+                 p0.9999: 172649.613 ns/op
+                 p1.00:   191744.000 ns/op
+
+Iteration   4: 845.865 ±(99.9%) 50.699 ns/op
+                 p0.00:   597.000 ns/op
+                 p0.50:   663.000 ns/op
+                 p0.90:   706.000 ns/op
+                 p0.95:   731.450 ns/op
+                 p0.99:   9333.920 ns/op
+                 p0.999:  18379.168 ns/op
+                 p0.9999: 55156.493 ns/op
+                 p1.00:   56192.000 ns/op
+
+Iteration   5: 813.260 ±(99.9%) 41.839 ns/op
+                 p0.00:   592.000 ns/op
+                 p0.50:   671.000 ns/op
+                 p0.90:   714.000 ns/op
+                 p0.95:   806.400 ns/op
+                 p0.99:   5681.280 ns/op
+                 p0.999:  18284.032 ns/op
+                 p0.9999: 44156.237 ns/op
+                 p1.00:   46464.000 ns/op
+
+
+# Run progress: 65.63% complete, ETA 00:00:44
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2307.822 ±(99.9%) 937.830 ns/op
+# Warmup Iteration   2: 898.057 ±(99.9%) 57.470 ns/op
+Iteration   1: 887.555 ±(99.9%) 55.977 ns/op
+                 p0.00:   613.000 ns/op
+                 p0.50:   686.000 ns/op
+                 p0.90:   734.000 ns/op
+                 p0.95:   830.900 ns/op
+                 p0.99:   10063.680 ns/op
+                 p0.999:  19082.688 ns/op
+                 p0.9999: 53778.099 ns/op
+                 p1.00:   54976.000 ns/op
+
+Iteration   2: 808.817 ±(99.9%) 57.061 ns/op
+                 p0.00:   612.000 ns/op
+                 p0.50:   684.000 ns/op
+                 p0.90:   719.000 ns/op
+                 p0.95:   737.000 ns/op
+                 p0.99:   1188.580 ns/op
+                 p0.999:  18065.248 ns/op
+                 p0.9999: 130366.746 ns/op
+                 p1.00:   145664.000 ns/op
+
+Iteration   3: 811.566 ±(99.9%) 40.782 ns/op
+                 p0.00:   602.000 ns/op
+                 p0.50:   677.000 ns/op
+                 p0.90:   721.000 ns/op
+                 p0.95:   747.100 ns/op
+                 p0.99:   6771.520 ns/op
+                 p0.999:  17565.376 ns/op
+                 p0.9999: 42388.314 ns/op
+                 p1.00:   43968.000 ns/op
+
+Iteration   4: 818.036 ±(99.9%) 45.398 ns/op
+                 p0.00:   606.000 ns/op
+                 p0.50:   685.000 ns/op
+                 p0.90:   723.000 ns/op
+                 p0.95:   748.000 ns/op
+                 p0.99:   1277.440 ns/op
+                 p0.999:  19902.336 ns/op
+                 p0.9999: 53744.128 ns/op
+                 p1.00:   56192.000 ns/op
+
+Iteration   5: 793.107 ±(99.9%) 41.639 ns/op
+                 p0.00:   602.000 ns/op
+                 p0.50:   678.000 ns/op
+                 p0.90:   718.000 ns/op
+                 p0.95:   747.000 ns/op
+                 p0.99:   1608.760 ns/op
+                 p0.999:  17061.632 ns/op
+                 p0.9999: 60341.530 ns/op
+                 p1.00:   60928.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 115150
+  mean =    826.742 ±(99.9%) 17.533 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  25000.000) = 115097 
+    [ 25000.000,  50000.000) = 42 
+    [ 50000.000,  75000.000) = 7 
+    [ 75000.000, 100000.000) = 0 
+    [100000.000, 125000.000) = 0 
+    [125000.000, 150000.000) = 2 
+    [150000.000, 175000.000) = 0 
+    [175000.000, 200000.000) = 1 
+    [200000.000, 225000.000) = 0 
+    [225000.000, 250000.000) = 1 
+    [250000.000, 275000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    592.000 ns/op
+     p(50.0000) =    676.000 ns/op
+     p(90.0000) =    719.000 ns/op
+     p(95.0000) =    754.000 ns/op
+     p(99.0000) =   6379.760 ns/op
+     p(99.9000) =  18176.000 ns/op
+     p(99.9900) =  51968.218 ns/op
+     p(99.9990) = 238879.316 ns/op
+     p(99.9999) = 247296.000 ns/op
+    p(100.0000) = 247296.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = string, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 68.75% complete, ETA 00:00:40
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2090.807 ±(99.9%) 1032.077 ns/op
+# Warmup Iteration   2: 898.512 ±(99.9%) 79.266 ns/op
+Iteration   1: 801.652 ±(99.9%) 52.278 ns/op
+                 p0.00:   584.000 ns/op
+                 p0.50:   666.000 ns/op
+                 p0.90:   700.000 ns/op
+                 p0.95:   717.000 ns/op
+                 p0.99:   2073.560 ns/op
+                 p0.999:  18564.832 ns/op
+                 p0.9999: 94949.466 ns/op
+                 p1.00:   103808.000 ns/op
+
+Iteration   2: 811.602 ±(99.9%) 41.273 ns/op
+                 p0.00:   583.000 ns/op
+                 p0.50:   662.000 ns/op
+                 p0.90:   700.000 ns/op
+                 p0.95:   747.050 ns/op
+                 p0.99:   6883.280 ns/op
+                 p0.999:  17901.536 ns/op
+                 p0.9999: 42886.326 ns/op
+                 p1.00:   45248.000 ns/op
+
+Iteration   3: 812.758 ±(99.9%) 47.032 ns/op
+                 p0.00:   584.000 ns/op
+                 p0.50:   665.000 ns/op
+                 p0.90:   706.000 ns/op
+                 p0.95:   732.000 ns/op
+                 p0.99:   6353.760 ns/op
+                 p0.999:  18475.072 ns/op
+                 p0.9999: 59692.518 ns/op
+                 p1.00:   62720.000 ns/op
+
+Iteration   4: 1008.755 ±(99.9%) 539.909 ns/op
+                 p0.00:   593.000 ns/op
+                 p0.50:   669.000 ns/op
+                 p0.90:   705.000 ns/op
+                 p0.95:   725.000 ns/op
+                 p0.99:   1280.440 ns/op
+                 p0.999:  18071.360 ns/op
+                 p0.9999: 1339250.893 ns/op
+                 p1.00:   1341440.000 ns/op
+
+Iteration   5: 823.382 ±(99.9%) 65.071 ns/op
+                 p0.00:   586.000 ns/op
+                 p0.50:   665.000 ns/op
+                 p0.90:   700.000 ns/op
+                 p0.95:   724.650 ns/op
+                 p0.99:   6586.560 ns/op
+                 p0.999:  18260.192 ns/op
+                 p0.9999: 156211.424 ns/op
+                 p1.00:   183296.000 ns/op
+
+
+# Run progress: 71.88% complete, ETA 00:00:36
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1893.595 ±(99.9%) 383.228 ns/op
+# Warmup Iteration   2: 866.232 ±(99.9%) 61.622 ns/op
+Iteration   1: 909.496 ±(99.9%) 341.098 ns/op
+                 p0.00:   596.000 ns/op
+                 p0.50:   674.000 ns/op
+                 p0.90:   703.000 ns/op
+                 p0.95:   721.000 ns/op
+                 p0.99:   4451.840 ns/op
+                 p0.999:  18881.952 ns/op
+                 p0.9999: 1007398.400 ns/op
+                 p1.00:   1200128.000 ns/op
+
+Iteration   2: 775.575 ±(99.9%) 34.059 ns/op
+                 p0.00:   603.000 ns/op
+                 p0.50:   675.000 ns/op
+                 p0.90:   707.000 ns/op
+                 p0.95:   736.500 ns/op
+                 p0.99:   1903.800 ns/op
+                 p0.999:  17458.240 ns/op
+                 p0.9999: 46456.640 ns/op
+                 p1.00:   51264.000 ns/op
+
+Iteration   3: 782.734 ±(99.9%) 38.223 ns/op
+                 p0.00:   587.000 ns/op
+                 p0.50:   673.000 ns/op
+                 p0.90:   704.000 ns/op
+                 p0.95:   719.000 ns/op
+                 p0.99:   2377.280 ns/op
+                 p0.999:  17306.496 ns/op
+                 p0.9999: 46435.123 ns/op
+                 p1.00:   48192.000 ns/op
+
+Iteration   4: 866.096 ±(99.9%) 49.850 ns/op
+                 p0.00:   599.000 ns/op
+                 p0.50:   685.000 ns/op
+                 p0.90:   734.000 ns/op
+                 p0.95:   781.000 ns/op
+                 p0.99:   9303.040 ns/op
+                 p0.999:  18178.304 ns/op
+                 p0.9999: 37078.426 ns/op
+                 p1.00:   37120.000 ns/op
+
+Iteration   5: 768.611 ±(99.9%) 33.540 ns/op
+                 p0.00:   594.000 ns/op
+                 p0.50:   676.000 ns/op
+                 p0.90:   705.000 ns/op
+                 p0.95:   721.000 ns/op
+                 p0.99:   1195.600 ns/op
+                 p0.999:  17080.064 ns/op
+                 p0.9999: 31567.565 ns/op
+                 p1.00:   32160.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 116189
+  mean =    835.577 ±(99.9%) 64.901 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 116185 
+    [ 125000.000,  250000.000) = 1 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 0 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 1 
+    [1250000.000, 1375000.000) = 2 
+    [1375000.000, 1500000.000) = 0 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 0 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    583.000 ns/op
+     p(50.0000) =    671.000 ns/op
+     p(90.0000) =    707.000 ns/op
+     p(95.0000) =    733.000 ns/op
+     p(99.0000) =   3666.800 ns/op
+     p(99.9000) =  17984.000 ns/op
+     p(99.9900) =  46296.512 ns/op
+     p(99.9990) = 1339119.002 ns/op
+     p(99.9999) = 1341440.000 ns/op
+    p(100.0000) = 1341440.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = utf8, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 75.00% complete, ETA 00:00:32
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1304.908 ±(99.9%) 309.429 ns/op
+# Warmup Iteration   2: 908.202 ±(99.9%) 480.088 ns/op
+Iteration   1: 724.544 ±(99.9%) 36.857 ns/op
+                 p0.00:   553.000 ns/op
+                 p0.50:   605.000 ns/op
+                 p0.90:   635.000 ns/op
+                 p0.95:   651.000 ns/op
+                 p0.99:   1279.700 ns/op
+                 p0.999:  18015.040 ns/op
+                 p0.9999: 31219.702 ns/op
+                 p1.00:   33920.000 ns/op
+
+Iteration   2: 693.929 ±(99.9%) 30.995 ns/op
+                 p0.00:   551.000 ns/op
+                 p0.50:   606.000 ns/op
+                 p0.90:   635.000 ns/op
+                 p0.95:   652.000 ns/op
+                 p0.99:   974.960 ns/op
+                 p0.999:  16673.536 ns/op
+                 p0.9999: 38130.330 ns/op
+                 p1.00:   40832.000 ns/op
+
+Iteration   3: 718.727 ±(99.9%) 42.885 ns/op
+                 p0.00:   559.000 ns/op
+                 p0.50:   605.000 ns/op
+                 p0.90:   632.000 ns/op
+                 p0.95:   647.000 ns/op
+                 p0.99:   1034.100 ns/op
+                 p0.999:  18269.568 ns/op
+                 p0.9999: 77221.792 ns/op
+                 p1.00:   96640.000 ns/op
+
+Iteration   4: 734.363 ±(99.9%) 39.624 ns/op
+                 p0.00:   562.000 ns/op
+                 p0.50:   608.000 ns/op
+                 p0.90:   646.000 ns/op
+                 p0.95:   668.000 ns/op
+                 p0.99:   1204.400 ns/op
+                 p0.999:  18447.424 ns/op
+                 p0.9999: 48588.486 ns/op
+                 p1.00:   54080.000 ns/op
+
+Iteration   5: 719.014 ±(99.9%) 36.077 ns/op
+                 p0.00:   562.000 ns/op
+                 p0.50:   607.000 ns/op
+                 p0.90:   640.000 ns/op
+                 p0.95:   655.000 ns/op
+                 p0.99:   1038.920 ns/op
+                 p0.999:  18036.384 ns/op
+                 p0.9999: 33967.786 ns/op
+                 p1.00:   36416.000 ns/op
+
+
+# Run progress: 78.13% complete, ETA 00:00:28
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1415.117 ±(99.9%) 315.174 ns/op
+# Warmup Iteration   2: 745.823 ±(99.9%) 40.223 ns/op
+Iteration   1: 708.132 ±(99.9%) 35.548 ns/op
+                 p0.00:   581.000 ns/op
+                 p0.50:   612.000 ns/op
+                 p0.90:   641.000 ns/op
+                 p0.95:   656.000 ns/op
+                 p0.99:   944.280 ns/op
+                 p0.999:  17384.960 ns/op
+                 p0.9999: 38647.219 ns/op
+                 p1.00:   39552.000 ns/op
+
+Iteration   2: 722.498 ±(99.9%) 35.216 ns/op
+                 p0.00:   565.000 ns/op
+                 p0.50:   607.000 ns/op
+                 p0.90:   637.000 ns/op
+                 p0.95:   660.000 ns/op
+                 p0.99:   1527.480 ns/op
+                 p0.999:  17066.880 ns/op
+                 p0.9999: 41752.986 ns/op
+                 p1.00:   42816.000 ns/op
+
+Iteration   3: 838.475 ±(99.9%) 300.412 ns/op
+                 p0.00:   571.000 ns/op
+                 p0.50:   601.000 ns/op
+                 p0.90:   628.000 ns/op
+                 p0.95:   656.000 ns/op
+                 p0.99:   6653.040 ns/op
+                 p0.999:  17949.632 ns/op
+                 p0.9999: 828543.238 ns/op
+                 p1.00:   1191936.000 ns/op
+
+Iteration   4: 706.774 ±(99.9%) 36.780 ns/op
+                 p0.00:   583.000 ns/op
+                 p0.50:   611.000 ns/op
+                 p0.90:   644.000 ns/op
+                 p0.95:   661.000 ns/op
+                 p0.99:   964.840 ns/op
+                 p0.999:  17567.488 ns/op
+                 p0.9999: 47895.347 ns/op
+                 p1.00:   49024.000 ns/op
+
+Iteration   5: 690.585 ±(99.9%) 30.772 ns/op
+                 p0.00:   574.000 ns/op
+                 p0.50:   609.000 ns/op
+                 p0.90:   640.000 ns/op
+                 p0.95:   660.000 ns/op
+                 p0.99:   996.460 ns/op
+                 p0.999:  16753.952 ns/op
+                 p0.9999: 48572.678 ns/op
+                 p1.00:   49408.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 128998
+  mean =    726.001 ±(99.9%) 32.547 ns/op
+
+  Histogram, ns/op:
+    [      0.000,  125000.000) = 128997 
+    [ 125000.000,  250000.000) = 0 
+    [ 250000.000,  375000.000) = 0 
+    [ 375000.000,  500000.000) = 0 
+    [ 500000.000,  625000.000) = 0 
+    [ 625000.000,  750000.000) = 0 
+    [ 750000.000,  875000.000) = 0 
+    [ 875000.000, 1000000.000) = 0 
+    [1000000.000, 1125000.000) = 0 
+    [1125000.000, 1250000.000) = 1 
+    [1250000.000, 1375000.000) = 0 
+    [1375000.000, 1500000.000) = 0 
+    [1500000.000, 1625000.000) = 0 
+    [1625000.000, 1750000.000) = 0 
+    [1750000.000, 1875000.000) = 0 
+
+  Percentiles, ns/op:
+      p(0.0000) =    551.000 ns/op
+     p(50.0000) =    606.000 ns/op
+     p(90.0000) =    639.000 ns/op
+     p(95.0000) =    657.000 ns/op
+     p(99.0000) =   1124.000 ns/op
+     p(99.9000) =  17632.000 ns/op
+     p(99.9900) =  40928.096 ns/op
+     p(99.9990) = 874311.113 ns/op
+     p(99.9999) = 1191936.000 ns/op
+    p(100.0000) = 1191936.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = utf8, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 81.25% complete, ETA 00:00:24
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 858.287 ±(99.9%) 209.937 ns/op
+# Warmup Iteration   2: 264.017 ±(99.9%) 38.745 ns/op
+Iteration   1: 234.349 ±(99.9%) 21.043 ns/op
+                 p0.00:   158.000 ns/op
+                 p0.50:   170.000 ns/op
+                 p0.90:   188.000 ns/op
+                 p0.95:   200.000 ns/op
+                 p0.99:   851.860 ns/op
+                 p0.999:  16337.856 ns/op
+                 p0.9999: 24518.317 ns/op
+                 p1.00:   33728.000 ns/op
+
+Iteration   2: 197.511 ±(99.9%) 12.892 ns/op
+                 p0.00:   158.000 ns/op
+                 p0.50:   171.000 ns/op
+                 p0.90:   188.000 ns/op
+                 p0.95:   200.000 ns/op
+                 p0.99:   436.700 ns/op
+                 p0.999:  6638.176 ns/op
+                 p0.9999: 29559.418 ns/op
+                 p1.00:   39360.000 ns/op
+
+Iteration   3: 210.052 ±(99.9%) 17.477 ns/op
+                 p0.00:   158.000 ns/op
+                 p0.50:   167.000 ns/op
+                 p0.90:   187.000 ns/op
+                 p0.95:   196.000 ns/op
+                 p0.99:   391.380 ns/op
+                 p0.999:  14849.968 ns/op
+                 p0.9999: 23796.483 ns/op
+                 p1.00:   47680.000 ns/op
+
+Iteration   4: 213.133 ±(99.9%) 35.275 ns/op
+                 p0.00:   161.000 ns/op
+                 p0.50:   170.000 ns/op
+                 p0.90:   190.000 ns/op
+                 p0.95:   199.000 ns/op
+                 p0.99:   309.400 ns/op
+                 p0.999:  13163.520 ns/op
+                 p0.9999: 60069.632 ns/op
+                 p1.00:   184576.000 ns/op
+
+Iteration   5: 200.326 ±(99.9%) 14.094 ns/op
+                 p0.00:   158.000 ns/op
+                 p0.50:   169.000 ns/op
+                 p0.90:   188.000 ns/op
+                 p0.95:   196.000 ns/op
+                 p0.99:   293.960 ns/op
+                 p0.999:  13020.416 ns/op
+                 p0.9999: 26954.189 ns/op
+                 p1.00:   27072.000 ns/op
+
+
+# Run progress: 84.38% complete, ETA 00:00:20
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 888.698 ±(99.9%) 223.790 ns/op
+# Warmup Iteration   2: 230.815 ±(99.9%) 30.322 ns/op
+Iteration   1: 205.698 ±(99.9%) 14.304 ns/op
+                 p0.00:   157.000 ns/op
+                 p0.50:   171.000 ns/op
+                 p0.90:   188.000 ns/op
+                 p0.95:   197.000 ns/op
+                 p0.99:   447.200 ns/op
+                 p0.999:  13250.480 ns/op
+                 p0.9999: 18371.078 ns/op
+                 p1.00:   27232.000 ns/op
+
+Iteration   2: 199.288 ±(99.9%) 11.388 ns/op
+                 p0.00:   157.000 ns/op
+                 p0.50:   169.000 ns/op
+                 p0.90:   187.000 ns/op
+                 p0.95:   195.000 ns/op
+                 p0.99:   832.880 ns/op
+                 p0.999:  9388.608 ns/op
+                 p0.9999: 17606.426 ns/op
+                 p1.00:   19552.000 ns/op
+
+Iteration   3: 211.445 ±(99.9%) 29.971 ns/op
+                 p0.00:   157.000 ns/op
+                 p0.50:   170.000 ns/op
+                 p0.90:   187.000 ns/op
+                 p0.95:   194.000 ns/op
+                 p0.99:   793.170 ns/op
+                 p0.999:  13379.264 ns/op
+                 p0.9999: 54667.859 ns/op
+                 p1.00:   152320.000 ns/op
+
+Iteration   4: 226.943 ±(99.9%) 17.453 ns/op
+                 p0.00:   154.000 ns/op
+                 p0.50:   167.000 ns/op
+                 p0.90:   187.000 ns/op
+                 p0.95:   199.000 ns/op
+                 p0.99:   892.210 ns/op
+                 p0.999:  13876.704 ns/op
+                 p0.9999: 34114.688 ns/op
+                 p1.00:   35328.000 ns/op
+
+Iteration   5: 195.376 ±(99.9%) 13.368 ns/op
+                 p0.00:   157.000 ns/op
+                 p0.50:   168.000 ns/op
+                 p0.90:   186.000 ns/op
+                 p0.95:   193.000 ns/op
+                 p0.99:   314.000 ns/op
+                 p0.999:  8024.016 ns/op
+                 p0.9999: 21157.549 ns/op
+                 p1.00:   43136.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 193472
+  mean =    209.442 ±(99.9%) 6.395 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  12500.000) = 193229 
+    [ 12500.000,  25000.000) = 228 
+    [ 25000.000,  37500.000) = 8 
+    [ 37500.000,  50000.000) = 4 
+    [ 50000.000,  62500.000) = 1 
+    [ 62500.000,  75000.000) = 0 
+    [ 75000.000,  87500.000) = 0 
+    [ 87500.000, 100000.000) = 0 
+    [100000.000, 112500.000) = 0 
+    [112500.000, 125000.000) = 0 
+    [125000.000, 137500.000) = 0 
+    [137500.000, 150000.000) = 0 
+    [150000.000, 162500.000) = 1 
+    [162500.000, 175000.000) = 0 
+    [175000.000, 187500.000) = 1 
+
+  Percentiles, ns/op:
+      p(0.0000) =    154.000 ns/op
+     p(50.0000) =    170.000 ns/op
+     p(90.0000) =    188.000 ns/op
+     p(95.0000) =    197.000 ns/op
+     p(99.0000) =    783.000 ns/op
+     p(99.9000) =  13360.000 ns/op
+     p(99.9900) =  21862.912 ns/op
+     p(99.9990) = 154425.349 ns/op
+     p(99.9999) = 184576.000 ns/op
+    p(100.0000) = 184576.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = utf8, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 87.50% complete, ETA 00:00:16
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3858.934 ±(99.9%) 954.400 ns/op
+# Warmup Iteration   2: 2952.234 ±(99.9%) 98.013 ns/op
+Iteration   1: 2869.828 ±(99.9%) 78.515 ns/op
+                 p0.00:   2424.000 ns/op
+                 p0.50:   2580.000 ns/op
+                 p0.90:   2700.000 ns/op
+                 p0.95:   2784.000 ns/op
+                 p0.99:   15497.920 ns/op
+                 p0.999:  33915.136 ns/op
+                 p0.9999: 144574.758 ns/op
+                 p1.00:   165120.000 ns/op
+
+Iteration   2: 2907.752 ±(99.9%) 63.247 ns/op
+                 p0.00:   2448.000 ns/op
+                 p0.50:   2616.000 ns/op
+                 p0.90:   2752.000 ns/op
+                 p0.95:   2824.000 ns/op
+                 p0.99:   15654.560 ns/op
+                 p0.999:  33415.360 ns/op
+                 p0.9999: 44697.357 ns/op
+                 p1.00:   45568.000 ns/op
+
+Iteration   3: 2850.417 ±(99.9%) 55.608 ns/op
+                 p0.00:   2488.000 ns/op
+                 p0.50:   2640.000 ns/op
+                 p0.90:   2704.000 ns/op
+                 p0.95:   2764.000 ns/op
+                 p0.99:   10733.600 ns/op
+                 p0.999:  29475.840 ns/op
+                 p0.9999: 49912.384 ns/op
+                 p1.00:   51200.000 ns/op
+
+Iteration   4: 2979.421 ±(99.9%) 196.857 ns/op
+                 p0.00:   2492.000 ns/op
+                 p0.50:   2636.000 ns/op
+                 p0.90:   2712.000 ns/op
+                 p0.95:   2844.000 ns/op
+                 p0.99:   15488.960 ns/op
+                 p0.999:  34029.312 ns/op
+                 p0.9999: 557549.594 ns/op
+                 p1.00:   661504.000 ns/op
+
+Iteration   5: 2928.991 ±(99.9%) 72.647 ns/op
+                 p0.00:   2452.000 ns/op
+                 p0.50:   2632.000 ns/op
+                 p0.90:   2756.000 ns/op
+                 p0.95:   2868.000 ns/op
+                 p0.99:   14799.360 ns/op
+                 p0.999:  33545.344 ns/op
+                 p0.9999: 117900.800 ns/op
+                 p1.00:   128256.000 ns/op
+
+
+# Run progress: 90.63% complete, ETA 00:00:12
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3657.689 ±(99.9%) 426.814 ns/op
+# Warmup Iteration   2: 2920.790 ±(99.9%) 65.956 ns/op
+Iteration   1: 3138.736 ±(99.9%) 77.172 ns/op
+                 p0.00:   2704.000 ns/op
+                 p0.50:   2892.000 ns/op
+                 p0.90:   3004.000 ns/op
+                 p0.95:   3088.000 ns/op
+                 p0.99:   13189.600 ns/op
+                 p0.999:  21229.120 ns/op
+                 p0.9999: 165665.888 ns/op
+                 p1.00:   174080.000 ns/op
+
+Iteration   2: 2909.606 ±(99.9%) 112.212 ns/op
+                 p0.00:   2452.000 ns/op
+                 p0.50:   2592.000 ns/op
+                 p0.90:   2848.000 ns/op
+                 p0.95:   2944.000 ns/op
+                 p0.99:   15734.400 ns/op
+                 p0.999:  33305.600 ns/op
+                 p0.9999: 287743.232 ns/op
+                 p1.00:   335360.000 ns/op
+
+Iteration   3: 2941.780 ±(99.9%) 77.612 ns/op
+                 p0.00:   2460.000 ns/op
+                 p0.50:   2584.000 ns/op
+                 p0.90:   2676.000 ns/op
+                 p0.95:   3282.600 ns/op
+                 p0.99:   15654.720 ns/op
+                 p0.999:  34102.720 ns/op
+                 p0.9999: 135115.904 ns/op
+                 p1.00:   156672.000 ns/op
+
+Iteration   4: 2806.490 ±(99.9%) 56.668 ns/op
+                 p0.00:   2436.000 ns/op
+                 p0.50:   2580.000 ns/op
+                 p0.90:   2652.000 ns/op
+                 p0.95:   2724.600 ns/op
+                 p0.99:   10027.520 ns/op
+                 p0.999:  31358.944 ns/op
+                 p0.9999: 59563.891 ns/op
+                 p1.00:   62144.000 ns/op
+
+Iteration   5: 2909.860 ±(99.9%) 207.144 ns/op
+                 p0.00:   2448.000 ns/op
+                 p0.50:   2588.000 ns/op
+                 p0.90:   2664.000 ns/op
+                 p0.95:   2896.000 ns/op
+                 p0.99:   9680.000 ns/op
+                 p0.999:  33152.000 ns/op
+                 p0.9999: 604928.000 ns/op
+                 p1.00:   712704.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 116923
+  mean =   2922.124 ±(99.9%) 36.114 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  50000.000) = 116902 
+    [ 50000.000, 100000.000) = 13 
+    [100000.000, 150000.000) = 1 
+    [150000.000, 200000.000) = 4 
+    [200000.000, 250000.000) = 0 
+    [250000.000, 300000.000) = 0 
+    [300000.000, 350000.000) = 1 
+    [350000.000, 400000.000) = 0 
+    [400000.000, 450000.000) = 0 
+    [450000.000, 500000.000) = 0 
+    [500000.000, 550000.000) = 0 
+    [550000.000, 600000.000) = 0 
+    [600000.000, 650000.000) = 0 
+    [650000.000, 700000.000) = 1 
+    [700000.000, 750000.000) = 1 
+
+  Percentiles, ns/op:
+      p(0.0000) =   2424.000 ns/op
+     p(50.0000) =   2612.000 ns/op
+     p(90.0000) =   2876.000 ns/op
+     p(95.0000) =   2956.000 ns/op
+     p(99.0000) =  13236.480 ns/op
+     p(99.9000) =  33092.864 ns/op
+     p(99.9900) =  62882.278 ns/op
+     p(99.9990) = 704038.912 ns/op
+     p(99.9999) = 712704.000 ns/op
+    p(100.0000) = 712704.000 ns/op
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Sampling time
+# Benchmark: org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency
+# Parameters: (policy = work, representation = utf8, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 93.75% complete, ETA 00:00:08
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3511.589 ±(99.9%) 263.844 ns/op
+# Warmup Iteration   2: 2883.332 ±(99.9%) 89.324 ns/op
+Iteration   1: 2892.151 ±(99.9%) 55.707 ns/op
+                 p0.00:   2480.000 ns/op
+                 p0.50:   2644.000 ns/op
+                 p0.90:   2788.000 ns/op
+                 p0.95:   2852.000 ns/op
+                 p0.99:   12248.960 ns/op
+                 p0.999:  28113.024 ns/op
+                 p0.9999: 36590.694 ns/op
+                 p1.00:   36672.000 ns/op
+
+Iteration   2: 3078.183 ±(99.9%) 73.787 ns/op
+                 p0.00:   2592.000 ns/op
+                 p0.50:   2748.000 ns/op
+                 p0.90:   2884.000 ns/op
+                 p0.95:   3031.800 ns/op
+                 p0.99:   16310.240 ns/op
+                 p0.999:  33716.288 ns/op
+                 p0.9999: 83535.469 ns/op
+                 p1.00:   86272.000 ns/op
+
+Iteration   3: 3064.574 ±(99.9%) 212.543 ns/op
+                 p0.00:   2540.000 ns/op
+                 p0.50:   2696.000 ns/op
+                 p0.90:   2784.000 ns/op
+                 p0.95:   2892.000 ns/op
+                 p0.99:   15841.440 ns/op
+                 p0.999:  32204.544 ns/op
+                 p0.9999: 613969.197 ns/op
+                 p1.00:   695296.000 ns/op
+
+Iteration   4: 3105.726 ±(99.9%) 222.061 ns/op
+                 p0.00:   2512.000 ns/op
+                 p0.50:   2696.000 ns/op
+                 p0.90:   2792.000 ns/op
+                 p0.95:   2920.000 ns/op
+                 p0.99:   15796.160 ns/op
+                 p0.999:  33529.856 ns/op
+                 p0.9999: 641578.701 ns/op
+                 p1.00:   710656.000 ns/op
+
+Iteration   5: 3013.201 ±(99.9%) 61.759 ns/op
+                 p0.00:   2520.000 ns/op
+                 p0.50:   2748.000 ns/op
+                 p0.90:   2816.000 ns/op
+                 p0.95:   2892.000 ns/op
+                 p0.99:   12271.040 ns/op
+                 p0.999:  33073.664 ns/op
+                 p0.9999: 42095.283 ns/op
+                 p1.00:   42112.000 ns/op
+
+
+# Run progress: 96.88% complete, ETA 00:00:04
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3705.387 ±(99.9%) 865.657 ns/op
+# Warmup Iteration   2: 2836.635 ±(99.9%) 59.651 ns/op
+Iteration   1: 2962.761 ±(99.9%) 206.135 ns/op
+                 p0.00:   2444.000 ns/op
+                 p0.50:   2648.000 ns/op
+                 p0.90:   2800.000 ns/op
+                 p0.95:   2888.000 ns/op
+                 p0.99:   12465.120 ns/op
+                 p0.999:  33088.000 ns/op
+                 p0.9999: 595964.915 ns/op
+                 p1.00:   692224.000 ns/op
+
+Iteration   2: 2999.046 ±(99.9%) 59.865 ns/op
+                 p0.00:   2588.000 ns/op
+                 p0.50:   2744.000 ns/op
+                 p0.90:   2864.000 ns/op
+                 p0.95:   2968.000 ns/op
+                 p0.99:   15316.800 ns/op
+                 p0.999:  31700.480 ns/op
+                 p0.9999: 40787.072 ns/op
+                 p1.00:   40832.000 ns/op
+
+Iteration   3: 3069.878 ±(99.9%) 76.132 ns/op
+                 p0.00:   2500.000 ns/op
+                 p0.50:   2720.000 ns/op
+                 p0.90:   2872.000 ns/op
+                 p0.95:   3262.400 ns/op
+                 p0.99:   16257.920 ns/op
+                 p0.999:  33077.504 ns/op
+                 p0.9999: 88626.893 ns/op
+                 p1.00:   90368.000 ns/op
+
+Iteration   4: 2917.270 ±(99.9%) 110.599 ns/op
+                 p0.00:   2492.000 ns/op
+                 p0.50:   2600.000 ns/op
+                 p0.90:   2684.000 ns/op
+                 p0.95:   3098.400 ns/op
+                 p0.99:   11623.040 ns/op
+                 p0.999:  32315.904 ns/op
+                 p0.9999: 241977.344 ns/op
+                 p1.00:   250368.000 ns/op
+
+Iteration   5: 2812.401 ±(99.9%) 63.233 ns/op
+                 p0.00:   2492.000 ns/op
+                 p0.50:   2604.000 ns/op
+                 p0.90:   2676.000 ns/op
+                 p0.95:   2740.000 ns/op
+                 p0.99:   9278.720 ns/op
+                 p0.999:  26857.216 ns/op
+                 p0.9999: 124895.360 ns/op
+                 p1.00:   144128.000 ns/op
+
+
+
+Result "org.safere.benchmark.AdaptiveCaptureLatencyBenchmark.latency":
+  N = 114397
+  mean =   2989.701 ±(99.9%) 41.657 ns/op
+
+  Histogram, ns/op:
+    [     0.000,  50000.000) = 114382 
+    [ 50000.000, 100000.000) = 8 
+    [100000.000, 150000.000) = 1 
+    [150000.000, 200000.000) = 1 
+    [200000.000, 250000.000) = 1 
+    [250000.000, 300000.000) = 1 
+    [300000.000, 350000.000) = 0 
+    [350000.000, 400000.000) = 0 
+    [400000.000, 450000.000) = 0 
+    [450000.000, 500000.000) = 0 
+    [500000.000, 550000.000) = 0 
+    [550000.000, 600000.000) = 0 
+    [600000.000, 650000.000) = 0 
+    [650000.000, 700000.000) = 2 
+    [700000.000, 750000.000) = 1 
+
+  Percentiles, ns/op:
+      p(0.0000) =   2444.000 ns/op
+     p(50.0000) =   2692.000 ns/op
+     p(90.0000) =   2816.000 ns/op
+     p(95.0000) =   2932.000 ns/op
+     p(99.0000) =  15360.320 ns/op
+     p(99.9000) =  32448.640 ns/op
+     p(99.9900) =  80763.930 ns/op
+     p(99.9990) = 708444.467 ns/op
+     p(99.9999) = 710656.000 ns/op
+    p(100.0000) = 710656.000 ns/op
+
+
+# Run complete. Total time: 00:02:08
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                        (policy)  (representation)                    (scenario)  (seed)    Mode     Cnt        Score     Error  Units
+AdaptiveCaptureLatencyBenchmark.latency            replay            string     scheme.all.text.ascii.128       1  sample  136335      716.226 ±  46.194  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay            string     scheme.all.text.ascii.128       1  sample              503.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay            string     scheme.all.text.ascii.128       1  sample              583.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay            string     scheme.all.text.ascii.128       1  sample              616.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay            string     scheme.all.text.ascii.128       1  sample              637.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay            string     scheme.all.text.ascii.128       1  sample             1402.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay            string     scheme.all.text.ascii.128       1  sample            17941.248            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay            string     scheme.all.text.ascii.128       1  sample            45863.526            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay            string     scheme.all.text.ascii.128       1  sample          1677312.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay            string  scheme.rare.rotate.ascii.128       1  sample  120221      224.994 ±  62.791  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay            string  scheme.rare.rotate.ascii.128       1  sample              113.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay            string  scheme.rare.rotate.ascii.128       1  sample              135.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay            string  scheme.rare.rotate.ascii.128       1  sample              152.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay            string  scheme.rare.rotate.ascii.128       1  sample              160.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay            string  scheme.rare.rotate.ascii.128       1  sample              744.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay            string  scheme.rare.rotate.ascii.128       1  sample            16176.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay            string  scheme.rare.rotate.ascii.128       1  sample            37605.005            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay            string  scheme.rare.rotate.ascii.128       1  sample          1720320.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay            string      stack.all.text.ascii.128       1  sample  116527      832.458 ±  47.054  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay            string      stack.all.text.ascii.128       1  sample              587.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay            string      stack.all.text.ascii.128       1  sample              666.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay            string      stack.all.text.ascii.128       1  sample              717.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay            string      stack.all.text.ascii.128       1  sample              754.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay            string      stack.all.text.ascii.128       1  sample             2638.880            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay            string      stack.all.text.ascii.128       1  sample            18255.104            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay            string      stack.all.text.ascii.128       1  sample            55780.352            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay            string      stack.all.text.ascii.128       1  sample          1404928.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay            string   stack.reads.phase.ascii.128       1  sample  106316      941.405 ±  96.577  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay            string   stack.reads.phase.ascii.128       1  sample              581.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay            string   stack.reads.phase.ascii.128       1  sample              685.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay            string   stack.reads.phase.ascii.128       1  sample              867.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay            string   stack.reads.phase.ascii.128       1  sample              915.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay            string   stack.reads.phase.ascii.128       1  sample             6542.640            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay            string   stack.reads.phase.ascii.128       1  sample            18507.712            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay            string   stack.reads.phase.ascii.128       1  sample            49006.995            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay            string   stack.reads.phase.ascii.128       1  sample          1806336.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay              utf8     scheme.all.text.ascii.128       1  sample  129227      721.047 ±  13.296  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay              utf8     scheme.all.text.ascii.128       1  sample              552.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay              utf8     scheme.all.text.ascii.128       1  sample              603.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay              utf8     scheme.all.text.ascii.128       1  sample              636.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay              utf8     scheme.all.text.ascii.128       1  sample              655.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay              utf8     scheme.all.text.ascii.128       1  sample             1085.440            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay              utf8     scheme.all.text.ascii.128       1  sample            17952.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay              utf8     scheme.all.text.ascii.128       1  sample            45602.816            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay              utf8     scheme.all.text.ascii.128       1  sample           161024.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay              utf8  scheme.rare.rotate.ascii.128       1  sample  111819      243.285 ±  57.875  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay              utf8  scheme.rare.rotate.ascii.128       1  sample              121.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay              utf8  scheme.rare.rotate.ascii.128       1  sample              148.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay              utf8  scheme.rare.rotate.ascii.128       1  sample              167.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay              utf8  scheme.rare.rotate.ascii.128       1  sample              179.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay              utf8  scheme.rare.rotate.ascii.128       1  sample              838.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay              utf8  scheme.rare.rotate.ascii.128       1  sample            16512.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay              utf8  scheme.rare.rotate.ascii.128       1  sample            42269.056            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay              utf8  scheme.rare.rotate.ascii.128       1  sample          1794048.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay              utf8      stack.all.text.ascii.128       1  sample  114761     2962.247 ±  36.014  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay              utf8      stack.all.text.ascii.128       1  sample             2364.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay              utf8      stack.all.text.ascii.128       1  sample             2684.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay              utf8      stack.all.text.ascii.128       1  sample             2792.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay              utf8      stack.all.text.ascii.128       1  sample             2920.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay              utf8      stack.all.text.ascii.128       1  sample            14817.280            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay              utf8      stack.all.text.ascii.128       1  sample            32743.616            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay              utf8      stack.all.text.ascii.128       1  sample            56728.358            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay              utf8      stack.all.text.ascii.128       1  sample           711680.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency            replay              utf8   stack.reads.phase.ascii.128       1  sample  101068     3574.299 ± 128.422  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00      replay              utf8   stack.reads.phase.ascii.128       1  sample             2780.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50      replay              utf8   stack.reads.phase.ascii.128       1  sample             2992.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90      replay              utf8   stack.reads.phase.ascii.128       1  sample             3196.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95      replay              utf8   stack.reads.phase.ascii.128       1  sample             3828.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99      replay              utf8   stack.reads.phase.ascii.128       1  sample            18697.920            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999     replay              utf8   stack.reads.phase.ascii.128       1  sample            39159.168            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999    replay              utf8   stack.reads.phase.ascii.128       1  sample           490522.368            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00      replay              utf8   stack.reads.phase.ascii.128       1  sample          2009088.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work            string     scheme.all.text.ascii.128       1  sample  134691      703.692 ±  49.578  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work            string     scheme.all.text.ascii.128       1  sample              530.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work            string     scheme.all.text.ascii.128       1  sample              576.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work            string     scheme.all.text.ascii.128       1  sample              610.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work            string     scheme.all.text.ascii.128       1  sample              634.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work            string     scheme.all.text.ascii.128       1  sample             1894.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work            string     scheme.all.text.ascii.128       1  sample            17299.712            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work            string     scheme.all.text.ascii.128       1  sample            37779.712            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work            string     scheme.all.text.ascii.128       1  sample          1404928.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work            string  scheme.rare.rotate.ascii.128       1  sample  106024      289.406 ±   9.753  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work            string  scheme.rare.rotate.ascii.128       1  sample              146.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work            string  scheme.rare.rotate.ascii.128       1  sample              163.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work            string  scheme.rare.rotate.ascii.128       1  sample              737.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work            string  scheme.rare.rotate.ascii.128       1  sample              767.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work            string  scheme.rare.rotate.ascii.128       1  sample              947.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work            string  scheme.rare.rotate.ascii.128       1  sample            16255.600            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work            string  scheme.rare.rotate.ascii.128       1  sample            29474.960            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work            string  scheme.rare.rotate.ascii.128       1  sample            77440.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work            string      stack.all.text.ascii.128       1  sample  115150      826.742 ±  17.533  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work            string      stack.all.text.ascii.128       1  sample              592.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work            string      stack.all.text.ascii.128       1  sample              676.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work            string      stack.all.text.ascii.128       1  sample              719.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work            string      stack.all.text.ascii.128       1  sample              754.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work            string      stack.all.text.ascii.128       1  sample             6379.760            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work            string      stack.all.text.ascii.128       1  sample            18176.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work            string      stack.all.text.ascii.128       1  sample            51968.218            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work            string      stack.all.text.ascii.128       1  sample           247296.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work            string   stack.reads.phase.ascii.128       1  sample  116189      835.577 ±  64.901  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work            string   stack.reads.phase.ascii.128       1  sample              583.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work            string   stack.reads.phase.ascii.128       1  sample              671.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work            string   stack.reads.phase.ascii.128       1  sample              707.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work            string   stack.reads.phase.ascii.128       1  sample              733.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work            string   stack.reads.phase.ascii.128       1  sample             3666.800            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work            string   stack.reads.phase.ascii.128       1  sample            17984.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work            string   stack.reads.phase.ascii.128       1  sample            46296.512            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work            string   stack.reads.phase.ascii.128       1  sample          1341440.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work              utf8     scheme.all.text.ascii.128       1  sample  128998      726.001 ±  32.547  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work              utf8     scheme.all.text.ascii.128       1  sample              551.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work              utf8     scheme.all.text.ascii.128       1  sample              606.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work              utf8     scheme.all.text.ascii.128       1  sample              639.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work              utf8     scheme.all.text.ascii.128       1  sample              657.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work              utf8     scheme.all.text.ascii.128       1  sample             1124.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work              utf8     scheme.all.text.ascii.128       1  sample            17632.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work              utf8     scheme.all.text.ascii.128       1  sample            40928.096            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work              utf8     scheme.all.text.ascii.128       1  sample          1191936.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work              utf8  scheme.rare.rotate.ascii.128       1  sample  193472      209.442 ±   6.395  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work              utf8  scheme.rare.rotate.ascii.128       1  sample              154.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work              utf8  scheme.rare.rotate.ascii.128       1  sample              170.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work              utf8  scheme.rare.rotate.ascii.128       1  sample              188.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work              utf8  scheme.rare.rotate.ascii.128       1  sample              197.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work              utf8  scheme.rare.rotate.ascii.128       1  sample              783.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work              utf8  scheme.rare.rotate.ascii.128       1  sample            13360.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work              utf8  scheme.rare.rotate.ascii.128       1  sample            21862.912            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work              utf8  scheme.rare.rotate.ascii.128       1  sample           184576.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work              utf8      stack.all.text.ascii.128       1  sample  116923     2922.124 ±  36.114  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work              utf8      stack.all.text.ascii.128       1  sample             2424.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work              utf8      stack.all.text.ascii.128       1  sample             2612.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work              utf8      stack.all.text.ascii.128       1  sample             2876.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work              utf8      stack.all.text.ascii.128       1  sample             2956.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work              utf8      stack.all.text.ascii.128       1  sample            13236.480            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work              utf8      stack.all.text.ascii.128       1  sample            33092.864            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work              utf8      stack.all.text.ascii.128       1  sample            62882.278            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work              utf8      stack.all.text.ascii.128       1  sample           712704.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency              work              utf8   stack.reads.phase.ascii.128       1  sample  114397     2989.701 ±  41.657  ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.00        work              utf8   stack.reads.phase.ascii.128       1  sample             2444.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.50        work              utf8   stack.reads.phase.ascii.128       1  sample             2692.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.90        work              utf8   stack.reads.phase.ascii.128       1  sample             2816.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.95        work              utf8   stack.reads.phase.ascii.128       1  sample             2932.000            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.99        work              utf8   stack.reads.phase.ascii.128       1  sample            15360.320            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.999       work              utf8   stack.reads.phase.ascii.128       1  sample            32448.640            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p0.9999      work              utf8   stack.reads.phase.ascii.128       1  sample            80763.930            ns/op
+AdaptiveCaptureLatencyBenchmark.latency:p1.00        work              utf8   stack.reads.phase.ascii.128       1  sample           710656.000            ns/op
+
+Benchmark result is saved to /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/selected-latency/results.json

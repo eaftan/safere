@@ -1,0 +1,26 @@
+[
+  [
+    "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+    "--fastbuild",
+    "--investigation",
+    "capture-demand-policy",
+    "^org\\.safere\\.benchmark\\.AdaptiveCaptureSharedBenchmark\\.run$",
+    "--",
+    "-p",
+    "scenario=stack.all.text.ascii.128,stack.rare.rotate.ascii.128,scheme.all.text.ascii.128,scheme.rare.rotate.ascii.128",
+    "-p",
+    "representation=string,utf8",
+    "-p",
+    "policy=replay,work",
+    "-p",
+    "seed=1",
+    "-t",
+    "4",
+    "-foe",
+    "true",
+    "-rf",
+    "json",
+    "-rff",
+    "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/selected-shared/results.json"
+  ]
+]

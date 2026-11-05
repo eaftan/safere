@@ -93,6 +93,16 @@ state intentionally wraps. There is no shared RNG or wall-clock feedback in the
 policies. A seed repeats a decision stream for identical histories; time-based JMH
 warmup can execute different numbers of decisions across runs.
 
+The completed [results and assessment](../results/decision-rules/README.md) include
+all candidate comparisons, selected expanded coverage, exploration sensitivity,
+and the limitations that prevent a production recommendation. Raw cohorts, source
+identities, normalized rows, deterministic traces, and checksums are preserved
+separately from the historical study. Its original `summary.txt` is unchanged;
+the new study also has a plain-text summary.
+
 New measurements belong under ignored `benchmark-results/` during collection.
-The completed report will preserve selected evidence separately from the original
-historical results and identify remaining limitations before any production choice.
+After verifying successful completion, `archive.py` copies the completed cohorts
+and diagnostic evidence into a fresh publication directory without rewriting raw
+files. `analyze.py` and `analyze-traces.py` audit and regenerate derived artifacts;
+the report includes the exact commands for the preserved archive. No experimental
+policy is adopted by this PR.

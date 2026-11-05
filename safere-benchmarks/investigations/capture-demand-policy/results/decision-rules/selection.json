@@ -1,0 +1,59 @@
+{
+  "rule": "Two lowest equal-row core geometric mean ratios; not a deployment mix",
+  "selected": [
+    "replay",
+    "work"
+  ],
+  "scores": {
+    "fraction": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.7167023537997693,
+      "worstTimeOverMain": 1.6578832248915396
+    },
+    "joint": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.5020302710996096,
+      "worstTimeOverMain": 1.663021670198548
+    },
+    "replay": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.43411029696529707,
+      "worstTimeOverMain": 1.299268374814284
+    },
+    "work": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.44336111203605755,
+      "worstTimeOverMain": 1.2724609345864193
+    },
+    "periodic": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.6084685802129028,
+      "worstTimeOverMain": 1.2960047539801967
+    },
+    "random": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.5953736984762228,
+      "worstTimeOverMain": 1.3355188163383362
+    },
+    "observe": {
+      "rows": 32,
+      "geomeanTimeOverMain": 1.037704687512105,
+      "worstTimeOverMain": 1.1717632958096762
+    },
+    "patchedMain": {
+      "rows": 32,
+      "geomeanTimeOverMain": 1.0030533801743842,
+      "worstTimeOverMain": 1.1474265687806842
+    },
+    "dfa": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.42436554314619807,
+      "worstTimeOverMain": 2.109903339114298
+    },
+    "localSticky": {
+      "rows": 32,
+      "geomeanTimeOverMain": 0.6975557150588806,
+      "worstTimeOverMain": 1.0445606996099397
+    }
+  }
+}
