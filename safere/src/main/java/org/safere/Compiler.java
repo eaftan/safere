@@ -575,8 +575,9 @@ final class Compiler extends Walker<Compiler.Frag> {
   private Frag finiteRepeat(List<Frag> copies, int minimum, boolean nongreedy) {
     int maximum = copies.size();
     if (forDfa) {
-      // Recognition without empty-stop is a superset. It is usable as a rejection filter, never
-      // as the authoritative producer for a program with progress registers.
+      // Unguarded copies preserve full-match existence, but not ordered paths or captures.
+      // matches() can fix group zero to the whole region and defer guarded capture extraction;
+      // prefix/search matching uses these copies only as a rejection filter.
       Frag suffix = quest(copies.get(maximum - 1), nongreedy);
       for (int i = maximum - 2; i >= minimum; i--) {
         suffix = quest(cat(copies.get(i), suffix), nongreedy);

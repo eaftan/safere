@@ -47,7 +47,11 @@ invocation-local progress register starting at the final required iteration.
 An empty iteration then exits once the minimum is met; required earlier empty
 iterations still count. The same progress instructions and register rollback
 used by unbounded loops handle these finite boundaries. DFA copies without
-progress guards are rejection supersets, not authoritative match producers.
+progress guards preserve full-match existence: unnecessary empty iterations can
+be removed without changing input positions or violating the minimum. `matches()`
+can therefore publish the fixed whole-region bounds and defer captures to the
+guarded program. Prefix/search bounds and captures still require exact progress
+semantics; the unguarded DFA cannot select their prioritized result.
 Proved capture-preserving equivalences, such as compact statically zero-width
 repetition, can avoid these copies and guards.
 

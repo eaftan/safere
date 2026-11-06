@@ -35,7 +35,7 @@ if (analysis.capabilities().contains(PatternCapability.DFA_REJECT_PREFILTER)) {
 }
 
 if (analysis.limitations().contains(PatternLimitation.NULLABLE_LOOP_REQUIRES_EXACT_ENGINE)) {
-  System.out.println("Successful matches require exact nullable-loop semantics");
+  System.out.println("Captures and prefix/search selection require exact nullable-loop semantics");
 }
 
 System.out.printf(
@@ -61,6 +61,10 @@ immutable result.
 Capabilities are possibilities, not execution promises. For example, a pattern can support both
 DFA boundary search and NFA matching. A long search might use a DFA to discover group 0 boundaries,
 while a capture access or a semantically ambiguous case can require an exact engine.
+
+For progress-bearing patterns, `DFA_BOUNDARY_SEARCH` includes the fixed whole-region bounds of
+`matches()`. These patterns also advertise `DFA_REJECT_PREFILTER`: prefix/search result selection
+and captures continue to require exact progress semantics.
 
 ## Runtime diagnostics
 

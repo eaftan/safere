@@ -1152,7 +1152,9 @@ class DiagnosticsTest {
   void primaryBitStateAndNfaCaptureSearchesReportEagerCaptureAttribution() {
     Pattern.setDiagnostics(diagnostics);
 
-    Pattern nullableLoopBitState = Pattern.compile("(?:(a)?)*b");
+    Pattern nullableLoopBitState =
+        Pattern.compile(
+            "(?:(a)?)*b", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
     Matcher matchesMatcher = nullableLoopBitState.matcher("aab");
     assertThat(matchesMatcher.matches()).isTrue();
     assertThat(matchesMatcher.capturesResolved()).isTrue();
