@@ -74,6 +74,11 @@ abstract class Walker<T> {
    */
   protected abstract T shortVisit(Regexp re, T parentArg);
 
+  /** Returns how many copies of a counted operand to visit; structural analyses need only one. */
+  protected int repeatVisits(Regexp re) {
+    return 1;
+  }
+
   /** Returns true if the walk was cut short due to the visit budget being exhausted. */
   boolean stoppedEarly() {
     return stoppedEarly;
@@ -111,7 +116,8 @@ abstract class Walker<T> {
     for (; ; ) {
       WalkState<T> s = stack.get(stack.size() - 1);
       re = s.re;
-      int nsub = (re.subs != null) ? re.subs.size() : 0;
+      // Keep ordinary child traversal direct: most walkers never expand counted operands.
+      int nsub = re.op == RegexpOp.REPEAT ? repeatVisits(re) : re.subs == null ? 0 : re.subs.size();
 
       if (s.n == -1) {
         // Need to call preVisit.
@@ -147,13 +153,15 @@ abstract class Walker<T> {
 
       // Process children.
       if (nsub > 0 && s.n < nsub) {
-        if (useCopy && s.n > 0 && re.subs.get(s.n - 1) == re.subs.get(s.n)) {
+        if (useCopy
+            && s.n > 0
+            && (re.op == RegexpOp.REPEAT || re.subs.get(s.n - 1) == re.subs.get(s.n))) {
           T prev = s.childArgs.get(s.n - 1);
           s.childArgs.add(copy(prev));
           s.n++;
           continue;
         }
-        stack.add(new WalkState<>(re.subs.get(s.n), s.preArg));
+        stack.add(new WalkState<>(re.subs.get(re.op == RegexpOp.REPEAT ? 0 : s.n), s.preArg));
         continue;
       }
 
