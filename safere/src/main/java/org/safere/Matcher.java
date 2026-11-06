@@ -2850,6 +2850,9 @@ public final class Matcher implements MatchResult {
       Pattern.returnBitState(threadCache(), bs);
       if (!bs.budgetExceeded() && (!speculate || result != null)) {
         if (speculate) {
+          // Reset fully so a run of short matches can use every window immediately. Alternating
+          // long and short matches may pay for two failed windows again after each success;
+          // this trades that bounded cost for faster recovery rather than decaying the delay.
           resetWindowBackoff();
         }
         diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
