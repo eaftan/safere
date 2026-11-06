@@ -97,6 +97,17 @@ pairs; supplementary search behavior has separate explicit expectations.
 Boundary-only grapheme programs retain scalar candidate starts, including when
 start acceleration is disabled.
 
+Opaque grapheme searches preserve the scalar-class rejection and candidate selection
+used by independent String input. These checks must not prohibit every low-surrogate
+NFA start. Required-class existence checks probe the current and terminal code points
+first: a terminal exposed surrogate can establish existence without delaying an early
+match by scanning the tail. Otherwise, a matcher-owned cache records a scalar interval
+with no class member and its next known hit. It retains at most one entry per required
+class and reuses overlapping scans across successive finds and advancing regions.
+The separately probed edge code points are excluded from cached intervals, so changing
+region edges cannot invalidate interior decoding. Input and pattern changes discard
+the cache; ordinary String class scanners carry no additional cache state.
+
 ## Progress and context
 
 After a nonempty String match, `find()` starts from the prior end. After an

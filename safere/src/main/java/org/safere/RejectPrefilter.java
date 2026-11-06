@@ -39,6 +39,24 @@ sealed interface RejectPrefilter
 
   MatchStrategy strategy();
 
+  /** Restores scalar rejection that can suppress low-half starts in independent String input. */
+  default MatchStrategy regionCharClassRejectionStrategy(
+      InputScanner scanner, int start, int end, RegionClassSearch searches) {
+    if (this instanceof CharClass cc) {
+      return cc.rejectsRegion(scanner, start, end, searches) ? cc.strategy() : null;
+    }
+    if (this instanceof Composite composite) {
+      // Composite construction flattens children. Other filters cannot suppress an NFA match
+      // solely because its candidate starts inside a surrogate pair.
+      for (RejectPrefilter filter : composite.filters()) {
+        if (filter instanceof CharClass cc && cc.rejectsRegion(scanner, start, end, searches)) {
+          return cc.strategy();
+        }
+      }
+    }
+    return null;
+  }
+
   /** Checks only terminal filters, whose work is bounded by the pattern rather than the input. */
   default MatchStrategy endAnchoredRejectionStrategy(
       InputScanner scanner, int searchFrom, EnginePathOptions options) {
@@ -275,6 +293,21 @@ sealed interface RejectPrefilter
                 ? scanner.indexOfAscii(singleAscii, searchFrom, limit)
                 : scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, limit))
             < 0;
+      }
+      return false;
+    }
+
+    private boolean rejectsRegion(
+        InputScanner scanner, int start, int end, RegionClassSearch searches) {
+      // Only low-surrogate membership distinguishes scalar rejection from the grapheme NFA's
+      // UTF-16 candidate policy. Leave unrelated classes on the existing engine path.
+      for (int i = 0; i < ranges.length; i += 2) {
+        if (ranges[i] > Character.MAX_LOW_SURROGATE) {
+          break;
+        }
+        if (ranges[i + 1] >= Character.MIN_LOW_SURROGATE) {
+          return !searches.contains(this, scanner, start, end);
+        }
       }
       return false;
     }

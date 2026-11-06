@@ -77,6 +77,10 @@ public final class RegionBoundsFuzzer {
           "\\P{Cs}",
           "\\uD83D",
           "(\\uDE00)",
+          "\\X?\\uDE00",
+          "a?\\uDE00\\X?",
+          "[a\\uDE00]{2}\\X?",
+          "\\X?\\p{Cs}",
           "a\\uD83D",
           "\\X",
           "(\\X)*",
@@ -84,7 +88,8 @@ public final class RegionBoundsFuzzer {
           "(.)|(\\X)");
   private static final List<String> OPAQUE_LOCAL_ASSERTIONS =
       List.of("", "\\b", "\\B", "(?U:\\b)", "(?U:\\B)", "\\b{g}");
-  private static final List<String> OPAQUE_RIGHT_ATOMS = List.of("", ".", "(.)?", "a?");
+  private static final List<String> OPAQUE_RIGHT_ATOMS =
+      List.of("", ".", "(.)?", "a?", "\\X?", "(\\X)*", "|(?:\\Xz)");
 
   // Same bounded pattern grammar as RegionAssertionCompositionTest. Fuzzing extends its curated
   // corpus by concatenating Unicode/context fragments and choosing arbitrary regions within them.
@@ -126,7 +131,8 @@ public final class RegionBoundsFuzzer {
           "\u1100\u1161",
           "\u0915\u094D\u0937",
           "\uD83D",
-          "\uDC4D");
+          "\uDC4D",
+          "\uDE00");
 
   private static final List<GraphemeRegion> TRANSPARENT_GRAPHEME_CONTEXT_REGIONS =
       List.of(new GraphemeRegion("\uD83D\uDC4D\uD83C\uDFFB", 1, 3));
