@@ -279,6 +279,15 @@ required-copy paths, while the JDK reports `[1,1)`. The optional-count mismatch
 previously documented here is resolved; the exact-count difference remains
 intentional.
 
+Residual capture differences are not limited to exact counts. For
+`^(?:(\b|a){2,3})*?$` on `aa`, SafeRE captures group 1 at `[1,2)` (`a`),
+while OpenJDK 26.0.2 reports `[2,2)`. SafeRE's selected inner invocation starts
+with an empty required boundary match, then consumes both letters, exhausting
+the three-iteration bound. The reluctant outer loop can stop there without
+another empty capture. A reluctant outer `+?` selects the same capture.
+Increasing the inner maximum to four, or making the outer loop greedy, allows
+a final empty capture at `[2,2)` in both implementations.
+
 Similarly, `(?:b?|a){0,2}b` and `{1,2}` on `abb` select `abb` in both engines.
 Exact `{2}` finds `ab` and then `b` in SafeRE, while the JDK finds `abb`.
 Full-match acceptance can select `abb` for all three counts. Replacement and

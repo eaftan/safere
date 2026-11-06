@@ -13,7 +13,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Minimum-respecting empty-stop agrees with Java except for exact-count path selection. */
+/** Capture differences from Java under the minimum-respecting empty-stop policy. */
 @DisabledForCrosscheck("intentional divergence in nullable counted-repeat capture boundaries")
 class NullableCountedCaptureDivergenceTest {
   private static Stream<Arguments> captureCases() {
@@ -59,6 +59,27 @@ class NullableCountedCaptureDivergenceTest {
         assertThat(oracle.start(1)).isEqualTo(prefix.length());
         assertThat(oracle.end(1)).isEqualTo(oracle.start(1));
       }
+    }
+  }
+
+  @Test
+  void reluctantOuterLoopsRetainTheirLastConsumingCapture() {
+    for (String outer : new String[] {"*?", "+?"}) {
+      String regex = "^(?:(\\b|a){2,3})" + outer + "$";
+      Matcher matcher = Pattern.compile(regex).matcher("aa");
+      assertThat(matcher.find()).as("/%s/", regex).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(2);
+      // The first required iteration is empty; the next two consume a, exhausting the bound.
+      // The reluctant outer loop can then stop without an extra empty capture at the end.
+      assertThat(matcher.group(1)).isEqualTo("a");
+      assertThat(matcher.start(1)).isEqualTo(1);
+      assertThat(matcher.end(1)).isEqualTo(2);
+      var snapshot = matcher.toMatchResult();
+      assertThat(matcher.find()).isFalse();
+      assertThat(snapshot.group(1)).isEqualTo("a");
+      assertThat(snapshot.start(1)).isEqualTo(1);
+      assertThat(snapshot.end(1)).isEqualTo(2);
     }
   }
 
