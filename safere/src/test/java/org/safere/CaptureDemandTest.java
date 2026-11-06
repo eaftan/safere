@@ -147,6 +147,86 @@ class CaptureDemandTest {
     assertThat(second.end(1)).isEqualTo(first.end(1));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+    "false,false,false",
+    "false,false,true",
+    "false,true,false",
+    "false,true,true",
+    "true,false,false",
+    "true,false,true",
+    "true,true,false",
+    "true,true,true"
+  })
+  void unanchoredDfaSearchDefersCapturesDespiteHistory(
+      boolean utf8, boolean startAcceleration, boolean reused) throws Exception {
+    Pattern pattern =
+        Pattern.compile(
+            "a\\s+(.+)",
+            0,
+            EnginePathOptions.builder().startAcceleration(startAcceleration).build());
+    String input = "prefix a value";
+    Matcher first = matcher(pattern, input, utf8);
+    assertThat(first.find()).isTrue();
+    assertThat(first.start(1)).isEqualTo(9);
+    assertThat(pattern.innerCapturesObserved()).isTrue();
+
+    Matcher next = reused ? first.reset() : matcher(pattern, input, utf8);
+    assertThat(next.find()).isTrue();
+    assertThat(resolved(next)).isFalse();
+    assertThat(next.start(1)).isEqualTo(9);
+    assertThat(next.end(1)).isEqualTo(input.length());
+    assertThat(resolved(next)).isTrue();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "false,find",
+    "true,find",
+    "false,matches",
+    "true,matches",
+    "false,lookingAt",
+    "true,lookingAt"
+  })
+  void anchoredOperationsRetainTheirCapturePreference(boolean utf8, String operation)
+      throws Exception {
+    Pattern pattern =
+        Pattern.compile("^a\\s+(.+)$", 0, EnginePathOptions.builder().onePass(false).build());
+    Matcher first = matcher(pattern, "a value", utf8);
+    assertThat(match(first, operation)).isTrue();
+    assertThat(first.start(1)).isEqualTo(2);
+    Matcher next = matcher(pattern, "a value", utf8);
+    assertThat(match(next, operation)).isTrue();
+    assertThat(resolved(next)).isTrue();
+    assertThat(next.start(1)).isEqualTo(2);
+    assertThat(next.end(1)).isEqualTo(7);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+  void deferredNonOnePassCapturesPreserveJdkBounds(boolean utf8, boolean shortMatch)
+      throws Exception {
+    String regex = shortMatch ? "(a|aa)[a-z]+" : "(a|aa)+b";
+    String input = shortMatch ? "ab" + "!".repeat(30) : "a".repeat(31) + "b";
+    Pattern pattern = Pattern.compile(regex);
+    Matcher primer = matcher(pattern, "ab", utf8);
+    assertThat(primer.matches()).isTrue();
+    assertThat(primer.start(1)).isZero();
+    assertThat(pattern.innerCapturesObserved()).isTrue();
+    assertThat(pattern.canOnePassSubmatch()).isFalse();
+
+    java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(input);
+    assertThat(expected.find()).isTrue();
+    Matcher actual = matcher(pattern, input, utf8);
+    assertThat(actual.find()).isTrue();
+    assertThat(resolved(actual)).isFalse();
+    for (int group = 0; group <= 1; group++) {
+      assertThat(actual.start(group)).isEqualTo(expected.start(group));
+      assertThat(actual.end(group)).isEqualTo(expected.end(group));
+    }
+    assertThat(resolved(actual)).isTrue();
+  }
+
   @Test
   void internalResolutionAndGroupZeroAccessDoNotCreateDemand() {
     Pattern pattern = Pattern.compile("a\\s+(.+)");

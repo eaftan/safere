@@ -161,22 +161,6 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
-  @DisplayName("inner capture demand makes later small finds capture eagerly")
-  void innerCaptureDemandMakesLaterSmallFindsCaptureEagerly() throws ReflectiveOperationException {
-    Pattern pattern = Pattern.compile("a\\s+(.+)");
-    Matcher first = pattern.matcher("prefix a value");
-
-    assertThat(first.find()).isTrue();
-    assertThat(booleanField(first, "capturesResolved")).isFalse();
-    assertThat(first.group(1)).isEqualTo("value");
-
-    Matcher second = pattern.matcher("prefix a another");
-    assertThat(second.find()).isTrue();
-    assertThat(booleanField(second, "capturesResolved")).isTrue();
-    assertThat(second.group(1)).isEqualTo("another");
-  }
-
-  @Test
   @DisplayName("capture-demand adaptation remains bounded to small inputs")
   void captureDemandAdaptationRemainsBoundedToSmallInputs() throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile("a\\s+(.+)");

@@ -611,7 +611,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void abandonedCaptureSpeculationPreservesEarlierReplacementBoundary() {
+  void captureHistoryPreservesDfaBoundaryAcrossReplacementRejection() {
     Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
     Matcher priming = pattern.matcher("error:[C] code:500");
     assertThat(priming.find()).isTrue();
@@ -627,7 +627,9 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.ONE_PASS);
+              assertThat(event.forwardDfaSearchCount()).isPositive();
               assertThat(event.matchCount()).isEqualTo(1);
             });
   }
@@ -1250,40 +1252,32 @@ class DiagnosticsTest {
   }
 
   @Test
-  void speculativeCaptureCandidateMissRestoresAttributionWhenDfaFindsLaterMatch() {
+  void captureHistoryKeepsDfaAttributionForEarlyAndLaterCandidates() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("foo(a+)b");
 
     Matcher warmup = pattern.matcher("fooaab");
     assertThat(warmup.find()).isTrue();
     assertThat(warmup.group(1)).isEqualTo("aa");
-    diagnostics.operations.clear();
+    assertThat(pattern.innerCapturesObserved()).isTrue();
 
-    Matcher speculativeHit = pattern.matcher("xxfooaab");
-    assertThat(speculativeHit.find()).isTrue();
-    assertThat(speculativeHit.capturesResolved()).isTrue();
-    assertThat(operationsFor(pattern))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
-            });
-    diagnostics.operations.clear();
-
-    Matcher speculativeMissThenDfa = pattern.matcher("fooxxx xxfooaab");
-    assertThat(speculativeMissThenDfa.find()).isTrue();
-    assertThat(speculativeMissThenDfa.capturesResolved()).isFalse();
-    assertThat(operationsFor(pattern))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
-            });
-    assertThat(speculativeMissThenDfa.group(1)).isEqualTo("aa");
+    for (String input : List.of("xxfooaab", "fooxxx xxfooaab")) {
+      diagnostics.operations.clear();
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(input.indexOf("fooaab"));
+      assertThat(matcher.capturesResolved()).isFalse();
+      assertThat(operationsFor(pattern))
+          .singleElement()
+          .satisfies(
+              event -> {
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+                assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+                assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+                assertThat(event.forwardDfaSearchCount()).isPositive();
+              });
+      assertThat(matcher.group(1)).isEqualTo("aa");
+    }
   }
 
   @Test
