@@ -115,6 +115,7 @@ public final class Matcher implements MatchResult {
   private InputScanner textScanner;
   // Reuse the independent region input across successive searches and repeated region resets.
   private InputScanner cachedRegionScanner;
+  private RegionClassSearch regionClassSearch;
   private int cachedRegionStart;
   private int cachedRegionEnd;
   private int[] groups;
@@ -620,6 +621,7 @@ public final class Matcher implements MatchResult {
       if (!(inputSequence instanceof String)) {
         textScanner = null;
         cachedRegionScanner = null;
+        regionClassSearch = null;
         graphemeContextInput = null;
         graphemeContext = null;
       }
@@ -641,6 +643,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void invalidatePatternCaches() {
+    regionClassSearch = null;
     consecutiveWindowFailures = 0;
     threadCache = null;
     cachedForwardFirstMatchDfa = null;
@@ -664,6 +667,7 @@ public final class Matcher implements MatchResult {
   private void invalidateInputDependentCaches() {
     textScanner = null;
     cachedRegionScanner = null;
+    regionClassSearch = null;
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
@@ -1860,11 +1864,48 @@ public final class Matcher implements MatchResult {
     if (prog.anchorStart() && searchFrom > regionStart) {
       return applyFailedMatchResult();
     }
+    int effectiveStart = searchFrom;
+    if (!transparentBounds && text != null && prog.hasGraphemeClusterInstruction()) {
+      EnginePathOptions options = enginePathOptions();
+      RejectPrefilter rejection = parentPattern.findRejectPrefilter();
+      if (options.charClassMatchFastPaths() && rejection != null) {
+        if (regionClassSearch == null) {
+          regionClassSearch = new RegionClassSearch();
+        }
+        MatchStrategy strategy =
+            rejection.regionCharClassRejectionStrategy(
+                activeScanner(), searchFrom, regionEnd, regionClassSearch);
+        if (strategy != null) {
+          diagnosticParticipation(strategy, StrategyRole.REJECT_PREFILTER);
+          diagnosticBoundary(strategy);
+          return applyFailedMatchResult();
+        }
+      }
+      StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
+      if (options.startAcceleration()
+          && !prog.anchorStart()
+          && usesScalarClassStartScan(accelerator)
+          && startAccelerationAllowed(searchFrom - regionStart, accelerator.policy())) {
+        diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
+        StringRegionInputScanner region =
+            new StringRegionInputScanner(text, regionStart, regionEnd);
+        int candidate =
+            StringStartAccelerator.findNextCandidate(
+                accelerator, region, searchFrom - regionStart, prog.lineStartUnixLines());
+        if (candidate < 0) {
+          diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return applyFailedMatchResult();
+        }
+        chargeStartAcceleration(
+            searchFrom - regionStart, candidate, region.length(), accelerator.policy());
+        effectiveStart = regionStart + candidate;
+      }
+    }
     int[] result =
         searchWithBitStateOrNfa(
             prog,
             activeScanner(),
-            searchFrom,
+            effectiveStart,
             regionEnd,
             regionEnd,
             false,
@@ -1874,6 +1915,14 @@ public final class Matcher implements MatchResult {
             false,
             this.groups);
     return applyFullMatchResult(result);
+  }
+
+  private static boolean usesScalarClassStartScan(StringStartAccelerator accelerator) {
+    while (accelerator instanceof StringStartAccelerator.LeadingExpansion expansion) {
+      accelerator = expansion.inner();
+    }
+    return accelerator instanceof StringStartAccelerator.CharClass
+        || accelerator instanceof StringStartAccelerator.FixedOffsetClass;
   }
 
   private boolean verifyEndAnchoredStart(InputScanner scanner, int start) {

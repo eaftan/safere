@@ -21,6 +21,67 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void opaqueRequiredClassesReuseScansAcrossFindsAndAdvancingRegions() {
+    for (boolean advanceRegion : new boolean[] {false, true}) {
+      Pattern pattern = Pattern.compile("\\X?\\uDE00");
+      assertFindAllWorkIsLinear(
+          size -> {
+            String input = "a" + "😀".repeat(size) + "\uDE00!";
+            Matcher matcher = pattern.matcher(input).region(1, input.length());
+            return () -> {
+              boolean found = matcher.find();
+              if (found && advanceRegion) {
+                matcher.region(matcher.end(), input.length());
+              }
+              return found;
+            };
+          },
+          "opaque class scans, advancing region=" + advanceRegion);
+    }
+  }
+
+  @Test
+  void shrinkingOpaqueRegionsReuseTheAbsentScalarInterior() {
+    Pattern pattern = Pattern.compile("\\X?\\uDE00");
+    long[] work = new long[2];
+    for (int index = 0; index < work.length; index++) {
+      int pairs = index == 0 ? 200 : 1000;
+      String input = "a" + "😀".repeat(pairs) + "\uDE00!";
+      Matcher matcher = pattern.matcher(input);
+      work[index] =
+          WorkCounter.countForTesting(
+              () -> {
+                for (int end = input.length(); end >= 1; end--) {
+                  matcher.region(1, end);
+                  assertThat(matcher.find()).isEqualTo(end >= input.length() - 1);
+                }
+              });
+    }
+    assertThat(work[0]).isPositive();
+    assertThat(work[1]).as("shrinking regions must not repeat tail scans").isLessThan(work[0] * 6);
+  }
+
+  @Test
+  void exposedRegionEndWitnessDoesNotDelayTheFirstGraphemeMatch() {
+    Pattern pattern = Pattern.compile("\\X?\\p{Cs}");
+    long[] work = new long[2];
+    for (int index = 0; index < work.length; index++) {
+      int pairs = index == 0 ? 128 : 8192;
+      String input = "a" + "😀".repeat(pairs + 1) + "!";
+      Matcher matcher = pattern.matcher(input).region(1, 2 * pairs + 2);
+      work[index] =
+          WorkCounter.countForTesting(
+              () -> {
+                assertThat(matcher.find()).isTrue();
+                assertThat(matcher.start()).isEqualTo(2);
+                assertThat(matcher.end()).isEqualTo(3);
+              });
+    }
+    assertThat(work[0]).isPositive();
+    assertThat(work[1]).as("first result must not scan the tail").isEqualTo(work[0]);
+  }
+
+  @Test
   void nestedNullableLoopEntryResetsKeepFindWorkLinear() {
     for (EnginePathOptions options :
         new EnginePathOptions[] {
