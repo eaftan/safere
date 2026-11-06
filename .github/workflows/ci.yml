@@ -18,6 +18,9 @@ jobs:
           persist-credentials: false
 
       - name: Install workflow lockfile verifier
+        # Binary extensions require a release tag. v0.4.1 is an immutable release;
+        # verify the "Immutable" badge on the release page when updating this pin:
+        # https://github.com/github/gh-actions-lock/releases/tag/v0.4.1
         run: gh extension install github/gh-actions-lock --pin v0.4.1
         env:
           GH_TOKEN: ${{ github.token }}
