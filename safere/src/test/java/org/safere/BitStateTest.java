@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
@@ -77,6 +78,72 @@ class BitStateTest {
               assertConsistentAnchored(regex, input, true, false);
               assertConsistentAnchored(regex, input, true, true);
               assertConsistentUnanchored(regex, input);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void nullableLoopEntriesPreservePriorityAndRollbackAcrossSearchModes() {
+    for (String atom : List.of("(a?)", "((a)?)", "(a??)", "(?:()|a)", "(?:(é)|😀)?")) {
+      for (String inner : List.of("{0,2}", "{1,3}", "{2,3}", "{0,2}?", "+?")) {
+        for (String outer : List.of("*", "+", "*?", "+?")) {
+          String regex = "(?:(?:" + atom + ")" + inner + ")" + outer + "(?:ab|b)";
+          Prog prog = Pattern.compile(regex).prog();
+          for (String input : List.of("", "b", "ab", "aab", "aaaab", "aaaaac", "é😀ab")) {
+            for (InputScanner scanner :
+                List.of(
+                    new StringInputScanner(input), new Utf8InputScanner(input.getBytes(UTF_8)))) {
+              for (int groups : new int[] {0, 1, prog.numCaptures()}) {
+                for (Nfa.MatchKind kind : Nfa.MatchKind.values()) {
+                  for (Nfa.Anchor anchor : Nfa.Anchor.values()) {
+                    int[] expected =
+                        Nfa.search(
+                            prog,
+                            scanner,
+                            0,
+                            scanner.length(),
+                            scanner.length(),
+                            0,
+                            anchor,
+                            kind,
+                            groups,
+                            null);
+                    BitState engine =
+                        BitState.getOrCreate(
+                            null,
+                            prog,
+                            scanner,
+                            0,
+                            scanner.length(),
+                            2 * Math.max(groups, 1),
+                            kind != Nfa.MatchKind.FIRST_MATCH,
+                            kind == Nfa.MatchKind.FULL_MATCH);
+                    int[] actual =
+                        engine.doSearch(
+                            0,
+                            scanner.length(),
+                            anchor == Nfa.Anchor.ANCHORED || kind == Nfa.MatchKind.FULL_MATCH);
+                    if (engine.budgetExceeded()) {
+                      // An exhausted bounded search must delegate to NFA without a partial result.
+                      assertThat(actual).isNull();
+                      continue;
+                    }
+                    assertThat(actual == null)
+                        .as(
+                            "/%s/ on %s, groups=%s, %s/%s, %s",
+                            regex, input, groups, anchor, kind, scanner.getClass().getSimpleName())
+                        .isEqualTo(expected == null);
+                    // With no captures requested, NFA returns an empty vector while BitState
+                    // retains its internal group-zero workspace. Only success is promised.
+                    if (groups > 0 && actual != null) {
+                      assertThat(actual).isEqualTo(expected);
+                    }
+                  }
+                }
+              }
             }
           }
         }
