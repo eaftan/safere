@@ -7,6 +7,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +26,34 @@ class UnicodeTablesTest {
   void generatedCategories_includeUnassignedCategory() {
     assertThat(UnicodeGeneratedTables.CATEGORIES).containsKey("Cn");
     assertThat(UnicodeTables.UNICODE_GROUPS).containsKey("Cn");
+  }
+
+  @Test
+  void generatedAssignedIsComplementOfUnassignedCategory() {
+    int[][] assigned = UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned");
+    int[][] unassigned = UnicodeGeneratedTables.CATEGORIES.get("Cn");
+    assertThat(assigned).isNotNull();
+    assertThat(unassigned).isNotNull();
+    List<String> differences = new ArrayList<>();
+    int assignedIndex = 0;
+    int unassignedIndex = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      while (assignedIndex < assigned.length && assigned[assignedIndex][1] < cp) {
+        assignedIndex++;
+      }
+      while (unassignedIndex < unassigned.length && unassigned[unassignedIndex][1] < cp) {
+        unassignedIndex++;
+      }
+      boolean inAssigned = assignedIndex < assigned.length && assigned[assignedIndex][0] <= cp;
+      boolean inUnassigned =
+          unassignedIndex < unassigned.length && unassigned[unassignedIndex][0] <= cp;
+      if (inAssigned == inUnassigned && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    // This invariant is independent of runtime Unicode data, so a broken Assigned table cannot
+    // silently disable all JDK-derived canaries through their repertoire assumption.
+    assertThat(differences).as("Assigned must be the complement of generated Cn").isEmpty();
   }
 
   @Test

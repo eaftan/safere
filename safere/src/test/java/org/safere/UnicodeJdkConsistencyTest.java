@@ -9,6 +9,9 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.lang.UProperty;
+import com.ibm.icu.util.VersionInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -213,12 +216,24 @@ class UnicodeJdkConsistencyTest {
 
   // --- Generated binary property canaries ---
 
-  @ParameterizedTest(name = "Binary property {0} matches its JDK or Unicode oracle")
+  @ParameterizedTest(name = "Binary property {0} matches its source Unicode oracle")
   @MethodSource("binaryPropertyNames")
   @EnabledForJreRange(min = JRE.JAVA_26)
-  void binaryPropertiesMatchJdkExceptUnicodeHexDigit(String name) {
-    boolean icuProperty = name.equals("Extended_Pictographic") || name.equals("White_Space");
-    if (!name.equals("Hex_Digit") && !icuProperty) {
+  void binaryPropertiesMatchTheirUnicodeSource(String name) {
+    int icuProperty =
+        switch (name) {
+          case "Extended_Pictographic" -> UProperty.EXTENDED_PICTOGRAPHIC;
+          case "White_Space" -> UProperty.WHITE_SPACE;
+          default -> -1;
+        };
+    if (icuProperty >= 0) {
+      VersionInfo version = UCharacter.getUnicodeVersion();
+      String oracleVersion =
+          version.getMajor() + "." + version.getMinor() + "." + version.getMilli();
+      assumeTrue(
+          oracleVersion.equals(UnicodeGeneratedTables.UNICODE_DATA_VERSION),
+          "ICU oracle Unicode version differs from the generated ICU tables");
+    } else if (!name.equals("Hex_Digit")) {
       // JDK-derived property tables match the runtime JDK when both JDKs use the same Unicode
       // repertoire.
       assumeTrue(
@@ -226,31 +241,19 @@ class UnicodeJdkConsistencyTest {
           "Runtime JDK Unicode repertoire differs from the generator JDK");
     }
     int[][] ranges = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get(name));
-    int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));
     java.util.regex.Matcher jdk =
         java.util.regex.Pattern.compile("\\p{Is" + name + "}").matcher("");
     List<String> differences = new ArrayList<>();
     List<String> jdkHexDifferences = new ArrayList<>();
     int rangeIndex = 0;
-    int assignedIndex = 0;
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
       while (rangeIndex < ranges.length && ranges[rangeIndex][1] < cp) {
         rangeIndex++;
       }
       boolean inTable = rangeIndex < ranges.length && ranges[rangeIndex][0] <= cp;
-      while (assignedIndex < assigned.length && assigned[assignedIndex][1] < cp) {
-        assignedIndex++;
-      }
-      boolean inGeneratedAssigned =
-          assignedIndex < assigned.length && assigned[assignedIndex][0] <= cp;
-      if (icuProperty && (!Character.isDefined(cp) || !inGeneratedAssigned)) {
-        // ICU4J-backed properties (UNICODE_DATA_VERSION) may be ahead of or behind the runtime
-        // JDK on code points that were unassigned in the older Unicode version (for example,
-        // reserved Extended_Pictographic ranges reassigned to non-pictographic characters).
-        continue;
-      }
-      boolean jdkMatches = jdk.reset(Character.toString(cp)).matches();
-      boolean expected = jdkMatches;
+      boolean jdkMatches = icuProperty < 0 && jdk.reset(Character.toString(cp)).matches();
+      boolean expected =
+          icuProperty >= 0 ? UCharacter.hasBinaryProperty(cp, icuProperty) : jdkMatches;
       if (name.equals("Hex_Digit")) {
         // Approved spec-based divergence: Unicode Hex_Digit excludes other decimal digits.
         expected =
