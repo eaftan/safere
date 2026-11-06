@@ -577,6 +577,7 @@ enum RegexEngineVariant {
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
       case RE2J_STRING -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
         features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
@@ -625,10 +626,20 @@ enum RegexEngineVariant {
           org.safere.Pattern.compile(regex, flags);
       case JDK_STRING -> java.util.regex.Pattern.compile(regex, flags);
       case RE2J_STRING -> {
-        if (flags != 0) {
-          throw new UnsupportedOperationException("RE2/J flagged compilation is unsupported");
-        }
-        yield com.google.re2j.Pattern.compile(regex);
+        // The plan excludes rows whose Java flag semantics differ from RE2/J. Map identities,
+        // never Java integer flags: Java CASE_INSENSITIVE has RE2/J's DOTALL value.
+        int re2jFlags =
+            switch (flagSet == null ? "0" : flagSet) {
+              case "0" -> 0;
+              case "CASE_INSENSITIVE",
+                  "CASE_INSENSITIVE_UNICODE_CASE",
+                  "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS" ->
+                  com.google.re2j.Pattern.CASE_INSENSITIVE;
+              default ->
+                  throw new UnsupportedOperationException(
+                      "RE2/J does not support flag set " + flagSet);
+            };
+        yield com.google.re2j.Pattern.compile(regex, re2jFlags);
       }
       case RE2_FFM_STRING_CONVERSION -> {
         if (flags != 0) {
