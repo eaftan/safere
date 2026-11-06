@@ -12301,6 +12301,70 @@
       }
     },
     {
+      "id": "MatcherApiBenchmark.newMatcherRegionFind",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\b[A-Za-z]+ing\\b"
+      ],
+      "inputs": [
+        "matcherApi.regionFind.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 7,
+            "end": 22
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.newMatcherRegionMatches",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^[A-Za-z]+ [A-Za-z]+$"
+      ],
+      "inputs": [
+        "matcherApi.regionFind.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 7,
+            "end": 22
+          }
+        ]
+      }
+    },
+    {
       "id": "MatcherApiBenchmark.regionFind",
       "operation": "matcherRegionFind",
       "patterns": [

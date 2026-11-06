@@ -61,22 +61,22 @@ int re2_num_capturing_groups(const re2_pattern_t* p) {
   return p->re2->NumberOfCapturingGroups();
 }
 
-bool re2_full_match(const re2_pattern_t* p, const char* text, int text_len) {
-  if (!p || !p->re2->ok()) return false;
-  return p->re2->Match(absl::string_view(text, text_len),
-                        0, text_len, RE2::ANCHOR_BOTH, nullptr, 0);
-}
-
-bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
-              int startpos, int32_t* matches_out, int nmatches) {
-  if (!p || !p->re2->ok()) return false;
-
-  int nsub = nmatches + 1;  // group 0 + nmatches capture groups
+bool re2_match(const re2_pattern_t* p, const char* text, int text_len,
+               int region_start, int region_end, int startpos, int anchor,
+               int32_t* matches_out, int nmatches) {
+  if (!p || !p->re2->ok() || region_start < 0 || region_end < region_start ||
+      region_end > text_len || startpos < region_start || startpos > region_end ||
+      anchor < 0 || anchor > 2 || nmatches < 0) {
+    return false;
+  }
+  // Use a non-null backing address even for empty input, so participating empty
+  // captures remain distinguishable from groups that did not participate.
+  const char* base = text ? text : "";
+  absl::string_view region(base + region_start, region_end - region_start);
+  int nsub = nmatches + 1;
   absl::FixedArray<absl::string_view, 10> submatch(nsub);
-
-  bool found = p->re2->Match(absl::string_view(text, text_len),
-                              startpos, text_len, RE2::UNANCHORED,
-                              submatch.data(), nsub);
+  bool found = p->re2->Match(region, startpos - region_start, region.size(),
+                            static_cast<RE2::Anchor>(anchor), submatch.data(), nsub);
   if (!found) return false;
 
   for (int i = 0; i < nsub; i++) {
@@ -84,9 +84,9 @@ bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
       matches_out[2 * i] = -1;
       matches_out[2 * i + 1] = -1;
     } else {
-      matches_out[2 * i] = static_cast<int32_t>(submatch[i].data() - text);
+      matches_out[2 * i] = static_cast<int32_t>(submatch[i].data() - base);
       matches_out[2 * i + 1] =
-          static_cast<int32_t>(submatch[i].data() - text + submatch[i].size());
+          static_cast<int32_t>(submatch[i].data() - base + submatch[i].size());
     }
   }
   return true;

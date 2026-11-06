@@ -21,6 +21,46 @@ import org.junit.jupiter.api.Test;
 class ResolvedBenchmarkPlanTest {
 
   @Test
+  void ffmMatcherOperationsPreserveConversionTimingAndUnsupportedExclusions() throws IOException {
+    Path source =
+        Files.exists(Path.of("benchmark-data.json"))
+            ? Path.of("benchmark-data.json")
+            : Path.of("safere-benchmarks", "benchmark-data.json");
+    JsonObject plan =
+        ResolvedBenchmarkPlan.create(
+            PatternProfiles.normalizeInline(
+                JsonParser.parseString(Files.readString(source)).getAsJsonObject()));
+    for (String workload :
+        List.of(
+            "MatcherApiBenchmark.lookingAt",
+            "MatcherApiBenchmark.newMatcherRegionFind",
+            "MatcherApiBenchmark.newMatcherRegionMatches")) {
+      JsonObject row = entry(plan, workload + "@re2-ffm-string-conversion");
+      assertThat(row.get("status").getAsString()).as(workload).isEqualTo("runnable");
+      assertThat(row.get("inputRepresentation").getAsString())
+          .isEqualTo("javaStringWithTimedUtf8Conversion");
+      assertThat(row.getAsJsonObject("lifecycle").get("matcher").getAsString())
+          .isEqualTo("newPerInvocation");
+    }
+    for (String workload :
+        List.of(
+            "MatcherApiBenchmark.regionFind",
+            "MatcherApiBenchmark.regionTokenize.16384",
+            "MatcherApiBenchmark.resetAndFind")) {
+      JsonObject row = entry(plan, workload + "@re2-ffm-string-conversion");
+      assertThat(row.get("status").getAsString()).as(workload).isEqualTo("excluded");
+      assertThat(row.getAsJsonObject("exclusion").get("kind").getAsString())
+          .isEqualTo("unsupportedTimingBoundary");
+      assertThat(row.getAsJsonObject("exclusion").get("reason").getAsString())
+          .contains("conversion", "setup");
+    }
+    JsonObject append = entry(plan, "ReplaceBenchmark.manualReplaceAll@re2-ffm-string-conversion");
+    assertThat(append.get("status").getAsString()).isEqualTo("excluded");
+    assertThat(append.getAsJsonObject("exclusion").get("reason").getAsString())
+        .contains("appendReplacement");
+  }
+
+  @Test
   void nativeColdUnicodeRowsKeepExactSyntaxAndExcludeUnsupportedOptions() throws IOException {
     Path benchmarkDirectory =
         Files.exists(Path.of("benchmark-data.json")) ? Path.of(".") : Path.of("safere-benchmarks");

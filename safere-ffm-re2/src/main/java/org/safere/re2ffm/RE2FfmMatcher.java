@@ -12,14 +12,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * A matcher for a {@link RE2FfmPattern} against an input string. This is a benchmark-oriented
- * wrapper — it supports enough of the {@code java.util.regex.Matcher} API to run the SafeRE
- * benchmark suite.
+ * A matcher for a {@link RE2FfmPattern} against an input string. This benchmark-oriented wrapper
+ * exposes selected matcher operations while retaining RE2 match semantics.
  *
  * <p>Match offsets from RE2 are in UTF-8 byte positions. This class converts them to Java char
  * (UTF-16) positions for the public API.
  */
 public final class RE2FfmMatcher {
+
+  // The RE2::Anchor values accepted by re2_match.
+  private static final int UNANCHORED = 0;
+  private static final int ANCHOR_START = 1;
+  private static final int ANCHOR_BOTH = 2;
 
   private final RE2FfmPattern pattern;
   private String inputString;
@@ -34,6 +38,10 @@ public final class RE2FfmMatcher {
 
   // Current search position in UTF-8 bytes.
   private int searchBytePos;
+  private int regionStart;
+  private int regionEnd;
+  private int regionStartByte;
+  private int regionEndByte;
 
   RE2FfmMatcher(RE2FfmPattern pattern, String input) {
     this.pattern = pattern;
@@ -46,6 +54,7 @@ public final class RE2FfmMatcher {
     this.inputUtf8 = inputUtf8;
     this.matchByteOffsets = new int[2 * (pattern.numGroups() + 1)];
     buildCharToByteMap(inputString, inputUtf8);
+    reset();
   }
 
   /**
@@ -59,56 +68,93 @@ public final class RE2FfmMatcher {
     this.inputUtf8 = input.getBytes(StandardCharsets.UTF_8);
     buildCharToByteMap(inputString, inputUtf8);
     this.matchByteOffsets = new int[2 * (pattern.numGroups() + 1)];
-    this.matched = false;
-    this.searchBytePos = 0;
-    return this;
+    return reset();
   }
 
-  /** Resets this matcher to the beginning of the current input. */
+  /** Resets match state and restores the region to the entire current input. */
   public RE2FfmMatcher reset() {
     this.matched = false;
     this.searchBytePos = 0;
+    this.regionStart = 0;
+    this.regionEnd = inputString.length();
+    this.regionStartByte = 0;
+    this.regionEndByte = inputUtf8.length;
     return this;
   }
 
   /**
-   * Attempts to match the entire input against the pattern.
+   * Sets an opaque, anchoring region using UTF-16 indices into the original input.
    *
-   * @return true if the entire input matches
+   * <p>The start is inclusive and the end is exclusive. Captures retain absolute UTF-16 offsets.
+   * Region boundaries act as input boundaries for RE2 anchors and word boundaries. This operation
+   * discards the previous match and restarts searching at the region start. Bounds that split a
+   * surrogate pair are unsupported; RE2 consumes UTF-8 code points.
+   *
+   * @param start the inclusive UTF-16 start
+   * @param end the exclusive UTF-16 end
+   * @return this matcher
+   * @throws IndexOutOfBoundsException if the bounds are outside the input or start exceeds end
+   * @throws IllegalArgumentException if either bound splits a surrogate pair
    */
-  public boolean matches() {
-    try (Arena arena = Arena.ofConfined()) {
-      MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
-      matched = Re2Shim.fullMatch(pattern.nativeHandle(), textSeg, inputUtf8.length);
-      if (matched) {
-        // For full match, group 0 spans the entire input.
-        matchByteOffsets[0] = 0;
-        matchByteOffsets[1] = inputUtf8.length;
-        // Capture groups need a real find call.
-        if (pattern.numGroups() > 0) {
-          MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, matchByteOffsets.length);
-          Re2Shim.find(
-              pattern.nativeHandle(),
-              textSeg,
-              inputUtf8.length,
-              0,
-              matchesSeg,
-              pattern.numGroups());
-          MemorySegment.copy(
-              matchesSeg, ValueLayout.JAVA_INT, 0, matchByteOffsets, 0, matchByteOffsets.length);
-        }
-      }
+  public RE2FfmMatcher region(int start, int end) {
+    if (start < 0 || end < start || end > inputString.length()) {
+      throw new IndexOutOfBoundsException("Invalid region: " + start + ", " + end);
     }
-    return matched;
+    checkCodePointBoundary(start);
+    checkCodePointBoundary(end);
+    regionStart = start;
+    regionEnd = end;
+    regionStartByte = charOffsetToByteOffset(start);
+    regionEndByte = charOffsetToByteOffset(end);
+    searchBytePos = regionStartByte;
+    matched = false;
+    return this;
+  }
+
+  /** Returns the inclusive UTF-16 region start. */
+  public int regionStart() {
+    return regionStart;
+  }
+
+  /** Returns the exclusive UTF-16 region end. */
+  public int regionEnd() {
+    return regionEnd;
   }
 
   /**
-   * Finds the next match in the input, starting from the current position.
+   * Attempts to match the entire region against the pattern.
+   *
+   * @return true if the entire region matches
+   */
+  public boolean matches() {
+    return match(regionStartByte, ANCHOR_BOTH);
+  }
+
+  /**
+   * Matches a prefix of the region using RE2 start anchoring, without scanning later positions.
+   *
+   * @return true if a prefix matches
+   */
+  public boolean lookingAt() {
+    return match(regionStartByte, ANCHOR_START);
+  }
+
+  /**
+   * Finds the next match within the region.
+   *
+   * <p>Successful match operations advance the next search to the match end. Empty matches advance
+   * by one Unicode code point, retaining RE2's UTF-8 boundary semantics rather than Java's UTF-16
+   * empty-match progression. Repeated {@code find()} calls after a failed search remain exhausted.
+   * {@link #lookingAt()} and {@link #matches()} always restart at the region beginning.
    *
    * @return true if a match was found
    */
   public boolean find() {
-    if (searchBytePos > inputUtf8.length) {
+    return match(searchBytePos, UNANCHORED);
+  }
+
+  private boolean match(int startByte, int anchor) {
+    if (startByte > regionEndByte) {
       matched = false;
       return false;
     }
@@ -116,35 +162,44 @@ public final class RE2FfmMatcher {
       MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
       MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, matchByteOffsets.length);
       matched =
-          Re2Shim.find(
+          Re2Shim.match(
               pattern.nativeHandle(),
               textSeg,
               inputUtf8.length,
-              searchBytePos,
+              regionStartByte,
+              regionEndByte,
+              startByte,
+              anchor,
               matchesSeg,
               pattern.numGroups());
       if (matched) {
         MemorySegment.copy(
             matchesSeg, ValueLayout.JAVA_INT, 0, matchByteOffsets, 0, matchByteOffsets.length);
-        // Advance past this match for the next find() call.
-        // If the match was empty, advance by one code point to avoid infinite loop.
-        if (matchByteOffsets[1] == matchByteOffsets[0]) {
-          searchBytePos = nextCodePointByteOffset(matchByteOffsets[1]);
-        } else {
-          searchBytePos = matchByteOffsets[1];
-        }
+        searchBytePos =
+            matchByteOffsets[0] == matchByteOffsets[1]
+                ? nextCodePointByteOffset(matchByteOffsets[1])
+                : matchByteOffsets[1];
+      } else {
+        searchBytePos = regionEndByte + 1;
       }
     }
     return matched;
   }
 
   /**
-   * Finds the next match starting at the given char position.
+   * Resets the matcher to the whole input and searches from the given UTF-16 position.
    *
    * @param start the char position to start searching from
    * @return true if a match was found
+   * @throws IndexOutOfBoundsException if start is outside the input
+   * @throws IllegalArgumentException if start splits a surrogate pair
    */
   public boolean find(int start) {
+    if (start < 0 || start > inputString.length()) {
+      throw new IndexOutOfBoundsException("Invalid start: " + start);
+    }
+    checkCodePointBoundary(start);
+    reset();
     searchBytePos = charOffsetToByteOffset(start);
     return find();
   }
@@ -223,6 +278,7 @@ public final class RE2FfmMatcher {
    * @return the result string
    */
   public String replaceAll(String replacement) {
+    reset();
     String rewrite = translateToRE2Rewrite(replacement);
     if (rewrite != null) {
       byte[] rewriteBytes = rewrite.getBytes(StandardCharsets.UTF_8);
@@ -347,7 +403,6 @@ public final class RE2FfmMatcher {
   }
 
   private String replaceAllJava(String replacement) {
-    reset();
     StringBuilder sb = new StringBuilder();
     int lastAppend = 0;
     while (find()) {
@@ -361,8 +416,8 @@ public final class RE2FfmMatcher {
   }
 
   private int nextCodePointByteOffset(int byteOffset) {
-    if (byteOffset >= inputUtf8.length) {
-      return inputUtf8.length + 1;
+    if (byteOffset >= regionEndByte) {
+      return regionEndByte + 1;
     }
     int charOffset = byteOffsetToCharOffset(byteOffset);
     int nextCharOffset = charOffset + Character.charCount(inputString.codePointAt(charOffset));
@@ -435,6 +490,15 @@ public final class RE2FfmMatcher {
       return inputUtf8.length;
     }
     return charToByteMap[charOffset];
+  }
+
+  private void checkCodePointBoundary(int offset) {
+    if (offset > 0
+        && offset < inputString.length()
+        && Character.isHighSurrogate(inputString.charAt(offset - 1))
+        && Character.isLowSurrogate(inputString.charAt(offset))) {
+      throw new IllegalArgumentException("UTF-16 offset splits a surrogate pair: " + offset);
+    }
   }
 
   private void checkMatch() {

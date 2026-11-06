@@ -416,6 +416,16 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
+            public void region(int start, int end) {
+              matcher.region(start, end);
+            }
+
+            @Override
             public String group(int group) {
               return matcher.group(group);
             }
@@ -657,6 +667,8 @@ enum RegexEngineVariant {
         EngineCapability.COMPILE,
         EngineCapability.FIND,
         EngineCapability.MATCHES,
+        EngineCapability.LOOKING_AT,
+        EngineCapability.REGIONS,
         EngineCapability.GROUP_PARTICIPATION,
         EngineCapability.GROUP_TEXT,
         EngineCapability.REPLACE,
