@@ -1,0 +1,26 @@
+all: 241 execution samples
+91 org.safere.BitState.trySearch
+25 org.safere.BitState.shouldVisit
+18 org.safere.StringInputScanner.asciiAt
+17 org.safere.Prog.inst
+17 org.safere.BitState.stepWithinBudget
+16 org.safere.BitState.push
+11 org.safere.Inst.matchesChar
+7 org.safere.benchmark.CapturePolicyProtocol.cycle
+5 org.safere.StringLiteralSearch.indexOfChar
+4 org.safere.BitState.doSearch
+3 org.safere.Matcher.group
+3 org.safere.BitState.reset
+
+rare: 244 execution samples
+100 org.safere.BitState.trySearch
+43 org.safere.BitState.shouldVisit
+27 org.safere.StringInputScanner.asciiAt
+20 org.safere.BitState.stepWithinBudget
+13 org.safere.Prog.inst
+12 org.safere.BitState.push
+11 org.safere.Inst.matchesCharClass
+11 org.safere.Inst.matchesChar
+4 org.safere.Dfa.doSearchInternal
+1 org.safere.Pattern.numGroups
+1 org.safere.BitState.doSearch

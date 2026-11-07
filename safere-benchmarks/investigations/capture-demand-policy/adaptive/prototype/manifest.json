@@ -1,0 +1,46 @@
+{
+  "baseCommit": "0e6c0069424f9e8e1bef1eb602d6fab41c706c16",
+  "trackedFiles": {
+    "safere/src/main/java/org/safere/Matcher.java": {
+      "baseline": "940e9313c9f95893855108f734d830a495f1e1d8e3aec02ae34a635c3e4fb333",
+      "patched": "f1ac6b101f5a2cb4474722b43742c523faafc38c6d5fb219005865cdad347649"
+    },
+    "safere/src/main/java/org/safere/Dfa.java": {
+      "baseline": "3d683b3fb60136d257140f0d0787054bafd1987f92f030835eb7cb0227d64788",
+      "patched": "c5483f839295bbe0fd1f1c23514fc5a8643b1bb800a978fdf0aabd4494f3d864"
+    },
+    "safere/src/main/java/org/safere/BitState.java": {
+      "baseline": "bf15911bcc12714293e750b0d3559d482663599be5a22cc606373b59ee7194d7",
+      "patched": "f6c31bc29fb0712259d172b3c6ec3ec4e37e601af8fcf2117e5cbb45522c365e"
+    },
+    "safere/src/test/java/org/safere/MatcherDeferredCaptureStateTest.java": {
+      "baseline": "ef5aa7b2f07d48821477d51990a266291ae695e1541df30dd6b3a8c586f3ffb2",
+      "patched": "aa2b3e15c0da951521e6e00b207418bb46df0cab4a6efa86da504bea2696d248"
+    }
+  },
+  "addedFiles": {
+    "safere/src/main/java/org/safere/CapturePolicyExperiment.java": "prototype/CapturePolicyExperiment.java",
+    "safere/src/test/java/org/safere/CapturePolicyExperimentTest.java": "prototype/CapturePolicyExperimentTest.java",
+    "safere/src/test/java/org/safere/CapturePolicyLifecycleTest.java": "prototype/CapturePolicyLifecycleTest.java",
+    "safere/src/test/java/org/safere/CapturePolicyProbe.java": "prototype/CapturePolicyProbe.java"
+  },
+  "prototypeSha256": {
+    "prototype/CapturePolicyExperiment.java": "3a01589ba576b319f11d1d8c04aab70e51725d4f03861e54c9cd9789693145ca",
+    "prototype/CapturePolicyExperimentTest.java": "b3e0f9c9434dc4d4a1e6528b3fe1ac63abafafae9d1ea92d92e171e0dddd7c63",
+    "prototype/CapturePolicyLifecycleTest.java": "0126eda4c44322abe9c2f5e02051dd329c2d53b684bce33c9d2cbfdef4cacc99",
+    "prototype/CapturePolicyProbe.java": "a939cce0e60eee854720ba348d22e9b7ed559b16f5d898fb83e0edc3f93900d3"
+  },
+  "patchSha256": "8735d23a94fabb5d32a59a2e2609fd830551c2a3f5a5fefdd756dc29052a244e",
+  "controls": {
+    "dfa": {
+      "patch": "../policies/dfa1073.patch",
+      "patchSha256": "1e9b64160830420b68a2394794005fc1094541b2863ab11fd35c1e7f74530c1e",
+      "matcherSha256": "91407157d2c8c9d9aeccbadfa9c768e7584d1ffab124ec9a9f8a7ae43633e5a6"
+    },
+    "localSticky": {
+      "patch": "../policies/localSticky.patch",
+      "patchSha256": "92b0d5455819c206c02f1e56c3820f2c9ce351baa3a068f4f155448ccce42b39",
+      "matcherSha256": "f35d35f5fad6e5e86ea1b3ae7fc6c05848b31809a34df277f1ef37d3213e2042"
+    }
+  }
+}

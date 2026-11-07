@@ -1,0 +1,26 @@
+[
+  [
+    "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+    "--fastbuild",
+    "--investigation",
+    "capture-demand-policy",
+    "^org\\.safere\\.benchmark\\.AdaptiveCaptureBenchmark\\.run$",
+    "--",
+    "-p",
+    "scenario=scheme.rare.rotate.ascii.128",
+    "-p",
+    "representation=string",
+    "-p",
+    "policy=work,random",
+    "-p",
+    "seed=1",
+    "-prof",
+    "jfr:dir=/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/candidate-profiles/jfr",
+    "-foe",
+    "true",
+    "-rf",
+    "json",
+    "-rff",
+    "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/candidate-profiles/profile-results.json"
+  ]
+]

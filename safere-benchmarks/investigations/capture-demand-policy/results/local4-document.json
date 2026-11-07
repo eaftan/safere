@@ -1,0 +1,134 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.CrossEngineScalingBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 2,
+        "warmupTime" : "500 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "500 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "crossEngineScalingTrial" : "Issue481ScalingBenchmark.schemeExtract.128@safere-string"
+        },
+        "primaryMetric" : {
+            "score" : 1.2287235129008087,
+            "scoreError" : 0.06496740590715419,
+            "scoreConfidence" : [
+                1.1637561069936546,
+                1.2936909188079628
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1.1633355024466483,
+                "50.0" : 1.2414527347190423,
+                "90.0" : 1.2721800592478885,
+                "95.0" : 1.2730492445353836,
+                "99.0" : 1.2730492445353836,
+                "99.9" : 1.2730492445353836,
+                "99.99" : 1.2730492445353836,
+                "99.999" : 1.2730492445353836,
+                "99.9999" : 1.2730492445353836,
+                "100.0" : 1.2730492445353836
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    1.2472424295313727,
+                    1.2628009875271684,
+                    1.2643573916604316,
+                    1.1764243240955015,
+                    1.168898240046365
+                ],
+                [
+                    1.2316099385427541,
+                    1.2638540307157493,
+                    1.2730492445353836,
+                    1.2356630399067121,
+                    1.1633355024466483
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.CrossEngineScalingBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 2,
+        "warmupTime" : "500 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "500 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "crossEngineScalingTrial" : "Issue481ScalingBenchmark.schemeExtract.128@safere-utf8"
+        },
+        "primaryMetric" : {
+            "score" : 1.2503029589894836,
+            "scoreError" : 0.0789511253462711,
+            "scoreConfidence" : [
+                1.1713518336432125,
+                1.3292540843357548
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1.1835008978402153,
+                "50.0" : 1.228455097365122,
+                "90.0" : 1.326909647636151,
+                "95.0" : 1.328040678829966,
+                "99.0" : 1.328040678829966,
+                "99.9" : 1.328040678829966,
+                "99.99" : 1.328040678829966,
+                "99.999" : 1.328040678829966,
+                "99.9999" : 1.328040678829966,
+                "100.0" : 1.328040678829966
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    1.328040678829966,
+                    1.2954675418174095,
+                    1.2018477172850095,
+                    1.1835008978402153,
+                    1.2083189648509207
+                ],
+                [
+                    1.2910044338916562,
+                    1.316730366891817,
+                    1.2313831010255678,
+                    1.221208793757599,
+                    1.2255270937046765
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

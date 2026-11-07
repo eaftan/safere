@@ -1,0 +1,198 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 2,
+        "warmupTime" : "500 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "500 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "work",
+            "representation" : "string",
+            "scenario" : "scheme.rare.rotate.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 286474.62890135037,
+            "scoreError" : 4625.413082065583,
+            "scoreConfidence" : [
+                281849.2158192848,
+                291100.04198341595
+            ],
+            "scorePercentiles" : {
+                "0.0" : 282255.7151720248,
+                "50.0" : 285484.55456938734,
+                "90.0" : 292118.4785774414,
+                "95.0" : 292351.4398364486,
+                "99.0" : 292351.4398364486,
+                "99.9" : 292351.4398364486,
+                "99.99" : 292351.4398364486,
+                "99.999" : 292351.4398364486,
+                "99.9999" : 292351.4398364486,
+                "100.0" : 292351.4398364486
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    285839.8846373501,
+                    282255.7151720248,
+                    284522.5264354747,
+                    284348.97954545455,
+                    290021.82724637684
+                ],
+                [
+                    288007.8934945308,
+                    284374.08295454545,
+                    292351.4398364486,
+                    285129.2245014245,
+                    287894.7151898734
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+            "jfr" : {
+                "score" : "NaN",
+                "scoreError" : "NaN",
+                "scoreConfidence" : [
+                    "NaN",
+                    "NaN"
+                ],
+                "scorePercentiles" : {
+                    "0.0" : "NaN",
+                    "50.0" : "NaN",
+                    "90.0" : "NaN",
+                    "95.0" : "NaN",
+                    "99.0" : "NaN",
+                    "99.9" : "NaN",
+                    "99.99" : "NaN",
+                    "99.999" : "NaN",
+                    "99.9999" : "NaN",
+                    "100.0" : "NaN"
+                },
+                "scoreUnit" : "---",
+                "rawData" : [
+                    [
+                        "NaN"
+                    ],
+                    [
+                        "NaN"
+                    ]
+                ]
+            }
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 2,
+        "warmupTime" : "500 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "500 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "random",
+            "representation" : "string",
+            "scenario" : "scheme.rare.rotate.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 4180365.474021236,
+            "scoreError" : 83478.98005119055,
+            "scoreConfidence" : [
+                4096886.4939700454,
+                4263844.454072426
+            ],
+            "scorePercentiles" : {
+                "0.0" : 4101021.631147541,
+                "50.0" : 4157531.648760331,
+                "90.0" : 4284283.58702738,
+                "95.0" : 4288755.743589744,
+                "99.0" : 4288755.743589744,
+                "99.9" : 4288755.743589744,
+                "99.99" : 4288755.743589744,
+                "99.999" : 4288755.743589744,
+                "99.9999" : 4288755.743589744,
+                "100.0" : 4288755.743589744
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    4244034.177966102,
+                    4198831.058333334,
+                    4150267.2892561983,
+                    4209962.81512605,
+                    4153453.628099174
+                ],
+                [
+                    4142265.0991735538,
+                    4157143.487603306,
+                    4157919.8099173554,
+                    4288755.743589744,
+                    4101021.631147541
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+            "jfr" : {
+                "score" : "NaN",
+                "scoreError" : "NaN",
+                "scoreConfidence" : [
+                    "NaN",
+                    "NaN"
+                ],
+                "scorePercentiles" : {
+                    "0.0" : "NaN",
+                    "50.0" : "NaN",
+                    "90.0" : "NaN",
+                    "95.0" : "NaN",
+                    "99.0" : "NaN",
+                    "99.9" : "NaN",
+                    "99.99" : "NaN",
+                    "99.999" : "NaN",
+                    "99.9999" : "NaN",
+                    "100.0" : "NaN"
+                },
+                "scoreUnit" : "---",
+                "rawData" : [
+                    [
+                        "NaN"
+                    ],
+                    [
+                        "NaN"
+                    ]
+                ]
+            }
+        }
+    }
+]
+
+
