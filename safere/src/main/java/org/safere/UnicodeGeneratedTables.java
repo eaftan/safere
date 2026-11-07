@@ -55,7 +55,7 @@ import java.util.Map;
 
 /** Checked-in Unicode tables generated from public JDK APIs and pinned Unicode data. */
 final class UnicodeGeneratedTables {
-  static final String GENERATOR_JAVA_VERSION = "26.0.2.1+1-7 (Oracle Corporation)";
+  static final String GENERATOR_JAVA_VERSION = "26.0.2+10-55 (Oracle Corporation)";
   static final String UNICODE_DATA_VERSION = "17.0.0";
 
   // Include explicit type arguments to ofEntries to avoid JDK-8221301
@@ -675,7 +675,10 @@ final class UnicodeGeneratedTables {
   // JavaCharacterClasses.
   // Include explicit type arguments to ofEntries to avoid JDK-8221301
   static final Map<String, int[][]> JAVA_CHARACTER_CLASSES =
-      Map.<String, int[][]>ofEntries(Map.entry("javaMirrored", javaClass_javaMirrored()));
+      Map.<String, int[][]>ofEntries(
+          Map.entry("javaMirrored", javaClass_javaMirrored()),
+          Map.entry("javaUnicodeIdentifierStartExtra", javaClass_javaUnicodeIdentifierStartExtra()),
+          Map.entry("javaUnicodeIdentifierPartExtra", javaClass_javaUnicodeIdentifierPartExtra()));
 
   private UnicodeGeneratedTables() {}
 
@@ -16378,6 +16381,29 @@ final class UnicodeGeneratedTables {
       {0x1d74f, 0x1d74f},
       {0x1d789, 0x1d789},
       {0x1d7c3, 0x1d7c3},
+    };
+  }
+
+  private static int[][] javaClass_javaUnicodeIdentifierStartExtra() {
+    return new int[][] {
+      {0x1885, 0x1886},
+      {0x2118, 0x2118},
+      {0x212e, 0x212e},
+      {0x309b, 0x309c},
+    };
+  }
+
+  private static int[][] javaClass_javaUnicodeIdentifierPartExtra() {
+    return new int[][] {
+      {0xb7, 0xb7},
+      {0x387, 0x387},
+      {0x1369, 0x1371},
+      {0x19da, 0x19da},
+      {0x2118, 0x2118},
+      {0x212e, 0x212e},
+      {0x309b, 0x309c},
+      {0x30fb, 0x30fb},
+      {0xff65, 0xff65},
     };
   }
 }

@@ -64,31 +64,6 @@ final class JavaCharacterClasses {
   /** The no-break space separators that {@code Character.isWhitespace} excludes. */
   private static final int[] NO_BREAK_SPACES = {0x00A0, 0x2007, 0x202F};
 
-  /**
-   * Other_ID_Start: the code points that {@code Character.isUnicodeIdentifierStart} accepts outside
-   * L and Nl.
-   */
-  private static final int[][] OTHER_ID_START = {
-    {0x1885, 0x1886}, {0x2118, 0x2118}, {0x212E, 0x212E}, {0x309B, 0x309C},
-  };
-
-  /**
-   * Other_ID_Start and Other_ID_Continue: the code points that {@code
-   * Character.isUnicodeIdentifierPart} accepts outside L, Nl, Pc, Nd, Mc, Mn, and the identifier
-   * ignorables.
-   */
-  private static final int[][] OTHER_ID_PART = {
-    {0x00B7, 0x00B7},
-    {0x0387, 0x0387},
-    {0x1369, 0x1371},
-    {0x19DA, 0x19DA},
-    {0x2118, 0x2118},
-    {0x212E, 0x212E},
-    {0x309B, 0x309C},
-    {0x30FB, 0x30FB},
-    {0xFF65, 0xFF65},
-  };
-
   // Lazy holder pattern: the name index is computed on first access, and each range table is
   // computed only when that specific java character class is requested.
   private static final class Holder {
@@ -125,7 +100,9 @@ final class JavaCharacterClasses {
               "javaUnicodeIdentifierStart",
               () ->
                   UnicodeTables.mergeRangeTables(
-                      property("Letter"), category("Nl"), OTHER_ID_START)),
+                      property("Letter"),
+                      category("Nl"),
+                      generated("javaUnicodeIdentifierStartExtra"))),
           entry(
               "javaUnicodeIdentifierPart",
               () ->
@@ -137,7 +114,7 @@ final class JavaCharacterClasses {
                       category("Mc"),
                       category("Mn"),
                       identifierIgnorable(),
-                      OTHER_ID_PART)),
+                      generated("javaUnicodeIdentifierPartExtra"))),
           entry(
               "javaMirrored",
               () ->
@@ -148,6 +125,10 @@ final class JavaCharacterClasses {
     private static Map.Entry<String, LazyTable> entry(String name, Supplier<int[][]> supplier) {
       return Map.entry(name, new LazyTable(supplier));
     }
+  }
+
+  private static int[][] generated(String name) {
+    return requireNonNull(UnicodeGeneratedTables.JAVA_CHARACTER_CLASSES.get(name), name);
   }
 
   private static int[][] property(String name) {

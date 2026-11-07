@@ -8,9 +8,11 @@ package org.safere.tools.unicode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class UnicodeTableGeneratorOptionsTest {
   @Test
@@ -49,6 +51,21 @@ class UnicodeTableGeneratorOptionsTest {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> UnicodeTableGenerator.Options.parse("a.java", "b.java"))
         .withMessageContaining("Usage:");
+  }
+
+  @Test
+  void regenerationIncludesUnicodeIdentifierExceptions(@TempDir Path directory) throws Exception {
+    Path output = directory.resolve("UnicodeGeneratedTables.java");
+    Path license = directory.resolve("LICENSE");
+    Files.writeString(license, "Generator regression fixture");
+    UnicodeTableGenerator.main(new String[] {"--unicode-license=" + license, output.toString()});
+    String generated = Files.readString(output);
+    for (String name :
+        new String[] {"javaUnicodeIdentifierStartExtra", "javaUnicodeIdentifierPartExtra"}) {
+      assertThat(generated.contains("Map.entry(\"" + name + "\""))
+          .as("regenerated internal table %s", name)
+          .isTrue();
+    }
   }
 
   @Test

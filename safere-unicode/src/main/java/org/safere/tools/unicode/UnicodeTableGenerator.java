@@ -9,6 +9,7 @@ import com.ibm.icu.lang.CharacterProperties;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.lang.UCharacter.GraphemeClusterBreak;
 import com.ibm.icu.lang.UCharacter.IndicConjunctBreak;
+import com.ibm.icu.lang.UCharacterCategory;
 import com.ibm.icu.lang.UProperty;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.VersionInfo;
@@ -232,6 +233,29 @@ public final class UnicodeTableGenerator {
     Map<String, int[][]> tables = new LinkedHashMap<>();
     // Bidi_Mirrored isn't exposed as a binary property, since java.util.regex doesn't support it.
     tables.put("javaMirrored", buildRanges(Character::isMirrored));
+    // Keep identifier exceptions in the generated data too: their membership can change when
+    // Unicode changes categories. Subtract the categories already included by the Java rules.
+    UnicodeSet idStart = CharacterProperties.getBinaryPropertySet(UProperty.ID_START);
+    UnicodeSet idContinue = CharacterProperties.getBinaryPropertySet(UProperty.ID_CONTINUE);
+    tables.put(
+        "javaUnicodeIdentifierStartExtra",
+        buildRanges(
+            cp ->
+                idStart.contains(cp)
+                    && !UCharacter.isLetter(cp)
+                    && UCharacter.getType(cp) != UCharacterCategory.LETTER_NUMBER));
+    tables.put(
+        "javaUnicodeIdentifierPartExtra",
+        buildRanges(
+            cp ->
+                idContinue.contains(cp)
+                    && !UCharacter.isLetterOrDigit(cp)
+                    && UCharacter.getType(cp) != UCharacterCategory.LETTER_NUMBER
+                    && UCharacter.getType(cp) != UCharacterCategory.CONNECTOR_PUNCTUATION
+                    && UCharacter.getType(cp) != UCharacterCategory.COMBINING_SPACING_MARK
+                    && UCharacter.getType(cp) != UCharacterCategory.NON_SPACING_MARK
+                    && !UCharacter.isIdentifierIgnorable(cp)));
+
     return tables;
   }
 
