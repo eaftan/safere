@@ -147,9 +147,8 @@ remaining properties, regenerate and review the output, and run focused Unicode
 compatibility tests. The [Unicode generator guide](../safere-unicode/README.md)
 describes the workflow.
 
-Some Unicode behavior also uses the runtime JDK: `java*` properties, Unicode
-POSIX `Blank`/`Graph`/`Print`, and the Java case mappings incorporated into the
-case-equivalence closure. Record the JDK when investigating these behaviors.
+Some Unicode behavior also uses the runtime JDK: `java*` properties and the Java
+case mappings incorporated into the case-equivalence closure. Record the JDK when investigating these behaviors.
 A difference caused by Unicode-version skew must be distinguished from a
 matching-engine bug. Intentional case-fold and boundary differences are recorded
 in the [compatibility policy](../INTENTIONAL_DIVERGENCES.md).
