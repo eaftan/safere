@@ -399,9 +399,14 @@ public final class Matcher implements MatchResult {
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
 
-  // Back off for the rest of this search sequence after repeated unsuccessful window attempts.
+  // Retry after increasingly many eligible searches when fixed windows keep failing. The capped
+  // delay allows recovery after a long-match prefix without paying for a window on every match.
   private static final int MAX_CONSECUTIVE_WINDOW_FAILURES = 2;
+  private static final int INITIAL_WINDOW_RETRY_DELAY = 8;
+  private static final int MAX_WINDOW_RETRY_DELAY = 256;
   private int consecutiveWindowFailures;
+  private int windowRetryDelay;
+  private int windowSearchesUntilRetry;
   private int[] onePassScratchCap;
 
   /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
@@ -578,15 +583,21 @@ public final class Matcher implements MatchResult {
     appendPos = 0;
   }
 
-  private void resetSearchStateForInputStart() {
+  private void resetWindowBackoff() {
     consecutiveWindowFailures = 0;
+    windowRetryDelay = 0;
+    windowSearchesUntilRetry = 0;
+  }
+
+  private void resetSearchStateForInputStart() {
+    resetWindowBackoff();
     searchFrom = 0;
     previousMatchEnd = 0;
     startBackoff = AdaptiveBackoff.NEUTRAL;
   }
 
   private void resetSearchStateForRegionStart() {
-    consecutiveWindowFailures = 0;
+    resetWindowBackoff();
     searchFrom = regionStart;
     previousMatchEnd = regionStart;
     startBackoff = AdaptiveBackoff.NEUTRAL;
@@ -634,7 +645,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void invalidatePatternCaches() {
-    consecutiveWindowFailures = 0;
+    resetWindowBackoff();
     threadCache = null;
     cachedForwardFirstMatchDfa = null;
     cachedForwardLongestMatchDfa = null;
@@ -2761,7 +2772,8 @@ public final class Matcher implements MatchResult {
     // when the selected match is short. If any preferred path reaches the window edge, or the work
     // budget is exceeded, restart once with the NFA and the original bounds. The extra work per
     // attempt is bounded by max(4096, MAX_WORK_PER_SLOT * prog.size() * (window size + 2)) + 1.
-    // Two consecutive failures disable speculation until reset or a pattern/region change.
+    // Two consecutive failures start an exponentially increasing, capped retry delay. Count only
+    // eligible searches; a successful window or a reset/pattern/region change clears the delay.
     int maxBitStateLen = BitState.maxTextSize(prog);
     boolean canUseBitState =
         enginePathOptions().bitState()
@@ -2780,8 +2792,14 @@ public final class Matcher implements MatchResult {
             && !preserveOuterEmptyContext
             // Keep interior region ends on the established bounded-range engine path.
             && endPos == text.length();
-    boolean speculate =
-        windowEligible && consecutiveWindowFailures < MAX_CONSECUTIVE_WINDOW_FAILURES;
+    boolean speculate = false;
+    if (windowEligible) {
+      if (windowSearchesUntilRetry == 0) {
+        speculate = true;
+      } else {
+        windowSearchesUntilRetry--;
+      }
+    }
     if (canUseBitState && maxBitStateLen >= 0 && (searchRange <= maxBitStateLen || speculate)) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
@@ -2814,7 +2832,10 @@ public final class Matcher implements MatchResult {
       Pattern.returnBitState(threadCache(), bs);
       if (!bs.budgetExceeded() && (!speculate || result != null)) {
         if (speculate) {
-          consecutiveWindowFailures = 0;
+          // Reset fully so a run of short matches can use every window immediately. Alternating
+          // long and short matches may pay for two failed windows again after each success;
+          // this trades that bounded cost for faster recovery rather than decaying the delay.
+          resetWindowBackoff();
         }
         // A source $ permits BitState to stop before a trailing line terminator. An explicit
         // full-match request, including deferred capture extraction, must consume the whole range.
@@ -2826,7 +2847,16 @@ public final class Matcher implements MatchResult {
         }
       } else {
         if (speculate) {
-          consecutiveWindowFailures++;
+          consecutiveWindowFailures =
+              Math.min(consecutiveWindowFailures + 1, MAX_CONSECUTIVE_WINDOW_FAILURES);
+          if (consecutiveWindowFailures == MAX_CONSECUTIVE_WINDOW_FAILURES) {
+            // Both factors are capped before doubling, so this arithmetic cannot overflow.
+            windowRetryDelay =
+                Math.min(
+                    MAX_WINDOW_RETRY_DELAY,
+                    Math.max(INITIAL_WINDOW_RETRY_DELAY, windowRetryDelay * 2));
+            windowSearchesUntilRetry = windowRetryDelay;
+          }
         }
         diagnosticDecision(
             MatchStrategy.BIT_STATE,

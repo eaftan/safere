@@ -259,6 +259,165 @@ class BitStateWindowTest {
   }
 
   @Test
+  void longMatchesThenShortMatchesRecoverSpeculationWithExactCaptures() {
+    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern exact =
+        Pattern.compile(
+            PROTOCOL_LINK_REGEX, 0, EnginePathOptions.builder().bitState(false).build());
+    SafeReMatchDiagnostics previous = Pattern.diagnostics();
+    List<OperationDiagnostics> operations = new ArrayList<>();
+    Pattern.setDiagnostics(recordOperations(operations));
+    try {
+      for (String label : List.of("Click here", "α😀")) {
+        String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
+        String text =
+            longMatch.repeat(2) + ("[" + label + "](customProtocol://<doc_1>) ").repeat(3000);
+        List<Matcher> actual = matchers(pattern, text);
+        List<Matcher> expected = matchers(exact, text);
+        for (int representation = 0; representation < actual.size(); representation++) {
+          Matcher matcher = actual.get(representation);
+          Matcher oracle = expected.get(representation);
+          boolean recovered = false;
+          for (int i = 0; i < 3002; i++) {
+            operations.clear();
+            assertThat(matcher.find()).isTrue();
+            if (i >= 2 && i < 66) {
+              recovered |= operations.getFirst().boundaryStrategy() == MatchStrategy.BIT_STATE;
+            }
+            assertThat(oracle.find()).isTrue();
+            for (int group = 0; group <= matcher.groupCount(); group++) {
+              assertThat(matcher.start(group)).isEqualTo(oracle.start(group));
+              assertThat(matcher.end(group)).isEqualTo(oracle.end(group));
+              if (representation == 0) {
+                assertThat(matcher.group(group)).isEqualTo(oracle.group(group));
+              }
+            }
+          }
+          assertThat(matcher.find()).isFalse();
+          assertThat(oracle.find()).isFalse();
+          assertThat(recovered)
+              .as("short matches should recover while input is still large")
+              .isTrue();
+        }
+      }
+    } finally {
+      Pattern.setDiagnostics(previous);
+    }
+  }
+
+  @Test
+  void failedRetriesBecomeLessFrequentButStillRecoverAfterSustainedFailures() {
+    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
+    String shortMatch = "[α😀](customProtocol://<doc_1>) ";
+    String text = longMatch.repeat(2000) + shortMatch.repeat(3000);
+    SafeReMatchDiagnostics previous = Pattern.diagnostics();
+    List<OperationDiagnostics> operations = new ArrayList<>();
+    Pattern.setDiagnostics(recordOperations(operations));
+    try {
+      for (Matcher matcher : matchers(pattern, text)) {
+        List<Integer> failures = new ArrayList<>();
+        for (int i = 0; i < 2000; i++) {
+          operations.clear();
+          assertThat(matcher.find()).isTrue();
+          assertThat(matcher.end(1) - matcher.start(1)).isEqualTo(400);
+          if (operations.getFirst().strategyDecisions().contains(windowFailure())) {
+            failures.add(i);
+          } else {
+            assertThat(operations.getFirst().strategyDecisions()).contains(windowBackoff());
+          }
+        }
+        assertThat(failures).hasSizeBetween(5, 30).startsWith(0, 1);
+        int previousGap = 1;
+        for (int i = 2; i < failures.size(); i++) {
+          int gap = failures.get(i) - failures.get(i - 1);
+          assertThat(gap).isBetween(previousGap, 512);
+          previousGap = gap;
+        }
+        assertThat(previousGap)
+            .isEqualTo(failures.get(failures.size() - 2) - failures.get(failures.size() - 3));
+        boolean recovered = false;
+        for (int i = 0; i < 512; i++) {
+          operations.clear();
+          assertThat(matcher.find()).isTrue();
+          assertThat(matcher.end(1) - matcher.start(1)).isIn(3, 6);
+          if (operations.getFirst().boundaryStrategy() == MatchStrategy.BIT_STATE) {
+            recovered = true;
+            // A successful retry restores consecutive speculation, without another delay.
+            operations.clear();
+            assertThat(matcher.find()).isTrue();
+            assertThat(operations.getFirst().boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+            break;
+          }
+        }
+        assertThat(recovered).isTrue();
+      }
+    } finally {
+      Pattern.setDiagnostics(previous);
+    }
+  }
+
+  @Test
+  @Tag("work-counter")
+  void retryTransitionsPreserveLinearWorkAcrossInputSizes() {
+    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
+    String shortMatch = "[α😀](customProtocol://<doc_1>) ";
+    String block = longMatch.repeat(2) + shortMatch.repeat(32);
+    for (boolean utf8 : List.of(false, true)) {
+      long previous = -1;
+      for (int size : List.of(64, 128, 256)) {
+        Matcher matcher = matchers(pattern, block.repeat(size)).get(utf8 ? 1 : 0);
+        long work =
+            WorkCounter.countForTesting(
+                () -> {
+                  int matches = 0;
+                  while (matcher.find()) {
+                    matches++;
+                  }
+                  assertThat(matches).isEqualTo(size * 34);
+                });
+        if (previous >= 0) {
+          assertThat(work).as("UTF-8=%s", utf8).isLessThan(previous * 3);
+        }
+        previous = work;
+      }
+    }
+  }
+
+  @Test
+  void resetRegionAndPatternChangesClearRetryDelayForBothInputRepresentations() {
+    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    String text = ("[" + "a".repeat(400) + "](customProtocol://<doc_1>) ").repeat(100);
+    SafeReMatchDiagnostics previous = Pattern.diagnostics();
+    List<OperationDiagnostics> operations = new ArrayList<>();
+    Pattern.setDiagnostics(recordOperations(operations));
+    try {
+      for (String change : List.of("reset", "region", "pattern")) {
+        for (Matcher matcher : matchers(pattern, text)) {
+          for (int i = 0; i < 3; i++) {
+            operations.clear();
+            assertThat(matcher.find()).isTrue();
+          }
+          assertThat(operations.getFirst().strategyDecisions()).contains(windowBackoff());
+          switch (change) {
+            case "reset" -> matcher.reset();
+            case "region" -> matcher.region(0, text.length());
+            case "pattern" -> matcher.usePattern(Pattern.compile(PROTOCOL_LINK_REGEX + "|Z"));
+            default -> throw new AssertionError(change);
+          }
+          operations.clear();
+          assertThat(matcher.find()).isTrue();
+          assertThat(operations.getFirst().strategyDecisions()).contains(windowFailure());
+          assertThat(operations.getFirst().strategyDecisions()).doesNotContain(windowBackoff());
+        }
+      }
+    } finally {
+      Pattern.setDiagnostics(previous);
+    }
+  }
+
+  @Test
   void repeatedWindowFailuresBackOffUntilResetForBothInputRepresentations() {
     Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
     String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
