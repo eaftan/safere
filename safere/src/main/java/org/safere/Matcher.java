@@ -217,18 +217,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticBoundaryOverride(MatchStrategy strategy) {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.replaceBoundary(strategy);
-    }
-  }
-
-  private MatchStrategy diagnosticBoundaryStrategy() {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    return accumulator == null ? MatchStrategy.NONE : accumulator.boundaryStrategy();
-  }
-
   private void diagnosticCapture(MatchStrategy strategy) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -2016,25 +2004,15 @@ public final class Matcher implements MatchResult {
     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
 
-    // Once callers have demonstrated that they consume inner captures, use the capture-aware
-    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
-    // replaying the same range through BitState on every successful find().
-    //
-    // When a start accelerator preselected a candidate, the attempt is limited to that one start.
-    // BitState walks candidate starts one code point at a time with no literal acceleration of
-    // its own, so letting it cover the rest of the input costs O(text x prog) scalar work where
-    // the forward DFA path costs O(text) with in-loop start-state acceleration. Speculating on a
-    // single accelerated start keeps the win on inputs where the accelerated start is the match,
-    // and caps the loss elsewhere at one failed start before the DFA path below takes over.
-    if (shouldPreferCaptureEngine(prog, scanner)) {
-      int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
-      MatchStrategy boundaryBeforeCaptureSearch = diagnosticBoundaryStrategy();
+    // Preserve capture preference for start-anchored patterns. Unanchored find() keeps DFA
+    // rejection ahead of capture work, even after callers have consumed inner captures.
+    if (prog.anchorStart() && shouldPreferCaptureEngine(prog, scanner)) {
       int[] result =
           searchWithBitStateOrNfa(
               prog,
               scanner,
               effectiveStart,
-              captureSearchLimit,
+              scanner.length(),
               scanner.length(),
               false,
               false,
@@ -2042,13 +2020,7 @@ public final class Matcher implements MatchResult {
               prog.numCaptures(),
               false,
               this.groups);
-      if (result != null || captureSearchLimit >= scanner.length()) {
-        return applyFullMatchResult(result);
-      }
-      // Only starts up to the accelerated candidate were tried, so this is not a decision that no
-      // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
-      // path below perform the complete search.
-      diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
+      return applyFullMatchResult(result);
     }
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.

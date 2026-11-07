@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
@@ -14,12 +15,38 @@ import java.util.function.IntConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Work-bound regression tests for matcher operations. */
 @DisabledForCrosscheck("work accounting is a SafeRE linear-time implementation check")
 @Tag("work-counter")
 class MatcherLinearTimeTest {
   private static final Duration SCENARIO_TIMEOUT = Duration.ofSeconds(30);
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void captureHistoryDoesNotAddWorkBeforeDfaRejection(boolean utf8) {
+    for (int repeats : new int[] {3, 12, 24}) {
+      Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
+      String rejected = "error:[x] code:500 ".repeat(repeats) + "C";
+      Utf8Input bytes = Utf8Input.validated(rejected.getBytes(UTF_8));
+      Runnable reject =
+          () ->
+              assertThat(utf8 ? pattern.matcher(bytes).find() : pattern.matcher(rejected).find())
+                  .isFalse();
+      long cold = WorkCounter.countWithForwardDfaStepsForTesting(reject);
+      Matcher primer = pattern.matcher("error:[C] code:500");
+      assertThat(primer.find()).isTrue();
+      assertThat(primer.group(1)).isEqualTo("error:[");
+      long warm = WorkCounter.countWithForwardDfaStepsForTesting(reject);
+
+      assertThat(cold).isPositive();
+      assertThat(warm)
+          .as("capture history must not add rejecting work, repeats=%s", repeats)
+          .isLessThanOrEqualTo(cold);
+    }
+  }
 
   @Test
   @DisplayName("group access stays linear for ambiguous repeated captures")

@@ -161,14 +161,34 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
-  @DisplayName("inner capture demand makes later small finds capture eagerly")
-  void innerCaptureDemandMakesLaterSmallFindsCaptureEagerly() throws ReflectiveOperationException {
+  @DisplayName("inner capture demand keeps later small unanchored finds deferred")
+  void innerCaptureDemandKeepsLaterSmallUnanchoredFindsDeferred()
+      throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile("a\\s+(.+)");
     Matcher first = pattern.matcher("prefix a value");
 
     assertThat(first.find()).isTrue();
     assertThat(booleanField(first, "capturesResolved")).isFalse();
     assertThat(first.group(1)).isEqualTo("value");
+
+    Matcher second = pattern.matcher("prefix a another");
+    assertThat(second.find()).isTrue();
+    assertThat(booleanField(second, "capturesResolved")).isFalse();
+    assertThat(second.group(1)).isEqualTo("another");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void innerCaptureDemandStillCollectsCapturesInRequiredExactFallback(boolean bitState)
+      throws ReflectiveOperationException {
+    Pattern pattern =
+        Pattern.compile(
+            "a\\s+(.+)",
+            0,
+            EnginePathOptions.builder().dfa(false).onePass(false).bitState(bitState).build());
+    Matcher first = pattern.matcher("a first");
+    assertThat(first.find()).isTrue();
+    assertThat(first.group(1)).isEqualTo("first");
 
     Matcher second = pattern.matcher("prefix a another");
     assertThat(second.find()).isTrue();
