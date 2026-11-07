@@ -268,6 +268,49 @@ class UnicodeCharClassTest {
   }
 
   @Nested
+  class TableConsistencyTests {
+
+    @Test
+    void caseInsensitiveCasedPropertiesIncludeCaseSensitiveMembers() {
+      // The case-insensitive closure and the case-sensitive tables use the same Unicode data, so
+      // folding never drops a member on any JDK.
+      Matcher folded = Pattern.compile("(?i)\\p{IsLowercase}").matcher("");
+      Matcher cased =
+          Pattern.compile("[\\p{IsLowercase}\\p{IsUppercase}\\p{IsTitlecase}]").matcher("");
+      for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+        String s = Character.toString(cp);
+        if (cased.reset(s).matches()) {
+          assertThat(folded.reset(s).matches()).as("U+%04X", cp).isTrue();
+        }
+      }
+    }
+
+    @Test
+    void unicodePrintIsGraphPlusSpaceSeparators() {
+      Matcher print = Pattern.compile("\\p{Print}", UCC).matcher("");
+      Matcher expected = Pattern.compile("[\\p{Graph}\\p{Zs}]", UCC).matcher("");
+      for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+        String s = Character.toString(cp);
+        assertThat(print.reset(s).matches())
+            .as("U+%04X", cp)
+            .isEqualTo(expected.reset(s).matches());
+      }
+    }
+
+    @Test
+    void unicodeBlankIsTabPlusSpaceSeparators() {
+      Matcher blank = Pattern.compile("\\p{Blank}", UCC).matcher("");
+      Matcher expected = Pattern.compile("[\\t\\p{Zs}]", UCC).matcher("");
+      for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+        String s = Character.toString(cp);
+        assertThat(blank.reset(s).matches())
+            .as("U+%04X", cp)
+            .isEqualTo(expected.reset(s).matches());
+      }
+    }
+  }
+
+  @Nested
   class PosixUnicodeEdgeTests {
 
     @Test

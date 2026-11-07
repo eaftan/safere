@@ -7,11 +7,8 @@
 
 package org.safere;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.function.IntPredicate;
 
 /**
  * Unicode character data tables for the SafeRE regular expression library.
@@ -115,15 +112,25 @@ final class UnicodeTables {
     static final int[][] UNICODE_ALNUM = mergeRangeTables(UNICODE_ALPHA, UNICODE_DIGIT);
     static final int[][] UNICODE_PUNCT = UnicodeProperties.lookupBinaryProperty("Punctuation");
     static final int[][] UNICODE_CNTRL = UnicodeProperties.lookupBinaryProperty("Control");
-    static final int[][] UNICODE_BLANK = buildRanges(UnicodeTables::isUnicodeBlank);
+    // Blank: tab plus space separators.
+    static final int[][] UNICODE_BLANK =
+        mergeRangeTables(new int[][] {{'\t', '\t'}}, UnicodeProperties.lookupCategory("Zs"));
     static final int[][] UNICODE_XDIGIT =
         mergeRangeTables(UNICODE_DIGIT, UnicodeProperties.lookupBinaryProperty("Hex_Digit"));
-    static final int[][] UNICODE_GRAPH = buildRanges(UnicodeTables::isUnicodeGraph);
+    // Graph: assigned code points other than controls, surrogates, and white space, i.e. every
+    // general category except Cc, Cs, Cn, Zs, Zl, and Zp.
+    static final int[][] UNICODE_GRAPH =
+        mergeRangeTables(
+            UnicodeProperties.lookupCategory("L"),
+            UnicodeProperties.lookupCategory("M"),
+            UnicodeProperties.lookupCategory("N"),
+            UnicodeProperties.lookupCategory("P"),
+            UnicodeProperties.lookupCategory("S"),
+            UnicodeProperties.lookupCategory("Cf"),
+            UnicodeProperties.lookupCategory("Co"));
+    // Print: Graph plus the blanks that aren't controls, which are the space separators.
     static final int[][] UNICODE_PRINT =
-        buildRanges(
-            cp ->
-                isUnicodeGraph(cp)
-                    || (isUnicodeBlank(cp) && Character.getType(cp) != Character.CONTROL));
+        mergeRangeTables(UNICODE_GRAPH, UnicodeProperties.lookupCategory("Zs"));
 
     static final Map<String, int[][]> UNICODE_POSIX_PROPERTY_GROUPS =
         Map.ofEntries(
@@ -144,40 +151,6 @@ final class UnicodeTables {
 
   static Map<String, int[][]> unicodePosixPropertyGroups() {
     return UnicodePosixHolder.UNICODE_POSIX_PROPERTY_GROUPS;
-  }
-
-  private static boolean isUnicodeWhiteSpace(int cp) {
-    return Character.isSpaceChar(cp) || (cp >= 0x09 && cp <= 0x0D) || cp == 0x85;
-  }
-
-  private static boolean isUnicodeGraph(int cp) {
-    return Character.isDefined(cp)
-        && Character.getType(cp) != Character.CONTROL
-        && Character.getType(cp) != Character.SURROGATE
-        && !isUnicodeWhiteSpace(cp);
-  }
-
-  private static boolean isUnicodeBlank(int cp) {
-    return cp == '\t' || Character.getType(cp) == Character.SPACE_SEPARATOR;
-  }
-
-  private static int[][] buildRanges(IntPredicate predicate) {
-    List<int[]> ranges = new ArrayList<>();
-    int lo = -1;
-    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
-      if (predicate.test(cp)) {
-        if (lo < 0) {
-          lo = cp;
-        }
-      } else if (lo >= 0) {
-        ranges.add(new int[] {lo, cp - 1});
-        lo = -1;
-      }
-    }
-    if (lo >= 0) {
-      ranges.add(new int[] {lo, Character.MAX_CODE_POINT});
-    }
-    return ranges.toArray(new int[0][]);
   }
 
   // Case folding sentinel values
