@@ -583,8 +583,34 @@ class CrossEngineBenchmarkPlanTest {
         runner.run(blackhole);
       }
     }
-    assertThat(plan.resolve("MatcherApiBenchmark.resetAndFind@re2-ffm-string-conversion"))
-        .isNotNull();
+    assertThatThrownBy(
+            () -> plan.resolve("MatcherApiBenchmark.resetAndFind@re2-ffm-string-conversion"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("unsupportedTimingBoundary");
+  }
+
+  @Test
+  void ffmPublicMatcherOperationsPrepareAndRunThroughTheGenericAdapter() {
+    CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+    for (String workload :
+        List.of(
+            "MatcherApiBenchmark.lookingAt",
+            "MatcherApiBenchmark.newMatcherRegionFind",
+            "MatcherApiBenchmark.newMatcherRegionMatches")) {
+      String id = workload + "@re2-ffm-string-conversion";
+      CrossEngineBenchmarkPlan.Trial trial = plan.resolve(id);
+      try (CrossEngineTrialRunner runner =
+          CrossEngineTrialRunner.prepare(id, trial.workload().timingGroup())) {
+        runner.run(blackhole);
+        runner.run(blackhole);
+      }
+    }
+    assertThat(RegexEngineVariant.RE2_FFM_STRING_CONVERSION.capabilities())
+        .doesNotContain(EngineCapability.APPEND_REPLACEMENT);
   }
 
   @Test
