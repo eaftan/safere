@@ -13,10 +13,12 @@ checkout of main at `0e6c0069424f9e8e1bef1eb602d6fab41c706c16`.
 
 ## Reproduction
 
-First create a detached worktree at the pinned main revision. Overlay the
-benchmark-only changes from this PR: `run-java-benchmarks.sh` and
-`safere-benchmarks/`. Use identical benchmark sources and definitions for main and
-the prototype. The collection records complete source hashes and an overlay patch.
+First create a detached worktree at the pinned main revision. Overlay
+`run-java-benchmarks.sh` and `safere-benchmarks/` from frozen investigation revision
+`aa274ea98549fb7228eb574ffbdb42642f5be25c`, rather than the moving PR tip. The
+archived source hashes and overlays identify the measured harness exactly, even
+after this branch is rebased or the shared benchmark framework changes. Use
+identical benchmark sources and definitions for main and the prototype.
 
 Collect unmodified main before applying the prototype:
 
