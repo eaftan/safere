@@ -1,5 +1,9 @@
 # Capture-demand producer policy
 
+[Decision: adopt DFA-first in a separate change](DECISION.md) summarizes the full
+expanded comparison, the implementation choice, and the known tradeoffs. This
+investigation layer preserves the evidence without changing production policy.
+
 This investigation addresses [#1075](https://github.com/eaftan/safere/issues/1075):
 how capture-use history should influence producer selection before DFA rejection.
 It follows the opt-in investigation convention introduced in
