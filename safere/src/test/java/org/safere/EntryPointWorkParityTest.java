@@ -31,8 +31,16 @@ class EntryPointWorkParityTest {
   private static final String FILLER = "the quick brown fox jumps over the lazy dog ";
   private static final int[] SIZES = {2_000, 20_000};
 
-  /** An entry point may do this many times the reference's work, plus {@link #SLACK} units. */
-  private static final int FACTOR = 4;
+  /**
+   * An entry point may do this many times the reference's work, plus {@link #SLACK} units.
+   *
+   * <p>This is below 2 so that an entry point that scans the whole input twice, for example by
+   * running a prefilter whose answer it then ignores, fails. The worst ratio measured at the time
+   * of writing was about 1.1, for the UTF-8 entry points on {@code (?i)\b(?:foo|bar|baz)\b}. UTF-8
+   * entry points count bytes where {@link Matcher#find()} counts chars, which only differ on the
+   * non-ASCII scenarios, and those measured within 1% of the reference.
+   */
+  private static final double FACTOR = 1.5;
 
   private static final int SLACK = 100;
 
