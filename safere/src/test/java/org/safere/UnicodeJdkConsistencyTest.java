@@ -313,6 +313,44 @@ class UnicodeJdkConsistencyTest {
     assertThat(differences).as("(?i)\\p{IsLowercase} membership differences").isEmpty();
   }
 
+  private static final Map<String, IntPredicate> JAVA_CLASS_PREDICATES =
+      Map.ofEntries(
+          Map.entry("javaLowerCase", Character::isLowerCase),
+          Map.entry("javaUpperCase", Character::isUpperCase),
+          Map.entry("javaWhitespace", Character::isWhitespace),
+          Map.entry("javaMirrored", Character::isMirrored),
+          Map.entry("javaAlphabetic", Character::isAlphabetic),
+          Map.entry("javaIdeographic", Character::isIdeographic),
+          Map.entry("javaTitleCase", Character::isTitleCase),
+          Map.entry("javaDigit", Character::isDigit),
+          Map.entry("javaDefined", Character::isDefined),
+          Map.entry("javaLetter", Character::isLetter),
+          Map.entry("javaLetterOrDigit", Character::isLetterOrDigit),
+          Map.entry("javaSpaceChar", Character::isSpaceChar),
+          Map.entry("javaISOControl", Character::isISOControl),
+          Map.entry("javaIdentifierIgnorable", Character::isIdentifierIgnorable),
+          Map.entry("javaUnicodeIdentifierStart", Character::isUnicodeIdentifierStart),
+          Map.entry("javaUnicodeIdentifierPart", Character::isUnicodeIdentifierPart),
+          Map.entry("javaJavaIdentifierStart", Character::isJavaIdentifierStart),
+          Map.entry("javaJavaIdentifierPart", Character::isJavaIdentifierPart));
+
+  @ParameterizedTest(name = "{0} matches its Character predicate")
+  @MethodSource("javaClassNames")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void javaClassesMatchJdk(String name) {
+    assumeTrue(
+        runtimeJdkUnicodeMatchesGeneratedTables(),
+        "Runtime JDK Unicode repertoire differs from the generator JDK");
+    assertTableMatches(
+        name,
+        requireNonNull(JavaCharacterClasses.lookup(name)),
+        requireNonNull(JAVA_CLASS_PREDICATES.get(name)));
+  }
+
+  private static Stream<String> javaClassNames() {
+    return JAVA_CLASS_PREDICATES.keySet().stream().sorted();
+  }
+
   private static boolean isJdkGraph(int cp) {
     int type = Character.getType(cp);
     return Character.isDefined(cp)

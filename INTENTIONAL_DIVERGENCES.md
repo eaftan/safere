@@ -498,6 +498,25 @@ as required by its separate specification `[\p{gc=Nd}\p{IsHex_Digit}]`.
 `UnicodeJdkConsistencyTest` checks every generated binary property over all
 code points on JDK 26 or newer, using Unicode ranges as the `Hex_Digit` oracle.
 
+## Java Character Classes and the Unicode Version
+
+Issue reference: [#1144](https://github.com/eaftan/safere/issues/1144).
+
+`java.util.regex` defines the `\p{java...}` classes, such as
+`\p{javaLowerCase}` and `\p{javaJavaIdentifierStart}`, as equivalent to the
+corresponding `java.lang.Character` methods, so they follow the running JDK's
+Unicode version. SafeRE builds them from its bundled Unicode 17.0 tables, the
+same data as `\p{L}`, `\p{IsLowercase}`, and the other Unicode properties.
+A pattern therefore matches the same strings on every JDK, and a `java*` class
+can't disagree with the equivalent Unicode property in the same pattern.
+
+On JDK 26 and newer, whose Unicode version matches the bundled tables, the
+classes match `Character` exactly; `UnicodeJdkConsistencyTest` checks all of
+them over every code point. On older JDKs, they can disagree with `Character`
+about code points assigned since that JDK's Unicode version, and about a few
+property changes, such as U+0295 LATIN LETTER PHARYNGEAL VOICED FRICATIVE,
+which Unicode 17.0 no longer treats as lowercase.
+
 ## Unicode Case-Insensitive Range Closure
 
 Issue reference: #452.
