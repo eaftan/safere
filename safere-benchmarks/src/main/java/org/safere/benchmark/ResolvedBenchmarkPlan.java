@@ -120,6 +120,7 @@ final class ResolvedBenchmarkPlan {
     return result;
   }
 
+  // Keep admitted RE2/J flag sets aligned with RegexEngineVariant.compileForBenchmark.
   static List<Engine> engines() {
     List<Engine> result = new ArrayList<>();
     for (RegexEngineVariant variant : RegexEngineVariant.values()) {

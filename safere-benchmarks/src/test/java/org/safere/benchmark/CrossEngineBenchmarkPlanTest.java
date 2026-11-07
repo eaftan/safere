@@ -423,6 +423,24 @@ class CrossEngineBenchmarkPlanTest {
             .as("%s input %s", row.id(), input)
             .isEqualTo(jdk.matcher(input).matches());
       }
+      if (!flagSet.equals("0")) {
+        java.util.regex.Pattern unflaggedJdk = java.util.regex.Pattern.compile(canonical);
+        com.google.re2j.Pattern unflaggedRe2j =
+            com.google.re2j.Pattern.compile(row.workload().patterns().getFirst());
+        for (int codePoint = 0; codePoint <= Character.MAX_VALUE; codePoint++) {
+          if (Character.isSurrogate((char) codePoint)) {
+            continue;
+          }
+          String input = Character.toString(codePoint);
+          // Ignore existing Unicode database differences; isolate the admitted flag mapping.
+          if (unflaggedJdk.matcher(input).matches() != unflaggedRe2j.matcher(input).matches()) {
+            continue;
+          }
+          assertThat(re2j.matcher(input).matches())
+              .as("%s U+%04X", row.id(), codePoint)
+              .isEqualTo(jdk.matcher(input).matches());
+        }
+      }
     }
   }
 
