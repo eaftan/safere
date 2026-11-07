@@ -1357,6 +1357,7 @@ public final class Matcher implements MatchResult {
       int[] nfaResult =
           searchNfa(
               prog,
+              scanner,
               0,
               scanner.length(),
               scanner.length(),
@@ -1563,8 +1564,7 @@ public final class Matcher implements MatchResult {
     return scanner.asciiAt(pos - 2) == '\r' && scanner.asciiAt(pos - 1) == '\n';
   }
 
-  private GraphemeSupport.Context graphemeContext() {
-    InputScanner scanner = activeScanner();
+  private GraphemeSupport.Context graphemeContext(InputScanner scanner) {
     boolean bounded = fullTextRegionContext && !transparentBounds;
     int start = bounded ? regionStart : 0;
     int end = bounded ? regionEnd : scanner.length();
@@ -1584,8 +1584,8 @@ public final class Matcher implements MatchResult {
     return graphemeContext;
   }
 
-  private GraphemeSupport.Context graphemeContextFor(Prog prog) {
-    return prog.hasGraphemeSemantics() ? graphemeContext() : null;
+  private GraphemeSupport.Context graphemeContextFor(Prog prog, InputScanner scanner) {
+    return prog.hasGraphemeSemantics() ? graphemeContext(scanner) : null;
   }
 
   private int getTextLength() {
@@ -2880,6 +2880,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchNfa(
             prog,
+            text,
             startPos,
             searchLimit,
             endPos,
@@ -2894,6 +2895,7 @@ public final class Matcher implements MatchResult {
 
   private int[] searchNfa(
       Prog prog,
+      InputScanner scanner,
       int startPos,
       int searchLimit,
       int endPos,
@@ -2902,7 +2904,6 @@ public final class Matcher implements MatchResult {
       Nfa.MatchKind nfaKind,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
-    InputScanner scanner = activeScanner();
     if (prog.start() == 0) {
       return null;
     }
@@ -2924,16 +2925,20 @@ public final class Matcher implements MatchResult {
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
 
+    // Independent input views carry their complete assertion context in scanner coordinates.
+    // Only full-text region operations use the matcher's original region bounds.
+    int assertionRegionStart = fullTextRegionContext ? regionStart : 0;
+    int assertionRegionEnd = fullTextRegionContext ? regionEnd : scanner.length();
     boolean useOuterEmptyContext = fullTextRegionContext || preserveOuterEmptyContext;
-    int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
-    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
+    int emptyContextEnd = preserveOuterEmptyContext ? assertionRegionEnd : endPos;
+    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? assertionRegionStart : 0;
     int boundaryEndPos =
         useOuterEmptyContext && !transparentBounds ? emptyContextEnd : scanner.length();
     int anchorEndPos =
         useOuterEmptyContext && !anchoringBounds && prog.anchorEnd()
             ? scanner.length()
             : emptyContextEnd;
-    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
+    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? assertionRegionStart : 0;
     int emptyAnchorEndPos =
         useOuterEmptyContext && !anchoringBounds ? scanner.length() : emptyContextEnd;
 
@@ -2950,7 +2955,7 @@ public final class Matcher implements MatchResult {
             anchorEndPos,
             emptyAnchorStartPos,
             emptyAnchorEndPos,
-            graphemeContextFor(prog));
+            graphemeContextFor(prog, scanner));
 
     releaseEnginesOwnedByOtherThread();
     if (cachedNfa == null && !nfaBorrowed) {
@@ -4483,43 +4488,34 @@ public final class Matcher implements MatchResult {
    * still cover the whole input.
    */
   private void resolveCaptures() {
-    if (capturesResolved || deferredRegionScanner == null) {
-      resolveCapturesOnActiveInput();
+    if (capturesResolved) {
       return;
     }
-    String savedText = text;
-    InputScanner savedScanner = textScanner;
-    int savedRegionStart = regionStart;
-    int savedRegionEnd = regionEnd;
-    int offset = deferredRegionOffset;
-    text = null;
-    textScanner = deferredRegionScanner;
-    regionStart = 0;
-    regionEnd = textScanner.length();
-    try {
-      resolveCapturesOnActiveInput();
-      for (int i = 0; i < groups.length; i++) {
-        if (groups[i] >= 0) {
-          groups[i] += offset;
-        }
-      }
-      deferredRegionScanner = null;
-      deferredRegionOffset = 0;
-    } finally {
-      text = savedText;
-      textScanner = savedScanner;
-      regionStart = savedRegionStart;
-      regionEnd = savedRegionEnd;
+    if (deferredRegionScanner == null) {
+      resolveCapturesOnInput(activeScanner());
+    } else {
+      resolveRegionCaptures();
     }
   }
 
+  private void resolveRegionCaptures() {
+    int offset = deferredRegionOffset;
+    resolveCapturesOnInput(deferredRegionScanner);
+    for (int i = 0; i < groups.length; i++) {
+      if (groups[i] >= 0) {
+        groups[i] += offset;
+      }
+    }
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
+  }
+
   @SuppressWarnings("ReferenceEquality")
-  private void resolveCapturesOnActiveInput() {
+  private void resolveCapturesOnInput(InputScanner scanner) {
     if (capturesResolved) {
       return;
     }
     Prog prog = parentPattern.prog();
-    InputScanner scanner = activeScanner();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
     // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
     // captures within that range.
