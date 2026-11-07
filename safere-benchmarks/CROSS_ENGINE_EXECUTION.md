@@ -84,6 +84,18 @@ same generic entry points. Their declarations specify whether matcher
 construction and mutations such as reset or region configuration occur inside
 the timed invocation.
 
+Unicode compilation rows map benchmark flag identities to RE2/J constants explicitly.
+The admitted rows preserve Java's flag behavior for the declared pattern; the mapping is
+not a general Java-to-RE2/J flag equivalence. RE2/J always uses Unicode simple folding
+for case-insensitive compilation. The declarations exclude ranges affected by Java's
+ASCII-only folding or dotted/dotless I handling, different case-insensitive category
+and intersection behavior, and unsupported Unicode predefined-class behavior.
+Unsupported binary properties remain syntax exclusions. Script, block, intersection,
+and whitespace alternatives are declared in `benchmark-data.json`; adapters do not
+rewrite patterns. Unicode categories and scripts still use each engine's own Unicode
+database version, so compilation comparisons do not imply identical character membership
+across Unicode versions.
+
 Specialized benchmarks remain separate only when their mechanics require a
 dedicated execution mode, including retained memory, cold start, declared
 no-fork safeguards, PatternSet, diagnostics, and dedicated UTF-8 API behavior.

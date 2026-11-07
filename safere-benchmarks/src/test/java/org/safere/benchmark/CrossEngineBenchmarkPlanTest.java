@@ -357,18 +357,145 @@ class CrossEngineBenchmarkPlanTest {
     assertThat(RegexEngineVariant.RE2_FFM_STRING_CONVERSION.patternProfile()).isEqualTo("re2");
   }
 
-  @Test
-  void javaOnlyUnicodePropertyCompileWorkloadsRemainExcludedFromRe2Adapters() {
-    CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+  @ParameterizedTest
+  @CsvSource({
+    "0,15",
+    "CASE_INSENSITIVE,8",
+    "CASE_INSENSITIVE_UNICODE_CASE,7",
+    "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS,5"
+  })
+  void unicodeCompileRowsAdmitOnlyEquivalentRe2jOptions(String flagSet, int expectedRunnable) {
+    MaterializedExecutionPlan plan = MaterializedExecutionPlan.load();
+    List<MaterializedExecutionPlan.Entry> rows =
+        plan.entries().stream()
+            .filter(entry -> entry.engineId().equals("re2j-string"))
+            .filter(entry -> entry.workloadId().startsWith("UnicodeCompileBenchmark.compile."))
+            .filter(entry -> entry.workloadId().endsWith("." + flagSet))
+            .toList();
+    assertThat(rows).hasSize(19);
+    assertThat(rows.stream().filter(MaterializedExecutionPlan.Entry::runnable))
+        .hasSize(expectedRunnable);
+    for (MaterializedExecutionPlan.Entry row : rows) {
+      if (!row.runnable()) {
+        assertThat(row.exclusion().kind()).isIn("unsupportedSyntax", "explicitTrialExclusion");
+        assertThat(row.exclusion().reason()).isNotBlank();
+      }
+    }
+    for (String property : List.of("alphabetic", "ideographic", "emoji", "extendedPictographic")) {
+      MaterializedExecutionPlan.Entry row =
+          plan.resolve(
+              "UnicodeCompileBenchmark.compile." + property + "." + flagSet + "@re2j-string");
+      assertThat(row.runnable()).isFalse();
+      assertThat(row.exclusion().kind()).isEqualTo("unsupportedSyntax");
+    }
+  }
 
+  @Test
+  void admittedUnicodeCompileRowsPreserveDeclaredSemantics() {
+    MaterializedExecutionPlan plan = MaterializedExecutionPlan.load();
+    // Stable characters exercise folding, categories, scripts, blocks and predefined classes.
+    // Engine Unicode database versions differ; this is not a Unicode-version conformance test.
+    List<String> inputs =
+        List.of(
+            "", "a", "A", "I", "i", "İ", "ı", "ſ", "K", "ß", "ẞ", "ǅ", "ǆ", "Ǆ", "α", "Α", "Σ", "ς",
+            "σ", "中", "𠀀", "𐐀", "𐐨", "1", "١", "_", " ", "\t", "\n", "\r", "\f", "\u000B",
+            "\u00A0", "\u2003", "!", "abc_12");
+    for (MaterializedExecutionPlan.Entry row : plan.entries()) {
+      if (!row.engineId().equals("re2j-string")
+          || !row.runnable()
+          || !(row.workloadId().startsWith("UnicodeCompileBenchmark.compile.")
+              || row.workloadId().startsWith("UnicodeFirstCompileBenchmark.firstCompile."))) {
+        continue;
+      }
+      String flagSet =
+          ((DeclarativeBenchmarkPlan.RecipeString) row.workload().arguments().get("flagSet"))
+              .value();
+      String canonical =
+          plan.resolve(row.workloadId() + "@jdk-string").workload().patterns().getFirst();
+      java.util.regex.Pattern jdk =
+          java.util.regex.Pattern.compile(canonical, BenchmarkFlags.parse(flagSet));
+      com.google.re2j.Pattern re2j =
+          (com.google.re2j.Pattern)
+              RegexEngineVariant.RE2J_STRING.compileForBenchmark(
+                  row.workload().patterns().getFirst(), flagSet);
+      for (String input : inputs) {
+        assertThat(re2j.matcher(input).matches())
+            .as("%s input %s", row.id(), input)
+            .isEqualTo(jdk.matcher(input).matches());
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,9", "CASE_INSENSITIVE_UNICODE_CASE,4", "UNICODE_CHARACTER_CLASS,0"})
+  void coldUnicodeCompileRowsRetainEquivalentRe2jOptions(String flagSet, int expectedRunnable) {
+    assertThat(
+            MaterializedExecutionPlan.load().entries().stream()
+                .filter(entry -> entry.engineId().equals("re2j-string") && entry.runnable())
+                .filter(
+                    entry ->
+                        entry.workloadId().startsWith("UnicodeFirstCompileBenchmark.firstCompile."))
+                .filter(entry -> entry.workloadId().endsWith("." + flagSet)))
+        .hasSize(expectedRunnable);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "uppercaseLetter,CASE_INSENSITIVE_UNICODE_CASE,ı",
+    "lowercaseLetter,CASE_INSENSITIVE,A",
+    "titlecaseLetter,CASE_INSENSITIVE,A",
+    "letterIntersection,CASE_INSENSITIVE,a",
+    "blockBasicLatin,CASE_INSENSITIVE,K",
+    "asciiLower,CASE_INSENSITIVE,ſ",
+    "asciiRange,CASE_INSENSITIVE_UNICODE_CASE,İ",
+    "word,CASE_INSENSITIVE_UNICODE_CASE,K",
+    "word,CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS,α",
+    "digit,CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS,١",
+    "space,CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS,'\u2003'"
+  })
+  void excludedUnicodeCompileRowsHaveDemonstrablyDifferentFlagSemantics(
+      String regex, String flagSet, String input) {
+    MaterializedExecutionPlan plan = MaterializedExecutionPlan.load();
+    String prefix = "UnicodeCompileBenchmark.compile." + regex + ".";
+    assertThat(plan.resolve(prefix + flagSet + "@re2j-string").exclusion().kind())
+        .isEqualTo("explicitTrialExclusion");
+    String canonical =
+        plan.resolve(prefix + flagSet + "@jdk-string").workload().patterns().getFirst();
+    String alternate = plan.resolve(prefix + "0@re2j-string").workload().patterns().getFirst();
+    assertThat(
+            com.google.re2j.Pattern.compile(alternate, com.google.re2j.Pattern.CASE_INSENSITIVE)
+                .matcher(input)
+                .matches())
+        .isNotEqualTo(
+            java.util.regex.Pattern.compile(canonical, BenchmarkFlags.parse(flagSet))
+                .matcher(input)
+                .matches());
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "0,0",
+    "CASE_INSENSITIVE,1",
+    "CASE_INSENSITIVE_UNICODE_CASE,1",
+    "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS,1"
+  })
+  void re2jCompileAdapterMapsFlagIdentitiesExplicitly(String flagSet, int expectedFlags) {
+    com.google.re2j.Pattern pattern =
+        (com.google.re2j.Pattern) RegexEngineVariant.RE2J_STRING.compileForBenchmark("a", flagSet);
+    assertThat(pattern.flags()).isEqualTo(expectedFlags);
+    assertThat(pattern.matcher("A").matches()).isEqualTo(expectedFlags != 0);
+    assertThat(pattern.matcher("\n").matches()).isFalse();
+  }
+
+  @Test
+  void re2jCompileAdapterRejectsUnsupportedFlagIdentities() {
     assertThatThrownBy(
-            () -> plan.resolve("UnicodeCompileBenchmark.compile.alphabetic.0@re2j-string"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("engine lacks [flaggedCompile]");
-    assertThatThrownBy(
-            () -> plan.resolve("UnicodeCompileBenchmark.compile.ideographic.0@re2j-string"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("engine lacks [flaggedCompile]");
+            () ->
+                RegexEngineVariant.RE2J_STRING.compileForBenchmark("a", "UNICODE_CHARACTER_CLASS"))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("UNICODE_CHARACTER_CLASS");
+    assertThatThrownBy(() -> RegexEngineVariant.RE2J_STRING.compileForBenchmark("a", "unknown"))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @ParameterizedTest

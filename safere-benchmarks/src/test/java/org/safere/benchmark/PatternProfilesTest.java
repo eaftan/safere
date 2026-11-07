@@ -263,7 +263,9 @@ class PatternProfilesTest {
     assertThat(patterns.select("pcre2", "\\p{script=Latin}+")).isEqualTo("\\p{sc=Latin}+");
     assertThat(patterns.resolve("re2", "\\p{IsAlphabetic}+", "0").unsupportedReason())
         .contains("IsAlphabetic");
-    assertThat(patterns.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
+    assertThat(patterns.resolve("re2", "\\p{IsIdeographic}+", "0").unsupportedReason())
+        .contains("IsIdeographic");
+    assertThat(patterns.select("re2", "\\s+", "0")).isEqualTo("[ \\t\\n\\x0B\\f\\r]+");
     assertThat(patterns.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
         .isEqualTo("^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$");
     assertThat(patterns.select("rust-regex", "(\\d{4})-(\\d{2})-(\\d{2})"))
