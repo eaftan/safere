@@ -1963,6 +1963,12 @@ public final class Matcher implements MatchResult {
         }
       }
     }
+    if (literalStartFirst
+        && startPositionPreselected
+        && scanner.length() - effectiveStart >= Pattern.MIN_REJECT_AFTER_START_REMAINING
+        && rejectFindFrom(scanner, effectiveStart, options)) {
+      return applyFailedMatchResult();
+    }
 
     // Retry a deferred reverse probe only after rejection and start acceleration narrow its work.
     if (endAnchoredDeferred) {
