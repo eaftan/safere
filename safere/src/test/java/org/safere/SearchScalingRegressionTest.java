@@ -62,6 +62,31 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void backwardMovingOpaqueRegionsReuseTheAbsentScalarInterior() {
+    for (String regex : new String[] {"\\X?\\p{Cs}", "\\X?[\\uD83D\\uDE00]"}) {
+      Pattern pattern = Pattern.compile(regex);
+      long[] work = new long[2];
+      for (int index = 0; index < work.length; index++) {
+        int pairs = index == 0 ? 200 : 1000;
+        String input = "a" + "😀".repeat(pairs) + "\uD83Dxy";
+        Matcher matcher = pattern.matcher(input);
+        work[index] =
+            WorkCounter.countForTesting(
+                () -> {
+                  for (int start = 2 * pairs - 1; start >= 1; start -= 2) {
+                    matcher.region(start, input.length());
+                    assertThat(matcher.find()).isTrue();
+                  }
+                });
+      }
+      assertThat(work[0]).isPositive();
+      assertThat(work[1])
+          .as("backward region starts must not repeat tail scans: %s", regex)
+          .isLessThan(work[0] * 6);
+    }
+  }
+
+  @Test
   void exposedRegionEndWitnessDoesNotDelayTheFirstGraphemeMatch() {
     Pattern pattern = Pattern.compile("\\X?\\p{Cs}");
     long[] work = new long[2];

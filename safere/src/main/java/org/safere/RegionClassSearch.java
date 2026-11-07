@@ -46,6 +46,21 @@ final class RegionClassSearch {
     // The probed edge code points are excluded from the memo. Its interior scalar boundaries
     // remain valid when a later region exposes a different surrogate half at either edge.
     // A scan records an absent interval [start, stop), optionally followed by a hit at stop.
+    if (scan != null && from < scan.start && limit > scan.start) {
+      // Extend an overlapping absent interval leftward before reusing its tail. Both endpoints
+      // are full-input scalar boundaries, so region-local surrogate decoding cannot change it.
+      for (int pos = from; pos < scan.start; ) {
+        long decoded = input.decodeForward(pos, scan.start);
+        if (contains(cc, InputScanner.codePoint(decoded))) {
+          scan.start = from;
+          scan.stop = pos;
+          scan.hit = true;
+          return true;
+        }
+        pos = InputScanner.position(decoded);
+      }
+      scan.start = from;
+    }
     int scanStart = from;
     if (scan != null && from >= scan.start && from <= scan.stop) {
       if (limit <= scan.stop) {

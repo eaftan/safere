@@ -1917,6 +1917,8 @@ public final class Matcher implements MatchResult {
     return applyFullMatchResult(result);
   }
 
+  // Scalar class scans skip paired low-surrogate starts allowed by the grapheme NFA. Literal
+  // scans already nominate UTF-16 positions and do not need the region-local scalar scanner.
   private static boolean usesScalarClassStartScan(StringStartAccelerator accelerator) {
     while (accelerator instanceof StringStartAccelerator.LeadingExpansion expansion) {
       accelerator = expansion.inner();
