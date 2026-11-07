@@ -711,7 +711,9 @@ class Utf8DiagnosticsTest {
   void utf8PrimaryExactCaptureSearchesReportEagerCaptureAttribution() {
     Pattern.setDiagnostics(diagnostics);
 
-    Pattern nullableLoopBitState = Pattern.compile("(?:(é)?)*x");
+    Pattern nullableLoopBitState =
+        Pattern.compile(
+            "(?:(é)?)*x", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
     assertThat(matcher(nullableLoopBitState, "ééx").matches()).isTrue();
     assertThat(matcher(nullableLoopBitState, "ééxy").lookingAt()).isTrue();
 

@@ -236,13 +236,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticCaptureOverride(MatchStrategy strategy) {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.replaceCapture(strategy);
-    }
-  }
-
   private void diagnosticParticipation(MatchStrategy strategy, StrategyRole role) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -1045,7 +1038,7 @@ public final class Matcher implements MatchResult {
           }
           segments.add(new ReplacementSegment.NamedGroupRef(replacement.substring(nameStart, i)));
           i++; // skip '}'
-        } else if (Character.isDigit(replacement.charAt(i))) {
+        } else if (isAsciiDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, maxGroup);
           segments.add(new ReplacementSegment.GroupRef(groupRef.groupNum()));
@@ -1065,11 +1058,21 @@ public final class Matcher implements MatchResult {
     return segments.toArray(new ReplacementSegment[0]);
   }
 
+  /**
+   * Returns whether {@code c} is an ASCII digit. Replacement-string group references accept only
+   * {@code '0'} through {@code '9'}, so this deliberately does not use {@link
+   * Character#isDigit(char)}, which also accepts other Unicode decimal digits whose {@code c - '0'}
+   * value is not a digit value.
+   */
+  private static boolean isAsciiDigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
   private static NumericGroupReference parseNumericGroupReference(
       String replacement, int digitStart, int maxGroup) {
     int groupNum = replacement.charAt(digitStart) - '0';
     int i = digitStart + 1;
-    while (i < replacement.length() && Character.isDigit(replacement.charAt(i))) {
+    while (i < replacement.length() && isAsciiDigit(replacement.charAt(i))) {
       int nextGroupNum = groupNum * 10 + (replacement.charAt(i) - '0');
       if (nextGroupNum > maxGroup) {
         break;
@@ -1322,15 +1325,14 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
-      if (dfaResult != null && prog.numLoopRegs() == 0) {
+      if (dfaResult != null) {
+        // Empty-stop changes ordered paths and captures, not full-match existence: remove empty
+        // iterations before later iterations while retaining the minimum. Input positions and
+        // assertion context are unchanged, and captures cannot affect recognition in our dialect.
+        // Here the whole region fixes group zero; the guarded program resolves captures on demand.
+        // Prefix/search matching still needs exact progress semantics to choose its match bounds.
         diagnosticBoundary(MatchStrategy.DFA);
         return applyDeferredMatchResult(0, scanner.length(), prog.numCaptures(), true, true);
-      }
-      if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
-        diagnosticDecision(
-            MatchStrategy.DFA,
-            StrategyDisposition.BYPASSED,
-            StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
       }
       if (dfaResult == null) {
         diagnosticDecision(
@@ -1352,26 +1354,6 @@ public final class Matcher implements MatchResult {
             prog.numCaptures(),
             false,
             this.groups);
-    // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
-    // may accept a match ending before a trailing \n. In that case, fall back to the NFA
-    // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
-    if (result != null && result[1] != scanner.length()) {
-      diagnosticBoundaryOverride(MatchStrategy.NFA);
-      int[] nfaResult =
-          searchNfa(
-              prog,
-              0,
-              scanner.length(),
-              scanner.length(),
-              prog.numCaptures(),
-              Nfa.Anchor.ANCHORED,
-              Nfa.MatchKind.FULL_MATCH,
-              false,
-              this.groups);
-      diagnosticCaptureOverride(
-          prog.numCaptures() > 1 && nfaResult != null ? MatchStrategy.NFA : MatchStrategy.NONE);
-      result = nfaResult;
-    }
     return applyFullMatchResult(result);
   }
 
@@ -2855,30 +2837,36 @@ public final class Matcher implements MatchResult {
           // this trades that bounded cost for faster recovery rather than decaying the delay.
           resetWindowBackoff();
         }
-        diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
-        // BitState is a complete engine — if it searched and found no match, NFA won't either.
-        return result;
-      }
-      if (speculate) {
-        consecutiveWindowFailures =
-            Math.min(consecutiveWindowFailures + 1, MAX_CONSECUTIVE_WINDOW_FAILURES);
-        if (consecutiveWindowFailures == MAX_CONSECUTIVE_WINDOW_FAILURES) {
-          // Both factors are capped before doubling, so this arithmetic cannot overflow.
-          windowRetryDelay =
-              Math.min(
-                  MAX_WINDOW_RETRY_DELAY,
-                  Math.max(INITIAL_WINDOW_RETRY_DELAY, windowRetryDelay * 2));
-          windowSearchesUntilRetry = windowRetryDelay;
+        // A source $ permits BitState to stop before a trailing line terminator. An explicit
+        // full-match request, including deferred capture extraction, must consume the whole range.
+        // Let NFA FULL_MATCH choose the full-length path if BitState accepted a shorter one.
+        if (!endMatch || result == null || result[1] == endPos) {
+          diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
+          // BitState is complete: if it found no match, NFA won't either.
+          return result;
         }
+      } else {
+        if (speculate) {
+          consecutiveWindowFailures =
+              Math.min(consecutiveWindowFailures + 1, MAX_CONSECUTIVE_WINDOW_FAILURES);
+          if (consecutiveWindowFailures == MAX_CONSECUTIVE_WINDOW_FAILURES) {
+            // Both factors are capped before doubling, so this arithmetic cannot overflow.
+            windowRetryDelay =
+                Math.min(
+                    MAX_WINDOW_RETRY_DELAY,
+                    Math.max(INITIAL_WINDOW_RETRY_DELAY, windowRetryDelay * 2));
+            windowSearchesUntilRetry = windowRetryDelay;
+          }
+        }
+        diagnosticDecision(
+            MatchStrategy.BIT_STATE,
+            StrategyDisposition.FALLBACK,
+            bs.budgetExceeded()
+                ? StrategyReason.WORK_BUDGET_EXCEEDED
+                : bs.windowExceeded()
+                    ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
+                    : StrategyReason.INPUT_TOO_LARGE);
       }
-      diagnosticDecision(
-          MatchStrategy.BIT_STATE,
-          StrategyDisposition.FALLBACK,
-          bs.budgetExceeded()
-              ? StrategyReason.WORK_BUDGET_EXCEEDED
-              : bs.windowExceeded()
-                  ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
-                  : StrategyReason.INPUT_TOO_LARGE);
     } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
       diagnosticDecision(
           MatchStrategy.BIT_STATE,
@@ -4653,7 +4641,7 @@ public final class Matcher implements MatchResult {
           if (start >= 0 && end >= 0) {
             sb.append(text, start, end);
           }
-        } else if (Character.isDigit(replacement.charAt(i))) {
+        } else if (isAsciiDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
@@ -4824,7 +4812,7 @@ public final class Matcher implements MatchResult {
           char next = replacement.charAt(i);
           if (next == '{') {
             return true;
-          } else if (next >= '0' && next <= '9') {
+          } else if (isAsciiDigit(next)) {
             NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, maxGroup);
             if (groupRef.groupNum() > 0) {
               return true;
