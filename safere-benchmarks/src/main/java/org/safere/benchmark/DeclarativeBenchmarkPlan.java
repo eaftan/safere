@@ -1789,6 +1789,7 @@ final class DeclarativeBenchmarkPlan {
 
     Map<String, RecipeValueType> argumentTypes() {
       return switch (this) {
+        case MATCHER_REGION_TOKENIZE -> Map.of("mode", RecipeValueType.STRING);
         case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
             Map.of("groups", RecipeValueType.INTEGER_LIST);
         case UTF8_CAPTURE_BOUNDS ->

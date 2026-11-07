@@ -435,6 +435,11 @@ public final class Matcher implements MatchResult {
   private int deferredMatchEnd;
   private boolean deferredEndMatch;
 
+  /** Opaque input view retained only until the current region match is consumed or discarded. */
+  private InputScanner deferredRegionScanner;
+
+  private int deferredRegionOffset;
+
   /**
    * Whether the current String replacement requires inner captures during exact fallback search.
    * Scoped to that invocation; historical consumption belongs to the Pattern, not this matcher.
@@ -577,6 +582,8 @@ public final class Matcher implements MatchResult {
     deferredMatchStart = 0;
     deferredMatchEnd = 0;
     deferredEndMatch = false;
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
   }
 
   private void resetReplacementState() {
@@ -614,6 +621,7 @@ public final class Matcher implements MatchResult {
 
   private void prepareAnchoredAttempt() {
     rememberPreviousMatchEnd();
+    clearDeferredCaptureState();
     findExhaustedAfterTerminalEmptyMatch = false;
     // An anchored failure invalidates the result, but does not reset find's continuation.
     searchFrom = previousMatchEnd;
@@ -1719,7 +1727,10 @@ public final class Matcher implements MatchResult {
       return parentPattern.preparedMatchRunner(regionActive).find(this, regionActive);
     } finally {
       if (regionSubstituted) {
-        resolveCapturesBeforeRestoringRegion();
+        if (hasMatch && !capturesResolved) {
+          deferredRegionScanner = activeScanner();
+          deferredRegionOffset = regionStart;
+        }
         text = savedText;
         textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
@@ -1869,9 +1880,8 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Core find logic. When {@code regionActive} is true, the DFA sandwich with deferred captures is
-   * disabled because resolveCaptures() would run on the full text with different empty-width
-   * assertion semantics than the substring the DFA saw.
+   * Core find logic. Independent region views retain their scanner for deferred capture extraction
+   * so assertions are replayed against the same bounded input.
    */
   private boolean doFindCore(boolean regionActive) {
     InputScanner scanner = activeScanner();
@@ -1881,7 +1891,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Reset deferred-capture state; DFA sandwich path may set it to false.
-    capturesResolved = true;
+    clearDeferredCaptureState();
 
     Prog prog = parentPattern.prog();
     EnginePathOptions options = enginePathOptions();
@@ -2191,10 +2201,10 @@ public final class Matcher implements MatchResult {
     // callers have consumed them before, collect them in this pass rather than replaying it on
     // group access. Otherwise group-zero-only loops can still defer capture tracking.
     //
-    // Region searches keep eager capture extraction: deferred resolution runs on the full input,
-    // while the fallback below sees the substituted region view.
+    // Independent region views retain the same scanner for replay; full-context regions still
+    // use eager extraction.
     boolean lazyFallbackCaptures =
-        !regionActive
+        (!regionActive || independentRegion)
             && !replacementNeedsCaptures
             && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
@@ -4490,8 +4500,39 @@ public final class Matcher implements MatchResult {
    * (fo|foo)} matching "fo" rather than "foo"). For {@code matches()}, the deferred search must
    * still cover the whole input.
    */
-  @SuppressWarnings("ReferenceEquality")
   private void resolveCaptures() {
+    if (capturesResolved || deferredRegionScanner == null) {
+      resolveCapturesOnActiveInput();
+      return;
+    }
+    String savedText = text;
+    InputScanner savedScanner = textScanner;
+    int savedRegionStart = regionStart;
+    int savedRegionEnd = regionEnd;
+    int offset = deferredRegionOffset;
+    text = null;
+    textScanner = deferredRegionScanner;
+    regionStart = 0;
+    regionEnd = textScanner.length();
+    try {
+      resolveCapturesOnActiveInput();
+      for (int i = 0; i < groups.length; i++) {
+        if (groups[i] >= 0) {
+          groups[i] += offset;
+        }
+      }
+      deferredRegionScanner = null;
+      deferredRegionOffset = 0;
+    } finally {
+      text = savedText;
+      textScanner = savedScanner;
+      regionStart = savedRegionStart;
+      regionEnd = savedRegionEnd;
+    }
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private void resolveCapturesOnActiveInput() {
     if (capturesResolved) {
       return;
     }

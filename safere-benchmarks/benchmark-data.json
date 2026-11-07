@@ -11774,6 +11774,342 @@
       }
     },
     {
+      "id": "RegionCaptureBenchmark.delimited.regionBoolean",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionBoolean"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.delimited.regionBounds",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionBounds"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.delimited.regionCapture",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionCapture"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.delimited.independentBoolean",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentBoolean"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.delimited.independentBounds",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentBounds"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.delimited.independentCapture",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+?) +"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4096
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentCapture"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.regionBoolean",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionBoolean"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.regionBounds",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionBounds"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.regionCapture",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "regionCapture"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.independentBoolean",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentBoolean"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.independentBounds",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentBounds"
+      }
+    },
+    {
+      "id": "RegionCaptureBenchmark.tokenize.independentCapture",
+      "operation": "matcherRegionTokenize",
+      "patterns": [
+        "([A-Za-z0-9]+| +)"
+      ],
+      "inputs": [
+        "matcherApi.tokenizer.16384"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "lifecycle": {
+        "matcher": "retained"
+      },
+      "arguments": {
+        "mode": "independentCapture"
+      }
+    },
+    {
       "id": "MatcherApiBenchmark.regionTokenize.16384",
       "operation": "matcherRegionTokenize",
       "patterns": [
