@@ -12,9 +12,12 @@ trials instead of repairing results or adding searches to imitate another engine
 operation, with unanchored, start-anchored, and fully anchored modes respectively.
 Captures come from that same operation. A successful operation advances the next
 `find()` to its end; an empty match advances by one Unicode code point. Repeated
-`find()` calls after a failed search remain exhausted. `lookingAt()` and `matches()`
-always restart at the region beginning. This intentionally does not emulate Java's
-progression through individual surrogate code units.
+`find()` calls after a failed search remain exhausted. A failed `lookingAt()` or
+`matches()` also exhausts the next `find()`; for example, `a` on `ba` returns false
+from both `lookingAt()` and the following `find()`. This is wrapper state, not RE2
+match selection. Call `reset()` or set a region to start searching again.
+`lookingAt()` and `matches()` always restart at the region beginning. Empty-match
+progression intentionally does not emulate Java's individual surrogate code units.
 
 `region(start, end)` takes inclusive/exclusive UTF-16 indices into the original
 String. Returned match and capture offsets remain absolute UTF-16 indices. RE2
@@ -40,7 +43,9 @@ String-to-UTF-8 encoding, offset-map construction, native allocation and input
 copying, and native calls remain timed. `MatcherApiBenchmark.lookingAt`,
 `MatcherApiBenchmark.newMatcherRegionFind`, and
 `MatcherApiBenchmark.newMatcherRegionMatches` use a new matcher per invocation.
-Retained-matcher trials are excluded because encoding would happen during setup.
+`MatcherApiBenchmark.resetAndFind` was previously runnable for this variant; it
+is now excluded with the other retained-matcher trials because encoding would
+happen during setup.
 Append replacement remains excluded because the public operation is absent.
 
 Each match operation currently copies the entire encoded input into a confined
