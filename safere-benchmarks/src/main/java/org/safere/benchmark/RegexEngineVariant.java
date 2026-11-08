@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.openjdk.jmh.infra.Blackhole;
 import org.safere.Utf8Sink;
 
@@ -457,6 +459,13 @@ enum RegexEngineVariant {
     }
   };
 
+  private static final Map<String, Integer> RE2J_COMPILE_FLAGS =
+      Map.of(
+          "0", 0,
+          "CASE_INSENSITIVE", com.google.re2j.Pattern.CASE_INSENSITIVE,
+          "CASE_INSENSITIVE_UNICODE_CASE", com.google.re2j.Pattern.CASE_INSENSITIVE,
+          "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS", com.google.re2j.Pattern.CASE_INSENSITIVE);
+
   private final String id;
   private final String reportEngine;
   private final String patternProfile;
@@ -619,6 +628,10 @@ enum RegexEngineVariant {
 
   abstract CompiledRegex compile(String regex);
 
+  static Set<String> re2jCompileFlagSets() {
+    return RE2J_COMPILE_FLAGS.keySet();
+  }
+
   Object compileForBenchmark(String regex, String flagSet) {
     int flags = flagSet == null ? 0 : BenchmarkFlags.parse(flagSet);
     return switch (this) {
@@ -628,17 +641,10 @@ enum RegexEngineVariant {
       case RE2J_STRING -> {
         // The plan excludes rows whose Java flag semantics differ from RE2/J. Map identities,
         // never Java integer flags: Java CASE_INSENSITIVE has RE2/J's DOTALL value.
-        int re2jFlags =
-            switch (flagSet == null ? "0" : flagSet) {
-              case "0" -> 0;
-              case "CASE_INSENSITIVE",
-                  "CASE_INSENSITIVE_UNICODE_CASE",
-                  "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS" ->
-                  com.google.re2j.Pattern.CASE_INSENSITIVE;
-              default ->
-                  throw new UnsupportedOperationException(
-                      "RE2/J does not support flag set " + flagSet);
-            };
+        Integer re2jFlags = RE2J_COMPILE_FLAGS.get(flagSet == null ? "0" : flagSet);
+        if (re2jFlags == null) {
+          throw new UnsupportedOperationException("RE2/J does not support flag set " + flagSet);
+        }
         yield com.google.re2j.Pattern.compile(regex, re2jFlags);
       }
       case RE2_FFM_STRING_CONVERSION -> {

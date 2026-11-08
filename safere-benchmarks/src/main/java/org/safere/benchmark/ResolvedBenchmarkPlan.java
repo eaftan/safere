@@ -120,7 +120,6 @@ final class ResolvedBenchmarkPlan {
     return result;
   }
 
-  // Keep admitted RE2/J flag sets aligned with RegexEngineVariant.compileForBenchmark.
   static List<Engine> engines() {
     List<Engine> result = new ArrayList<>();
     for (RegexEngineVariant variant : RegexEngineVariant.values()) {
@@ -140,11 +139,7 @@ final class ResolvedBenchmarkPlan {
                       || variant == RegexEngineVariant.JDK_STRING
                   ? allFlagSets()
                   : variant == RegexEngineVariant.RE2J_STRING
-                      ? Set.of(
-                          "0",
-                          "CASE_INSENSITIVE",
-                          "CASE_INSENSITIVE_UNICODE_CASE",
-                          "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS")
+                      ? RegexEngineVariant.re2jCompileFlagSets()
                       : Set.of("0")));
     }
 
