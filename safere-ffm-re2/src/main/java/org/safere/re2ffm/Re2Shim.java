@@ -28,8 +28,7 @@ final class Re2Shim {
   private static final MethodHandle OK;
   private static final MethodHandle ERROR;
   private static final MethodHandle NUM_CAPTURING_GROUPS;
-  private static final MethodHandle FULL_MATCH;
-  private static final MethodHandle FIND;
+  private static final MethodHandle MATCH;
   private static final MethodHandle FIND_ALL;
   private static final MethodHandle REPLACE_FIRST;
   private static final MethodHandle REPLACE_ALL;
@@ -86,25 +85,16 @@ final class Re2Shim {
             lookup.find("re2_num_capturing_groups").orElseThrow(),
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
-    // bool re2_full_match(const re2_pattern_t* p, const char* text, int text_len)
-    FULL_MATCH =
+    MATCH =
         linker.downcallHandle(
-            lookup.find("re2_full_match").orElseThrow(),
+            lookup.find("re2_match").orElseThrow(),
             FunctionDescriptor.of(
                 ValueLayout.JAVA_BOOLEAN,
                 ValueLayout.ADDRESS,
                 ValueLayout.ADDRESS,
-                ValueLayout.JAVA_INT));
-
-    // bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
-    //              int startpos, int32_t* matches_out, int nmatches)
-    FIND =
-        linker.downcallHandle(
-            lookup.find("re2_find").orElseThrow(),
-            FunctionDescriptor.of(
-                ValueLayout.JAVA_BOOLEAN,
-                ValueLayout.ADDRESS,
-                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.JAVA_INT,
+                ValueLayout.JAVA_INT,
                 ValueLayout.JAVA_INT,
                 ValueLayout.JAVA_INT,
                 ValueLayout.ADDRESS,
@@ -225,23 +215,28 @@ final class Re2Shim {
     }
   }
 
-  static boolean fullMatch(MemorySegment handle, MemorySegment text, int textLen) {
-    try {
-      return (boolean) FULL_MATCH.invokeExact(handle, text, textLen);
-    } catch (Throwable t) {
-      throw new AssertionError("FFM call failed", t);
-    }
-  }
-
-  static boolean find(
+  static boolean match(
       MemorySegment handle,
       MemorySegment text,
       int textLen,
+      int regionStart,
+      int regionEnd,
       int startpos,
+      int anchor,
       MemorySegment matchesOut,
       int nmatches) {
     try {
-      return (boolean) FIND.invokeExact(handle, text, textLen, startpos, matchesOut, nmatches);
+      return (boolean)
+          MATCH.invokeExact(
+              handle,
+              text,
+              textLen,
+              regionStart,
+              regionEnd,
+              startpos,
+              anchor,
+              matchesOut,
+              nmatches);
     } catch (Throwable t) {
       throw new AssertionError("FFM call failed", t);
     }

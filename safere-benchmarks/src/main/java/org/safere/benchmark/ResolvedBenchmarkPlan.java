@@ -401,6 +401,13 @@ final class ResolvedBenchmarkPlan {
     if (!engine.flagSets().contains(flagSet)) {
       return new Exclusion("unsupportedOptions", "engine does not support flag set " + flagSet);
     }
+    if (engine.declaration().inputRepresentation()
+            == DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING_WITH_TIMED_UTF8_CONVERSION
+        && workload.lifecycle().matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED) {
+      return new Exclusion(
+          "unsupportedTimingBoundary",
+          "retaining the matcher moves String-to-UTF-8 conversion into setup");
+    }
     EnumSet<DeclarativeBenchmarkPlan.Feature> missing = workload.requirements();
     missing.removeAll(engine.declaration().features());
     // A cold, unflagged compile needs no engine-specific flag adapter. The native

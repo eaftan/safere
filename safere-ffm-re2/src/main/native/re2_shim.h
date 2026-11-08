@@ -39,16 +39,15 @@ const char* re2_error(const re2_pattern_t* p);
 // Returns the number of capturing groups in the pattern.
 int re2_num_capturing_groups(const re2_pattern_t* p);
 
-// Full match: returns true if the entire text matches the pattern.
-bool re2_full_match(const re2_pattern_t* p, const char* text, int text_len);
-
-// Find the next match starting at startpos. On success, writes match byte
-// offsets into matches_out as [start0, end0, start1, end1, ...].
-// nmatches is the number of groups to capture (0 = group 0 only, i.e. the
-// whole match). The matches_out array must have space for 2*(nmatches+1) ints.
-// Returns true if a match was found.
-bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
-              int startpos, int32_t* matches_out, int nmatches);
+// Match within an opaque region, whose boundaries are anchor boundaries.
+// region_start, region_end and startpos are absolute UTF-8 byte offsets.
+// anchor is 0 (unanchored), 1 (start), or 2 (both). Capture offsets are absolute
+// in text, laid out as [start0, end0, start1, end1, ...], with -1 for absent
+// groups. nmatches excludes group 0; matches_out needs 2*(nmatches+1) ints.
+// A single RE2::Match produces the boolean result and requested captures.
+bool re2_match(const re2_pattern_t* p, const char* text, int text_len,
+               int region_start, int region_end, int startpos, int anchor,
+               int32_t* matches_out, int nmatches);
 
 // Finds all matches in the text. Writes start/end offsets sequentially into
 // matches_out (length = 2 * max_matches).
