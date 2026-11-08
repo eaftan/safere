@@ -268,6 +268,8 @@ class UnicodeCharClassTest {
   }
 
   @Nested
+  @DisabledForCrosscheck(
+      "Checks SafeRE's bundled Unicode tables, which intentionally differ from older JDKs")
   class TableConsistencyTests {
 
     @Test
