@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.IntPredicate;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -270,6 +271,69 @@ class UnicodeJdkConsistencyTest {
     }
     assertThat(differences).as("%s table membership differences", name).isEmpty();
     assertThat(jdkHexDifferences).as("JDK Hex_Digit implementation changed").isEmpty();
+  }
+
+  // --- Table-derived classes that used to scan Character at runtime ---
+
+  @Test
+  @DisplayName("(?U) Blank, Graph, and Print match their JDK Character definitions")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void unicodePosixDerivedClassesMatchJdk() {
+    assumeTrue(
+        runtimeJdkUnicodeMatchesGeneratedTables(),
+        "Runtime JDK Unicode repertoire differs from the generator JDK");
+    Map<String, int[][]> groups = UnicodeTables.unicodePosixPropertyGroups();
+    assertTableMatches(
+        "Blank",
+        groups.get("Blank"),
+        cp -> cp == '\t' || Character.getType(cp) == Character.SPACE_SEPARATOR);
+    assertTableMatches("Graph", groups.get("Graph"), UnicodeJdkConsistencyTest::isJdkGraph);
+    assertTableMatches(
+        "Print",
+        groups.get("Print"),
+        cp -> isJdkGraph(cp) || Character.getType(cp) == Character.SPACE_SEPARATOR);
+  }
+
+  @Test
+  @DisplayName("Case-insensitive cased properties match the JDK's cased predicates")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void caseInsensitiveCasedPropertiesMatchJdk() {
+    assumeTrue(
+        runtimeJdkUnicodeMatchesGeneratedTables(),
+        "Runtime JDK Unicode repertoire differs from the generator JDK");
+    Matcher m = Pattern.compile("(?i)\\p{IsLowercase}").matcher("");
+    List<String> differences = new ArrayList<>();
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      boolean expected =
+          Character.isUpperCase(cp) || Character.isLowerCase(cp) || Character.isTitleCase(cp);
+      if (m.reset(Character.toString(cp)).matches() != expected && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    assertThat(differences).as("(?i)\\p{IsLowercase} membership differences").isEmpty();
+  }
+
+  private static boolean isJdkGraph(int cp) {
+    int type = Character.getType(cp);
+    return Character.isDefined(cp)
+        && type != Character.CONTROL
+        && type != Character.SURROGATE
+        && !Character.isSpaceChar(cp);
+  }
+
+  private static void assertTableMatches(String name, int[][] ranges, IntPredicate expected) {
+    List<String> differences = new ArrayList<>();
+    int rangeIndex = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      while (rangeIndex < ranges.length && ranges[rangeIndex][1] < cp) {
+        rangeIndex++;
+      }
+      boolean inTable = rangeIndex < ranges.length && ranges[rangeIndex][0] <= cp;
+      if (inTable != expected.test(cp) && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    assertThat(differences).as("%s table membership differences", name).isEmpty();
   }
 
   // --- Helpers ---

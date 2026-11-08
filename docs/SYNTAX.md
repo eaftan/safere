@@ -67,9 +67,10 @@ the match wins. Greedy and reluctant quantifiers preserve that path priority.
 SafeRE supports Unicode 17.0 for Unicode regex properties such as `\p{L}`,
 `\p{IsHan}`, `\p{script=Latin}`, and `\p{block=BasicLatin}`. General categories,
 scripts, blocks, and binary-property membership use tables bundled with SafeRE.
-Not all Unicode behavior is independent of the runtime JDK: Unicode POSIX
-`Blank`, `Graph`, and `Print` use runtime `Character` predicates, and Unicode
-case-equivalence closure incorporates runtime Java case mappings.
+Unicode POSIX classes (with `UNICODE_CHARACTER_CLASS`) and the case-insensitive
+forms of cased properties such as `(?i)\p{IsLowercase}` are built from the same
+bundled tables. Not all Unicode behavior is independent of the runtime JDK:
+Unicode case-equivalence closure incorporates runtime Java case mappings.
 
 The `java*` property family, such as `\p{javaLowerCase}` and
 `\p{javaJavaIdentifierStart}`, continues to follow the running JDK's

@@ -241,23 +241,16 @@ final class CharClassExpander {
     return name.toUpperCase(Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
   }
 
+  /**
+   * The case-insensitive closure of the cased binary properties: every code point that is
+   * uppercase, lowercase, or titlecase, matching {@code Character.isUpperCase}, {@code
+   * isLowerCase}, and {@code isTitleCase} in the pinned Unicode data.
+   */
   private static final class JavaCasedPropertyClosureHolder {
-    static final int[][] TABLE = buildTable();
-
-    private static int[][] buildTable() {
-      CharClassBuilder ccb = new CharClassBuilder();
-      for (int cp = 0; cp <= Utils.MAX_RUNE; cp++) {
-        if (Character.isUpperCase(cp) || Character.isLowerCase(cp) || Character.isTitleCase(cp)) {
-          ccb.addRune(cp);
-        }
-      }
-      CharClass cc = ccb.build();
-      int[][] table = new int[cc.numRanges()][2];
-      for (int i = 0; i < cc.numRanges(); i++) {
-        table[i][0] = cc.lo(i);
-        table[i][1] = cc.hi(i);
-      }
-      return table;
-    }
+    static final int[][] TABLE =
+        UnicodeTables.mergeRangeTables(
+            UnicodeProperties.lookupBinaryProperty("Uppercase"),
+            UnicodeProperties.lookupBinaryProperty("Lowercase"),
+            UnicodeProperties.lookupBinaryProperty("Titlecase"));
   }
 }
