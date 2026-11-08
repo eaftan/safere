@@ -12,10 +12,8 @@ trials instead of repairing results or adding searches to imitate another engine
 operation, with unanchored, start-anchored, and fully anchored modes respectively.
 Captures come from that same operation. A successful operation advances the next
 `find()` to its end; an empty match advances by one Unicode code point. Repeated
-`find()` calls after a failed search remain exhausted. A failed `lookingAt()` or
-`matches()` also exhausts the next `find()`; for example, `a` on `ba` returns false
-from both `lookingAt()` and the following `find()`. This is wrapper state, not RE2
-match selection. Call `reset()` or set a region to start searching again.
+`find()` calls after a failed `find()` remain exhausted. A failed `lookingAt()` or
+`matches()` discards the current match without changing the next `find()` position.
 `lookingAt()` and `matches()` always restart at the region beginning. Empty-match
 progression intentionally does not emulate Java's individual surrogate code units.
 

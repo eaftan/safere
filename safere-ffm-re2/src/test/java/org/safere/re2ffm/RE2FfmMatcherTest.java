@@ -107,6 +107,70 @@ class RE2FfmMatcherTest {
     assertThat(actual.find()).isFalse();
   }
 
+  private enum History {
+    NONE,
+    LOOKING_AT,
+    FIND
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "ba, 0, 2, NONE, false",
+    "ba, 0, 2, NONE, true",
+    "aa, 0, 2, LOOKING_AT, true",
+    "baba, 0, 4, FIND, false",
+    "baba, 0, 4, FIND, true",
+    "xbaaby, 1, 5, FIND, false",
+    "xbaaby, 1, 5, FIND, true",
+    "é😀a😀a世, 1, 7, FIND, false",
+    "é😀a😀a世, 1, 7, FIND, true"
+  })
+  void failedAnchoredChecksPreserveFindContinuation(
+      String input, int start, int end, History history, boolean fullMatch) {
+    var actual = RE2FfmPattern.compile("(a)").matcher(input).region(start, end);
+    var expected = java.util.regex.Pattern.compile("(a)").matcher(input).region(start, end);
+    switch (history) {
+      case NONE -> {}
+      case LOOKING_AT -> assertThat(actual.lookingAt()).isEqualTo(expected.lookingAt()).isTrue();
+      case FIND -> assertThat(actual.find()).isEqualTo(expected.find()).isTrue();
+    }
+    assertThat(fullMatch ? expected.matches() : expected.lookingAt()).isFalse();
+    assertThat(fullMatch ? actual.matches() : actual.lookingAt()).isFalse();
+    assertThatThrownBy(actual::group).isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(actual::start).isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(actual::end).isInstanceOf(IllegalStateException.class);
+    assertThat(actual.find()).isEqualTo(expected.find()).isTrue();
+    assertThat(actual.group(1)).isEqualTo(expected.group(1));
+    assertThat(actual.start(1)).isEqualTo(expected.start(1));
+    assertThat(actual.end(1)).isEqualTo(expected.end(1));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"b", "é", "😀"})
+  void failedFullMatchPreservesEmptyPrefixCodePointAdvance(String prefix) {
+    var actual = RE2FfmPattern.compile("(a*)").matcher(prefix + "a");
+    assertThat(actual.lookingAt()).isTrue();
+    assertThat(actual.group(1)).isEmpty();
+    assertThat(actual.matches()).isFalse();
+    assertThatThrownBy(actual::group).isInstanceOf(IllegalStateException.class);
+    assertThat(actual.find()).isTrue();
+    assertThat(actual.group(1)).isEqualTo("a");
+    assertThat(actual.start(1)).isEqualTo(prefix.length());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void failedAnchoredChecksDoNotReopenAnExhaustedFind(boolean fullMatch) {
+    var actual = RE2FfmPattern.compile("a").matcher("ba");
+    assertThat(actual.find()).isTrue();
+    assertThat(actual.find()).isFalse();
+    assertThat(fullMatch ? actual.matches() : actual.lookingAt()).isFalse();
+    assertThat(actual.find()).isFalse();
+    assertThat(actual.find()).isFalse();
+    actual.reset();
+    assertThat(actual.find()).isTrue();
+  }
+
   @Test
   void emptyRegionsAndEmptyCapturesRemainParticipating() {
     for (String input : List.of("", "ab")) {

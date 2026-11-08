@@ -145,7 +145,8 @@ public final class RE2FfmMatcher {
    * <p>Successful match operations advance the next search to the match end. Empty matches advance
    * by one Unicode code point, retaining RE2's UTF-8 boundary semantics rather than Java's UTF-16
    * empty-match progression. Repeated {@code find()} calls after a failed search remain exhausted.
-   * {@link #lookingAt()} and {@link #matches()} always restart at the region beginning.
+   * Failed {@link #lookingAt()} and {@link #matches()} calls discard the current match without
+   * changing the next search position. Both operations always restart at the region beginning.
    *
    * @return true if a match was found
    */
@@ -179,7 +180,7 @@ public final class RE2FfmMatcher {
             matchByteOffsets[0] == matchByteOffsets[1]
                 ? nextCodePointByteOffset(matchByteOffsets[1])
                 : matchByteOffsets[1];
-      } else {
+      } else if (anchor == UNANCHORED) {
         searchBytePos = regionEndByte + 1;
       }
     }
