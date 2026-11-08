@@ -339,7 +339,11 @@ public final class Pattern implements Serializable {
                 && (rejectPrefilter == null
                     || rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
             ? LiteralAlternation.compile(
-                ast, rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
+                ast,
+                rejectPrefilter instanceof RejectPrefilter.DisjointLiterals,
+                utf8StartAccelerator instanceof Utf8StartAccelerator.CharClass charClass
+                    ? charClass
+                    : null)
             : null;
     // Eagerly prepare the artifacts that find() and group() may need, to avoid latency spikes on
     // first use. Artifacts that only specific operations can use are built on first use instead.
@@ -652,6 +656,12 @@ public final class Pattern implements Serializable {
         && matchDescriptor.keywordAlternation() != null) {
       return matchDescriptor.keywordAlternation().find(scanner, 0) >= 0;
     }
+    if (literalAlternation != null && enginePathOptions.literalFastPaths()) {
+      long match = literalAlternation.find(scanner, 0);
+      if (match != LiteralAlternation.FALLBACK) {
+        return match != LiteralAlternation.NO_MATCH;
+      }
+    }
     if (prog.anchorStart()) {
       if (anchoredPrefixUtf8 != null) {
         if (!scanner.startsWith(anchoredPrefixUtf8, 0)) {
@@ -738,6 +748,13 @@ public final class Pattern implements Serializable {
       boolean matched = matchDescriptor.keywordAlternation().find(scanner, 0) >= 0;
       diagnostics.boundary(MatchStrategy.KEYWORD);
       return matched;
+    }
+    if (literalAlternation != null && enginePathOptions.literalFastPaths()) {
+      long match = literalAlternation.find(scanner, 0);
+      if (match != LiteralAlternation.FALLBACK) {
+        diagnostics.boundary(MatchStrategy.LITERAL_ALTERNATION);
+        return match != LiteralAlternation.NO_MATCH;
+      }
     }
     if (prog.anchorStart()) {
       if (anchoredPrefixUtf8 != null) {

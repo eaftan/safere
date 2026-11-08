@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Tag;
@@ -72,8 +73,35 @@ class LiteralAlternationWorkTest {
     }
   }
 
+  @Test
+  void utf8SearchesOnDenseFirstBytesStayLinearAndLocal() {
+    // "ab " starts two of the literals often enough for the UTF-8 literal search to run.
+    for (String regex :
+        new String[] {"apple|banana|cherry", "blossom|sparkling|gardens", "ab|cherry|abc"}) {
+      Pattern pattern = Pattern.compile(regex);
+      String filler = regex.startsWith("ab|") ? "aa bb " : "ab bc ";
+      long shorter = utf8Work(pattern, filler.repeat(5_000), false);
+      long longer = utf8Work(pattern, filler.repeat(20_000), false);
+      assertThat(shorter).isPositive();
+      assertThat(longer).as(regex).isLessThanOrEqualTo(shorter * 6);
+      String literal = regex.substring(regex.lastIndexOf('|') + 1);
+      for (int offset : new int[] {0, 1_000, 4_000}) {
+        String prefix = filler.repeat(offset) + literal;
+        long early = utf8Work(pattern, prefix + filler.repeat(Math.max(8_000, offset * 2)), true);
+        long late = utf8Work(pattern, prefix + filler.repeat(200_000), true);
+        assertThat(late).as("%s at %s", regex, offset).isLessThanOrEqualTo(early * 2);
+      }
+    }
+  }
+
   private static long work(Pattern pattern, String text) {
     return WorkCounter.countForTesting(() -> assertThat(pattern.matcher(text).find()).isTrue());
+  }
+
+  private static long utf8Work(Pattern pattern, String text, boolean expected) {
+    Utf8Input input = Utf8Input.validated(text.getBytes(UTF_8));
+    return WorkCounter.countForTesting(
+        () -> assertThat(pattern.matcher(input).find()).isEqualTo(expected));
   }
 
   private static long allWork(Pattern pattern, String text) {

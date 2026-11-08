@@ -5215,6 +5215,8 @@ public final class Matcher implements MatchResult {
         result = alternation.find(matcher.text, matcher.searchFrom);
       } else if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
         result = alternation.find(regionScanner, matcher.searchFrom);
+      } else if (matcher.textScanner instanceof Utf8InputScanner utf8Scanner) {
+        result = alternation.find(utf8Scanner, matcher.searchFrom);
       } else {
         return fallback.find(matcher, regionActive);
       }
