@@ -678,7 +678,10 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
-    boolean rejectAfterStart = startPrecedesFindReject && length < MAX_LITERAL_START_FIRST_LENGTH;
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
         && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
@@ -775,7 +778,10 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
-    boolean rejectAfterStart = startPrecedesFindReject && length < MAX_LITERAL_START_FIRST_LENGTH;
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
         && rejectsWithDiagnostics(findRejectPrefilter, scanner, 0, diagnostics)) {
@@ -1312,7 +1318,10 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = findRejectPrefilter();
-    boolean rejectAfterStart = startPrecedesFindReject && length < MAX_LITERAL_START_FIRST_LENGTH;
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
         && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
