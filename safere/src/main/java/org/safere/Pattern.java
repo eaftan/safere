@@ -603,7 +603,23 @@ public final class Pattern implements Serializable {
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
       return findWithDiagnostics(scanner);
     }
-    return findWithoutDiagnostics(scanner);
+    return literalAlternation != null
+        ? findWithLiteralAlternation(scanner)
+        : findWithoutDiagnostics(scanner);
+  }
+
+  /**
+   * Answers {@link #find(Utf8Input)} with the literal-alternation search when it applies. Kept out
+   * of {@link #findWithoutDiagnostics}, whose compiled code is sensitive to its bytecode size.
+   */
+  private boolean findWithLiteralAlternation(Utf8InputScanner scanner) {
+    long match =
+        enginePathOptions.literalFastPaths()
+            ? literalAlternation.find(scanner, 0)
+            : LiteralAlternation.FALLBACK;
+    return match == LiteralAlternation.FALLBACK
+        ? findWithoutDiagnostics(scanner)
+        : match != LiteralAlternation.NO_MATCH;
   }
 
   /**
@@ -655,12 +671,6 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.keywordAlternationFastPath()
         && matchDescriptor.keywordAlternation() != null) {
       return matchDescriptor.keywordAlternation().find(scanner, 0) >= 0;
-    }
-    if (literalAlternation != null && enginePathOptions.literalFastPaths()) {
-      long match = literalAlternation.find(scanner, 0);
-      if (match != LiteralAlternation.FALLBACK) {
-        return match != LiteralAlternation.NO_MATCH;
-      }
     }
     if (prog.anchorStart()) {
       if (anchoredPrefixUtf8 != null) {
