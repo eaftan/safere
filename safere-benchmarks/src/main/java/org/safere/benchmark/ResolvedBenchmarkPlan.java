@@ -138,7 +138,9 @@ final class ResolvedBenchmarkPlan {
                       || variant == RegexEngineVariant.SAFERE_UTF8_VECTOR
                       || variant == RegexEngineVariant.JDK_STRING
                   ? allFlagSets()
-                  : Set.of("0")));
+                  : variant == RegexEngineVariant.RE2J_STRING
+                      ? RegexEngineVariant.re2jCompileFlagSets()
+                      : Set.of("0")));
     }
 
     result.add(
