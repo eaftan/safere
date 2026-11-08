@@ -159,6 +159,12 @@ sealed interface RejectPrefilter
     }
 
     @Override
+    @MaxBytecodeSize(
+        value = 35,
+        reason =
+            "C2 always inlines methods of at most MaxInlineSize (35) bytes. find() runs this"
+                + " before searching for patterns with a required literal. Keep it a dispatcher"
+                + " and put new work in the String or scanner overloads.")
     public boolean canReject(
         String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       if (!options.literalFastPaths()) {

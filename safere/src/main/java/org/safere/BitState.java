@@ -531,6 +531,12 @@ final class BitState {
    * <p>Kept tiny so C2 inlines the array-indexed fast exit across all call sites in {@link
    * #trySearch}.
    */
+  @MaxBytecodeSize(
+      value = 35,
+      reason =
+          "C2 always inlines methods of at most MaxInlineSize (35) bytes. trySearch calls this from"
+              + " many sites. At 149 bytes it inflated the hot loop, one of the causes of the 36%"
+              + " short-search regression in #1116. Move new work into shouldVisitTracked.")
   private boolean shouldVisit(int instId, int pos) {
     int kind = altKind[instId];
     return kind <= unvisitedKindLimit || shouldVisitTracked(kind, instId, pos);

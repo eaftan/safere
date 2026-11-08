@@ -47,6 +47,14 @@
       <version>3.27.7</version>
       <scope>test</scope>
     </dependency>
+    <!-- Selecting the crosscheck tests compiles all of safere's tests, including the ones that use
+         ASM. -->
+    <dependency>
+      <groupId>org.ow2.asm</groupId>
+      <artifactId>asm</artifactId>
+      <version>${asm.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
