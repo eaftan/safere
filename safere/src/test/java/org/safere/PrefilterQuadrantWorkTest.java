@@ -124,6 +124,9 @@ class PrefilterQuadrantWorkTest {
       long scanBound =
           (shape.startFirst && size < START_FIRST_LIMIT ? size : size * (1L + shape.startScanCost))
               + SLACK;
+      // A short input that has the start literal is scanned again for the required literal from
+      // the first start candidate, so an input with both literals and no match is read up to twice.
+      long bothBound = shape.startFirst && size < START_FIRST_LIMIT ? 2L * size + SLACK : scanBound;
       List<Case> cases =
           List.of(
               new Case("neither literal", filler(size), rejectBound),
@@ -133,7 +136,7 @@ class PrefilterQuadrantWorkTest {
                   filler(size - shape.required.length()) + shape.required,
                   scanBound),
               new Case(
-                  "both literals, no match", dense(size, shape.start, shape.required), scanBound),
+                  "both literals, no match", dense(size, shape.start, shape.required), bothBound),
               new Case(
                   "match at end", filler(size - shape.match.length()) + shape.match, scanBound),
               new Case(
