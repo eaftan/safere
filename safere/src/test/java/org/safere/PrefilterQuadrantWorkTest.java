@@ -17,42 +17,46 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-/// Checks the work of first-match searches for patterns with both a start literal and a required
-/// literal, on inputs where each literal is present or absent.
-///
-/// Such patterns can scan for either literal first. Scanning for the required literal first rejects
-/// inputs that lack it in one pass, but on an input that has it the start literal is scanned for
-/// afterwards, so a short input is read twice (#1115). Scanning for the start literal first avoids
-/// that, but is only safe when its scan is about as fast as the required literal's. Each ordering
-/// is best in some quadrant, so a change that helps the quadrant its author measured can double the
-/// work in another one. This test covers all four for each kind of start plan.
+/**
+ * Checks the work of first-match searches for patterns with both a start literal and a required
+ * literal, on inputs where each literal is present or absent.
+ *
+ * <p>Such patterns can scan for either literal first. Scanning for the required literal first
+ * rejects inputs that lack it in one pass, but on an input that has it the start literal is scanned
+ * for afterwards, so a short input is read twice (#1115). Scanning for the start literal first
+ * avoids that, but is only safe when its scan is about as fast as the required literal's. Each
+ * ordering is best in some quadrant, so a change that helps the quadrant its author measured can
+ * double the work in another one. This test covers all four for each kind of start plan.
+ */
 @DisabledForCrosscheck("Uses SafeRE's internal work instrumentation")
 @Tag("work-counter")
 class PrefilterQuadrantWorkTest {
 
-  /// Contains no character of any literal below that matters for these patterns.
+  /** Contains no character of any literal below that matters for these patterns. */
   private static final String FILLER = "a quick brown fox jumps past the lazy dog; ";
 
   private static final int[] SIZES = {64, 400, 16_384};
 
-  /// Inputs shorter than this may scan for a competitive start literal first.
+  /** Inputs shorter than this may scan for a competitive start literal first. */
   private static final int START_FIRST_LIMIT = Pattern.MAX_LITERAL_START_FIRST_LENGTH;
 
-  /// Allowance for verifying candidates and for the scans' fixed costs.
+  /** Allowance for verifying candidates and for the scans' fixed costs. */
   private static final int SLACK = 32;
 
-  /// Most work a search may do when the match starts at the beginning of the input.
+  /** Most work a search may do when the match starts at the beginning of the input. */
   private static final int EARLY_HIT_BOUND = 64;
 
-  /// A pattern with a start literal and a different required literal.
+  /** A pattern with a start literal and a different required literal. */
   enum Shape {
-    /// An exact start literal that is as selective as the required literal, as in #1115.
+    /** An exact start literal that is as selective as the required literal, as in #1115. */
     COMPETITIVE_START(
         "status=3\\d\\d took=(\\d+)ms", "status=3xx ", " took=", "status=301 took=12ms", true, 1),
-    /// A start literal anchored on a common character: the required literal is scanned first.
+    /** A start literal anchored on a common character: the required literal is scanned first. */
     WEAK_START("er\\d+<<!nav>>\\d+", "ner ", "<<!nav>>", "er12<<!nav>>3", false, 1),
-    /// A case-insensitive start literal, whose scan is slower than an exact one and does about
-    /// two units of work per char on a String: the required literal is scanned first.
+    /**
+     * A case-insensitive start literal, whose scan is slower than an exact one and does about two
+     * units of work per char on a String: the required literal is scanned first.
+     */
     CASE_FOLDED_START(
         "(?i:status=3\\d\\d) took=(\\d+)ms",
         "STATUS=3xx ",
@@ -63,19 +67,19 @@ class PrefilterQuadrantWorkTest {
 
     final String regex;
 
-    /// Text containing the start literal but not a match.
+    /** Text containing the start literal but not a match. */
     final String start;
 
-    /// The required literal, which the pattern uses as a reject prefilter.
+    /** The required literal, which the pattern uses as a reject prefilter. */
     final String required;
 
-    /// The shortest match.
+    /** The shortest match. */
     final String match;
 
-    /// Whether short inputs scan for the start literal first.
+    /** Whether short inputs scan for the start literal first. */
     final boolean startFirst;
 
-    /// An upper bound on the work per input unit of scanning for the start literal.
+    /** An upper bound on the work per input unit of scanning for the start literal. */
     final int startScanCost;
 
     Shape(
@@ -163,7 +167,10 @@ class PrefilterQuadrantWorkTest {
     return FILLER.repeat(size / FILLER.length() + 1).substring(0, size);
   }
 
-  /// Returns `size` chars of filler with `piece` at every repetition, ending with `tail`.
+  /**
+   * Returns {@code size} chars of filler with {@code piece} at every repetition, ending with {@code
+   * tail}.
+   */
   private static String dense(int size, String piece, String tail) {
     String body = (piece + FILLER).repeat(size / FILLER.length() + 1);
     return body.substring(0, size - tail.length()) + tail;

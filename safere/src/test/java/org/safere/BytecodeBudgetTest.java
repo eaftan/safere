@@ -27,18 +27,22 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-/// Checks every [MaxBytecodeSize] method in SafeRE's compiled classes against its bounds.
-///
-/// Inlining depends on bytecode size, so these methods can lose much of their callers' throughput
-/// to an edit that looks harmless in the source. Benchmarks catch that only if they exercise the
-/// affected caller; this catches the size change itself.
+/**
+ * Checks every {@link MaxBytecodeSize} method in SafeRE's compiled classes against its bounds.
+ *
+ * <p>Inlining depends on bytecode size, so these methods can lose much of their callers' throughput
+ * to an edit that looks harmless in the source. Benchmarks catch that only if they exercise the
+ * affected caller; this catches the size change itself.
+ */
 @DisabledForCrosscheck("Reads SafeRE's own class files")
 class BytecodeBudgetTest {
 
   private static final String ANNOTATION = Type.getDescriptor(MaxBytecodeSize.class);
 
-  /// Guards against the test passing because it found no annotations, for example because the
-  /// annotation's retention changed or the classes were read from the wrong place.
+  /**
+   * Guards against the test passing because it found no annotations, for example because the
+   * annotation's retention changed or the classes were read from the wrong place.
+   */
   private static final int MIN_ANNOTATED_METHODS = 3;
 
   private record Budget(String method, int max, int min, String reason, int codeLength) {}
@@ -68,7 +72,7 @@ class BytecodeBudgetTest {
     void accept(byte[] bytes) throws IOException;
   }
 
-  /// Visits the class files of package `org.safere`, from a directory or a jar.
+  /** Visits the class files of package {@code org.safere}, from a directory or a jar. */
   private static void forEachClassFile(ClassFileConsumer consumer)
       throws IOException, URISyntaxException {
     Path location =
@@ -93,7 +97,7 @@ class BytecodeBudgetTest {
     }
   }
 
-  /// Returns the budgets of the annotated methods in one class.
+  /** Returns the budgets of the annotated methods in one class. */
   private static List<Budget> budgets(ClassReader reader) {
     Map<String, Integer> codeLengths = codeLengths(reader);
     List<Budget> budgets = new ArrayList<>();
@@ -138,10 +142,12 @@ class BytecodeBudgetTest {
     return budgets;
   }
 
-  /// Returns the length of each method's `Code` attribute, keyed by name and descriptor.
-  ///
-  /// ASM's visitor API doesn't report this length, so this walks the `methods` table of the class
-  /// file (JVMS 4.1, 4.6, 4.7.3) with ASM's constant-pool-aware readers.
+  /**
+   * Returns the length of each method's {@code Code} attribute, keyed by name and descriptor.
+   *
+   * <p>ASM's visitor API doesn't report this length, so this walks the {@code methods} table of the
+   * class file (JVMS 4.1, 4.6, 4.7.3) with ASM's constant-pool-aware readers.
+   */
   private static Map<String, Integer> codeLengths(ClassReader reader) {
     char[] buffer = new char[reader.getMaxStringLength()];
     // Skip access_flags, this_class, super_class and the interfaces.
@@ -170,7 +176,7 @@ class BytecodeBudgetTest {
     return codeLengths;
   }
 
-  /// Skips an `attributes_count` and the attributes that follow it.
+  /** Skips an {@code attributes_count} and the attributes that follow it. */
   private static int skipAttributes(ClassReader reader, int offset) {
     int attributes = reader.readUnsignedShort(offset);
     offset += 2;
