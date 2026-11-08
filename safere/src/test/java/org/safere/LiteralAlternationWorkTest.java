@@ -7,6 +7,7 @@ package org.safere;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,9 @@ class LiteralAlternationWorkTest {
 
   @Test
   void utf8SearchesOnDenseFirstBytesStayLinearAndLocal() {
+    assumeFalse(
+        VectorScanProviders.vectorProviderAvailable(),
+        "The UTF-8 literal search is off when the vector Teddy scan is available");
     // "ab " starts two of the literals often enough for the UTF-8 literal search to run.
     for (String regex :
         new String[] {"apple|banana|cherry", "blossom|sparkling|gardens", "ab|cherry|abc"}) {
