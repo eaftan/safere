@@ -234,6 +234,9 @@ class JavaCharacterClassesTest {
 
   @ParameterizedTest(name = "\\p'{'{0}'}' = {1}")
   @MethodSource("javaClassesAndEquivalentProperties")
+  @DisabledForCrosscheck(
+      "SafeRE's java* classes use its bundled Unicode tables, which intentionally differ from"
+          + " older JDKs")
   void javaClassesAgreeWithEquivalentUnicodeProperties(String javaClass, String equivalent) {
     // Both sides use the same Unicode data, so they agree on every JDK.
     Matcher java = Pattern.compile("\\p{" + javaClass + "}").matcher("");
