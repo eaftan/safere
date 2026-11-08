@@ -88,6 +88,7 @@ sealed interface Utf8StartAccelerator {
                 le.minRepetition(),
                 le.maxRepetition(),
                 le.hasLeadingAssertions(),
+                MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()),
                 inner)
             : null;
       }
@@ -725,6 +726,7 @@ sealed interface Utf8StartAccelerator {
       int minRepetition,
       int maxRepetition,
       boolean hasLeadingAssertions,
+      boolean wideLeadingClass,
       Utf8StartAccelerator inner)
       implements Utf8StartAccelerator {
 
@@ -733,8 +735,15 @@ sealed interface Utf8StartAccelerator {
       return AcceleratorPolicy.LEADING_EXPANSION.withStrategy(inner.policy().strategy());
     }
 
+    /**
+     * Returns whether an unanchored DFA probe from the inner candidate can reject every expanded
+     * start at once. Not for a wide leading class such as non-DOTALL {@code .}: its expanded start
+     * is the line start, and when the probe succeeds on a later line the search scans that gap a
+     * second time from the expanded start. Searching from the expanded start directly is never
+     * worse than the probe there.
+     */
     boolean canVerifyAtInner() {
-      return minRepetition == 0 && !hasLeadingAssertions;
+      return minRepetition == 0 && !hasLeadingAssertions && !wideLeadingClass;
     }
 
     int findInnerCandidate(Utf8InputScanner scanner, int searchPos) {
@@ -769,10 +778,20 @@ sealed interface Utf8StartAccelerator {
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
       int searchPos = Math.max(0, fromIndex);
       int textLen = scanner.length();
+      // A wide class's walk covers the rest of the line, so a skip shorter than
+      // MIN_WIDE_LEADING_SKIP saves less than the literal scan and the walk cost. Such searches
+      // start at the search start, as they would with no start plan.
+      if (wideLeadingClass && textLen - searchPos < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
+        return searchPos;
+      }
       while (searchPos < textLen) {
         int innerMatch = findInnerCandidate(scanner, searchPos);
         if (innerMatch < 0) {
           return -1;
+        }
+        if (wideLeadingClass
+            && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
+          return Math.max(0, fromIndex);
         }
         int start = innerMatch;
         int count = 0;

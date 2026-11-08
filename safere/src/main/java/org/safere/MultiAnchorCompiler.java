@@ -28,6 +28,17 @@ final class MultiAnchorCompiler {
   // eligible folded prefix, catching growth beyond this bound.
   private static final int MAX_UNICODE_FOLD_CLASS_RUNES = 4;
 
+  // The most code points a leading class may exclude and still drive a leading expansion when it
+  // has more than MAX_LEADING_CLASS_RUNES members. Non-DOTALL `.` excludes five line terminators.
+  private static final int MAX_LEADING_CLASS_COMPLEMENT = 8;
+
+  // The shortest skip, in input units, for which a leading expansion over a wide class finds its
+  // start candidate. Its backward walk covers the rest of the line, so on shorter skips the
+  // literal scan and the walk cost more than letting the engine scan from the search start.
+  static final int MIN_WIDE_LEADING_SKIP = 256;
+
+  private static final int MAX_LEADING_CLASS_RUNES = 150_000;
+
   record PrefixResult(String prefix, boolean foldCase) {
     static final PrefixResult NO_PREFIX = new PrefixResult(null, false);
   }
@@ -393,7 +404,8 @@ final class MultiAnchorCompiler {
       case StartPlan.Literal lit -> lit.prefix();
       case StartPlan.FixedOffset fo -> fo.fol().literal();
       case StartPlan.FixedOffsetClass unusedFc -> null;
-      case StartPlan.LeadingExpansion le -> drivingLiteral(le.innerPlan());
+      case StartPlan.LeadingExpansion le ->
+          isWideLeadingClass(le.leadingClass()) ? null : drivingLiteral(le.innerPlan());
       case StartPlan.CharClass unusedCc -> null;
       case StartPlan.MultiLiteral unusedMl -> null;
       case StartPlan.LineAnchor unusedLa -> null;
@@ -448,6 +460,19 @@ final class MultiAnchorCompiler {
       return inner.scanInfo();
     }
     return null;
+  }
+
+  /**
+   * Returns whether a leading class has more members than a backward walk could usually afford to
+   * cross. Such a class drives a leading expansion only when it excludes very few code points; see
+   * {@link #extractStartLeadingExpansion}.
+   */
+  private static boolean isWideLeadingClass(long numRunes) {
+    return numRunes > MAX_LEADING_CLASS_RUNES;
+  }
+
+  static boolean isWideLeadingClass(CharClassScanInfo leadingClass) {
+    return isWideLeadingClass(runeCount(leadingClass.ranges()));
   }
 
   /** Returns whether the start plan scans for a literal at the match start. */
@@ -1395,7 +1420,14 @@ final class MultiAnchorCompiler {
         numRunes += (ranges[i + 1] - ranges[i] + 1);
       }
     }
-    if (numRunes > 150_000) {
+    // A large class usually means the backward walk would cross most of the input. The exception
+    // is a class that excludes only a few code points, such as non-DOTALL `.` (the line
+    // terminators) or `[^;]`: there the walk stops at the nearest excluded code point, so for
+    // `.*error` the candidate is the start of the line holding the inner hit. Such a class has few
+    // ranges, so the walk's membership test stays cheap. DOTALL `.` (ANY_CHAR) is still excluded
+    // above: its walk never stops before the search start.
+    boolean wideLeadingClass = isWideLeadingClass(numRunes);
+    if (wideLeadingClass && Utils.MAX_RUNE + 1 - numRunes > MAX_LEADING_CLASS_COMPLEMENT) {
       return null;
     }
 
@@ -1409,6 +1441,14 @@ final class MultiAnchorCompiler {
         // wrapper that can revisit variable-width leading context.
         || inner instanceof MultiAnchorDescriptor.StartPlan.FixedOffsetClass
         || inner instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion) {
+      return null;
+    }
+    // Before a wide class, only an exact literal search finds inner candidates sparse enough to
+    // pay for walking back to the line start. Class and multi-literal scans may report every
+    // position, or decline and report the search start.
+    if (wideLeadingClass
+        && !(inner instanceof MultiAnchorDescriptor.StartPlan.Literal
+            || inner instanceof MultiAnchorDescriptor.StartPlan.FixedOffset)) {
       return null;
     }
     // An optional leading character in front of a class too common to scan for, such as `-?\d+`,

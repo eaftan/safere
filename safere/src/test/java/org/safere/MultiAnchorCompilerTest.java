@@ -881,6 +881,34 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void leadingClassExcludingFewCodePointsGetsLeadingExpansion() {
+    // Non-DOTALL `.` excludes the five line terminators (only `\n` with UNIX_LINES), and `[^;]`
+    // excludes one character. Walking back over such a class stops at the nearest excluded code
+    // point, so the inner literal can drive the start plan.
+    for (String regex :
+        List.of(
+            ".*error: \\w+",
+            ".+error: \\w+",
+            "[^\\n]*error: \\w+",
+            "(?d).*error: \\w+",
+            "(.*)(error): (\\w+)",
+            ".*?error",
+            "[^;]*error")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.startPlan()).as(regex).isInstanceOf(StartPlan.LeadingExpansion.class);
+      StartPlan.LeadingExpansion le = (StartPlan.LeadingExpansion) pattern.startPlan();
+      assertThat(le.innerPlan()).as(regex).isInstanceOf(StartPlan.Literal.class);
+    }
+    // DOTALL `.` never stops before the search start, and a class excluding more than a handful
+    // of code points is still too large to walk.
+    for (String regex : List.of("(?s).*error", "[^\\n\\r\\u0085\\u2028\\u2029abcd]*error")) {
+      assertThat(Pattern.compile(regex).startPlan())
+          .as(regex)
+          .isNotInstanceOf(StartPlan.LeadingExpansion.class);
+    }
+  }
+
+  @Test
   void surrogateLiteralsDoNotProduceStringFastPaths() {
     for (String regex :
         List.of(

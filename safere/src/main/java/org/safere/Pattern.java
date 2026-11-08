@@ -177,6 +177,7 @@ public final class Pattern implements Serializable {
   private final transient RejectPrefilter utf8FindRejectPrefilter;
 
   private final boolean startPrecedesFindReject;
+  private final boolean dfaStartAcceleration;
 
   /**
    * OnePass analysis results, computed during construction when eligible analysis can support
@@ -313,6 +314,13 @@ public final class Pattern implements Serializable {
         Utf8StartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
     this.stringStartAccelerator =
         StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+    // A leading expansion over a wide class such as non-DOTALL `.` only picks the first start of
+    // each search. Inside the DFA loop it would be asked again at nearly every position of a line
+    // holding an inner hit, walking back to that position each time.
+    this.dfaStartAcceleration =
+        !(this.multiAnchor.startPlan()
+                instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion le
+            && MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()));
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
     this.innerLiteralSearch =
@@ -1648,6 +1656,10 @@ public final class Pattern implements Serializable {
     return p;
   }
 
+  private boolean dfaStartAcceleration() {
+    return enginePathOptions.startAcceleration() && dfaStartAcceleration;
+  }
+
   /** Returns whether DFA paths implement every instruction in {@link #flatDfaProg()}. */
   boolean forwardDfaSupported() {
     return forwardDfaSupported;
@@ -1670,8 +1682,8 @@ public final class Pattern implements Serializable {
               MAX_DFA_STATES,
               forwardDfaSetup(),
               false,
-              enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
+              dfaStartAcceleration() ? utf8StartAccelerator : null,
+              dfaStartAcceleration() ? stringStartAccelerator : null,
               innerLiteralSearch);
       cache.forwardFirstMatchDfa = dfa;
     }
@@ -1691,8 +1703,8 @@ public final class Pattern implements Serializable {
               MAX_DFA_STATES,
               forwardDfaSetup(),
               true,
-              enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
+              dfaStartAcceleration() ? utf8StartAccelerator : null,
+              dfaStartAcceleration() ? stringStartAccelerator : null);
       cache.forwardLongestMatchDfa = dfa;
     }
     return dfa;
