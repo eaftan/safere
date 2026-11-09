@@ -91,8 +91,9 @@ class LiteralAlternationUtf8Test {
       Pattern pattern = Pattern.compile(regex);
       for (int boundary : new int[] {1_024, 3_072, 4_096, 5_120, 7_168, 15_360, 31_744}) {
         for (int delta = -14; delta <= 2; delta++) {
-          // Dense prefix so the UTF-8 search runs, followed by filler with no first bytes.
-          String prefix = "abc ".repeat(32);
+          // Dense prefix of first bytes that matches none of the patterns, so the UTF-8 search
+          // runs and the first find reaches the boundary; then filler with no first bytes.
+          String prefix = "a b c ".repeat(32);
           String text =
               prefix
                   + "é".repeat((boundary - prefix.length() + delta) / 2)
