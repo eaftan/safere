@@ -177,6 +177,62 @@ public final class Utf8Matcher {
   }
 
   /**
+   * Appends the whole input to {@code sink}, replacing every matching subsequence.
+   *
+   * <p>This method resets the matcher before searching, discarding any active region and prior
+   * append position. Existing sink contents are retained. If there are no matches, the original
+   * input is appended without parsing the replacement. Empty matches advance by a Unicode scalar.
+   * On successful return, there is no current match.
+   *
+   * <p>Output is written synchronously and cannot be rolled back. If a sink callback throws,
+   * replacement output may be partial and further append operations require a reset.
+   *
+   * @param sink synchronous destination for output ranges
+   * @param replacement UTF-8 replacement using SafeRE's String replacement syntax
+   * @throws NullPointerException if either argument is null
+   * @throws IllegalArgumentException if a match is found and the replacement is malformed
+   * @throws IndexOutOfBoundsException if a match is found and a numbered group reference is invalid
+   * @throws ConcurrentModificationException if a sink callback advances this matcher
+   */
+  public void replaceAll(Utf8Sink sink, Utf8Input replacement) {
+    replace(sink, replacement, true);
+  }
+
+  /**
+   * Appends the whole input to {@code sink}, replacing only the first matching subsequence.
+   *
+   * <p>This method resets the matcher before searching, discarding any active region and prior
+   * append position. Existing sink contents are retained. If there are no matches, the original
+   * input is appended without parsing the replacement. On successful return, the replaced match
+   * remains current if one was found, and a subsequent {@link #find()} searches for the next match.
+   *
+   * <p>Output is written synchronously and cannot be rolled back. If a sink callback throws,
+   * replacement output may be partial and further append operations require a reset.
+   *
+   * @param sink synchronous destination for output ranges
+   * @param replacement UTF-8 replacement using SafeRE's String replacement syntax
+   * @throws NullPointerException if either argument is null
+   * @throws IllegalArgumentException if a match is found and the replacement is malformed
+   * @throws IndexOutOfBoundsException if a match is found and a numbered group reference is invalid
+   * @throws ConcurrentModificationException if a sink callback advances this matcher
+   */
+  public void replaceFirst(Utf8Sink sink, Utf8Input replacement) {
+    replace(sink, replacement, false);
+  }
+
+  private void replace(Utf8Sink sink, Utf8Input replacement, boolean all) {
+    requireNonNull(sink, "sink");
+    requireNonNull(replacement, "replacement");
+    reset();
+    if (find()) {
+      do {
+        appendReplacement(sink, replacement);
+      } while (all && find());
+    }
+    appendTail(sink);
+  }
+
+  /**
    * Appends the unmatched prefix and expanded replacement for the current match.
    *
    * @param sink synchronous destination for output ranges

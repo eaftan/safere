@@ -179,6 +179,11 @@ operations additionally check a UTF-8 shadow when the input and operation can
 be represented faithfully. This is conditional coverage, not a promise that
 every API call runs through all representations.
 
+UTF-8 whole-input replacements compare output using scalar-aligned String
+searches. If a whole-input replacement throws, subsequent calls on that matcher
+delegate without String oracles, since a sink can leave partial output and match
+state that the String APIs cannot reproduce.
+
 ## Limitations
 
 - **Performance:** Compared operations run on multiple engines. This is

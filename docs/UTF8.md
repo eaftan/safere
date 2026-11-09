@@ -164,12 +164,25 @@ Utf8Input replacement = Utf8Input.validated("$2, $1".getBytes(UTF_8));
 Utf8Matcher matcher = Pattern.compile("(\\p{L}+) (\\p{L}+)").matcher(input);
 
 ByteArrayOutputStream output = new ByteArrayOutputStream();
-while (matcher.find()) {
-    matcher.appendReplacement(output::write, replacement);
-}
-matcher.appendTail(output::write);
+matcher.replaceAll(output::write, replacement);
 byte[] result = output.toByteArray();
 ```
+
+Use `replaceFirst(sink, replacement)` to replace only the first match. Both
+methods reset the matcher and process the whole retained input, discarding any
+active region and previous append position. They append to existing sink contents.
+When there are no matches, they send the original input ranges to the sink
+without copying them or parsing the replacement template. The sink controls
+whether to copy those ranges into its own storage.
+
+After `replaceAll`, there is no current match. After `replaceFirst`, the
+replaced match remains current if one was found, and `find()` continues with
+the next match. Empty matches advance by a Unicode scalar.
+
+For incremental replacement or replacement within a region, use
+`find()` / `appendReplacement(sink, replacement)` / `appendTail(sink)`.
+`appendTail` includes the input through the end of the retained view, including
+any suffix outside the region.
 
 Replacement templates use the same group-reference and escaping syntax as
 SafeRE's String replacement methods. `Utf8Sink.append` receives borrowed byte
@@ -177,13 +190,18 @@ ranges and must consume each range before returning; it must not retain or
 mutate the supplied storage. The sink also has a `ByteBuffer` convenience
 method for transferring bounded buffer ranges.
 
+Output is synchronous and cannot be rolled back after a sink failure. Further
+append operations require a reset after failure; another `replaceAll` or
+`replaceFirst` call resets automatically. Sink callbacks must not advance or
+reset the matcher, including by starting another replacement operation.
+
 ## Current Scope
 
 The UTF-8 API currently provides capture-free search, whole-input and prefix
 matching, repeated `find()`, matcher reset and regions, numbered capture
-bounds, and append-style replacement. It does not expose every operation from
-the String `Matcher` API: there is currently no UTF-8 split, stream, or direct
-group-value method.
+bounds, whole-input replacement, and append-style replacement. It does not
+expose every operation from the String `Matcher` API: there is currently no
+UTF-8 split, stream, or direct group-value method.
 
 Input storage is currently adapted from byte arrays. `Utf8Input` is a separate
 abstraction so additional storage adapters can be added without changing

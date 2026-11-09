@@ -21,6 +21,233 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8ReplacementTest {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementMatchesJdkOutputAndSubsequentSearch(boolean all) {
+    String[][] cases = {
+      {"(?<letter>é)(😀)?", "xé😀 éy", "${letter}-$2-$0"},
+      {"[0-9]+", "a12b34c", ""},
+      {"a", "aaa", "\\$0\\\\"},
+      {"^é", "éé", "前"},
+      {"é$", "éé", "後"},
+      {"(?m)^é", "é\né", "x"},
+      {".*mandatory-token.*", "no token here", "$"},
+      {"z", "", "x"}
+    };
+    for (String[] testCase : cases) {
+      String regex = testCase[0];
+      String source = testCase[1];
+      String replacement = testCase[2];
+      Utf8Matcher matcher = matcher(regex, source);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(source);
+      String expected = all ? jdk.replaceAll(replacement) : jdk.replaceFirst(replacement);
+      CollectingSink sink = new CollectingSink();
+
+      replace(matcher, sink, input(replacement), all);
+
+      assertThat(sink.toString()).as("/%s/ on %s, all=%s", regex, source, all).isEqualTo(expected);
+      if (all) {
+        assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+      }
+      boolean next = jdk.find();
+      assertThat(matcher.find()).isEqualTo(next);
+      if (next) {
+        assertThat(matcher.start())
+            .isEqualTo(source.substring(0, jdk.start()).getBytes(UTF_8).length);
+        assertThat(matcher.end()).isEqualTo(source.substring(0, jdk.end()).getBytes(UTF_8).length);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementResetsRegionAndAppendPositionAndRetainsSinkContents(boolean all) {
+    Utf8Matcher matcher = matcher("é", "é😀é").region(6, 8);
+    CollectingSink sink = new CollectingSink();
+    assertThat(matcher.find()).isTrue();
+    matcher.appendReplacement(sink, input("old"));
+
+    replace(matcher, sink, input("new"), all);
+
+    assertThat(sink.toString()).isEqualTo(all ? "é😀oldnew😀new" : "é😀oldnew😀é");
+    assertThat(matcher.regionStart()).isZero();
+    assertThat(matcher.regionEnd()).isEqualTo(8);
+    if (!all) {
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(2);
+    }
+    CollectingSink tail = new CollectingSink();
+    matcher.appendTail(tail);
+    assertThat(tail.toString()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementMakesScalarProgressForEmptyMatches(boolean all) {
+    CollectingSink sink = new CollectingSink();
+    Utf8Matcher matcher = matcher("", "é😀");
+
+    replace(matcher, sink, input("x"), all);
+
+    assertThat(sink.toString()).isEqualTo(all ? "xéx😀x" : "xé😀");
+    if (!all) {
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(2);
+    }
+    CollectingSink empty = new CollectingSink();
+    replace(matcher("", ""), empty, input("x"), all);
+    assertThat(empty.toString()).isEqualTo("x");
+  }
+
+  @Test
+  @DisabledForCrosscheck(
+      "SafeRE intentionally invalidates match state after terminal empty matches")
+  void replaceAllInvalidatesTerminalEmptyMatch() {
+    for (String source : List.of("", "é😀")) {
+      Utf8Matcher matcher = matcher("", source);
+
+      matcher.replaceAll(new CollectingSink(), input("x"));
+
+      assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(matcher::end).isInstanceOf(IllegalStateException.class);
+      assertThat(matcher.find()).isFalse();
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementUsesSubjectAndReplacementWindows(boolean all) {
+    byte[] source = "beforeé😀éafter".getBytes(UTF_8);
+    byte[] replacement = "before[$0]後after".getBytes(UTF_8);
+    Utf8Matcher matcher = Pattern.compile("é").matcher(Utf8Input.validated(source, 6, 8));
+    CollectingSink sink = new CollectingSink();
+
+    replace(matcher, sink, Utf8Input.validated(replacement, 6, 7), all);
+
+    assertThat(sink.toString()).isEqualTo(all ? "[é]後😀[é]後" : "[é]後😀é");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementWithoutMatchesBorrowsOriginalRangeAndSkipsInvalidTemplate(boolean all) {
+    byte[] source = "beforeé😀after".getBytes(UTF_8);
+    Utf8Matcher matcher = Pattern.compile("z").matcher(Utf8Input.validated(source, 6, 6));
+    List<Range> ranges = new ArrayList<>();
+
+    replace(
+        matcher,
+        (bytes, offset, length) -> ranges.add(new Range(bytes, offset, length)),
+        input("${missing}"),
+        all);
+
+    assertThat(ranges)
+        .singleElement()
+        .satisfies(range -> assertThat(range.bytes()).isSameAs(source));
+    assertThat(ranges).extracting(Range::offset, Range::length).containsExactly(tuple(6, 6));
+    assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementRejectsInvalidTemplateBeforeWritingAndCanBeRetried(boolean all) {
+    Utf8Matcher matcher = matcher("a", "xaxa");
+    CollectingSink sink = new CollectingSink();
+
+    assertThatThrownBy(() -> replace(matcher, sink, input("${missing}"), all))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(sink.toString()).isEmpty();
+    assertThatThrownBy(() -> matcher.appendTail(sink)).isInstanceOf(IllegalStateException.class);
+
+    replace(matcher, sink, input("b"), all);
+
+    assertThat(sink.toString()).isEqualTo(all ? "xbxb" : "xbxa");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementPreservesPartialOutputOnSinkFailure(boolean all) {
+    Utf8Matcher matcher = matcher("a", "xaxa");
+    CollectingSink sink = new CollectingSink();
+
+    assertThatThrownBy(
+            () ->
+                replace(
+                    matcher,
+                    (bytes, offset, length) -> {
+                      sink.append(bytes, offset, length);
+                      throw new SinkFailure();
+                    },
+                    input("b"),
+                    all))
+        .isInstanceOf(SinkFailure.class);
+    assertThat(sink.toString()).isEqualTo("x");
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(2);
+    assertThatThrownBy(() -> matcher.appendTail(sink)).isInstanceOf(IllegalStateException.class);
+
+    CollectingSink retry = new CollectingSink();
+    replace(matcher, retry, input("b"), all);
+    assertThat(retry.toString()).isEqualTo(all ? "xbxb" : "xbxa");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementSinkCanObserveCurrentCaptureBounds(boolean all) {
+    Utf8Matcher matcher = matcher("(é)", "xéyéz");
+    CollectingSink sink = new CollectingSink();
+    List<Integer> captureStarts = new ArrayList<>();
+
+    replace(
+        matcher,
+        (bytes, offset, length) -> {
+          if (length == 1 && bytes[offset] == '[') {
+            captureStarts.add(matcher.start(1));
+          }
+          sink.append(bytes, offset, length);
+        },
+        input("[$1]"),
+        all);
+
+    assertThat(sink.toString()).isEqualTo(all ? "x[é]y[é]z" : "x[é]yéz");
+    assertThat(captureStarts).isEqualTo(all ? List.of(1, 4) : List.of(1));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementSinkCannotResetOrReplaceMatcher(boolean all) {
+    for (boolean hasMatch : new boolean[] {false, true}) {
+      Utf8Matcher matcher = matcher(hasMatch ? "a" : "z", "xaxa");
+      CollectingSink sink = new CollectingSink();
+      assertThatThrownBy(
+              () ->
+                  replace(
+                      matcher,
+                      (bytes, offset, length) -> replace(matcher, sink, input("nested"), all),
+                      input("b"),
+                      all))
+          .isInstanceOf(ConcurrentModificationException.class);
+      assertThat(sink.toString()).isEmpty();
+      assertThatThrownBy(() -> matcher.appendTail(sink)).isInstanceOf(IllegalStateException.class);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void wholeInputReplacementRejectsNullArgumentsWithoutResettingMatcher(boolean all) {
+    Utf8Matcher matcher = matcher("a", "aa");
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.find()).isTrue();
+
+    assertThatThrownBy(() -> replace(matcher, null, input("b"), all))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> replace(matcher, new CollectingSink(), null, all))
+        .isInstanceOf(NullPointerException.class);
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(2);
+  }
+
   @Test
   void numberedAndNamedGroupsAreExpandedWithoutDecodingTheSubject() {
     assertThat(replace("(?<letter>é)(😀)?", "xé😀 éy", "${letter}-$2-$0"))
@@ -253,6 +480,15 @@ class Utf8ReplacementTest {
 
     assertThat(sink.toString()).isEqualTo("αéz");
     assertThat(direct.position()).isEqualTo(originalPosition);
+  }
+
+  private static void replace(
+      Utf8Matcher matcher, Utf8Sink sink, Utf8Input replacement, boolean all) {
+    if (all) {
+      matcher.replaceAll(sink, replacement);
+    } else {
+      matcher.replaceFirst(sink, replacement);
+    }
   }
 
   private static String replace(String pattern, String source, String replacement) {
