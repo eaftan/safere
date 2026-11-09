@@ -10,11 +10,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Public searches must tolerate an unavailable standalone reject filter. */
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 @DisabledForCrosscheck("Exercises SafeRE-specific matcher-free UTF-8 and diagnostics APIs")
 class MatcherFreeFindTest {
   @AfterEach
