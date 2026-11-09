@@ -696,7 +696,8 @@ public final class Pattern implements Serializable {
       if (searchStart < 0
           || (rejectAfterStart
               && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
-              && findRejectPrefilter.canReject(null, scanner, searchStart, enginePathOptions))) {
+              && findRejectPrefilter.canRejectTail(
+                  null, scanner, searchStart, enginePathOptions))) {
         return false;
       }
       startPositionPreselected = true;
@@ -796,7 +797,8 @@ public final class Pattern implements Serializable {
       if (searchStart < 0
           || (rejectAfterStart
               && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
-              && rejectsWithDiagnostics(findRejectPrefilter, scanner, searchStart, diagnostics))) {
+              && rejectsTailWithDiagnostics(
+                  findRejectPrefilter, scanner, searchStart, diagnostics))) {
         return false;
       }
       startPositionPreselected = true;
@@ -1336,7 +1338,7 @@ public final class Pattern implements Serializable {
       if (searchStart < 0
           || (rejectAfterStart
               && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
-              && findRejectPrefilter.canReject(input, null, searchStart, enginePathOptions))) {
+              && findRejectPrefilter.canRejectTail(input, null, searchStart, enginePathOptions))) {
         return false;
       }
       startPositionPreselected = true;
@@ -1984,8 +1986,21 @@ public final class Pattern implements Serializable {
       Utf8InputScanner scanner,
       int searchFrom,
       DiagnosticAccumulator diagnostics) {
-    MatchStrategy rejection =
-        filter.rejectionStrategy(null, scanner, searchFrom, enginePathOptions);
+    return reportRejection(
+        filter.rejectionStrategy(null, scanner, searchFrom, enginePathOptions), diagnostics);
+  }
+
+  private boolean rejectsTailWithDiagnostics(
+      RejectPrefilter filter,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      DiagnosticAccumulator diagnostics) {
+    return reportRejection(
+        filter.tailRejectionStrategy(null, scanner, searchFrom, enginePathOptions), diagnostics);
+  }
+
+  private static boolean reportRejection(
+      MatchStrategy rejection, DiagnosticAccumulator diagnostics) {
     if (rejection == null) {
       return false;
     }

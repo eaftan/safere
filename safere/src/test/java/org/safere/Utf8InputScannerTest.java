@@ -401,6 +401,26 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void tailLiteralSearchAgreesWithStringIndexOf() {
+    // Short and long texts, so the candidate filter runs below the skip loop's threshold too, and
+    // a tiny alphabet so the work budget can run out and fall back to the linear-time scan.
+    Random random = new Random(0x7A11L);
+    for (int trial = 0; trial < 20_000; trial++) {
+      int alphabet = 1 + random.nextInt(4);
+      String text =
+          randomFromAlphabet(random, random.nextInt(random.nextBoolean() ? 160 : 1200), alphabet);
+      String literal = randomFromAlphabet(random, 1 + random.nextInt(10), alphabet);
+      byte[] needle = literal.getBytes(UTF_8);
+      Utf8InputScanner scanner = new Utf8InputScanner(text.getBytes(UTF_8));
+      int start = random.nextInt(text.length() + 1);
+
+      assertThat(scanner.indexOfInTail(needle, literalFailure(needle), start))
+          .as("%s in %s from %s", literal, text, start)
+          .isEqualTo(text.indexOf(literal, start));
+    }
+  }
+
+  @Test
   void multiByteLiteralSearchHandlesMatchesAtTheVeryEndOfTheInput() {
     for (int length = 2; length <= 20; length++) {
       StringBuilder literal = new StringBuilder();

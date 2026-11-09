@@ -257,8 +257,10 @@ public final class Matcher implements MatchResult {
       InputScanner scanner,
       int searchFrom,
       EnginePathOptions options) {
-    MatchStrategy rejectionStrategy =
-        rejectPrefilter.rejectionStrategy(text, scanner, searchFrom, options);
+    return reportRejection(rejectPrefilter.rejectionStrategy(text, scanner, searchFrom, options));
+  }
+
+  private boolean reportRejection(MatchStrategy rejectionStrategy) {
     if (rejectionStrategy == null) {
       return false;
     }
@@ -325,6 +327,23 @@ public final class Matcher implements MatchResult {
         && (text != null
             || scanner instanceof Utf8InputScanner
             || scanner instanceof StringRegionInputScanner);
+  }
+
+  /**
+   * Like {@link #rejectFindFrom}, for the tail after a short input's first start candidate (see
+   * {@link RejectPrefilter#canRejectTail}).
+   */
+  private boolean rejectTailFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
+    RejectPrefilter rejectPrefilter =
+        scanner instanceof Utf8InputScanner
+            ? parentPattern.utf8FindRejectPrefilter()
+            : parentPattern.findRejectPrefilter();
+    if (rejectPrefilter == null) {
+      return false;
+    }
+    return diagnosticsAccumulator() == null
+        ? rejectPrefilter.canRejectTail(text, scanner, fromIndex, options)
+        : reportRejection(rejectPrefilter.tailRejectionStrategy(text, scanner, fromIndex, options));
   }
 
   private boolean rejectFindFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
@@ -1966,7 +1985,7 @@ public final class Matcher implements MatchResult {
     if (literalStartFirst
         && startPositionPreselected
         && scanner.length() - effectiveStart >= Pattern.MIN_REJECT_AFTER_START_REMAINING
-        && rejectFindFrom(scanner, effectiveStart, options)) {
+        && rejectTailFrom(scanner, effectiveStart, options)) {
       return applyFailedMatchResult();
     }
 
