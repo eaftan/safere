@@ -4620,6 +4620,14 @@
         "unit": "\u00e9",
         "length": "{size}"
       }
+    },
+    {
+      "id": "repeatedClassFind.words.1024",
+      "recipe": {
+        "kind": "repeat",
+        "value": "alpha beta123 gamma\n",
+        "count": 1024
+      }
     }
   ],
   "workloads": [
@@ -21015,6 +21023,50 @@
           "reason": "This control uses Java Unicode word-boundary flag semantics"
         }
       ]
+    },
+    {
+      "id": "RepeatedClassFindBenchmark.words.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\w+"
+      ],
+      "inputs": [
+        "repeatedClassFind.words.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3072
+      }
+    },
+    {
+      "id": "RepeatedClassFindBenchmark.lines.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        "[^\\n]*"
+      ],
+      "inputs": [
+        "repeatedClassFind.words.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 2049
+      }
     }
   ]
 }
