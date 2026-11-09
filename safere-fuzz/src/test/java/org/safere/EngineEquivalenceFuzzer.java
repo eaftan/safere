@@ -68,6 +68,7 @@ public final class EngineEquivalenceFuzzer {
                 "(" + boundaryAtom + ")(\\b{g})",
                 "\\b{g}(" + boundaryAtom + ")",
                 leadingRepeat + suffix + "\\b{g}",
+                leadingRepeat,
                 "(" + leadingRepeat + ")(" + suffix + ")(\\b{g})",
                 "(?:(" + boundaryAtom + ")\\b{g}|(a))"));
     StringBuilder input = new StringBuilder();

@@ -23,6 +23,50 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8ReplacementTest {
   @ParameterizedTest
+  @ValueSource(strings = {"literal", "前😀後", ""})
+  void validatedLiteralReplacementsBorrowTheirOriginalWindow(String text) {
+    byte[] bytes = ("before" + text + "after").getBytes(UTF_8);
+    Utf8Input replacement = Utf8Input.validated(bytes, 6, text.getBytes(UTF_8).length);
+    List<Range> ranges = new ArrayList<>();
+    Utf8Matcher matcher = matcher("a", "a");
+
+    matcher.replaceAll(
+        (storage, offset, length) -> ranges.add(new Range(storage, offset, length)), replacement);
+
+    assertThat(ranges).hasSize(3);
+    Range literal = ranges.get(1);
+    assertThat(literal.bytes()).isSameAs(bytes);
+    assertThat(literal.offset()).isEqualTo(6);
+    assertThat(literal.length()).isEqualTo(text.getBytes(UTF_8).length);
+  }
+
+  @Test
+  void trustedLiteralReplacementsPreserveUnicodeAndMalformedDecoding() {
+    for (byte[] bytes :
+        List.of(
+            "plain".getBytes(UTF_8), "前😀後".getBytes(UTF_8), new byte[] {'x', (byte) 0x80, 'y'})) {
+      CollectingSink sink = new CollectingSink();
+
+      matcher("a", "a").replaceAll(sink, Utf8Input.trusted(bytes));
+
+      assertThat(sink.toString()).isEqualTo(new String(bytes, UTF_8));
+    }
+  }
+
+  @Test
+  void literalTemplateCanFollowACaptureTemplateOnTheSameMatcher() {
+    Utf8Matcher matcher = matcher("(a)", "aa");
+    CollectingSink sink = new CollectingSink();
+    assertThat(matcher.find()).isTrue();
+    matcher.appendReplacement(sink, input("$1"));
+    assertThat(matcher.find()).isTrue();
+    matcher.appendReplacement(sink, input("X"));
+    matcher.appendTail(sink);
+
+    assertThat(sink.toString()).isEqualTo("aX");
+  }
+
+  @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void wholeInputReplacementMatchesJdkOutputAndSubsequentSearch(boolean all) {
     String[][] cases = {

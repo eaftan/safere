@@ -260,8 +260,7 @@ public final class Utf8Matcher {
       for (ReplacementSegment segment : template) {
         switch (segment) {
           case ReplacementSegment.Literal literal -> {
-            byte[] bytes = literal.bytes();
-            sink.append(bytes, 0, bytes.length);
+            sink.append(literal.bytes(), literal.offset(), literal.length());
             checkForConcurrentModification(expectedModCount);
           }
           case ReplacementSegment.GroupRef(var group) ->
@@ -353,7 +352,18 @@ public final class Utf8Matcher {
 
   private ReplacementSegment[] replacementTemplate(Utf8Input replacement) {
     if (replacement != cachedReplacement) {
-      String text = ((ArrayUtf8Input) replacement).decode();
+      ArrayUtf8Input replacementInput = (ArrayUtf8Input) replacement;
+      if (isPlainLiteralReplacement(replacementInput)) {
+        Utf8InputScanner scanner = replacementInput.scanner();
+        cachedTemplate =
+            new ReplacementSegment[] {
+              new ReplacementSegment.Literal(scanner.bytes(), scanner.offset(), scanner.length())
+            };
+        cachedTemplateNeedsCaptures = false;
+        cachedReplacement = replacement;
+        return cachedTemplate;
+      }
+      String text = replacementInput.decode();
       int groupCount = groupCount();
       Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount);
       ReplacementSegment[] compiled = new ReplacementSegment[parsed.length];
@@ -389,16 +399,47 @@ public final class Utf8Matcher {
     return cachedTemplate;
   }
 
+  private static boolean isPlainLiteralReplacement(ArrayUtf8Input replacement) {
+    Utf8InputScanner scanner = replacement.scanner();
+    byte[] bytes = scanner.bytes();
+    int end = scanner.offset() + scanner.length();
+    for (int index = scanner.offset(); index < end; index++) {
+      byte value = bytes[index];
+      // Keep malformed, trusted non-ASCII replacements on the decoding path so their existing
+      // replacement-character behavior is preserved. ASCII is valid without a validation pass.
+      if (value == '$' || value == '\\' || (value < 0 && !replacement.validated())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private sealed interface ReplacementSegment {
     final class Literal implements ReplacementSegment {
       private final byte[] bytes;
+      private final int offset;
+      private final int length;
 
       Literal(byte[] bytes) {
+        this(bytes, 0, bytes.length);
+      }
+
+      Literal(byte[] bytes, int offset, int length) {
         this.bytes = bytes;
+        this.offset = offset;
+        this.length = length;
       }
 
       byte[] bytes() {
         return bytes;
+      }
+
+      int offset() {
+        return offset;
+      }
+
+      int length() {
+        return length;
       }
     }
 
