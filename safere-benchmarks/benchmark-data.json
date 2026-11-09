@@ -1729,6 +1729,74 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.customProtocolLink.mixed.{size}",
+      "axes": {
+        "size": [
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) ",
+        "value": "[Click here](customProtocol://<doc_1>) ",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.customProtocolLink.unicodeMixed.{size}",
+      "axes": {
+        "size": [
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) ",
+        "value": "[α😀](customProtocol://<doc_1>) ",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.customProtocolLink.shortThenLong.{size}",
+      "axes": {
+        "size": [
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "[Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) ",
+        "value": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) ",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.customProtocolLink.alternating.{size}",
+      "axes": {
+        "size": [
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "",
+        "value": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](customProtocol://<doc_1>) [Click here](customProtocol://<doc_1>) ",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.customProtocolLink.noMatch.{size}",
       "axes": {
         "size": [
@@ -12637,6 +12705,70 @@
       }
     },
     {
+      "id": "MatcherApiBenchmark.newMatcherRegionFind",
+      "operation": "matcherRegionFind",
+      "patterns": [
+        "\\b[A-Za-z]+ing\\b"
+      ],
+      "inputs": [
+        "matcherApi.regionFind.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 7,
+            "end": 22
+          }
+        ]
+      }
+    },
+    {
+      "id": "MatcherApiBenchmark.newMatcherRegionMatches",
+      "operation": "matcherRegionMatches",
+      "patterns": [
+        "^[A-Za-z]+ [A-Za-z]+$"
+      ],
+      "inputs": [
+        "matcherApi.regionFind.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 7,
+            "end": 22
+          }
+        ]
+      }
+    },
+    {
       "id": "MatcherApiBenchmark.regionFind",
       "operation": "matcherRegionFind",
       "patterns": [
@@ -12984,6 +13116,10 @@
                 "dotnet": {
                   "unsupported": true,
                   "reason": ".NET does not expose Java's IsAlphabetic Unicode property"
+                },
+                "re2": {
+                  "unsupported": true,
+                  "reason": "RE2 and Go regexp do not expose Java's IsAlphabetic property"
                 }
               }
             }
@@ -12996,6 +13132,10 @@
                 "dotnet": {
                   "unsupported": true,
                   "reason": ".NET does not expose Java's IsIdeographic Unicode property"
+                },
+                "re2": {
+                  "unsupported": true,
+                  "reason": "RE2 does not expose Java's IsIdeographic property"
                 }
               }
             }
@@ -13008,6 +13148,10 @@
                 "dotnet": {
                   "unsupported": true,
                   "reason": ".NET does not expose Java's IsEmoji Unicode property"
+                },
+                "re2": {
+                  "unsupported": true,
+                  "reason": "RE2 and Go regexp do not expose Java's IsEmoji property"
                 }
               }
             }
@@ -13020,6 +13164,10 @@
                 "dotnet": {
                   "unsupported": true,
                   "reason": ".NET does not expose Java's IsExtended_Pictographic Unicode property"
+                },
+                "re2": {
+                  "unsupported": true,
+                  "reason": "RE2 and Go regexp do not expose Java's Extended_Pictographic property"
                 }
               }
             }
@@ -13151,6 +13299,15 @@
                     "CASE_INSENSITIVE",
                     "CASE_INSENSITIVE_UNICODE_CASE"
                   ]
+                },
+                "re2": {
+                  "pattern": "[ \\t\\n\\x0B\\f\\r]+",
+                  "reason": "RE2 omits vertical tab from \\s while Java includes it",
+                  "flagSets": [
+                    "0",
+                    "CASE_INSENSITIVE",
+                    "CASE_INSENSITIVE_UNICODE_CASE"
+                  ]
                 }
               }
             }
@@ -13209,7 +13366,130 @@
       "measurement": {
         "mode": "compileOnly",
         "timingUnit": "microseconds"
-      }
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "uppercaseLetter",
+                "value": "\\p{Lu}+"
+              },
+              {
+                "id": "lowercaseLetter",
+                "value": "\\p{Ll}+"
+              },
+              {
+                "id": "titlecaseLetter",
+                "value": "\\p{Lt}+"
+              },
+              {
+                "id": "letterIntersection",
+                "value": "[\\p{L}&&[^\\p{Lu}]]+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE",
+              "CASE_INSENSITIVE_UNICODE_CASE",
+              "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS"
+            ]
+          },
+          "reason": "RE2/J folds the members of Unicode categories; Java applies different case-insensitive category and intersection semantics"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "blockBasicLatin",
+                "value": "\\p{block=BasicLatin}+"
+              },
+              {
+                "id": "asciiLower",
+                "value": "[a-z]+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE"
+            ]
+          },
+          "reason": "RE2/J Unicode folding admits long s and Kelvin sign where Java's ASCII-only case folding does not"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "blockBasicLatin",
+                "value": "\\p{block=BasicLatin}+"
+              },
+              {
+                "id": "asciiLower",
+                "value": "[a-z]+"
+              },
+              {
+                "id": "asciiRange",
+                "value": "[h-j]+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE_UNICODE_CASE",
+              "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS"
+            ]
+          },
+          "reason": "Java Unicode case folding admits dotted and dotless I for these ranges; RE2/J simple folding does not"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "word",
+                "value": "\\w+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE",
+              "CASE_INSENSITIVE_UNICODE_CASE"
+            ]
+          },
+          "reason": "RE2/J folds ASCII \\w to include long s and Kelvin sign; Java keeps \\w ASCII without UNICODE_CHARACTER_CLASS"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "word",
+                "value": "\\w+"
+              },
+              {
+                "id": "digit",
+                "value": "\\d+"
+              },
+              {
+                "id": "space",
+                "value": "\\s+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS"
+            ]
+          },
+          "reason": "RE2/J predefined classes do not implement Java UNICODE_CHARACTER_CLASS semantics"
+        }
+      ]
     },
     {
       "id": "UnicodeFirstCompileBenchmark.firstCompile.{regex}.{flagSet}",
@@ -13365,7 +13645,68 @@
         "constraints": [
           "freshProcessPerInvocation"
         ]
-      }
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "uppercaseLetter",
+                "value": "\\p{Lu}+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE_UNICODE_CASE"
+            ]
+          },
+          "reason": "RE2/J folds the members of Unicode categories; Java applies different case-insensitive category and intersection semantics"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "blockBasicLatin",
+                "value": "\\p{block=BasicLatin}+"
+              },
+              {
+                "id": "asciiLower",
+                "value": "[a-z]+"
+              },
+              {
+                "id": "asciiRange",
+                "value": "[h-j]+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE_UNICODE_CASE"
+            ]
+          },
+          "reason": "Java Unicode case folding admits dotted and dotless I for these ranges; RE2/J simple folding does not"
+        },
+        {
+          "engineIds": [
+            "re2j-string"
+          ],
+          "when": {
+            "regex": [
+              {
+                "id": "word",
+                "value": "\\w+"
+              }
+            ],
+            "flagSet": [
+              "CASE_INSENSITIVE_UNICODE_CASE"
+            ]
+          },
+          "reason": "RE2/J folds ASCII \\w to include long s and Kelvin sign; Java keeps \\w ASCII without UNICODE_CHARACTER_CLASS"
+        }
+      ]
     },
     {
       "id": "MemoryBenchmark.compileSimple",
@@ -16491,7 +16832,11 @@
       "axes": {
         "shape": [
           "longMatch",
-          "falseCandidates"
+          "falseCandidates",
+          "mixed",
+          "unicodeMixed",
+          "shortThenLong",
+          "alternating"
         ],
         "size": [
           100000

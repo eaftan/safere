@@ -16,6 +16,7 @@
     "methods": [
       "quantifiedCaptures",
       "acceptedPaths",
+      "minimumRespectingEmptyStop",
       "emptyCaptures"
     ]
   },

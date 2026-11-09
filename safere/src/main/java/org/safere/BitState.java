@@ -329,6 +329,7 @@ final class BitState {
   // -------------------------------------------------------------------------
 
   private final Prog prog;
+  private final Inst[] instructions;
   private InputScanner text;
   private int textLen;
   private int endPos;
@@ -400,6 +401,12 @@ final class BitState {
   /** Straight-line capture/consumer/capture sequences, or null when none exist. */
   private final CaptureRune[] captureRunes;
 
+  /** Loop entry/check continuations, optionally including one adjacent capture write. */
+  private final LoopEntry[] loopEntries;
+
+  /** Progress checks immediately following captures, or null when none exist. */
+  private final Inst[] captureProgressChecks;
+
   private static final byte NOT_ALT = 0;
   private static final byte ALT = 1;
   private static final byte CYCLE_ALT = 2;
@@ -440,6 +447,7 @@ final class BitState {
       boolean longest,
       boolean endMatch) {
     this.prog = prog;
+    this.instructions = prog.frozenInstructions();
     this.text = text;
     this.textLen = text.length();
     this.basePos = startPos;
@@ -465,6 +473,8 @@ final class BitState {
       }
     }
     this.captureRunes = prog.captureRunes();
+    this.loopEntries = prog.loopEntries();
+    this.captureProgressChecks = prog.captureProgressChecks();
 
     int totalBits = progSize * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -521,6 +531,12 @@ final class BitState {
    * <p>Kept tiny so C2 inlines the array-indexed fast exit across all call sites in {@link
    * #trySearch}.
    */
+  @MaxBytecodeSize(
+      value = 35,
+      reason =
+          "C2 always inlines methods of at most MaxInlineSize (35) bytes. trySearch calls this from"
+              + " many sites. At 149 bytes it inflated the hot loop, one of the causes of the 36%"
+              + " short-search regression in #1116. Move new work into shouldVisitTracked.")
   private boolean shouldVisit(int instId, int pos) {
     int kind = altKind[instId];
     return kind <= unvisitedKindLimit || shouldVisitTracked(kind, instId, pos);
@@ -644,7 +660,7 @@ final class BitState {
           break;
         }
 
-        Inst ip = prog.inst(id);
+        Inst ip = instructions[id];
         switch (ip.opCode) {
           case InstOp.OP_FAIL -> {}
 
@@ -719,9 +735,23 @@ final class BitState {
                 windowExceeded = true;
                 return false;
               }
-            } else if (shouldVisit(ip.out, pos)) {
-              id = ip.out;
-              continue;
+            } else {
+              Inst check = captureProgressChecks == null ? null : captureProgressChecks[id];
+              if (check != null) {
+                // CAPTURE has already installed its undo. The adjacent check cannot be pruned,
+                // so execute it with the same work charge and register/alternative ordering.
+                if (!stepWithinBudget()) {
+                  return false;
+                }
+                int next = progressContinuation(check, pos);
+                if (next >= 0) {
+                  id = next;
+                  continue;
+                }
+              } else if (shouldVisit(ip.out, pos)) {
+                id = ip.out;
+                continue;
+              }
             }
           }
 
@@ -739,6 +769,31 @@ final class BitState {
             int reg = ip.arg;
             push(-(ncap + reg + 1), loopRegs[reg]);
             loopRegs[reg] = -1;
+            LoopEntry entry = loopEntries == null ? null : loopEntries[id];
+            if (entry != null) {
+              // The adjacent check observes the register just reset by this entry, so it must
+              // enter the body. Keep one restore of the original value: the intermediate -1
+              // cannot be observed by an alternative. Still charge both logical instructions.
+              if (!stepWithinBudget()) {
+                return false;
+              }
+              loopRegs[reg] = pos;
+              int capture = entry.captureRegister();
+              if (capture >= 0) {
+                if (!stepWithinBudget()) {
+                  return false;
+                }
+                if (capture < ncap) {
+                  push(-(capture + 1), cap[capture]);
+                  cap[capture] = pos;
+                }
+              }
+              if (shouldVisit(entry.out(), pos)) {
+                id = entry.out();
+                continue;
+              }
+              break;
+            }
             if (shouldVisit(ip.out, pos)) {
               id = ip.out;
               continue;
@@ -746,46 +801,10 @@ final class BitState {
           }
 
           case InstOp.OP_PROGRESS_CHECK -> {
-            int reg = ip.arg;
-            int saved = loopRegs[reg];
-            if (saved == -1) {
-              // First visit: must enter body at least once (plus semantics).
-              push(-(ncap + reg + 1), saved);
-              loopRegs[reg] = pos;
-              if (shouldVisit(ip.out, pos)) {
-                id = ip.out;
-                continue;
-              }
-            } else if (saved == pos) {
-              // Zero-width body match: only exit.
-              if (shouldVisit(ip.out1, pos)) {
-                id = ip.out1;
-                continue;
-              }
-            } else {
-              // Save progress and defer the lower-priority path, as for ALT.
-              push(-(ncap + reg + 1), saved);
-              loopRegs[reg] = pos;
-              boolean nonGreedy = ip.foldCase;
-              if (nonGreedy) {
-                // Non-greedy: defer the body and immediately follow the preferred exit.
-                if (shouldVisit(ip.out, pos)) {
-                  push(ip.out, pos);
-                }
-                if (shouldVisit(ip.out1, pos)) {
-                  id = ip.out1;
-                  continue;
-                }
-              } else {
-                // Greedy: defer the exit and immediately follow the preferred body.
-                if (shouldVisit(ip.out1, pos)) {
-                  push(ip.out1, pos);
-                }
-                if (shouldVisit(ip.out, pos)) {
-                  id = ip.out;
-                  continue;
-                }
-              }
+            int next = progressContinuation(ip, pos);
+            if (next >= 0) {
+              id = next;
+              continue;
             }
           }
 
@@ -873,6 +892,30 @@ final class BitState {
     }
 
     return matched;
+  }
+
+  /** Executes one progress check, returning a continuation or -1 when none is eligible. */
+  private int progressContinuation(Inst check, int pos) {
+    int reg = check.arg;
+    int saved = loopRegs[reg];
+    if (saved == -1) {
+      // First visit: must enter the body at least once.
+      push(-(ncap + reg + 1), saved);
+      loopRegs[reg] = pos;
+      return shouldVisit(check.out, pos) ? check.out : -1;
+    }
+    if (saved == pos) {
+      // Zero-width body match: only exit.
+      return shouldVisit(check.out1, pos) ? check.out1 : -1;
+    }
+    push(-(ncap + reg + 1), saved);
+    loopRegs[reg] = pos;
+    int preferred = check.foldCase ? check.out1 : check.out;
+    int deferred = check.foldCase ? check.out : check.out1;
+    if (shouldVisit(deferred, pos)) {
+      push(deferred, pos);
+    }
+    return shouldVisit(preferred, pos) ? preferred : -1;
   }
 
   /** Returns whether the previous search stopped because BitState exceeded its work budget. */

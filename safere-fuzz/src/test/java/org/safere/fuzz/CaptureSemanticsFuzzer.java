@@ -80,6 +80,173 @@ public final class CaptureSemanticsFuzzer {
   }
 
   @FuzzTest(maxDuration = "30s")
+  void minimumRespectingEmptyStop(FuzzedDataProvider data) {
+    String atom = pick(data, "a", "ab", "é", "😀");
+    String prefix = pick(data, "", "x", "😀");
+    int count = data.consumeInt(0, 8);
+    int minimum = data.consumeInt(0, 4);
+    int maximum = data.consumeBoolean() ? -1 : data.consumeInt(minimum, 6);
+    boolean greedy = data.consumeBoolean();
+    String quantifier = "{" + minimum + "," + (maximum < 0 ? "" : maximum) + "}";
+    String operand = "(?:(?<empty>)|" + Pattern.quote(atom) + ")";
+    int wrappers = data.consumeInt(0, 3);
+    operand = "(?:".repeat(wrappers) + operand + ")".repeat(wrappers);
+    Pattern pattern =
+        Pattern.compile(
+            "\\A" + Pattern.quote(prefix) + operand + quantifier + (greedy ? "" : "?") + "!");
+    String input = prefix + atom.repeat(count) + "!";
+    // A bounded independent execution tree, never a production result-repair strategy. Every
+    // consuming iteration advances one atom; at most minimum + count + 1 iterations are needed.
+    Integer expected =
+        emptyStopCapture(
+            minimum, maximum < 0 ? minimum + count + 1 : maximum, greedy, count, 0, 0, -1);
+    for (int operation = 0; operation < 3; operation++) {
+      var matcher = pattern.matcher(input);
+      boolean matched =
+          switch (operation) {
+            case 0 -> matcher.matches();
+            case 1 -> matcher.find();
+            default -> matcher.lookingAt();
+          };
+      assertThat(matched).as("/%s/ on %s", pattern, input).isEqualTo(expected != null);
+      if (matched) {
+        int position = expected < 0 ? -1 : prefix.length() + expected * atom.length();
+        assertThat(matcher.start()).isZero();
+        assertThat(matcher.end()).isEqualTo(input.length());
+        assertThat(matcher.start(1)).isEqualTo(position);
+        assertThat(matcher.end(1)).isEqualTo(position);
+        assertThat(matcher.group(1)).isEqualTo(expected < 0 ? null : "");
+        var snapshot = matcher.toMatchResult();
+        matcher.reset();
+        assertThat(snapshot.start(1)).isEqualTo(position);
+      }
+    }
+    // A fresh pattern has no capture-demand history, so matches() exercises DFA recognition
+    // before deferred capture extraction. Search still exercises the guarded selection rule.
+    Pattern bytePattern = Pattern.compile(pattern.pattern(), pattern.flags());
+    var bytes = bytePattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    assertThat(bytes.matches()).isEqualTo(expected != null);
+    if (expected != null) {
+      int position =
+          expected < 0
+              ? -1
+              : prefix.getBytes(UTF_8).length + expected * atom.getBytes(UTF_8).length;
+      assertThat(bytes.start(1)).isEqualTo(position);
+      assertThat(bytes.end(1)).isEqualTo(position);
+    }
+    bytes.reset();
+    assertThat(bytes.find()).isEqualTo(expected != null);
+    if (expected != null) {
+      int position =
+          expected < 0
+              ? -1
+              : prefix.getBytes(UTF_8).length + expected * atom.getBytes(UTF_8).length;
+      assertThat(bytes.start(1)).isEqualTo(position);
+      assertThat(bytes.end(1)).isEqualTo(position);
+    }
+    assertThat(
+            pattern
+                .matcher(input)
+                .replaceAll(result -> result.group(1) == null ? "omitted" : "empty"))
+        .isEqualTo(expected == null ? input : expected < 0 ? "omitted" : "empty");
+    fullMatchTerminatorCaptures(data);
+  }
+
+  private static void fullMatchTerminatorCaptures(FuzzedDataProvider data) {
+    String atom = pick(data, "a", "ab", "é", "😀");
+    String prefix = pick(data, "", "x", "😀");
+    String terminator = pick(data, "\n", "\r\n", "\r", "\u0085", "\u2028", "\u2029");
+    int minimum = data.consumeInt(0, 4);
+    int maximum = data.consumeBoolean() ? -1 : data.consumeInt(minimum, 8);
+    int count = data.consumeInt(0, 10);
+    boolean greedy = data.consumeBoolean();
+    int flags = data.consumeBoolean() ? Pattern.UNIX_LINES : 0;
+    String regex =
+        "^"
+            + Pattern.quote(prefix)
+            + "(?<last>(?:"
+            + Pattern.quote(atom)
+            + ")?){"
+            + minimum
+            + ","
+            + (maximum < 0 ? "" : maximum)
+            + "}"
+            + (greedy ? "" : "?")
+            + "((?:"
+            + Pattern.quote(terminator)
+            + ")??)$";
+    String input = prefix + atom.repeat(count) + terminator;
+    boolean expected = maximum < 0 || count <= maximum;
+    boolean participates = minimum > 0 || count > 0 || (greedy && maximum != 0);
+    boolean empty = minimum > count || (greedy && (maximum < 0 || maximum > count));
+    Pattern pattern = Pattern.compile(regex, flags);
+    var matcher = pattern.matcher(input);
+    assertThat(matcher.matches()).as("/%s/ on %s", regex, input).isEqualTo(expected);
+    if (expected) {
+      int start =
+          !participates ? -1 : prefix.length() + (empty ? count : count - 1) * atom.length();
+      int end = !participates ? -1 : prefix.length() + count * atom.length();
+      assertThat(matcher.start(1)).isEqualTo(start);
+      assertThat(matcher.end(1)).isEqualTo(end);
+      assertThat(matcher.group(2)).isEqualTo(terminator);
+      assertThat(matcher.end()).isEqualTo(input.length());
+      var snapshot = matcher.toMatchResult();
+      assertThat(snapshot.group()).isEqualTo(input);
+      assertThat(snapshot.group(2)).isEqualTo(terminator);
+    }
+    // Keep the UTF-8 pattern's capture-demand history independent of String group access.
+    var bytes = Pattern.compile(regex, flags).matcher(Utf8Input.trusted(input.getBytes(UTF_8)));
+    assertThat(bytes.matches()).isEqualTo(expected);
+    if (expected) {
+      int start =
+          !participates
+              ? -1
+              : prefix.getBytes(UTF_8).length
+                  + (empty ? count : count - 1) * atom.getBytes(UTF_8).length;
+      int end =
+          !participates ? -1 : prefix.getBytes(UTF_8).length + count * atom.getBytes(UTF_8).length;
+      assertThat(bytes.start(1)).isEqualTo(start);
+      assertThat(bytes.end(1)).isEqualTo(end);
+      assertThat(bytes.start(2))
+          .isEqualTo(input.getBytes(UTF_8).length - terminator.getBytes(UTF_8).length);
+      assertThat(bytes.end(2)).isEqualTo(input.getBytes(UTF_8).length);
+      assertThat(bytes.end()).isEqualTo(input.getBytes(UTF_8).length);
+    }
+  }
+
+  private static Integer emptyStopCapture(
+      int minimum,
+      int maximum,
+      boolean greedy,
+      int length,
+      int iterations,
+      int position,
+      int capture) {
+    if (iterations == maximum) {
+      return position == length ? capture : null;
+    }
+    if (!greedy && iterations >= minimum && position == length) {
+      return capture;
+    }
+    Integer empty =
+        iterations + 1 >= minimum
+            ? (position == length ? position : null)
+            : emptyStopCapture(
+                minimum, maximum, greedy, length, iterations + 1, position, position);
+    if (empty != null) {
+      return empty;
+    }
+    if (position < length) {
+      Integer consuming =
+          emptyStopCapture(minimum, maximum, greedy, length, iterations + 1, position + 1, capture);
+      if (consuming != null) {
+        return consuming;
+      }
+    }
+    return greedy && iterations >= minimum && position == length ? capture : null;
+  }
+
+  @FuzzTest(maxDuration = "30s")
   void emptyCaptures(FuzzedDataProvider data) {
     int minimum = data.consumeInt(0, 4);
     int maximum = data.consumeBoolean() ? -1 : data.consumeInt(Math.max(2, minimum), 8);

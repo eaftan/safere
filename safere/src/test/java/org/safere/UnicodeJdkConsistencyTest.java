@@ -5,12 +5,15 @@
 
 package org.safere;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.IntPredicate;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -215,13 +218,38 @@ class UnicodeJdkConsistencyTest {
   @MethodSource("binaryPropertyNames")
   @EnabledForJreRange(min = JRE.JAVA_26)
   void binaryPropertiesMatchJdkExceptUnicodeHexDigit(String name) {
-    // The checked-in tables use Unicode 17; older JDKs have older Unicode data.
-    int[][] ranges = UnicodeGeneratedTables.BINARY_PROPERTIES.get(name);
+    boolean icuProperty = name.equals("Extended_Pictographic") || name.equals("White_Space");
+    if (!name.equals("Hex_Digit") && !icuProperty) {
+      // JDK-derived property tables match the runtime JDK when both JDKs use the same Unicode
+      // repertoire.
+      assumeTrue(
+          runtimeJdkUnicodeMatchesGeneratedTables(),
+          "Runtime JDK Unicode repertoire differs from the generator JDK");
+    }
+    int[][] ranges = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get(name));
+    int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));
     java.util.regex.Matcher jdk =
         java.util.regex.Pattern.compile("\\p{Is" + name + "}").matcher("");
     List<String> differences = new ArrayList<>();
     List<String> jdkHexDifferences = new ArrayList<>();
+    int rangeIndex = 0;
+    int assignedIndex = 0;
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      while (rangeIndex < ranges.length && ranges[rangeIndex][1] < cp) {
+        rangeIndex++;
+      }
+      boolean inTable = rangeIndex < ranges.length && ranges[rangeIndex][0] <= cp;
+      while (assignedIndex < assigned.length && assigned[assignedIndex][1] < cp) {
+        assignedIndex++;
+      }
+      boolean inGeneratedAssigned =
+          assignedIndex < assigned.length && assigned[assignedIndex][0] <= cp;
+      if (icuProperty && (!Character.isDefined(cp) || !inGeneratedAssigned)) {
+        // ICU4J-backed properties (UNICODE_DATA_VERSION) may be ahead of or behind the runtime
+        // JDK on code points that were unassigned in the older Unicode version (for example,
+        // reserved Extended_Pictographic ranges reassigned to non-pictographic characters).
+        continue;
+      }
       boolean jdkMatches = jdk.reset(Character.toString(cp)).matches();
       boolean expected = jdkMatches;
       if (name.equals("Hex_Digit")) {
@@ -237,7 +265,7 @@ class UnicodeJdkConsistencyTest {
           jdkHexDifferences.add(String.format("U+%04X", cp));
         }
       }
-      if (containsCodePoint(ranges, cp) != expected && differences.size() < 10) {
+      if (inTable != expected && differences.size() < 10) {
         differences.add(String.format("U+%04X", cp));
       }
     }
@@ -245,7 +273,85 @@ class UnicodeJdkConsistencyTest {
     assertThat(jdkHexDifferences).as("JDK Hex_Digit implementation changed").isEmpty();
   }
 
+  // --- Table-derived classes that used to scan Character at runtime ---
+
+  @Test
+  @DisplayName("(?U) Blank, Graph, and Print match their JDK Character definitions")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void unicodePosixDerivedClassesMatchJdk() {
+    assumeTrue(
+        runtimeJdkUnicodeMatchesGeneratedTables(),
+        "Runtime JDK Unicode repertoire differs from the generator JDK");
+    Map<String, int[][]> groups = UnicodeTables.unicodePosixPropertyGroups();
+    assertTableMatches(
+        "Blank",
+        groups.get("Blank"),
+        cp -> cp == '\t' || Character.getType(cp) == Character.SPACE_SEPARATOR);
+    assertTableMatches("Graph", groups.get("Graph"), UnicodeJdkConsistencyTest::isJdkGraph);
+    assertTableMatches(
+        "Print",
+        groups.get("Print"),
+        cp -> isJdkGraph(cp) || Character.getType(cp) == Character.SPACE_SEPARATOR);
+  }
+
+  @Test
+  @DisplayName("Case-insensitive cased properties match the JDK's cased predicates")
+  @EnabledForJreRange(min = JRE.JAVA_26)
+  void caseInsensitiveCasedPropertiesMatchJdk() {
+    assumeTrue(
+        runtimeJdkUnicodeMatchesGeneratedTables(),
+        "Runtime JDK Unicode repertoire differs from the generator JDK");
+    Matcher m = Pattern.compile("(?i)\\p{IsLowercase}").matcher("");
+    List<String> differences = new ArrayList<>();
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      boolean expected =
+          Character.isUpperCase(cp) || Character.isLowerCase(cp) || Character.isTitleCase(cp);
+      if (m.reset(Character.toString(cp)).matches() != expected && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    assertThat(differences).as("(?i)\\p{IsLowercase} membership differences").isEmpty();
+  }
+
+  private static boolean isJdkGraph(int cp) {
+    int type = Character.getType(cp);
+    return Character.isDefined(cp)
+        && type != Character.CONTROL
+        && type != Character.SURROGATE
+        && !Character.isSpaceChar(cp);
+  }
+
+  private static void assertTableMatches(String name, int[][] ranges, IntPredicate expected) {
+    List<String> differences = new ArrayList<>();
+    int rangeIndex = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      while (rangeIndex < ranges.length && ranges[rangeIndex][1] < cp) {
+        rangeIndex++;
+      }
+      boolean inTable = rangeIndex < ranges.length && ranges[rangeIndex][0] <= cp;
+      if (inTable != expected.test(cp) && differences.size() < 10) {
+        differences.add(String.format("U+%04X", cp));
+      }
+    }
+    assertThat(differences).as("%s table membership differences", name).isEmpty();
+  }
+
   // --- Helpers ---
+
+  private static boolean runtimeJdkUnicodeMatchesGeneratedTables() {
+    int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));
+    int rangeIndex = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      while (rangeIndex < assigned.length && assigned[rangeIndex][1] < cp) {
+        rangeIndex++;
+      }
+      boolean inTable = rangeIndex < assigned.length && assigned[rangeIndex][0] <= cp;
+      if (Character.isDefined(cp) != inTable) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   private static Stream<String> binaryPropertyNames() {
     return UnicodeGeneratedTables.BINARY_PROPERTIES.keySet().stream().sorted();

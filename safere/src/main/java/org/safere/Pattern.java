@@ -2252,9 +2252,8 @@ public final class Pattern implements Serializable {
       capabilities.add(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
     }
     if (enginePathOptions.dfa() && !prog.hasGraphemeSemantics()) {
-      if (prog.numLoopRegs() == 0) {
-        capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
-      } else {
+      capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
+      if (prog.numLoopRegs() > 0) {
         capabilities.add(PatternCapability.DFA_REJECT_PREFILTER);
       }
     }

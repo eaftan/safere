@@ -138,7 +138,9 @@ final class ResolvedBenchmarkPlan {
                       || variant == RegexEngineVariant.SAFERE_UTF8_VECTOR
                       || variant == RegexEngineVariant.JDK_STRING
                   ? allFlagSets()
-                  : Set.of("0")));
+                  : variant == RegexEngineVariant.RE2J_STRING
+                      ? RegexEngineVariant.re2jCompileFlagSets()
+                      : Set.of("0")));
     }
 
     result.add(
@@ -398,6 +400,13 @@ final class ResolvedBenchmarkPlan {
     String flagSet = flagSet(workload);
     if (!engine.flagSets().contains(flagSet)) {
       return new Exclusion("unsupportedOptions", "engine does not support flag set " + flagSet);
+    }
+    if (engine.declaration().inputRepresentation()
+            == DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING_WITH_TIMED_UTF8_CONVERSION
+        && workload.lifecycle().matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED) {
+      return new Exclusion(
+          "unsupportedTimingBoundary",
+          "retaining the matcher moves String-to-UTF-8 conversion into setup");
     }
     EnumSet<DeclarativeBenchmarkPlan.Feature> missing = workload.requirements();
     missing.removeAll(engine.declaration().features());

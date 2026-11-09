@@ -148,6 +148,49 @@ class AcceptedPathCaptureTest {
   }
 
   @Test
+  void emptyAndConsumingFindsKeepTheirOwnNamedCapturesAndSnapshots() {
+    for (String operand : List.of("(?<word>a)", "(?:(?<word>a))")) {
+      Matcher matcher = Pattern.compile("(?:" + operand + "{0,2})*").matcher("yy" + "a".repeat(26));
+      for (int position = 0; position < 2; position++) {
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(position);
+        assertThat(matcher.end()).isEqualTo(position);
+        assertThat(matcher.group("word")).isNull();
+      }
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(2);
+      assertThat(matcher.end()).isEqualTo(28);
+      assertThat(matcher.start("word")).isEqualTo(27);
+      assertThat(matcher.end("word")).isEqualTo(28);
+      MatchResult snapshot = matcher.toMatchResult();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(28);
+      assertThat(matcher.group("word")).isNull();
+      assertThat(matcher.find()).isFalse();
+      assertThat(snapshot.start(1)).isEqualTo(27);
+      assertThat(snapshot.end(1)).isEqualTo(28);
+    }
+  }
+
+  @Test
+  void failedMinimumIterationCannotOverwriteTheAcceptedCapture() {
+    // A final one-character attempt cannot satisfy the inner minimum of two. Its writes must
+    // neither create a capture on an empty match nor replace an earlier accepted capture.
+    for (String operand : List.of("(a)", "(?:(a))")) {
+      Pattern pattern = Pattern.compile("(?:" + operand + "{2,3})*");
+      for (int length : List.of(1, 4, 7)) {
+        Matcher matcher = pattern.matcher("a".repeat(length));
+        assertThat(matcher.find()).isTrue();
+        int end = length - 1;
+        assertThat(matcher.start()).isZero();
+        assertThat(matcher.end()).isEqualTo(end);
+        assertThat(matcher.start(1)).isEqualTo(end == 0 ? -1 : end - 1);
+        assertThat(matcher.end(1)).isEqualTo(end == 0 ? -1 : end);
+      }
+    }
+  }
+
+  @Test
   void replacementObservesCapturesFirstWrittenInLaterIterations() {
     Pattern pattern = Pattern.compile("(?:(?:a(?<last>b)?){1,2})+");
     String input = "aaab";

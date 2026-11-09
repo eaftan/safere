@@ -38,6 +38,26 @@ under repetition. A group in a zero-count repetition keeps its number but does
 not participate. Unmatched captures use `-1` bounds; empty captures have equal
 nonnegative bounds.
 
+Finite and unbounded nullable repetitions accept an empty iteration and stop the
+current invocation once its minimum is satisfied. Required empty iterations
+still count toward that minimum. General nullable finite lowering retains
+invocation-local progress state; unguarded copy expansion requires a proof of
+contextual equivalence for the authority being claimed. Engines that ignore
+progress registers may establish whole-region `matches()` success, with captures
+resolved by the guarded program on demand. They must not choose prioritized
+prefix/search bounds or captures for progress-bearing programs.
+
+Empty-stop preserves full-match existence in the supported dialect. In any
+finite successful execution, an empty iteration with later iterations can be
+removed when the total remaining count still meets the minimum. Repeating this
+removal leaves no empty iteration followed by another iteration once the minimum
+is met. Each removal preserves input positions and assertion context; captures
+cannot influence recognition because backreferences and capture conditions are
+unsupported. Apply the argument inside nested invocations as well. Guarded paths
+are already unguarded paths, so the languages coincide. This proof permits
+`matches()` to publish the fixed whole-region bounds, but says nothing about
+which prioritized prefix, search result, or capture vector wins.
+
 Capture results belong to the selected prioritized path. Losing paths must not
 leak their writes into that result. Compiler transformations involving nested,
 nullable, lazy, or bounded repetitions need capture-aware tests, including a

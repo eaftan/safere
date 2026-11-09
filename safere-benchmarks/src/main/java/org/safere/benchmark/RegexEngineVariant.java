@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.openjdk.jmh.infra.Blackhole;
 import org.safere.Utf8Sink;
 
@@ -416,6 +418,16 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
+            public void region(int start, int end) {
+              matcher.region(start, end);
+            }
+
+            @Override
             public String group(int group) {
               return matcher.group(group);
             }
@@ -456,6 +468,13 @@ enum RegexEngineVariant {
       };
     }
   };
+
+  private static final Map<String, Integer> RE2J_COMPILE_FLAGS =
+      Map.of(
+          "0", 0,
+          "CASE_INSENSITIVE", com.google.re2j.Pattern.CASE_INSENSITIVE,
+          "CASE_INSENSITIVE_UNICODE_CASE", com.google.re2j.Pattern.CASE_INSENSITIVE,
+          "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS", com.google.re2j.Pattern.CASE_INSENSITIVE);
 
   private final String id;
   private final String reportEngine;
@@ -577,6 +596,7 @@ enum RegexEngineVariant {
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
       case RE2J_STRING -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
         features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
@@ -618,6 +638,10 @@ enum RegexEngineVariant {
 
   abstract CompiledRegex compile(String regex);
 
+  static Set<String> re2jCompileFlagSets() {
+    return RE2J_COMPILE_FLAGS.keySet();
+  }
+
   Object compileForBenchmark(String regex, String flagSet) {
     int flags = flagSet == null ? 0 : BenchmarkFlags.parse(flagSet);
     return switch (this) {
@@ -625,10 +649,13 @@ enum RegexEngineVariant {
           org.safere.Pattern.compile(regex, flags);
       case JDK_STRING -> java.util.regex.Pattern.compile(regex, flags);
       case RE2J_STRING -> {
-        if (flags != 0) {
-          throw new UnsupportedOperationException("RE2/J flagged compilation is unsupported");
+        // The plan excludes rows whose Java flag semantics differ from RE2/J. Map identities,
+        // never Java integer flags: Java CASE_INSENSITIVE has RE2/J's DOTALL value.
+        Integer re2jFlags = RE2J_COMPILE_FLAGS.get(flagSet == null ? "0" : flagSet);
+        if (re2jFlags == null) {
+          throw new UnsupportedOperationException("RE2/J does not support flag set " + flagSet);
         }
-        yield com.google.re2j.Pattern.compile(regex);
+        yield com.google.re2j.Pattern.compile(regex, re2jFlags);
       }
       case RE2_FFM_STRING_CONVERSION -> {
         if (flags != 0) {
@@ -657,6 +684,8 @@ enum RegexEngineVariant {
         EngineCapability.COMPILE,
         EngineCapability.FIND,
         EngineCapability.MATCHES,
+        EngineCapability.LOOKING_AT,
+        EngineCapability.REGIONS,
         EngineCapability.GROUP_PARTICIPATION,
         EngineCapability.GROUP_TEXT,
         EngineCapability.REPLACE,

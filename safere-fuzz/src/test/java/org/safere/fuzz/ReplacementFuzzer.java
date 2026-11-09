@@ -29,6 +29,25 @@ public final class ReplacementFuzzer {
     }
   }
 
+  @Test
+  void nonAsciiDigitsInGroupReferences() {
+    // Only '0'-'9' are group-reference digits. The group counts straddle the values a
+    // code-point-derived number would take (U+0661 - '0' == 1585, and "$1" + U+0662 accumulates to
+    // 1596), so a non-ASCII digit that is wrongly accepted selects an in-range group.
+    for (int groups : List.of(1, 2, 10, 1585, 1596, 1800)) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(manyGroups(groups), 0);
+      assertThat(pattern).isNotNull();
+      String input = "a";
+      for (String replacement :
+          List.of("$\u0661", "$1\u0662", "$12\u0662", "$\u06F1", "$1\u06F0", "$\uFF19")) {
+        pattern.matcher(input).replaceAll(replacement);
+        pattern.matcher(input).replaceFirst(replacement);
+        appendReplacementLoop(pattern, input, replacement, false);
+        appendReplacementLoop(pattern, input, replacement, true);
+      }
+    }
+  }
+
   @FuzzTest(maxDuration = "30s")
   void replacement(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
@@ -92,6 +111,16 @@ public final class ReplacementFuzzer {
               + " ".repeat(data.consumeInt(0, 64))
               + candidate;
       replacement = data.pickValue(List.of("X", "<$0>", "<$1>"));
+    } else if (data.consumeBoolean()) {
+      // Non-ASCII decimal digits must not be accepted as group-reference digits, directly after
+      // '$' or after an ASCII digit. Use enough groups that a number derived from the code point
+      // (or accumulated from it) is a valid group, so a wrongly accepted digit selects a group
+      // instead of failing.
+      int groups = data.pickValue(List.of(1, 2, 10, 11, 100, 1585, 1594, 1596, 1738, 1800));
+      regex = manyGroups(groups);
+      flags = 0;
+      input = "a" + data.consumeString(8);
+      replacement = nonAsciiDigitReplacement(data);
     } else {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);
@@ -117,6 +146,42 @@ public final class ReplacementFuzzer {
     replaceFirstMatcher.hasReplacementMatchState();
 
     appendReplacementLoop(pattern, input, replacement, data.consumeBoolean());
+  }
+
+  /**
+   * Returns a pattern with {@code groups} capture groups where only group 1 captures text. The
+   * other groups are empty, so matching stays cheap even with thousands of groups, while a wrongly
+   * selected group still changes the replacement output.
+   */
+  private static String manyGroups(int groups) {
+    return "(a)" + "()".repeat(groups - 1);
+  }
+
+  private static String nonAsciiDigitReplacement(FuzzedDataProvider data) {
+    String nonAscii =
+        data.pickValue(
+            List.of(
+                "\u0660",
+                "\u0661",
+                "\u0669",
+                "\u06F0",
+                "\u06F1",
+                "\u06F9",
+                "\u0966",
+                "\uFF11",
+                "\uFF19",
+                "\uD835\uDFCE"));
+    String digit = data.pickValue(List.of("0", "1", "2", "9"));
+    String reference =
+        switch (data.consumeInt(0, 3)) {
+          case 0 -> "$" + nonAscii;
+          case 1 -> "$" + digit + nonAscii;
+          case 2 -> "$" + digit + digit + nonAscii;
+          default -> "$" + digit + nonAscii + digit;
+        };
+    return data.pickValue(List.of("", "[", "x"))
+        + reference
+        + data.pickValue(List.of("", "]", "$1"));
   }
 
   private static void appendReplacementLoop(
