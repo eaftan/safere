@@ -10726,6 +10726,72 @@
       }
     },
     {
+      "id": "ReplaceBenchmark.startAnchoredReplaceFirstNoMatch.{regex}",
+      "operation": "replaceFirst",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "replace.literalReplaceFirstNoMatch.input"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "REDACTED"
+      },
+      "axes": {
+        "regex": [
+          {
+            "id": "literal",
+            "value": "^authorization=.*"
+          },
+          {
+            "id": "charClass",
+            "value": "^[0-9]+.*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ReplaceBenchmark.startAnchoredReplaceAllNoMatch.{regex}",
+      "operation": "replaceAll",
+      "patterns": [
+        "{regex}"
+      ],
+      "inputs": [
+        "replace.literalReplaceFirstNoMatch.input"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "REDACTED"
+      },
+      "axes": {
+        "regex": [
+          {
+            "id": "literal",
+            "value": "^authorization=.*"
+          },
+          {
+            "id": "charClass",
+            "value": "^[0-9]+.*"
+          }
+        ]
+      }
+    },
+    {
       "id": "ReplaceBenchmark.literalReplaceAll",
       "operation": "replaceAll",
       "patterns": [
