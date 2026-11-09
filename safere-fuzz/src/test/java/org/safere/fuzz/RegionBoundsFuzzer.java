@@ -89,7 +89,7 @@ public final class RegionBoundsFuzzer {
   // Same bounded pattern grammar as RegionAssertionCompositionTest. Fuzzing extends its curated
   // corpus by concatenating Unicode/context fragments and choosing arbitrary regions within them.
   private static final List<String> ASSERTION_LEFT_ATOMS =
-      List.of(".", "(.)?", "(.)*", "(.)+?", "[\\s\\S]", "\\p{Cs}", "\\P{Cs}");
+      List.of(".", "(.)?", "(.)*", "(.)+?", "(a+?)b", "([a-z]+)", "[\\s\\S]", "\\p{Cs}", "\\P{Cs}");
   private static final List<String> ASSERTION_PREDICATES =
       List.of(
           "\\b",

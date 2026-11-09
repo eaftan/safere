@@ -435,6 +435,11 @@ public final class Matcher implements MatchResult {
   private int deferredMatchEnd;
   private boolean deferredEndMatch;
 
+  /** Opaque input view retained only until the current region match is consumed or discarded. */
+  private InputScanner deferredRegionScanner;
+
+  private int deferredRegionOffset;
+
   /**
    * Whether the current String replacement requires inner captures during exact fallback search.
    * Scoped to that invocation; historical consumption belongs to the Pattern, not this matcher.
@@ -577,6 +582,8 @@ public final class Matcher implements MatchResult {
     deferredMatchStart = 0;
     deferredMatchEnd = 0;
     deferredEndMatch = false;
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
   }
 
   private void resetReplacementState() {
@@ -614,6 +621,7 @@ public final class Matcher implements MatchResult {
 
   private void prepareAnchoredAttempt() {
     rememberPreviousMatchEnd();
+    clearDeferredCaptureState();
     findExhaustedAfterTerminalEmptyMatch = false;
     // An anchored failure invalidates the result, but does not reset find's continuation.
     searchFrom = previousMatchEnd;
@@ -1548,8 +1556,7 @@ public final class Matcher implements MatchResult {
     return scanner.asciiAt(pos - 2) == '\r' && scanner.asciiAt(pos - 1) == '\n';
   }
 
-  private GraphemeSupport.Context graphemeContext() {
-    InputScanner scanner = activeScanner();
+  private GraphemeSupport.Context graphemeContext(InputScanner scanner) {
     boolean bounded = fullTextRegionContext && !transparentBounds;
     int start = bounded ? regionStart : 0;
     int end = bounded ? regionEnd : scanner.length();
@@ -1569,8 +1576,8 @@ public final class Matcher implements MatchResult {
     return graphemeContext;
   }
 
-  private GraphemeSupport.Context graphemeContextFor(Prog prog) {
-    return prog.hasGraphemeSemantics() ? graphemeContext() : null;
+  private GraphemeSupport.Context graphemeContextFor(Prog prog, InputScanner scanner) {
+    return prog.hasGraphemeSemantics() ? graphemeContext(scanner) : null;
   }
 
   private int getTextLength() {
@@ -1719,7 +1726,10 @@ public final class Matcher implements MatchResult {
       return parentPattern.preparedMatchRunner(regionActive).find(this, regionActive);
     } finally {
       if (regionSubstituted) {
-        resolveCapturesBeforeRestoringRegion();
+        if (hasMatch && !capturesResolved) {
+          deferredRegionScanner = activeScanner();
+          deferredRegionOffset = regionStart;
+        }
         text = savedText;
         textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
@@ -1869,9 +1879,8 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Core find logic. When {@code regionActive} is true, the DFA sandwich with deferred captures is
-   * disabled because resolveCaptures() would run on the full text with different empty-width
-   * assertion semantics than the substring the DFA saw.
+   * Core find logic. Independent region views retain their scanner for deferred capture extraction
+   * so assertions are replayed against the same bounded input.
    */
   private boolean doFindCore(boolean regionActive) {
     InputScanner scanner = activeScanner();
@@ -1881,7 +1890,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Reset deferred-capture state; DFA sandwich path may set it to false.
-    capturesResolved = true;
+    clearDeferredCaptureState();
 
     Prog prog = parentPattern.prog();
     EnginePathOptions options = enginePathOptions();
@@ -2191,10 +2200,10 @@ public final class Matcher implements MatchResult {
     // callers have consumed them before, collect them in this pass rather than replaying it on
     // group access. Otherwise group-zero-only loops can still defer capture tracking.
     //
-    // Region searches keep eager capture extraction: deferred resolution runs on the full input,
-    // while the fallback below sees the substituted region view.
+    // Independent region views retain the same scanner for replay; full-context regions still
+    // use eager extraction.
     boolean lazyFallbackCaptures =
-        !regionActive
+        (!regionActive || independentRegion)
             && !replacementNeedsCaptures
             && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
@@ -2888,6 +2897,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchNfa(
             prog,
+            text,
             startPos,
             searchLimit,
             endPos,
@@ -2902,6 +2912,7 @@ public final class Matcher implements MatchResult {
 
   private int[] searchNfa(
       Prog prog,
+      InputScanner scanner,
       int startPos,
       int searchLimit,
       int endPos,
@@ -2910,7 +2921,6 @@ public final class Matcher implements MatchResult {
       Nfa.MatchKind nfaKind,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
-    InputScanner scanner = activeScanner();
     if (prog.start() == 0) {
       return null;
     }
@@ -2932,16 +2942,20 @@ public final class Matcher implements MatchResult {
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
 
+    // Independent input views carry their complete assertion context in scanner coordinates.
+    // Only full-text region operations use the matcher's original region bounds.
+    int assertionRegionStart = fullTextRegionContext ? regionStart : 0;
+    int assertionRegionEnd = fullTextRegionContext ? regionEnd : scanner.length();
     boolean useOuterEmptyContext = fullTextRegionContext || preserveOuterEmptyContext;
-    int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
-    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
+    int emptyContextEnd = preserveOuterEmptyContext ? assertionRegionEnd : endPos;
+    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? assertionRegionStart : 0;
     int boundaryEndPos =
         useOuterEmptyContext && !transparentBounds ? emptyContextEnd : scanner.length();
     int anchorEndPos =
         useOuterEmptyContext && !anchoringBounds && prog.anchorEnd()
             ? scanner.length()
             : emptyContextEnd;
-    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
+    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? assertionRegionStart : 0;
     int emptyAnchorEndPos =
         useOuterEmptyContext && !anchoringBounds ? scanner.length() : emptyContextEnd;
 
@@ -2958,7 +2972,7 @@ public final class Matcher implements MatchResult {
             anchorEndPos,
             emptyAnchorStartPos,
             emptyAnchorEndPos,
-            graphemeContextFor(prog));
+            graphemeContextFor(prog, scanner));
 
     releaseEnginesOwnedByOtherThread();
     if (cachedNfa == null && !nfaBorrowed) {
@@ -4490,13 +4504,35 @@ public final class Matcher implements MatchResult {
    * (fo|foo)} matching "fo" rather than "foo"). For {@code matches()}, the deferred search must
    * still cover the whole input.
    */
-  @SuppressWarnings("ReferenceEquality")
   private void resolveCaptures() {
     if (capturesResolved) {
       return;
     }
+    if (deferredRegionScanner == null) {
+      resolveCapturesOnInput(activeScanner());
+    } else {
+      resolveRegionCaptures();
+    }
+  }
+
+  private void resolveRegionCaptures() {
+    int offset = deferredRegionOffset;
+    resolveCapturesOnInput(deferredRegionScanner);
+    for (int i = 0; i < groups.length; i++) {
+      if (groups[i] >= 0) {
+        groups[i] += offset;
+      }
+    }
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private void resolveCapturesOnInput(InputScanner scanner) {
+    if (capturesResolved) {
+      return;
+    }
     Prog prog = parentPattern.prog();
-    InputScanner scanner = activeScanner();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
     // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
     // captures within that range.

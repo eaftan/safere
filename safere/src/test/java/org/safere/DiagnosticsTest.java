@@ -1191,7 +1191,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void regionFindReportsIndependentTextBoundsAndEagerCaptureAttribution() {
+  void regionFindReportsIndependentTextBoundsAndDeferredCaptureAttribution() {
     Pattern.setDiagnostics(diagnostics);
 
     Pattern independentPattern = Pattern.compile("(a+?)b");
@@ -1203,16 +1203,15 @@ class DiagnosticsTest {
     Pattern regionPattern = Pattern.compile("(a+?)b");
     Matcher regionMatcher = regionPattern.matcher("xaabx").region(1, 4);
     assertThat(regionMatcher.find()).isTrue();
-    assertThat(regionMatcher.capturesResolved()).isTrue();
+    assertThat(regionMatcher.capturesResolved()).isFalse();
 
     assertThat(operationsFor(regionPattern))
         .singleElement()
         .satisfies(
             event -> {
               assertThat(event.boundaryStrategy()).isEqualTo(independentEvent.boundaryStrategy());
-              // Region captures are resolved before restoring the original input coordinates.
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+              assertThat(event.captureStrategy()).isEqualTo(independentEvent.captureStrategy());
+              assertThat(event.captureMode()).isEqualTo(independentEvent.captureMode());
             });
   }
 

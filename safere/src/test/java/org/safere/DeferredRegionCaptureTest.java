@@ -21,6 +21,85 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Differential coverage for captures resolved against temporary region views (see issue #880). */
 @DisabledForCrosscheck("uses engine controls and already compares against java.util.regex")
 class DeferredRegionCaptureTest {
+  @Test
+  void regionFindDefersCapturesUntilRequested() {
+    for (String regex : List.of("(a+?)b", "(a+)b", "\\b(a+?)b\\b")) {
+      Pattern pattern = Pattern.compile(regex);
+      Matcher matcher = pattern.matcher("xaabx").region(1, 4);
+      assertThat(matcher.find()).as(regex).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(4);
+      assertThat(matcher.capturesResolved()).as(regex).isFalse();
+      // Changing bounds must preserve the result produced by the original opaque region.
+      matcher.useTransparentBounds(true).useAnchoringBounds(false);
+      assertThat(matcher.group(1)).isEqualTo("aa");
+      assertThat(matcher.start(1)).isEqualTo(1);
+      assertThat(matcher.end(1)).isEqualTo(3);
+      assertThat(matcher.toMatchResult().group(1)).isEqualTo("aa");
+      assertThat(matcher.find()).isFalse();
+    }
+  }
+
+  @Test
+  void anchoredAttemptsDiscardPreviousDeferredRegionContext() {
+    for (boolean fullMatch : List.of(false, true)) {
+      Matcher matcher = Pattern.compile("(a+?)b").matcher("xaabx").region(1, 4);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.capturesResolved()).isFalse();
+      assertThat(fullMatch ? matcher.matches() : matcher.lookingAt()).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(4);
+      assertThat(matcher.group(1)).isEqualTo("aa");
+      assertThat(matcher.start(1)).isEqualTo(1);
+      assertThat(matcher.end(1)).isEqualTo(3);
+    }
+  }
+
+  @Test
+  void exactFallbackRegionFindDefersCaptures() {
+    Pattern pattern = Pattern.compile("(a+?)b", 0, EnginePathOptions.builder().dfa(false).build());
+    Matcher matcher = pattern.matcher("xaabx").region(1, 4);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(4);
+    assertThat(matcher.capturesResolved()).isFalse();
+    assertThat(matcher.group(1)).isEqualTo("aa");
+    assertThat(matcher.start(1)).isEqualTo(1);
+    assertThat(matcher.end(1)).isEqualTo(3);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\\b(a+?)(z)?b\\b", "(?m)^(a+?)(z)?b$", "\\A(a+?)(z)?b\\z"})
+  void freshNfaFindReplaysBoundarySensitiveCapturesAgainstTheRetainedRegion(String regex) {
+    for (boolean changeBounds : List.of(false, true)) {
+      // Keep the Pattern fresh: an earlier capture read would make the exact fallback eager.
+      Pattern pattern =
+          Pattern.compile(
+              regex,
+              0,
+              EnginePathOptions.builder().onePass(false).bitState(false).dfa(false).build());
+      Matcher actual = pattern.matcher("qaabq").region(1, 4);
+      java.util.regex.Matcher expected =
+          java.util.regex.Pattern.compile(regex).matcher("qaabq").region(1, 4);
+
+      assertThat(actual.find()).isEqualTo(expected.find()).isTrue();
+      assertThat(actual.capturesResolved()).isFalse();
+      assertThat(actual.start()).isEqualTo(1);
+      assertThat(actual.end()).isEqualTo(4);
+      assertThat(actual.capturesResolved()).isFalse();
+      if (changeBounds) {
+        actual.useTransparentBounds(true).useAnchoringBounds(false);
+        expected.useTransparentBounds(true).useAnchoringBounds(false);
+      }
+      assertThat(captures(actual)).isEqualTo(captures(expected));
+      assertThat(captures(actual.toMatchResult())).isEqualTo(captures(expected.toMatchResult()));
+      assertThat(actual.group(1)).isEqualTo("aa");
+      assertThat(actual.start(2)).isEqualTo(-1);
+      assertThat(actual.regionStart()).isEqualTo(1);
+      assertThat(actual.regionEnd()).isEqualTo(4);
+    }
+  }
+
   private enum Engine {
     DEFAULT,
     DEFERRED_NFA,
