@@ -132,6 +132,32 @@ class EntryPointWorkParityTest {
   }
 
   @Test
+  void referenceWorkIncludesForwardDfaTraversal() {
+    Pattern pattern =
+        Pattern.compile(
+            "[0-9]+",
+            0,
+            EnginePathOptions.builder()
+                .charClassMatchFastPaths(false)
+                .startAcceleration(false)
+                .shiftDfa(false)
+                .build());
+    for (int size : SIZES) {
+      String input = FILLER.repeat(size / FILLER.length());
+      Runnable search = () -> assertThat(pattern.matcher(input).find()).isFalse();
+      long reference = work(search);
+      long dfaSteps = WorkCounter.countForwardDfaStepsForTesting(search);
+
+      assertThat(dfaSteps)
+          .as("the reference must exercise the DFA")
+          .isGreaterThanOrEqualTo(input.length());
+      assertThat(reference)
+          .as("reference work must include DFA steps")
+          .isGreaterThanOrEqualTo(dfaSteps);
+    }
+  }
+
+  @Test
   void guardedGapEntryPointsAvoidScanningDensePrefixCandidates() {
     String regex = "record:[^\\r\\n;]*val=200";
     String noise = "record:x;";
@@ -189,7 +215,8 @@ class EntryPointWorkParityTest {
 
   private static long work(Runnable task) {
     task.run(); // Build lazily prepared engines outside the measurement.
-    return WorkCounter.countForTesting(task);
+    // Direct scanners record ordinary units; the DFA's ASCII loop records separate steps.
+    return WorkCounter.countWithForwardDfaStepsForTesting(task);
   }
 
   private static void findAll(Pattern pattern, String input) {
