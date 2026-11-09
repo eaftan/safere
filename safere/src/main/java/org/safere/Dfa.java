@@ -78,6 +78,16 @@ final class Dfa {
   /** Previous scan character was CR forward or LF backward, for atomic CRLF assertions. */
   private static final int FLAG_CRLF_CONTEXT = 1 << 19;
 
+  /**
+   * Flag bit, reversed programs only: a deferred assertion also reached MATCH before the transition
+   * character, but a higher-priority branch consuming that character reaches MATCH too, so {@link
+   * #FLAG_MATCH_BEFORE} is not set. A longest reverse search prefers the after-consume match (an
+   * earlier start). In the final iteration at {@code startLimit}, though, the consumed character
+   * lies left of {@code startLimit} and only supplies assertion context, so the search must record
+   * the before-consume match at {@code startLimit} instead.
+   */
+  private static final int FLAG_MATCH_BEFORE_SHADOWED = 1 << 20;
+
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -1699,7 +1709,7 @@ final class Dfa {
         }
       } else {
         if (hasMatch(nextInsts)) {
-          flags |= FLAG_MATCH;
+          flags |= FLAG_MATCH | (prog.reversed() ? FLAG_MATCH_BEFORE_SHADOWED : 0);
         } else {
           flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
         }
@@ -2706,6 +2716,15 @@ final class Dfa {
             matched = true;
             matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
             ambiguous |= (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+            if (!longest && !needEndMatch) {
+              return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
+            }
+          } else if (pos == startLimit && (s.flags & FLAG_MATCH_BEFORE_SHADOWED) != 0) {
+            // The after-consume match starts left of startLimit, but the deferred match still
+            // starts at startLimit, with the preceding character as its assertion context.
+            boolean alreadyMatched = matched;
+            matched = true;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
             if (!longest && !needEndMatch) {
               return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
             }
