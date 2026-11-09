@@ -15886,6 +15886,144 @@
       }
     },
     {
+      "id": "ByteReplacementBenchmark.literalAscii",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "b"
+      ],
+      "inputs": [
+        "replace.literalReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "bb"
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.nullableClass",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "a*"
+      ],
+      "inputs": [
+        "replace.emptyReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "x"
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.captureControl",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "(qu|[b-df-hj-np-tv-z]*)([a-z]+)"
+      ],
+      "inputs": [
+        "replace.pigLatinReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": {
+          "java": "$2$1ay",
+          "alternates": {
+            "go-regexp": {
+              "replacement": "${2}${1}ay",
+              "reason": "Go replacement references need braces before adjacent letters"
+            },
+            "rust-regex": {
+              "replacement": "${2}${1}ay",
+              "reason": "Rust replacement references need braces before adjacent letters"
+            },
+            "re2-cpp": {
+              "replacement": "\\2\\1ay",
+              "reason": "C++ RE2 uses backslash-number capture references"
+            }
+          }
+        }
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "ByteReplacementBenchmark.literalScaling.{size}",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "b"
+      ],
+      "inputs": [
+        "replace.literalReplaceAllScaling.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "bb"
+      },
+      "axes": {
+        "size": [
+          100,
+          1000,
+          10000
+        ]
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.nullableScaling.{size}",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "a*"
+      ],
+      "inputs": [
+        "replace.emptyReplaceAllScaling.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "x"
+      },
+      "axes": {
+        "size": [
+          100,
+          1000,
+          10000
+        ]
+      }
+    },
+    {
       "id": "ByteReplacementBenchmark.literal",
       "operation": "utf8Replacement",
       "patterns": [
