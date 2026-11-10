@@ -22,6 +22,15 @@ final class RepresentationChecks {
   private RepresentationChecks() {}
 
   static void assertUtf8ReplacementMatchesAppendLoop(FuzzedDataProvider data) {
+    int groups = data.consumeInt(0, 8);
+    int invalidGroup = data.consumeInt(groups + 1, 9);
+    String invalidReplacement =
+        data.pickValue(List.of("", "[", "$0", "é😀$0-"))
+            + "$"
+            + invalidGroup
+            + data.pickValue(List.of("", "]", "0", "$0", "😀"));
+    assertUtf8NumberedReferenceValidation(
+        groups, invalidGroup, invalidReplacement, data.consumeBoolean(), data.consumeBoolean());
     String regex =
         data.pickValue(
             List.of(
@@ -107,6 +116,61 @@ final class RepresentationChecks {
         if (!found) {
           break;
         }
+      }
+    }
+  }
+
+  private enum ReplacementOperation {
+    ALL,
+    FIRST,
+    APPEND
+  }
+
+  static void assertUtf8NumberedReferenceValidation(
+      int groups, int invalidGroup, String replacement, boolean hasMatch, boolean trusted) {
+    String regex = "(".repeat(groups) + "b" + ")".repeat(groups);
+    String source = "前é😀a" + (hasMatch ? "bb" : "") + "後";
+    byte[] bytes = ("prefix" + source + "suffix").getBytes(StandardCharsets.UTF_8);
+    int length = source.getBytes(StandardCharsets.UTF_8).length;
+    Utf8Input input =
+        trusted ? Utf8Input.trusted(bytes, 6, length) : Utf8Input.validated(bytes, 6, length);
+    byte[] templateBytes = ("prefix" + replacement + "suffix").getBytes(StandardCharsets.UTF_8);
+    Utf8Input template =
+        Utf8Input.validated(templateBytes, 6, replacement.getBytes(StandardCharsets.UTF_8).length);
+    Pattern pattern = Pattern.compile(regex);
+    String expectedMessage = "No group " + invalidGroup + " (groupCount=" + groups + ")";
+    for (ReplacementOperation operation : ReplacementOperation.values()) {
+      if (!hasMatch && operation == ReplacementOperation.APPEND) {
+        continue;
+      }
+      Utf8Matcher matcher = pattern.matcher(input);
+      ByteArrayOutputStream output = new ByteArrayOutputStream();
+      String context = operation + " /" + regex + "/ replacing with " + replacement;
+      try {
+        switch (operation) {
+          case ALL -> matcher.replaceAll(output::write, template);
+          case FIRST -> matcher.replaceFirst(output::write, template);
+          case APPEND -> {
+            if (!matcher.find()) {
+              throw new AssertionError("Missing generated match: " + context);
+            }
+            matcher.appendReplacement(output::write, template);
+          }
+        }
+      } catch (IndexOutOfBoundsException failure) {
+        if (!hasMatch
+            || failure.getClass() != IndexOutOfBoundsException.class
+            || !expectedMessage.equals(failure.getMessage())
+            || output.size() != 0) {
+          throw new AssertionError("Invalid reference validation differs: " + context, failure);
+        }
+        continue;
+      }
+      if (hasMatch) {
+        throw new AssertionError("Invalid numbered reference was accepted: " + context);
+      }
+      if (!Arrays.equals(output.toByteArray(), source.getBytes(StandardCharsets.UTF_8))) {
+        throw new AssertionError("Unmatched replacement output differs: " + context);
       }
     }
   }

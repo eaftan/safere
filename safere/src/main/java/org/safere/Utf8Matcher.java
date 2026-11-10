@@ -224,6 +224,9 @@ public final class Utf8Matcher {
     requireNonNull(sink, "sink");
     requireNonNull(replacement, "replacement");
     reset();
+    // The first find applies whole-input and anchored prefix/class rejection. This uses the
+    // regular matcher pipeline; String has separate literal, character-class and DFA replacement
+    // loops.
     if (find()) {
       do {
         appendReplacement(sink, replacement);
@@ -351,7 +354,8 @@ public final class Utf8Matcher {
   private ReplacementSegment[] replacementTemplate(Utf8Input replacement) {
     if (replacement != cachedReplacement) {
       String text = ((ArrayUtf8Input) replacement).decode();
-      Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount());
+      int groupCount = groupCount();
+      Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount);
       ReplacementSegment[] compiled = new ReplacementSegment[parsed.length];
       Map<String, Integer> namedGroups = pattern.namedGroups();
       boolean needsCaptures = false;
@@ -361,6 +365,10 @@ public final class Utf8Matcher {
               case Matcher.ReplacementSegment.Literal(var literal) ->
                   new ReplacementSegment.Literal(literal.getBytes(UTF_8));
               case Matcher.ReplacementSegment.GroupRef(var group) -> {
+                if (group > groupCount) {
+                  throw new IndexOutOfBoundsException(
+                      "No group " + group + " (groupCount=" + groupCount + ")");
+                }
                 needsCaptures |= group != 0;
                 yield new ReplacementSegment.GroupRef(group);
               }

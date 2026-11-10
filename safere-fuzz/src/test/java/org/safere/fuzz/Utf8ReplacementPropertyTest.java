@@ -13,6 +13,23 @@ import org.junit.jupiter.params.provider.ValueSource;
 class Utf8ReplacementPropertyTest {
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
+  void invalidNumberedReferencesHaveConsistentValidation(boolean trusted) {
+    for (int groups : new int[] {0, 1, 2, 8}) {
+      for (int invalidGroup : new int[] {groups + 1, 9}) {
+        for (String prefix : List.of("", "[", "é😀$0-")) {
+          for (String suffix : List.of("", "]", "0")) {
+            for (boolean hasMatch : new boolean[] {false, true}) {
+              RepresentationChecks.assertUtf8NumberedReferenceValidation(
+                  groups, invalidGroup, prefix + "$" + invalidGroup + suffix, hasMatch, trusted);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   void wholeInputReplacementsAgreeWithAppendLoops(boolean trusted) {
     String[][] cases = {
       {"", ""},

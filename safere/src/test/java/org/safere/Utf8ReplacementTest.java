@@ -18,6 +18,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8ReplacementTest {
@@ -163,6 +164,74 @@ class Utf8ReplacementTest {
     replace(matcher, sink, input("b"), all);
 
     assertThat(sink.toString()).isEqualTo(all ? "xbxb" : "xbxa");
+  }
+
+  @ParameterizedTest
+  @EnumSource(ReplacementOperation.class)
+  void invalidNumberedReferencesFailBeforeWriting(ReplacementOperation operation) {
+    for (int groupCount : new int[] {0, 1, 2, 8}) {
+      String regex = "(".repeat(groupCount) + "b" + ")".repeat(groupCount);
+      int invalidGroup = groupCount + 1;
+      for (String replacement :
+          List.of("$" + invalidGroup, "[$" + invalidGroup + "]", "é😀$0-$" + invalidGroup)) {
+        for (boolean window : new boolean[] {false, true}) {
+          String subject = "前é😀ab後b";
+          Utf8Input source = windowedInput(subject, window);
+          Utf8Input template = windowedInput(replacement, window);
+          Utf8Matcher matcher = Pattern.compile(regex).matcher(source);
+          CollectingSink sink = new CollectingSink();
+
+          assertThatThrownBy(() -> replace(matcher, sink, template, operation))
+              .as("%s /%s/ template %s, window=%s", operation, regex, replacement, window)
+              .isExactlyInstanceOf(IndexOutOfBoundsException.class)
+              .hasMessage("No group %s (groupCount=%s)", invalidGroup, groupCount);
+          assertThat(sink.toString()).isEmpty();
+          assertThatThrownBy(() -> matcher.appendTail(sink))
+              .isInstanceOf(IllegalStateException.class);
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void invalidNumberedReferencesRemainLazyWithoutMatches(boolean all) {
+    for (String replacement : List.of("$1", "[$9]", "é😀$0-$2")) {
+      CollectingSink sink = new CollectingSink();
+      replace(matcher("b", "前é😀a後"), sink, input(replacement), all);
+      assertThat(sink.toString()).isEqualTo("前é😀a後");
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(ReplacementOperation.class)
+  void numberedReferenceDigitsRespectAvailableGroups(ReplacementOperation operation) {
+    record Case(int groups, String replacement) {}
+    for (Case c :
+        List.of(
+            new Case(0, "$00"),
+            new Case(0, "$01"),
+            new Case(1, "$10"),
+            new Case(1, "$12"),
+            new Case(2, "$20"),
+            new Case(10, "$10"),
+            new Case(10, "$11"))) {
+      String regex = "(".repeat(c.groups()) + "b" + ")".repeat(c.groups());
+      String subject = "前é😀ab後b";
+      Matcher stringMatcher = Pattern.compile(regex).matcher(subject);
+      String expected =
+          operation == ReplacementOperation.ALL
+              ? stringMatcher.replaceAll(c.replacement())
+              : stringMatcher.replaceFirst(c.replacement());
+      CollectingSink sink = new CollectingSink();
+
+      Utf8Matcher utf8 = matcher(regex, subject);
+      replace(utf8, sink, input(c.replacement()), operation);
+      if (operation == ReplacementOperation.APPEND) {
+        utf8.appendTail(sink);
+      }
+      assertThat(sink.toString()).isEqualTo(expected);
+    }
   }
 
   @ParameterizedTest
@@ -480,6 +549,32 @@ class Utf8ReplacementTest {
 
     assertThat(sink.toString()).isEqualTo("αéz");
     assertThat(direct.position()).isEqualTo(originalPosition);
+  }
+
+  private enum ReplacementOperation {
+    ALL,
+    FIRST,
+    APPEND
+  }
+
+  private static void replace(
+      Utf8Matcher matcher, Utf8Sink sink, Utf8Input replacement, ReplacementOperation operation) {
+    switch (operation) {
+      case ALL -> matcher.replaceAll(sink, replacement);
+      case FIRST -> matcher.replaceFirst(sink, replacement);
+      case APPEND -> {
+        assertThat(matcher.find()).isTrue();
+        matcher.appendReplacement(sink, replacement);
+      }
+    }
+  }
+
+  private static Utf8Input windowedInput(String text, boolean window) {
+    if (!window) {
+      return input(text);
+    }
+    byte[] storage = ("before" + text + "after").getBytes(UTF_8);
+    return Utf8Input.validated(storage, 6, text.getBytes(UTF_8).length);
   }
 
   private static void replace(
