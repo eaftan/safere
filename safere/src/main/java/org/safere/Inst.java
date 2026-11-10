@@ -150,6 +150,13 @@ final class Inst {
     this.out = out;
   }
 
+  /** Initializes the previous-match boundary assertion. */
+  public void initPreviousMatchEnd(int out) {
+    this.op = InstOp.PREVIOUS_MATCH_END;
+    this.opCode = InstOp.OP_PREVIOUS_MATCH_END;
+    this.out = out;
+  }
+
   /** Initializes as a MATCH instruction with the given match ID. */
   public void initMatch(int matchId) {
     this.op = InstOp.MATCH;
@@ -343,6 +350,7 @@ final class Inst {
       case CAPTURE -> String.format(Locale.ROOT, "capture %d -> %d", arg, out);
       case EMPTY_WIDTH -> String.format(Locale.ROOT, "empty 0x%X -> %d", arg, out);
       case MATCH -> String.format(Locale.ROOT, "match %d", arg);
+      case PREVIOUS_MATCH_END -> String.format(Locale.ROOT, "previous_match_end -> %d", out);
       case NOP -> String.format(Locale.ROOT, "nop -> %d", out);
       case LOOP_ENTER -> String.format(Locale.ROOT, "loop_enter reg=%d -> %d", arg, out);
       case FAIL -> "fail";

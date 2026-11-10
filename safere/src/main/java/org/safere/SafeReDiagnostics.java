@@ -294,7 +294,7 @@ public final class SafeReDiagnostics {
         json.append(',');
         appendNumberField(json, "arg", inst.arg);
       }
-      case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, GRAPHEME_CLUSTER ->
+      case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, PREVIOUS_MATCH_END, GRAPHEME_CLUSTER ->
           appendArgOutFields(json, inst);
       case ALT, ALT_MATCH -> appendOutOut1Fields(json, inst);
       case CHAR_RANGE -> appendCharRangeFields(json, inst);

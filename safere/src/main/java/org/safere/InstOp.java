@@ -70,10 +70,13 @@ enum InstOp {
    * Fresh entry to a nullable repetition. Resets the loop register in {@link Inst#arg} to {@code
    * -1} and continues to {@code out}. The repetition's back edge bypasses this instruction.
    */
-  LOOP_ENTER;
+  LOOP_ENTER,
+
+  /** Assert that the current position equals the operation's previous-match boundary. */
+  PREVIOUS_MATCH_END;
 
   // Int constants for hot-loop switches, avoiding Enum.ordinal() + synthetic switch-map overhead.
-  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., LOOP_ENTER=11).
+  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., PREVIOUS_MATCH_END=12).
   static final int OP_ALT = 0;
   static final int OP_ALT_MATCH = 1;
   static final int OP_CHAR_RANGE = 2;
@@ -86,4 +89,5 @@ enum InstOp {
   static final int OP_GRAPHEME_CLUSTER = 9;
   static final int OP_PROGRESS_CHECK = 10;
   static final int OP_LOOP_ENTER = 11;
+  static final int OP_PREVIOUS_MATCH_END = 12;
 }

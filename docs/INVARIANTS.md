@@ -125,6 +125,13 @@ Clearing a result does not necessarily reset the next-search cursor.
 - Result streams and functional replacements must detect prohibited callback
   mutation under their API contract.
 
+The `\G` assertion compares against a position fixed for the entire operation. Successful
+operations establish the next boundary; empty-match cursor advancement does not move it.
+Initial/reset searches use the region beginning, while `find(int)` uses its explicit start.
+Engine input views translate the boundary into their own coordinates. Patterns containing
+`\G` use exact NFA/BitState execution and eager captures; DFA, OnePass, and deferred
+capture paths remain ineligible until they carry the same assertion context.
+
 Empty-match progress depends on the representation: String matching uses Java
 indices, while UTF-8 matching advances at scalar boundaries. Test terminal empty
 matches, failed full matches, and bounds changes as sequences, not only as

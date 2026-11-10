@@ -120,7 +120,7 @@ public final class PatternSet {
   public List<Integer> match(String text) {
     boolean anchored = (anchor != Anchor.UNANCHORED);
 
-    if (prog.hasGraphemeClusterInstruction()) {
+    if (prog.hasGraphemeClusterInstruction() || prog.hasPreviousMatchEnd()) {
       return matchFallback(text);
     }
 

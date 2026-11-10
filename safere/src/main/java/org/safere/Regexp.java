@@ -336,6 +336,7 @@ final class Regexp {
                 BEGIN_LINE,
                 END_LINE,
                 BEGIN_TEXT,
+                PREVIOUS_MATCH_END,
                 END_TEXT,
                 WORD_BOUNDARY,
                 NO_WORD_BOUNDARY,
@@ -461,6 +462,7 @@ final class Regexp {
         case BEGIN_LINE -> sb.append('^');
         case END_LINE -> sb.append('$');
         case BEGIN_TEXT -> sb.append("(?-m:^)");
+        case PREVIOUS_MATCH_END -> sb.append("\\G");
         case END_TEXT -> {
           if ((re.flags & ParseFlags.WAS_DOLLAR) != 0) {
             sb.append("(?-m:$)");

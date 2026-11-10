@@ -19,7 +19,8 @@ record EngineContext(
     int anchorEndPos,
     int emptyAnchorStartPos,
     int emptyAnchorEndPos,
-    GraphemeSupport.Context graphemeContext) {
+    GraphemeSupport.Context graphemeContext,
+    int previousMatchEnd) {
 
   EngineContext {
     requireNonNull(text, "text");
@@ -39,6 +40,36 @@ record EngineContext(
       int emptyAnchorStartPos,
       int emptyAnchorEndPos,
       GraphemeSupport.Context graphemeContext) {
+    return create(
+        prog,
+        text,
+        searchStart,
+        searchLimit,
+        endPos,
+        consumeRegionStart,
+        boundaryRegionStart,
+        boundaryEndPos,
+        anchorEndPos,
+        emptyAnchorStartPos,
+        emptyAnchorEndPos,
+        graphemeContext,
+        searchStart);
+  }
+
+  static EngineContext create(
+      Prog prog,
+      InputScanner text,
+      int searchStart,
+      int searchLimit,
+      int endPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos,
+      int anchorEndPos,
+      int emptyAnchorStartPos,
+      int emptyAnchorEndPos,
+      GraphemeSupport.Context graphemeContext,
+      int previousMatchEnd) {
     GraphemeSupport.Context context =
         graphemeContext != null
             ? graphemeContext
@@ -54,6 +85,7 @@ record EngineContext(
         anchorEndPos,
         emptyAnchorStartPos,
         emptyAnchorEndPos,
-        context);
+        context,
+        previousMatchEnd);
   }
 }

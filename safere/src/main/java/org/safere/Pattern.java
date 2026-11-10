@@ -634,7 +634,7 @@ public final class Pattern implements Serializable {
    * loop registers use a matcher instead, so they get its full strategy sequence.
    */
   private boolean canFindWithoutMatcher() {
-    return enginePathOptions.dfa() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return enginePathOptions.dfa() && supportsForwardDfa(prog);
   }
 
   boolean findWithDiagnostics(Utf8InputScanner scanner) {
@@ -1654,7 +1654,10 @@ public final class Pattern implements Serializable {
   }
 
   private static boolean supportsForwardDfa(Prog p) {
-    return p != null && !p.hasGraphemeSemantics() && p.numLoopRegs() == 0;
+    return p != null
+        && !p.hasGraphemeSemantics()
+        && !p.hasPreviousMatchEnd()
+        && p.numLoopRegs() == 0;
   }
 
   Dfa forwardFirstMatchDfa() {
@@ -1739,6 +1742,7 @@ public final class Pattern implements Serializable {
         && !astAnalysis.hasNullableAlt()
         && prog.numLoopRegs() == 0
         && !prog.hasGraphemeSemantics()
+        && !prog.hasPreviousMatchEnd()
         && prog.numCaptures() <= OnePass.MAX_CAPTURE_GROUPS;
   }
 
@@ -1908,7 +1912,7 @@ public final class Pattern implements Serializable {
    * end-anchored reverse-first rejection).
    */
   boolean canUseReverseDfa() {
-    return !prog.anchorStart() && !matchDescriptor.hasFindFastPath();
+    return !prog.anchorStart() && !prog.hasPreviousMatchEnd() && !matchDescriptor.hasFindFastPath();
   }
 
   /**
@@ -2327,7 +2331,7 @@ public final class Pattern implements Serializable {
     if (canOnePassSubmatch()) {
       capabilities.add(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
     }
-    if (enginePathOptions.dfa() && !prog.hasGraphemeSemantics()) {
+    if (enginePathOptions.dfa() && !prog.hasGraphemeSemantics() && !prog.hasPreviousMatchEnd()) {
       capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
       if (prog.numLoopRegs() > 0) {
         capabilities.add(PatternCapability.DFA_REJECT_PREFILTER);
@@ -2539,6 +2543,7 @@ public final class Pattern implements Serializable {
             BEGIN_LINE,
             END_LINE,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,

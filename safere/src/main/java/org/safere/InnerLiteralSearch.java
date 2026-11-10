@@ -44,6 +44,7 @@ final class InnerLiteralSearch {
         }
         case EMPTY_MATCH,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT,
             BEGIN_LINE,
             END_LINE,

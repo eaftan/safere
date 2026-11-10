@@ -222,6 +222,7 @@ final class Parser {
         case BOUNDARY -> pushWordBoundary(!token.negated);
         case GRAPHEME_BOUNDARY -> pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
         case BEGIN -> pushSimpleOp(RegexpOp.BEGIN_TEXT);
+        case PREVIOUS_MATCH_END -> pushSimpleOp(RegexpOp.PREVIOUS_MATCH_END);
         case END_TEXT -> pushSimpleOp(RegexpOp.END_TEXT);
         case FINAL_END -> {
           int savedFlags = flags;
@@ -458,6 +459,7 @@ final class Parser {
           case BEGIN_LINE -> Regexp.beginLine(flags);
           case END_LINE -> Regexp.endLine(flags);
           case BEGIN_TEXT -> Regexp.beginText(flags);
+          case PREVIOUS_MATCH_END -> new Regexp(RegexpOp.PREVIOUS_MATCH_END, flags);
           case END_TEXT -> Regexp.endText(flags);
           case ANY_CHAR -> Regexp.anyChar(flags);
           case WORD_BOUNDARY -> Regexp.wordBoundary(flags);
@@ -581,6 +583,7 @@ final class Parser {
             NO_WORD_BOUNDARY,
             GRAPHEME_CLUSTER_BOUNDARY,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT -> {
           // Zero-width by definition.
         }

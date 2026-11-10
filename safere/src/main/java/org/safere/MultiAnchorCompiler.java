@@ -517,7 +517,13 @@ final class MultiAnchorCompiler {
           switch (node.op) {
             case CAPTURE, NON_CAPTURE ->
                 childArgs.isEmpty() ? NodeAnalysis.UNKNOWN : childArgs.getFirst();
-            case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_TEXT, END_TEXT, END_LINE ->
+            case EMPTY_MATCH,
+                WORD_BOUNDARY,
+                NO_WORD_BOUNDARY,
+                BEGIN_TEXT,
+                PREVIOUS_MATCH_END,
+                END_TEXT,
+                END_LINE ->
                 NodeAnalysis.EMPTY;
             case BEGIN_LINE ->
                 new NodeAnalysis(
@@ -1179,7 +1185,13 @@ final class MultiAnchorCompiler {
         return true;
       }
       switch (current.op) {
-        case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> {
+        case BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY -> {
           return true;
         }
         default -> {
@@ -1852,6 +1864,7 @@ final class MultiAnchorCompiler {
             BEGIN_LINE,
             END_LINE,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY ->

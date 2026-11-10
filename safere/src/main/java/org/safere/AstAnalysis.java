@@ -101,6 +101,7 @@ record AstAnalysis(
             BEGIN_LINE,
             END_LINE,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,

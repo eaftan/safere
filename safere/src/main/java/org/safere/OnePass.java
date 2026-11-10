@@ -148,7 +148,8 @@ final class OnePass {
    * memory budget.
    */
   static OnePass build(Prog prog) {
-    if (prog.start() == 0) {
+    // Packed actions carry text predicates only; matcher-history assertions use exact engines.
+    if (prog.start() == 0 || prog.hasPreviousMatchEnd()) {
       return null;
     }
     if (prog.numCaptures() > MAX_CAPTURE_GROUPS) {

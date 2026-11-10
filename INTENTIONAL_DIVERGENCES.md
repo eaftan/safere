@@ -142,6 +142,53 @@ The strict state fuzz domain resets both matchers after failed initial operation
 before comparing the next search; the independent SafeRE sequence still executes
 without that reset. This limits the oracle domain rather than exempting mismatches.
 
+## Previous-Match Boundary after Failed Searches
+
+Issue reference: #1164.
+
+SafeRE preserves the last successful match's end and find continuation across a
+failed search. A failed attempt does not turn a successfully matched fragment of
+the pattern into a completed match. The `\G` boundary remains fixed at that saved
+end for the next operation, independently of empty-match cursor advancement.
+This follows the successful-match interpretation of the
+[JDK 26 `Pattern` boundary definition](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
+and [`Matcher.find()` continuation rule](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#find()).
+The project owner confirmed preserving this behavior rather than copying the
+JDK's failed-attempt bookkeeping.
+
+For example:
+
+```java
+var matcher = Pattern.compile("[+-]?[0-9]+").matcher("1+");
+matcher.find(); // true: "1", ending at 1
+matcher.find(); // false: the trailing sign has no following digits
+matcher.usePattern(Pattern.compile("\\G\\+"));
+matcher.find(); // SafeRE: true, matching "+" at [1, 2); JDK 26.0.2: false
+```
+
+Observed JDK implementations can overwrite their saved end with the end of an
+optional operand that matched inside a failed attempt. In this example, the
+failed attempt to read a signed number moves the saved end to 2. Rewriting the
+numeric pattern as the equivalent `(?:[+-]|)[0-9]+` preserves the successful end
+at 1 instead. The observed behavior therefore depends on pattern compilation,
+rather than only on the successful match sequence.
+
+The same effect appears after empty matches. On `"aa!ba"`, repeated searches with
+`a?\G` produce an empty match at 0, failure, and then an empty match at 5 on the
+JDK. SafeRE retains boundary 0 and retries there after failure. The Javadoc does
+not spell out all empty-match progress details; this retains SafeRE's existing
+retry policy while preventing failed partial matches from moving `\G`.
+
+`PreviousMatchBoundaryTest` and `PreviousMatchBoundaryEngineTest` pin the
+successful-end invariant across input views, exact engines, regions, and pattern
+changes. Generated crosschecks disable only the deliberately divergent public
+assertions. The generated `\G` state domain in `FindSequenceFuzzer` compares
+operations through the first failed attempt, then resets both matchers before
+further differential operations. Separate SafeRE model sequences retain failure
+history and check that the successful boundary survives. `OracleDefectsTest`
+pins the JDK observation so that the oracle-domain restriction is reviewed if
+that behavior changes.
+
 ## Unsupported Backtracking Features
 
 Sweep names:

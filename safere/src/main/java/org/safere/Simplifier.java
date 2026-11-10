@@ -144,6 +144,7 @@ final class Simplifier {
       case NO_WORD_BOUNDARY:
       case GRAPHEME_CLUSTER_BOUNDARY:
       case BEGIN_TEXT:
+      case PREVIOUS_MATCH_END:
         return true;
 
       case END_TEXT:
@@ -521,6 +522,7 @@ final class Simplifier {
         case BEGIN_LINE:
         case END_LINE:
         case BEGIN_TEXT:
+        case PREVIOUS_MATCH_END:
         case WORD_BOUNDARY:
         case NO_WORD_BOUNDARY:
         case GRAPHEME_CLUSTER_BOUNDARY:
@@ -620,6 +622,7 @@ final class Simplifier {
             BEGIN_LINE,
             END_LINE,
             BEGIN_TEXT,
+            PREVIOUS_MATCH_END,
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
@@ -671,6 +674,7 @@ final class Simplifier {
         case BEGIN_LINE:
         case END_LINE:
         case BEGIN_TEXT:
+        case PREVIOUS_MATCH_END:
         case WORD_BOUNDARY:
         case NO_WORD_BOUNDARY:
         case GRAPHEME_CLUSTER_BOUNDARY:
