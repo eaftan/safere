@@ -611,7 +611,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void abandonedCaptureSpeculationPreservesEarlierReplacementBoundary() {
+  void captureHistoryPreservesDfaReplacementBoundaryAcrossTerminalRejection() {
     Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
     Matcher priming = pattern.matcher("error:[C] code:500");
     assertThat(priming.find()).isTrue();
@@ -627,7 +627,7 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
               assertThat(event.matchCount()).isEqualTo(1);
             });
   }
@@ -702,6 +702,96 @@ class DiagnosticsTest {
                 assertThat(event.forwardDfaSearchCount()).isPositive();
               });
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("captureHistoryFindCases")
+  void captureHistoryKeepsUnanchoredFindDfaFirst(boolean utf8, boolean accelerate) {
+    Pattern pattern = captureHistoryPattern(accelerate, false);
+    Pattern.setDiagnostics(diagnostics);
+    String input = "prefix error:[C] code:500 suffix";
+    if (utf8) {
+      Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+      assertThat(matcher.find()).isTrue();
+      assertDfaFindBoundary(pattern);
+      assertThat(input.substring(matcher.start(1), matcher.end(1))).isEqualTo("error:[");
+      assertThat(input.substring(matcher.start(2), matcher.end(2))).isEqualTo("] code:500");
+    } else {
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).isTrue();
+      assertDfaFindBoundary(pattern);
+      assertThat(matcher.group(1)).isEqualTo("error:[");
+      assertThat(matcher.group(2)).isEqualTo("] code:500");
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("captureHistoryFindCases")
+  void captureHistoryKeepsUnanchoredRejectionOnDfa(boolean utf8, boolean accelerate) {
+    Pattern pattern = captureHistoryPattern(accelerate, false);
+    Pattern.setDiagnostics(diagnostics);
+    // All required literals and an uppercase character occur, but not in a matching arrangement.
+    String input = "prefix error:[x] code:500 suffix C";
+    if (utf8) {
+      assertThat(pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8))).find()).isFalse();
+    } else {
+      assertThat(pattern.matcher(input).find()).isFalse();
+    }
+    assertDfaFindBoundary(pattern);
+  }
+
+  @ParameterizedTest
+  @MethodSource("captureHistoryFindCases")
+  void captureHistoryPreservesAnchoredFindPreference(boolean utf8, boolean accelerate) {
+    Pattern pattern = captureHistoryPattern(accelerate, true);
+    Pattern.setDiagnostics(diagnostics);
+    String input = "error:[D] code:500";
+    if (utf8) {
+      Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+      assertThat(matcher.find()).isTrue();
+      assertThat(input.substring(matcher.start(1), matcher.end(1))).isEqualTo("error:[");
+    } else {
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.group(1)).isEqualTo("error:[");
+    }
+    assertThat(operationsFor(pattern))
+        .last()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+            });
+  }
+
+  private static Stream<Arguments> captureHistoryFindCases() {
+    return Stream.of(false, true)
+        .flatMap(utf8 -> Stream.of(false, true).map(accelerate -> Arguments.of(utf8, accelerate)));
+  }
+
+  private static Pattern captureHistoryPattern(boolean accelerate, boolean anchored) {
+    EnginePathOptions options =
+        EnginePathOptions.builder()
+            .startAcceleration(accelerate)
+            .onePass(false)
+            .shiftDfa(false)
+            .build();
+    Pattern pattern =
+        Pattern.compile((anchored ? "^" : "") + "(error:\\[)[A-Z](\\] code:500)", 0, options);
+    Matcher primer = pattern.matcher("error:[C] code:500");
+    assertThat(primer.find()).isTrue();
+    assertThat(primer.group(1)).isEqualTo("error:[");
+    return pattern;
+  }
+
+  private void assertDfaFindBoundary(Pattern pattern) {
+    assertThat(operationsFor(pattern))
+        .last()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.forwardDfaSearchCount()).isPositive();
+            });
   }
 
   @Test
@@ -1251,7 +1341,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void speculativeCaptureCandidateMissRestoresAttributionWhenDfaFindsLaterMatch() {
+  void captureHistoryKeepsAcceleratedCandidateHitsAndMissesOnDfa() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("foo(a+)b");
 
@@ -1260,22 +1350,9 @@ class DiagnosticsTest {
     assertThat(warmup.group(1)).isEqualTo("aa");
     diagnostics.operations.clear();
 
-    Matcher speculativeHit = pattern.matcher("xxfooaab");
-    assertThat(speculativeHit.find()).isTrue();
-    assertThat(speculativeHit.capturesResolved()).isTrue();
-    assertThat(operationsFor(pattern))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
-            });
-    diagnostics.operations.clear();
-
-    Matcher speculativeMissThenDfa = pattern.matcher("fooxxx xxfooaab");
-    assertThat(speculativeMissThenDfa.find()).isTrue();
-    assertThat(speculativeMissThenDfa.capturesResolved()).isFalse();
+    Matcher acceleratedHit = pattern.matcher("xxfooaab");
+    assertThat(acceleratedHit.find()).isTrue();
+    assertThat(acceleratedHit.capturesResolved()).isFalse();
     assertThat(operationsFor(pattern))
         .singleElement()
         .satisfies(
@@ -1284,7 +1361,21 @@ class DiagnosticsTest {
               assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
               assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
             });
-    assertThat(speculativeMissThenDfa.group(1)).isEqualTo("aa");
+    assertThat(acceleratedHit.group(1)).isEqualTo("aa");
+    diagnostics.operations.clear();
+
+    Matcher missedCandidate = pattern.matcher("fooxxx xxfooaab");
+    assertThat(missedCandidate.find()).isTrue();
+    assertThat(missedCandidate.capturesResolved()).isFalse();
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+    assertThat(missedCandidate.group(1)).isEqualTo("aa");
   }
 
   @Test

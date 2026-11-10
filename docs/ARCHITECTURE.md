@@ -99,6 +99,9 @@ An eligible search can combine a forward DFA pass, reverse range narrowing,
 and an anchored pass to establish match bounds. Capture extraction can be
 postponed until captures are observed. Each pass has a separate authority:
 a filter cannot publish exact bounds, and bounds do not imply resolved captures.
+For unanchored searches, historical capture demand does not move a capture engine
+ahead of DFA rejection. The history still enables capture collection during an
+already-required exact fallback; anchored operations retain their capture preference.
 If an optimization cannot establish the required semantics, dispatch uses an
 eligible exact path. See [engine invariants](INVARIANTS.md#engines-agree-on-public-observations).
 
