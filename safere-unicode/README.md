@@ -4,6 +4,9 @@ This module generates SafeRE's checked-in Unicode property tables:
 
 - General categories, scripts, blocks, and most binary properties come from
   the maintainer-selected JDK's public `java.lang.Character` API.
+- Internal Unicode identifier exception tables come from ICU4J's `ID_Start`
+  and `ID_Continue` properties after subtracting the categories already included
+  by the Java identifier rules; the mirrored class uses `Character.isMirrored`.
 - `White_Space`, `Hex_Digit`, `Grapheme_Cluster_Break`, `Indic_Conjunct_Break`,
   and `Extended_Pictographic`
   come from ICU4J (`com.ibm.icu.lang.UCharacter`, `UProperty`, `UnicodeSet`).

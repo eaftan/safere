@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -214,5 +215,35 @@ class JavaCharacterClassesTest {
     // Regression for issue #106.
     var p = Pattern.compile("\\p{javaLowerCase}+", Pattern.UNICODE_CHARACTER_CLASS);
     assertThat(p.matcher("foo").find()).isTrue();
+  }
+
+  static Stream<Arguments> javaClassesAndEquivalentProperties() {
+    return Stream.of(
+        Arguments.of("javaLowerCase", "\\p{IsLowercase}"),
+        Arguments.of("javaUpperCase", "\\p{IsUppercase}"),
+        Arguments.of("javaTitleCase", "\\p{IsTitlecase}"),
+        Arguments.of("javaAlphabetic", "\\p{IsAlphabetic}"),
+        Arguments.of("javaIdeographic", "\\p{IsIdeographic}"),
+        Arguments.of("javaDefined", "\\p{IsAssigned}"),
+        Arguments.of("javaLetter", "\\p{L}"),
+        Arguments.of("javaDigit", "\\p{Nd}"),
+        Arguments.of("javaLetterOrDigit", "[\\p{L}\\p{Nd}]"),
+        Arguments.of("javaSpaceChar", "\\p{Z}"),
+        Arguments.of("javaJavaIdentifierStart", "[\\p{L}\\p{Nl}\\p{Sc}\\p{Pc}]"));
+  }
+
+  @ParameterizedTest(name = "\\p'{'{0}'}' = {1}")
+  @MethodSource("javaClassesAndEquivalentProperties")
+  @DisabledForCrosscheck(
+      "SafeRE's java* classes use its bundled Unicode tables, which intentionally differ from"
+          + " older JDKs")
+  void javaClassesAgreeWithEquivalentUnicodeProperties(String javaClass, String equivalent) {
+    // Both sides use the same Unicode data, so they agree on every JDK.
+    Matcher java = Pattern.compile("\\p{" + javaClass + "}").matcher("");
+    Matcher expected = Pattern.compile(equivalent).matcher("");
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      String s = Character.toString(cp);
+      assertThat(java.reset(s).matches()).as("U+%04X", cp).isEqualTo(expected.reset(s).matches());
+    }
   }
 }

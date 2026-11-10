@@ -73,9 +73,11 @@ bundled tables. Not all Unicode behavior is independent of the runtime JDK:
 Unicode case-equivalence closure incorporates runtime Java case mappings.
 
 The `java*` property family, such as `\p{javaLowerCase}` and
-`\p{javaJavaIdentifierStart}`, continues to follow the running JDK's
-`java.lang.Character` predicates because those properties are explicitly
-defined by Java in terms of the runtime `Character` implementation.
+`\p{javaJavaIdentifierStart}`, matches what the corresponding
+`java.lang.Character` predicates return for Unicode 17.0, using the same
+bundled tables. On a JDK with an older Unicode version, these classes can
+disagree with `Character` about newly assigned or changed code points; see the
+[compatibility policy](../INTENTIONAL_DIVERGENCES.md#java-character-classes-and-the-unicode-version).
 
 ## Flags
 

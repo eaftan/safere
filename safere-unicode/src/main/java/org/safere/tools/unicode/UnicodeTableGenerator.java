@@ -9,6 +9,7 @@ import com.ibm.icu.lang.CharacterProperties;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.lang.UCharacter.GraphemeClusterBreak;
 import com.ibm.icu.lang.UCharacter.IndicConjunctBreak;
+import com.ibm.icu.lang.UCharacterCategory;
 import com.ibm.icu.lang.UProperty;
 import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.VersionInfo;
@@ -122,7 +123,8 @@ public final class UnicodeTableGenerator {
         buildScriptTables(),
         buildBlockTables(),
         buildBinaryPropertyTables(),
-        buildGraphemeTables());
+        buildGraphemeTables(),
+        buildJavaClassTables());
   }
 
   private static String unicodeDataVersion() {
@@ -223,6 +225,40 @@ public final class UnicodeTableGenerator {
     return tables;
   }
 
+  /**
+   * Builds the {@code \p{java...}} classes that can't be composed from the general categories and
+   * binary properties. The rest are composed at runtime in {@code JavaCharacterClasses}.
+   */
+  private static Map<String, int[][]> buildJavaClassTables() {
+    Map<String, int[][]> tables = new LinkedHashMap<>();
+    // Bidi_Mirrored isn't exposed as a binary property, since java.util.regex doesn't support it.
+    tables.put("javaMirrored", buildRanges(Character::isMirrored));
+    // Keep identifier exceptions in the generated data too: their membership can change when
+    // Unicode changes categories. Subtract the categories already included by the Java rules.
+    UnicodeSet idStart = CharacterProperties.getBinaryPropertySet(UProperty.ID_START);
+    UnicodeSet idContinue = CharacterProperties.getBinaryPropertySet(UProperty.ID_CONTINUE);
+    tables.put(
+        "javaUnicodeIdentifierStartExtra",
+        buildRanges(
+            cp ->
+                idStart.contains(cp)
+                    && !UCharacter.isLetter(cp)
+                    && UCharacter.getType(cp) != UCharacterCategory.LETTER_NUMBER));
+    tables.put(
+        "javaUnicodeIdentifierPartExtra",
+        buildRanges(
+            cp ->
+                idContinue.contains(cp)
+                    && !UCharacter.isLetterOrDigit(cp)
+                    && UCharacter.getType(cp) != UCharacterCategory.LETTER_NUMBER
+                    && UCharacter.getType(cp) != UCharacterCategory.CONNECTOR_PUNCTUATION
+                    && UCharacter.getType(cp) != UCharacterCategory.COMBINING_SPACING_MARK
+                    && UCharacter.getType(cp) != UCharacterCategory.NON_SPACING_MARK
+                    && !UCharacter.isIdentifierIgnorable(cp)));
+
+    return tables;
+  }
+
   static Map<String, int[][]> buildGraphemeTables() {
     Map<String, int[][]> tables = new LinkedHashMap<>();
     UnicodeSet control =
@@ -318,6 +354,10 @@ public final class UnicodeTableGenerator {
     out.println(
         "  // Grapheme segmentation classes; internal only, not exposed as \\p{...} names.");
     writeInlineMap(out, "GRAPHEME_PROPERTIES", tables.graphemeProperties(), "grapheme");
+    out.println(
+        "  // java* classes that can't be composed from the tables above; internal only, looked up"
+            + " by JavaCharacterClasses.");
+    writeInlineMap(out, "JAVA_CHARACTER_CLASSES", tables.javaClasses(), "javaClass");
 
     String middle =
         """
@@ -337,6 +377,7 @@ public final class UnicodeTableGenerator {
     writeTableMethods(out, "script", tables.scripts());
     writeTableMethods(out, "property", tables.binaryProperties());
     writeTableMethods(out, "grapheme", tables.graphemeProperties());
+    writeTableMethods(out, "javaClass", tables.javaClasses());
 
     out.println("}");
   }
@@ -468,7 +509,8 @@ public final class UnicodeTableGenerator {
       Map<String, int[][]> scripts,
       Map<String, int[][]> blocks,
       Map<String, int[][]> binaryProperties,
-      Map<String, int[][]> graphemeProperties) {}
+      Map<String, int[][]> graphemeProperties,
+      Map<String, int[][]> javaClasses) {}
 
   private static final class RangeBuilder {
     private final List<int[]> ranges = new ArrayList<>();
