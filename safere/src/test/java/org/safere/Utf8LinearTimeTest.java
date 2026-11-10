@@ -56,6 +56,19 @@ class Utf8LinearTimeTest {
   }
 
   @Test
+  void repeatedClassReplacementScalesLinearlyAcrossScalarsAndEmptyMatches() {
+    for (String regex : List.of("[aé😀]*", "[aé😀]+", "[^a]+")) {
+      Pattern pattern = Pattern.compile(regex);
+      Utf8Input replacement = Utf8Input.validated(new byte[] {'x'});
+      assertFourXInputStaysNearLinear(
+          size -> {
+            Utf8Input input = Utf8Input.trusted("aé😀!".repeat(size).getBytes(UTF_8));
+            pattern.matcher(input).replaceAll((bytes, offset, length) -> {}, replacement);
+          });
+    }
+  }
+
+  @Test
   void fullyAnchoredBooleanFindScalesLinearlyWithInteriorFailures() {
     for (String terminal : List.of("END", "[0-9]")) {
       Pattern pattern = Pattern.compile("^([a-z]+)" + terminal + "\\z");

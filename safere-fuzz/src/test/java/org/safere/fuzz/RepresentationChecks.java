@@ -34,7 +34,20 @@ final class RepresentationChecks {
     String regex =
         data.pickValue(
             List.of(
-                "", "(?<word>[aé😀]+)([0-9]+)?", "(a)?(é|😀)", "^é", "é$", "(?m)^é", "a*?", "\\X"));
+                "",
+                "(?<word>[aé😀]+)([0-9]+)?",
+                "(a)?(é|😀)",
+                "^é",
+                "é$",
+                "(?m)^é",
+                "a*?",
+                "\\X",
+                "a*",
+                "a+",
+                "[é😀]*",
+                "[^a]+",
+                "(?i)é*",
+                "[aé😀]{0,}"));
     StringBuilder source = new StringBuilder();
     int pieces = data.consumeInt(0, 32);
     for (int i = 0; i < pieces; i++) {

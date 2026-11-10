@@ -8,6 +8,7 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,10 +18,60 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Forced-path equivalence coverage for matching directly over UTF-8 storage. */
 @DisabledForCrosscheck("uses package-private engine-path controls to compare SafeRE internals")
 class Utf8EnginePathEquivalenceTest {
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "a*",
+        "a+",
+        "[é😀]*",
+        "[^a]+",
+        "(?i)é*",
+        "[aé😀]{0,}",
+        "a*?",
+        "[é😀]+?",
+        "(a*)",
+        "^a*",
+        "a*$"
+      })
+  void repeatedClassSearchAndReplacementAgreeWithGenericUtf8Engines(String regex) {
+    Pattern canonical = Pattern.compile(regex);
+    Pattern generic =
+        Pattern.compile(
+            regex, 0, EnginePathOptions.builder().charClassMatchFastPaths(false).build());
+    for (String source : List.of("", "abc", "aaaa", "é😀aé", "Éé\na", "👩‍💻a")) {
+      byte[] bytes = ("prefix" + source + "suffix").getBytes(UTF_8);
+      Utf8Input input = Utf8Input.validated(bytes, 6, source.getBytes(UTF_8).length);
+      assertThat(trace(canonical, input))
+          .as("/%s/ on %s", regex, source)
+          .isEqualTo(trace(generic, input));
+      for (String replacement : List.of("x", "<$0>", "\\$", "前😀後", "")) {
+        for (boolean all : new boolean[] {false, true}) {
+          assertThat(replacement(canonical, input, replacement, all))
+              .as("/%s/ on %s replacing with %s, all=%s", regex, source, replacement, all)
+              .isEqualTo(replacement(generic, input, replacement, all));
+        }
+      }
+    }
+  }
+
+  private static String replacement(
+      Pattern pattern, Utf8Input input, String replacement, boolean all) {
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    Utf8Matcher matcher = pattern.matcher(input);
+    Utf8Input template = Utf8Input.validated(replacement.getBytes(UTF_8));
+    if (all) {
+      matcher.replaceAll(output::write, template);
+    } else {
+      matcher.replaceFirst(output::write, template);
+    }
+    return output.toString(UTF_8);
+  }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("forcedPaths")

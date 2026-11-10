@@ -917,6 +917,38 @@ public final class Matcher implements MatchResult {
     return applyFailedMatchResult();
   }
 
+  /** Finds a greedy, capture-free repeated class over the whole logical UTF-8 input. */
+  private boolean repeatedCharClassFindUtf8FastPath(
+      Utf8InputScanner scanner, Pattern.CharClassMatchInfo matchInfo, int fromIndex) {
+    int length = scanner.length();
+    if (fromIndex > length) {
+      return applyFailedMatchResult();
+    }
+    int start = fromIndex;
+    if (!matchInfo.allowEmpty()) {
+      start =
+          scanner.indexOfCodePointClass(
+              matchInfo.ranges(), matchInfo.bitmap0(), matchInfo.bitmap1(), fromIndex, length);
+      if (start < 0) {
+        return applyFailedMatchResult();
+      }
+    }
+    int end = start;
+    while (end < length) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int ascii = scanner.asciiAt(end);
+      long decoded = ascii < 0 ? scanner.decodeForward(end) : 0;
+      int cp = ascii < 0 ? InputScanner.codePoint(decoded) : ascii;
+      if (!charClassContains(matchInfo.ranges(), matchInfo.bitmap0(), matchInfo.bitmap1(), cp)) {
+        break;
+      }
+      end = ascii < 0 ? InputScanner.position(decoded) : end + 1;
+    }
+    return applyGroupZeroMatchResult(start, end);
+  }
+
   /**
    * Checks if the remaining input from {@code offset} is a prefix of the literal pattern but
    * shorter than it, meaning more input could potentially result in a match.
@@ -5483,14 +5515,17 @@ public final class Matcher implements MatchResult {
     private final CharClassScanInfo singleCharClass;
     private final Pattern.CharClassMatchInfo charClassMatch;
     private final boolean isStartAnchored;
+    private final boolean greedy;
 
     SingleCharClassPreparedRunner(
         CharClassScanInfo singleCharClass,
         Pattern.CharClassMatchInfo charClassMatch,
-        boolean isStartAnchored) {
+        boolean isStartAnchored,
+        boolean greedy) {
       this.singleCharClass = singleCharClass;
       this.charClassMatch = charClassMatch;
       this.isStartAnchored = isStartAnchored;
+      this.greedy = greedy;
     }
 
     @Override
@@ -5499,6 +5534,14 @@ public final class Matcher implements MatchResult {
         return matcher.applyFailedMatchResult();
       }
       if (singleCharClass == null) {
+        if (charClassMatch != null
+            && greedy
+            && !regionActive
+            && matcher.activeScanner() instanceof Utf8InputScanner scanner) {
+          matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return matcher.repeatedCharClassFindUtf8FastPath(
+              scanner, charClassMatch, matcher.searchFrom);
+        }
         return matcher.doFindCore(regionActive);
       }
       if (isStartAnchored) {

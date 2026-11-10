@@ -4620,6 +4620,14 @@
         "unit": "\u00e9",
         "length": "{size}"
       }
+    },
+    {
+      "id": "repeatedClassFind.words.1024",
+      "recipe": {
+        "kind": "repeat",
+        "value": "alpha beta123 gamma\n",
+        "count": 1024
+      }
     }
   ],
   "workloads": [
@@ -15886,6 +15894,144 @@
       }
     },
     {
+      "id": "ByteReplacementBenchmark.literalAscii",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "b"
+      ],
+      "inputs": [
+        "replace.literalReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "bb"
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.nullableClass",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "a*"
+      ],
+      "inputs": [
+        "replace.emptyReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "x"
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.captureControl",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "(qu|[b-df-hj-np-tv-z]*)([a-z]+)"
+      ],
+      "inputs": [
+        "replace.pigLatinReplaceAll.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": {
+          "java": "$2$1ay",
+          "alternates": {
+            "go-regexp": {
+              "replacement": "${2}${1}ay",
+              "reason": "Go replacement references need braces before adjacent letters"
+            },
+            "rust-regex": {
+              "replacement": "${2}${1}ay",
+              "reason": "Rust replacement references need braces before adjacent letters"
+            },
+            "re2-cpp": {
+              "replacement": "\\2\\1ay",
+              "reason": "C++ RE2 uses backslash-number capture references"
+            }
+          }
+        }
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "ByteReplacementBenchmark.literalScaling.{size}",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "b"
+      ],
+      "inputs": [
+        "replace.literalReplaceAllScaling.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "bb"
+      },
+      "axes": {
+        "size": [
+          100,
+          1000,
+          10000
+        ]
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.nullableScaling.{size}",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "a*"
+      ],
+      "inputs": [
+        "replace.emptyReplaceAllScaling.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "x"
+      },
+      "axes": {
+        "size": [
+          100,
+          1000,
+          10000
+        ]
+      }
+    },
+    {
       "id": "ByteReplacementBenchmark.literal",
       "operation": "utf8Replacement",
       "patterns": [
@@ -20877,6 +21023,50 @@
           "reason": "This control uses Java Unicode word-boundary flag semantics"
         }
       ]
+    },
+    {
+      "id": "RepeatedClassFindBenchmark.words.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\w+"
+      ],
+      "inputs": [
+        "repeatedClassFind.words.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3072
+      }
+    },
+    {
+      "id": "RepeatedClassFindBenchmark.lines.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        "[^\\n]*"
+      ],
+      "inputs": [
+        "repeatedClassFind.words.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 2049
+      }
     }
   ]
 }

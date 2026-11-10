@@ -41,6 +41,12 @@ class Utf8ReplacementPropertyTest {
       {"é$", "é😀é"},
       {"(?m)^é", "é\né"},
       {"a*?", "aaé😀"},
+      {"a*", "aaé😀"},
+      {"a+", "éaa😀a"},
+      {"[é😀]*", "aé😀éa"},
+      {"[^a]+", "aé😀a"},
+      {"(?i)é*", "Ééa"},
+      {"[aé😀]{0,}", "aé😀!"},
       {"\\X", "á👩‍💻"}
     };
     for (String[] testCase : cases) {

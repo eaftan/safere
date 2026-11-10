@@ -37,6 +37,25 @@ class Utf8DiagnosticsTest {
   }
 
   @ParameterizedTest
+  @ValueSource(strings = {"a*", "a+", "[é😀]*", "[^a]+", "[aé😀]{0,}"})
+  void greedyRepeatedClassFindUsesUtf8ClassScanner(String regex) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(regex);
+    Utf8Matcher matcher = matcher(pattern, "é😀aaaé");
+
+    while (matcher.find()) {}
+
+    assertThat(operationsFor(pattern))
+        .filteredOn(event -> event.outcome() == MatchOutcome.MATCH)
+        .isNotEmpty()
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+            });
+  }
+
+  @ParameterizedTest
   @EnumSource(
       value = MatchOperation.class,
       names = {"MATCHES", "LOOKING_AT", "FIND"})
