@@ -37,6 +37,22 @@ sealed interface RejectPrefilter
     return canReject(text, scanner, searchFrom, options) ? strategy() : null;
   }
 
+  /**
+   * Like {@link #canReject}, for the tail of a short input after its first start candidate. On
+   * success that tail is scanned again by the automaton, so filters may pick a search with a lower
+   * fixed cost.
+   */
+  default boolean canRejectTail(
+      String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+    return canReject(text, scanner, searchFrom, options);
+  }
+
+  /** Like {@link #rejectionStrategy}, using {@link #canRejectTail}. */
+  default MatchStrategy tailRejectionStrategy(
+      String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+    return canRejectTail(text, scanner, searchFrom, options) ? strategy() : null;
+  }
+
   MatchStrategy strategy();
 
   /** Checks only terminal filters, whose work is bounded by the pattern rather than the input. */
@@ -175,6 +191,16 @@ sealed interface RejectPrefilter
 
     private boolean canReject(String text, int searchFrom) {
       return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
+    }
+
+    @Override
+    public boolean canRejectTail(
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+      if (text == null && scanner instanceof Utf8InputScanner utf8Scanner) {
+        return options.literalFastPaths()
+            && utf8Scanner.indexOfInTail(this.utf8, failure, searchFrom) < 0;
+      }
+      return canReject(text, scanner, searchFrom, options);
     }
 
     private boolean canReject(InputScanner scanner, int searchFrom) {
@@ -637,6 +663,29 @@ sealed interface RejectPrefilter
         String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
       for (RejectPrefilter filter : filters) {
         MatchStrategy strategy = filter.rejectionStrategy(text, scanner, searchFrom, options);
+        if (strategy != null) {
+          return strategy;
+        }
+      }
+      return null;
+    }
+
+    @Override
+    public boolean canRejectTail(
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+      for (RejectPrefilter filter : filters) {
+        if (filter.canRejectTail(text, scanner, searchFrom, options)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public MatchStrategy tailRejectionStrategy(
+        String text, InputScanner scanner, int searchFrom, EnginePathOptions options) {
+      for (RejectPrefilter filter : filters) {
+        MatchStrategy strategy = filter.tailRejectionStrategy(text, scanner, searchFrom, options);
         if (strategy != null) {
           return strategy;
         }

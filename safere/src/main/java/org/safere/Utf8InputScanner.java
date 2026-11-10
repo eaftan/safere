@@ -588,6 +588,26 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     return indexOfLinear(literal, failure, start);
   }
 
+  /**
+   * Like {@link #indexOf(byte[], int[], int[], int)}, but uses the candidate filter at every input
+   * length.
+   *
+   * <p>The skip loop's advantage on short inputs depends on the input bytes being absent from the
+   * literal. A short literal made of common letters, such as {@code </block>} in English text,
+   * skips only a few bytes per step, and its dependent table loads then cost several times the
+   * filter's fixed setup. Callers that search a short tail for a literal that is often present use
+   * this instead.
+   */
+  int indexOfInTail(byte[] literal, int[] failure, int start) {
+    if (!WorkCounterConfig.ENABLED && literal.length > 1) {
+      int result = ByteSwarScan.indexOfFiltered(bytes, offset, length, literal, start);
+      if (result >= -1) {
+        return result;
+      }
+    }
+    return indexOf(literal, failure, null, start);
+  }
+
   int indexOf(byte[] literal, int[] failure, int[] shifts, int start, int rareByteOffset) {
     if (rareByteOffset < 0
         || WorkCounterConfig.ENABLED

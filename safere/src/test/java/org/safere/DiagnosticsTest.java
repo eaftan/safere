@@ -1395,6 +1395,27 @@ class DiagnosticsTest {
                           MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION));
             });
 
+    // With the start literal present but the infix literal absent, the reject prefilter still runs
+    // from the first start candidate when enough input remains after it, so the forward DFA never
+    // scans the rest of the input.
+    diagnostics.operations.clear();
+    String startOnly = "id=42 status=300 elapsed=12ms\nid=43 status=301 elapsed=8ms\n".repeat(3);
+    assertThat(pattern.matcher(startOnly).find()).isFalse();
+    assertThat(pattern.find(Utf8Input.trusted(startOnly.getBytes(UTF_8)))).isFalse();
+    assertThat(operationsFor(pattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactlyInAnyOrder(
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION),
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
+            });
+
     for (String regex :
         new String[] {
           "(?i:status=3\\d\\d) took=(\\d+)ms", "\u03b1\u03b2\\d+<<!nav>>\\d+", "er\\d+<<!nav>>\\d+",

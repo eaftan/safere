@@ -53,6 +53,32 @@ class RejectPrefilterTest {
   }
 
   @Test
+  void literalTailRejectionAgreesWithWholeInputRejection() {
+    RejectPrefilter prefilter = RejectPrefilter.Literal.create("</block>");
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+    String present = "This is a <block>" + "content bytes here... blah ".repeat(4) + "</block> x";
+    String absent = present.replace("</block>", "<block/>");
+    for (String text : new String[] {present, absent}) {
+      for (int searchFrom = 0; searchFrom <= text.length(); searchFrom++) {
+        boolean expected = text.indexOf("</block>", searchFrom) < 0;
+        assertThat(prefilter.canRejectTail(text, null, searchFrom, options))
+            .as("String from %d", searchFrom)
+            .isEqualTo(expected);
+        assertThat(prefilter.canRejectTail(null, utf8Scanner(text), searchFrom, options))
+            .as("UTF-8 from %d", searchFrom)
+            .isEqualTo(expected);
+        assertThat(
+                new RejectPrefilter.Composite(new RejectPrefilter[] {prefilter})
+                    .tailRejectionStrategy(null, utf8Scanner(text), searchFrom, options))
+            .as("composite UTF-8 from %d", searchFrom)
+            .isEqualTo(expected ? MatchStrategy.LITERAL : null);
+      }
+    }
+    EnginePathOptions disabled = EnginePathOptions.builder().literalFastPaths(false).build();
+    assertThat(prefilter.canRejectTail(null, utf8Scanner(absent), 0, disabled)).isFalse();
+  }
+
+  @Test
   void literalRejectPrefilterRejectsMissingLiteral() {
     MultiAnchorDescriptor.RejectPlan plan =
         new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("needle");
