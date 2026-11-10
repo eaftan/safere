@@ -406,6 +406,18 @@ jobs:
             -cp safere-benchmarks/target/benchmarks.jar \
             org.safere.benchmark.MemoryBenchmark
 
+      - name: Upload benchmark JVM crash diagnostics
+        # A JMH fork can fail without the benchmark command exiting nonzero.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmark-crash-${{ github.job }}
+          path: |
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   vector-benchmark-smoke:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
@@ -446,6 +458,18 @@ jobs:
             --end-to-end \
             --trials \
             'pair/first/absent/1024/0,range/first/absent/1024/0'
+
+      - name: Upload benchmark JVM crash diagnostics
+        # A JMH fork can fail without the benchmark command exiting nonzero.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmark-crash-${{ github.job }}
+          path: |
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   benchmark-smoke-test-cpp:
     needs: [changes, prepare-maven-cache]
