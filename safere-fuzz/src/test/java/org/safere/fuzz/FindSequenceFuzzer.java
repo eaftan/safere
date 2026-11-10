@@ -23,6 +23,30 @@ public final class FindSequenceFuzzer {
   private static final List<String> INTERIOR_CLASS_PREFIXES =
       List.of(" ", "e", "[a-z]{2}", "[ \\t\\r\\n]{3}", " [é😀]", " [aé]{2}", " .", " .{2}", " \\X");
 
+  private static final List<SearchStartContext> SEARCH_START_CONTEXTS =
+      List.of(
+          new SearchStartContext("\\w", "1", "b", "\\b", List.of("-", "!", "😀")),
+          new SearchStartContext("x", "x", "x", "\\B", List.of("b", "c", "α")),
+          new SearchStartContext("\\n", "\n", "\n", "(?m:^)", List.of("b", "c", "α")));
+
+  @Test
+  void deferredAssertionAlternativesPreserveSearchStartMatches() {
+    for (SearchStartContext context : SEARCH_START_CONTEXTS) {
+      for (String suffix : context.suffixes()) {
+        for (String quantifier : List.of("?", "*", "{0,2}")) {
+          for (boolean captures : List.of(false, true)) {
+            for (boolean assertionFirst : List.of(false, true)) {
+              for (String padding : List.of("", "zzzz")) {
+                assertSearchStartAssertionFinds(
+                    context, suffix, quantifier, captures, assertionFirst, padding);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   @Test
   void validTerminalEmptyMatchIsNotExcluded() {
     var safeRe = org.safere.Pattern.compile("").matcher("");
@@ -254,7 +278,7 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 17)) {
+    switch (data.consumeInt(0, 18)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -423,6 +447,17 @@ public final class FindSequenceFuzzer {
         assertResetHandoffCacheIsolation(grapheme + quantifier, warm, next);
         return;
       }
+      case 18 -> {
+        SearchStartContext context = data.pickValue(SEARCH_START_CONTEXTS);
+        assertSearchStartAssertionFinds(
+            context,
+            data.pickValue(context.suffixes()),
+            data.pickValue(List.of("?", "*", "{0,2}")),
+            data.consumeBoolean(),
+            data.consumeBoolean(),
+            "z".repeat(data.consumeInt(0, 32)));
+        return;
+      }
       default -> throw new AssertionError();
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
@@ -494,6 +529,42 @@ public final class FindSequenceFuzzer {
         case 10 -> matcher.hasMatch();
         default -> throw new AssertionError();
       }
+    }
+  }
+
+  private record SearchStartContext(
+      String atom, String leadingText, String consuming, String assertion, List<String> suffixes) {}
+
+  private static void assertSearchStartAssertionFinds(
+      SearchStartContext context,
+      String suffix,
+      String quantifier,
+      boolean captures,
+      boolean assertionFirst,
+      String padding) {
+    String group = captures ? "(" : "(?:";
+    String consuming = java.util.regex.Pattern.quote(context.consuming());
+    String asserted = context.assertion() + java.util.regex.Pattern.quote(suffix);
+    String alternatives = assertionFirst ? asserted + "|" + consuming : consuming + "|" + asserted;
+    String regex = group + context.atom() + quantifier + ")" + group + alternatives + ")?";
+    String input = padding + context.leadingText() + context.consuming() + suffix;
+    int searchStart =
+        padding.length() + context.leadingText().length() + context.consuming().length();
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+
+    // The shared matcher pair checks all captures after each successful find, warming the pattern.
+    pattern.matcher(input).find(searchStart);
+    FuzzSupport.MatcherPair walker = pattern.matcher(input);
+    for (int i = 0; i < input.length() + 2; i++) {
+      if (!walker.find()) {
+        break;
+      }
+    }
+    for (boolean transparent : List.of(false, true)) {
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      matcher.region(searchStart, input.length());
+      matcher.useTransparentBounds(transparent);
+      matcher.find();
     }
   }
 

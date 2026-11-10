@@ -916,6 +916,64 @@ class DfaTest {
   }
 
   @Test
+  void reverseDfaRecordsDeferredMatchAtStartLimitWhenPreferredBranchCrossesIt() {
+    // The character before startLimit only supplies assertion context. A higher-priority branch
+    // that consumes it and reaches MATCH starts left of startLimit, so it must not hide the
+    // deferred-assertion match that starts exactly at startLimit.
+    record Case(String regex, String text, int startLimit) {}
+    for (Case c :
+        List.of(
+            new Case("\\w?\\b-", "1b-", 2),
+            new Case("(\\w?)(b|\\b-)?", "1b-", 2),
+            new Case("x?\\Bb", "xb", 1),
+            new Case("(x?)(x|\\Bb)?", "xxb", 2),
+            new Case("(?m)\\n?^b", "\nb", 1),
+            new Case("\\w?\\b😀", "b😀", 1))) {
+      for (InputScanner scanner :
+          List.of(
+              new StringInputScanner(c.text()), new Utf8InputScanner(c.text().getBytes(UTF_8)))) {
+        int startLimit =
+            scanner instanceof Utf8InputScanner
+                ? c.text().substring(0, c.startLimit()).getBytes(UTF_8).length
+                : c.startLimit();
+        Dfa reverse = Pattern.compile(c.regex()).reverseDfa();
+        for (int pass = 0; pass < 2; pass++) {
+          Dfa.SearchResult result =
+              reverse.doSearchReverse(scanner, scanner.length(), startLimit, true, true);
+          assertThat(result).as("%s (%s)", c, scanner.getClass()).isNotNull();
+          assertThat(result.matched()).as("%s (%s)", c, scanner.getClass()).isTrue();
+          assertThat(result.pos()).as("%s (%s)", c, scanner.getClass()).isEqualTo(startLimit);
+        }
+      }
+    }
+  }
+
+  @Test
+  void utf8FindAllKeepsDeferredAssertionMatchAtPreviousMatchEnd() {
+    record Case(String regex, String text, List<String> expected) {}
+    for (Case c :
+        List.of(
+            new Case("(\\w?)(b|\\b-)?", "1b-", List.of("0:2", "2:3", "3:3")),
+            new Case("(x?)(x|\\Bb)?", "xxb", List.of("0:2", "2:3", "3:3")),
+            new Case("(?m)(\\n?)(\\n|^b)?", "\n\nb", List.of("0:2", "2:3", "3:3")),
+            new Case("(\\w?)(b|\\b😀)?", "1b😀", List.of("0:2", "2:6", "6:6")))) {
+      Pattern pattern = Pattern.compile(c.regex());
+      for (int pass = 0; pass < 2; pass++) {
+        Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(c.text().getBytes(UTF_8)));
+        List<String> spans = new ArrayList<>();
+        while (matcher.find()) {
+          spans.add(matcher.start() + ":" + matcher.end());
+          // The second pass reads captures, which records capture demand on the pattern.
+          if (pass == 1) {
+            assertThat(matcher.start(1)).isGreaterThanOrEqualTo(matcher.start());
+          }
+        }
+        assertThat(spans).as("%s pass %s", c, pass).isEqualTo(c.expected());
+      }
+    }
+  }
+
+  @Test
   void reverseDfaPruningCorrectness() {
     Pattern p = Pattern.compile("\\B([^a])*[^a][^a]");
     Dfa revDfa = p.reverseDfa();
