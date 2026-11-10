@@ -1,19 +1,20 @@
-# Decision: adopt DFA-first in a separate change
+# Decision: use DFA-first for unanchored search
 
-The investigation supports selecting DFA-first as the next production policy.
-The investigation PR preserves the experiments and evidence; the follow-up PR
-[#1150](https://github.com/eaftan/safere/pull/1150) implements that policy.
+The investigation supports DFA-first producer selection for unanchored searches.
+This report records the evidence, tradeoffs, and implementation constraints behind
+that recommendation.
 
 ## Evidence used for the decision
 
 Use the complete expanded comparison, rather than the initial candidate screen.
-Main, DFA-first, replay credit, and greedy work have identical membership across
+The measured production baseline, DFA-first, replay credit, and greedy work have
+identical membership across
 80 standard-mode cases: 40 scenarios across String and UTF-8. Other policies have
 partial coverage or belong to the earlier study and are not ranked on this set.
 
 | Policy | Geometric-mean ratio | P90 ratio | Worst-case ratio |
 |---|---:|---:|---:|
-| Production | 1.000 | 1.000 | 1.000 |
+| Measured production baseline | 1.000 | 1.000 | 1.000 |
 | DFA-first | 0.349 | 1.264 | 2.193 |
 | Replay credit | 0.362 | 1.202 | 2.228 |
 | Greedy work estimates | 0.378 | 1.169 | 2.335 |
@@ -37,31 +38,34 @@ implementation: remove history-driven capture-first speculation from unanchored
 searches without adding adaptive state, work instrumentation, or tuning knobs.
 It avoids the costly speculative scans seen on rejecting inputs.
 
-Successful String extraction can regress substantially, including on the existing
-stack document. UTF-8 extraction can favor DFA-first on the same regex. Replay
+Successful String extraction can regress substantially, including on the
+stack document workload. UTF-8 extraction can favor DFA-first on the same regex. Replay
 preserves some String extraction paths better, but its fresh-matcher regression
 removes the worst-case advantage suggested by the smaller screen. Greedy work's
 counts are not calibrated across engines; periodic and probabilistic exploration
 also pay for repeated expensive probes. No policy dominates every workload.
 
 The [review feedback](https://github.com/eaftan/safere/pull/1140#issuecomment-6682360802)
-supports DFA-first as the first change and reports an additional forward-DFA-then-
+also favors DFA-first and reports an additional forward-DFA-then-
 capture variant that did not justify its complexity. That additional experiment
 is reported by the reviewer and is not part of the archived matrix.
 
-## Implementation scope and follow-ups
+## Implementation constraints
 
-The dependent change should preserve anchored capture preference, shared capture
-demand for already-required exact fallbacks, operation-required captures, and
-public matching/capture semantics. It should include focused strategy, lifecycle,
-and work-bound coverage plus measurements of the actual implementation against
-its parent revision. It should add no adaptive policy state or new eligibility
-threshold.
+DFA-first producer selection applies to unanchored searches. An implementation
+must preserve anchored capture preference, shared capture demand for required
+exact fallbacks, operation-required captures, and public matching/capture
+semantics. The policy adds no adaptive state or new eligibility threshold.
 
-Subsequent work can profile successful String capture recovery, reassess the
-512-unit threshold, and select a few recurring benchmarks. Those are separate
-decisions; the investigation corpus remains opt-in and excluded from release
-collections. The historical writeups and plain-text summaries remain unchanged.
+Changes to producer selection require focused strategy, lifecycle, and work-bound
+coverage, plus before/after measurements on otherwise comparable revisions.
+
+## Separate performance questions
+
+Successful String capture recovery, the 512-unit eligibility threshold used in
+the measured implementation, and selection of recurring benchmarks are separate
+performance decisions. The investigation corpus is opt-in and kept separate from
+release collections.
 
 ## Sources
 
