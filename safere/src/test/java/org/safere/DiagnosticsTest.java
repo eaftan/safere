@@ -1152,7 +1152,9 @@ class DiagnosticsTest {
   void primaryBitStateAndNfaCaptureSearchesReportEagerCaptureAttribution() {
     Pattern.setDiagnostics(diagnostics);
 
-    Pattern nullableLoopBitState = Pattern.compile("(?:(a)?)*b");
+    Pattern nullableLoopBitState =
+        Pattern.compile(
+            "(?:(a)?)*b", 0, EnginePathOptions.builder().dfa(false).onePass(false).build());
     Matcher matchesMatcher = nullableLoopBitState.matcher("aab");
     assertThat(matchesMatcher.matches()).isTrue();
     assertThat(matchesMatcher.capturesResolved()).isTrue();
@@ -1189,7 +1191,7 @@ class DiagnosticsTest {
   }
 
   @Test
-  void regionFindReportsIndependentTextBoundsAndEagerCaptureAttribution() {
+  void regionFindReportsIndependentTextBoundsAndDeferredCaptureAttribution() {
     Pattern.setDiagnostics(diagnostics);
 
     Pattern independentPattern = Pattern.compile("(a+?)b");
@@ -1201,16 +1203,15 @@ class DiagnosticsTest {
     Pattern regionPattern = Pattern.compile("(a+?)b");
     Matcher regionMatcher = regionPattern.matcher("xaabx").region(1, 4);
     assertThat(regionMatcher.find()).isTrue();
-    assertThat(regionMatcher.capturesResolved()).isTrue();
+    assertThat(regionMatcher.capturesResolved()).isFalse();
 
     assertThat(operationsFor(regionPattern))
         .singleElement()
         .satisfies(
             event -> {
               assertThat(event.boundaryStrategy()).isEqualTo(independentEvent.boundaryStrategy());
-              // Region captures are resolved before restoring the original input coordinates.
-              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
-              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+              assertThat(event.captureStrategy()).isEqualTo(independentEvent.captureStrategy());
+              assertThat(event.captureMode()).isEqualTo(independentEvent.captureMode());
             });
   }
 
@@ -1392,6 +1393,27 @@ class DiagnosticsTest {
                   .containsExactly(
                       new StrategyParticipation(
                           MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION));
+            });
+
+    // With the start literal present but the infix literal absent, the reject prefilter still runs
+    // from the first start candidate when enough input remains after it, so the forward DFA never
+    // scans the rest of the input.
+    diagnostics.operations.clear();
+    String startOnly = "id=42 status=300 elapsed=12ms\nid=43 status=301 elapsed=8ms\n".repeat(3);
+    assertThat(pattern.matcher(startOnly).find()).isFalse();
+    assertThat(pattern.find(Utf8Input.trusted(startOnly.getBytes(UTF_8)))).isFalse();
+    assertThat(operationsFor(pattern))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactlyInAnyOrder(
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION),
+                      new StrategyParticipation(
+                          MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
             });
 
     for (String regex :

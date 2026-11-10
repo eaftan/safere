@@ -177,6 +177,18 @@ class PatternInternalTest {
   }
 
   @Test
+  void progressGuardedFiniteRepeatsRequireAnExactEngine() {
+    for (String regex : List.of("(?:a?){0,2}b", "((?:a?)?){1,3}b")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.prog().numLoopRegs()).isPositive();
+      assertThat(pattern.canOnePassPrimary()).isFalse();
+      assertThat(pattern.canOnePassFind()).isFalse();
+      assertThat(pattern.canOnePassSubmatch()).isFalse();
+      assertThat(pattern.dfaGroupZeroReliable()).isFalse();
+    }
+  }
+
+  @Test
   void nullableQuantifierWithoutNullableAlternationRetainsOnePassSubmatch() {
     Pattern withCapture = Pattern.compile("(a)*");
     assertThat(withCapture.onePassAnalyzed()).isTrue();

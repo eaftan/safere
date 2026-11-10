@@ -202,7 +202,8 @@ enum BenchmarkOperation {
             blackhole.consume(
                 tokenize(
                     retainedMatcher != null ? retainedMatcher : pattern.matcher(input),
-                    input.nativeLength()));
+                    input.nativeLength(),
+                    mode));
       }
       case FIND_SAMPLED_GROUP -> {
         boolean capture = mode.equals("capture");
@@ -306,7 +307,7 @@ enum BenchmarkOperation {
         matcher.region(region.start(), region.end());
         yield matcher.matches();
       }
-      case MATCHER_REGION_TOKENIZE -> tokenize(pattern.matcher(input), input.nativeLength());
+      case MATCHER_REGION_TOKENIZE -> tokenize(pattern.matcher(input), input.nativeLength(), mode);
       case FIND_SAMPLED_GROUP -> {
         primeCaptureDemand(pattern, inputs, groups[0], mode.equals("capture"));
         yield findSampledGroup(pattern.matcher(input), groups[0], mode.equals("capture"));
@@ -318,14 +319,30 @@ enum BenchmarkOperation {
     };
   }
 
-  private static int tokenize(RegexEngineVariant.MatchCursor matcher, int length) {
+  private static int tokenize(RegexEngineVariant.MatchCursor matcher, int length, String mode) {
+    boolean independent = mode.startsWith("independent");
+    if (independent) {
+      matcher.reset();
+    }
     int count = 0;
     for (int pos = 0; pos < length; ) {
-      matcher.region(pos, length);
-      if (!matcher.lookingAt()) {
+      if (!independent) {
+        matcher.region(pos, length);
+      }
+      boolean found = mode.isEmpty() ? matcher.lookingAt() : matcher.find();
+      if (!found) {
         throw new IllegalStateException("Tokenizer failed at " + pos);
       }
       int end = matcher.end(0);
+      if (mode.endsWith("Bounds")) {
+        if (matcher.start(0) != pos) {
+          throw new IllegalStateException("Tokenizer skipped input");
+        }
+      } else if (mode.endsWith("Capture")) {
+        if (matcher.start(1) != pos || matcher.end(1) <= pos || matcher.end(1) > end) {
+          throw new IllegalStateException("Tokenizer capture mismatch");
+        }
+      }
       if (end <= pos) {
         throw new IllegalStateException("Tokenizer did not advance at " + pos);
       }

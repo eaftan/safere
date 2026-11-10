@@ -59,6 +59,9 @@ public final class Pattern implements Serializable {
   // shorter than this, where the separate prefilter call dominates. Longer inputs keep the
   // single-pass reject prefilter first.
   static final int MAX_LITERAL_START_FIRST_LENGTH = 512;
+  // After a short-input start scan, the reject prefilter re-runs from the start candidate only when
+  // at least this many units remain. On a shorter tail the DFA's check costs less than the call.
+  static final int MIN_REJECT_AFTER_START_REMAINING = 64;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
   private static final MethodType DIAGNOSTICS_TYPE =
       MethodType.methodType(SafeReMatchDiagnostics.class);
@@ -339,7 +342,11 @@ public final class Pattern implements Serializable {
                 && (rejectPrefilter == null
                     || rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
             ? LiteralAlternation.compile(
-                ast, rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
+                ast,
+                rejectPrefilter instanceof RejectPrefilter.DisjointLiterals,
+                utf8StartAccelerator instanceof Utf8StartAccelerator.CharClass charClass
+                    ? charClass
+                    : null)
             : null;
     // Eagerly prepare the artifacts that find() and group() may need, to avoid latency spikes on
     // first use. Artifacts that only specific operations can use are built on first use instead.
@@ -599,7 +606,23 @@ public final class Pattern implements Serializable {
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
       return findWithDiagnostics(scanner);
     }
-    return findWithoutDiagnostics(scanner);
+    return literalAlternation != null
+        ? findWithLiteralAlternation(scanner)
+        : findWithoutDiagnostics(scanner);
+  }
+
+  /**
+   * Answers {@link #find(Utf8Input)} with the literal-alternation search when it applies. Kept out
+   * of {@link #findWithoutDiagnostics}, whose compiled code is sensitive to its bytecode size.
+   */
+  private boolean findWithLiteralAlternation(Utf8InputScanner scanner) {
+    long match =
+        enginePathOptions.literalFastPaths()
+            ? literalAlternation.find(scanner, 0)
+            : LiteralAlternation.FALLBACK;
+    return match == LiteralAlternation.FALLBACK
+        ? findWithoutDiagnostics(scanner)
+        : match != LiteralAlternation.NO_MATCH;
   }
 
   /**
@@ -675,8 +698,12 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
-        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)
+        && !rejectAfterStart
         && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
       return false;
     }
@@ -686,7 +713,11 @@ public final class Pattern implements Serializable {
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
       searchStart = findNextUtf8StartCandidate(scanner, null);
-      if (searchStart < 0) {
+      if (searchStart < 0
+          || (rejectAfterStart
+              && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
+              && findRejectPrefilter.canRejectTail(
+                  null, scanner, searchStart, enginePathOptions))) {
         return false;
       }
       startPositionPreselected = true;
@@ -739,6 +770,13 @@ public final class Pattern implements Serializable {
       diagnostics.boundary(MatchStrategy.KEYWORD);
       return matched;
     }
+    if (literalAlternation != null && enginePathOptions.literalFastPaths()) {
+      long match = literalAlternation.find(scanner, 0);
+      if (match != LiteralAlternation.FALLBACK) {
+        diagnostics.boundary(MatchStrategy.LITERAL_ALTERNATION);
+        return match != LiteralAlternation.NO_MATCH;
+      }
+    }
     if (prog.anchorStart()) {
       if (anchoredPrefixUtf8 != null) {
         if (!scanner.startsWith(anchoredPrefixUtf8, 0)) {
@@ -768,15 +806,14 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = utf8FindRejectPrefilter();
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
-        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)) {
-      MatchStrategy rejection =
-          findRejectPrefilter.rejectionStrategy(null, scanner, 0, enginePathOptions);
-      if (rejection != null) {
-        diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
-        diagnostics.boundary(rejection);
-        return false;
-      }
+        && !rejectAfterStart
+        && rejectsWithDiagnostics(findRejectPrefilter, scanner, 0, diagnostics)) {
+      return false;
     }
     int searchStart = 0;
     boolean startPositionPreselected = false;
@@ -784,7 +821,11 @@ public final class Pattern implements Serializable {
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
       searchStart = findNextUtf8StartCandidate(scanner, diagnostics);
-      if (searchStart < 0) {
+      if (searchStart < 0
+          || (rejectAfterStart
+              && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
+              && rejectsTailWithDiagnostics(
+                  findRejectPrefilter, scanner, searchStart, diagnostics))) {
         return false;
       }
       startPositionPreselected = true;
@@ -1306,8 +1347,12 @@ public final class Pattern implements Serializable {
       return true;
     }
     RejectPrefilter findRejectPrefilter = findRejectPrefilter();
+    boolean rejectAfterStart =
+        findRejectPrefilter != null
+            && startPrecedesFindReject
+            && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
-        && (!startPrecedesFindReject || length >= MAX_LITERAL_START_FIRST_LENGTH)
+        && !rejectAfterStart
         && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
       return false;
     }
@@ -1317,7 +1362,10 @@ public final class Pattern implements Serializable {
         && stringStartAccelerator != null
         && !prog.anchorStart()) {
       searchStart = findNextStringStartCandidate(scanner, input);
-      if (searchStart < 0) {
+      if (searchStart < 0
+          || (rejectAfterStart
+              && length - searchStart >= MIN_REJECT_AFTER_START_REMAINING
+              && findRejectPrefilter.canRejectTail(input, null, searchStart, enginePathOptions))) {
         return false;
       }
       startPositionPreselected = true;
@@ -1960,6 +2008,34 @@ public final class Pattern implements Serializable {
     return true;
   }
 
+  private boolean rejectsWithDiagnostics(
+      RejectPrefilter filter,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      DiagnosticAccumulator diagnostics) {
+    return reportRejection(
+        filter.rejectionStrategy(null, scanner, searchFrom, enginePathOptions), diagnostics);
+  }
+
+  private boolean rejectsTailWithDiagnostics(
+      RejectPrefilter filter,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      DiagnosticAccumulator diagnostics) {
+    return reportRejection(
+        filter.tailRejectionStrategy(null, scanner, searchFrom, enginePathOptions), diagnostics);
+  }
+
+  private static boolean reportRejection(
+      MatchStrategy rejection, DiagnosticAccumulator diagnostics) {
+    if (rejection == null) {
+      return false;
+    }
+    diagnostics.participate(rejection, StrategyRole.REJECT_PREFILTER);
+    diagnostics.boundary(rejection);
+    return true;
+  }
+
   /** Forward DFA narrowing checks the suffix after failure; avoid an eager duplicate scan. */
   RejectPrefilter findRejectPrefilter() {
     return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
@@ -2252,9 +2328,8 @@ public final class Pattern implements Serializable {
       capabilities.add(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
     }
     if (enginePathOptions.dfa() && !prog.hasGraphemeSemantics()) {
-      if (prog.numLoopRegs() == 0) {
-        capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
-      } else {
+      capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
+      if (prog.numLoopRegs() > 0) {
         capabilities.add(PatternCapability.DFA_REJECT_PREFILTER);
       }
     }

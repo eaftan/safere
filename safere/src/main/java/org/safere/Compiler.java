@@ -571,6 +571,55 @@ final class Compiler extends Walker<Compiler.Frag> {
     return new Frag(id, PatchList.append(prog, pl, a.end), true);
   }
 
+  /** Compiles the copies of a nullable finite repetition as one minimum-respecting invocation. */
+  private Frag finiteRepeat(List<Frag> copies, int minimum, boolean nongreedy) {
+    int maximum = copies.size();
+    if (forDfa) {
+      // Unguarded copies preserve full-match existence, but not ordered paths or captures.
+      // matches() can fix group zero to the whole region and defer guarded capture extraction;
+      // prefix/search matching uses these copies only as a rejection filter.
+      Frag suffix = quest(copies.get(maximum - 1), nongreedy);
+      for (int i = maximum - 2; i >= minimum; i--) {
+        suffix = quest(cat(copies.get(i), suffix), nongreedy);
+      }
+      for (int i = minimum - 1; i >= 0; i--) {
+        suffix = cat(copies.get(i), suffix);
+      }
+      return suffix;
+    }
+
+    int first = Math.max(0, minimum - 1);
+    int loopReg = nextLoopReg++;
+    long exits = copies.get(maximum - 1).end;
+    int firstCheck = 0;
+    for (int i = first; i < maximum; i++) {
+      int check = allocInst();
+      if (check < 0) {
+        return Frag.NO_MATCH;
+      }
+      prog.mutableInst(check).initProgressCheck(loopReg, copies.get(i).begin, 0, nongreedy);
+      exits = PatchList.append(prog, exits, PatchList.mk((check << 1) | 1));
+      if (i == first) {
+        firstCheck = check;
+      } else {
+        PatchList.patch(prog, copies.get(i - 1).end, check);
+      }
+    }
+    int entry = allocInst();
+    if (entry < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(entry).initLoopEnter(loopReg, firstCheck);
+    Frag suffix = new Frag(entry, exits, true);
+    if (minimum == 0) {
+      return quest(suffix, nongreedy);
+    }
+    for (int i = first - 1; i >= 0; i--) {
+      suffix = cat(copies.get(i), suffix);
+    }
+    return suffix;
+  }
+
   private Frag charRange(int lo, int hi, boolean foldCase) {
     int id = allocInst();
     if (id < 0) {
@@ -704,6 +753,11 @@ final class Compiler extends Walker<Compiler.Frag> {
   // ---------------------------------------------------------------------------
 
   @Override
+  protected int repeatVisits(Regexp re) {
+    return re.max;
+  }
+
+  @Override
   protected Frag preVisit(Regexp re, Frag parentArg, boolean[] stop) {
     if (failed) {
       stop[0] = true;
@@ -718,11 +772,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     return switch (re.op) {
-      case REPEAT -> {
-        // Should have been simplified away.
-        failed = true;
-        yield Frag.NO_MATCH;
-      }
+      case REPEAT -> finiteRepeat(childArgs, re.min, re.nonGreedy());
 
       case NO_MATCH -> Frag.NO_MATCH;
 

@@ -12,6 +12,10 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
  regex engine.
 The suite includes focused microbenchmarks, data-driven application workloads,
 scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
+RE2-FFM matcher coverage and conversion timing boundaries are documented in the
+[wrapper guide](../safere-ffm-re2/README.md). Competitor coverage is best effort;
+incompatible semantics remain explicit trial exclusions.
+
 Benchmark recipes and configuration live in
 `safere-benchmarks/benchmark-data.json`. Before a benchmark starts, its runner
 materializes that file into a resolved manifest and exact UTF-8 inputs under

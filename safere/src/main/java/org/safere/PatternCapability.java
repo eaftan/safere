@@ -12,6 +12,7 @@ public enum PatternCapability {
   KEYWORD_MATCH,
   ONE_PASS_PRIMARY,
   ONE_PASS_CAPTURE_EXTRACTION,
+  /** Group-zero bounds can be established by a DFA for some operation, including full matching. */
   DFA_BOUNDARY_SEARCH,
   DFA_REJECT_PREFILTER,
   BIT_STATE,

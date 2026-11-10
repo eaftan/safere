@@ -59,6 +59,7 @@
     <icu4j.version>78.3</icu4j.version>
     <gson.version>2.15.0</gson.version>
     <jmh.version>1.37</jmh.version>
+    <asm.version>9.10.1</asm.version>
     <error-prone.version>2.52.0</error-prone.version>
     <error-prone.checks>-XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/generated-sources/.* -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <!-- Checks for production code only (src/main), not tests. DefaultLocale keeps output such as

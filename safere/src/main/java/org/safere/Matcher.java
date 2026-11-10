@@ -237,13 +237,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticCaptureOverride(MatchStrategy strategy) {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.replaceCapture(strategy);
-    }
-  }
-
   private void diagnosticParticipation(MatchStrategy strategy, StrategyRole role) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -265,8 +258,10 @@ public final class Matcher implements MatchResult {
       InputScanner scanner,
       int searchFrom,
       EnginePathOptions options) {
-    MatchStrategy rejectionStrategy =
-        rejectPrefilter.rejectionStrategy(text, scanner, searchFrom, options);
+    return reportRejection(rejectPrefilter.rejectionStrategy(text, scanner, searchFrom, options));
+  }
+
+  private boolean reportRejection(MatchStrategy rejectionStrategy) {
     if (rejectionStrategy == null) {
       return false;
     }
@@ -333,6 +328,23 @@ public final class Matcher implements MatchResult {
         && (text != null
             || scanner instanceof Utf8InputScanner
             || scanner instanceof StringRegionInputScanner);
+  }
+
+  /**
+   * Like {@link #rejectFindFrom}, for the tail after a short input's first start candidate (see
+   * {@link RejectPrefilter#canRejectTail}).
+   */
+  private boolean rejectTailFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
+    RejectPrefilter rejectPrefilter =
+        scanner instanceof Utf8InputScanner
+            ? parentPattern.utf8FindRejectPrefilter()
+            : parentPattern.findRejectPrefilter();
+    if (rejectPrefilter == null) {
+      return false;
+    }
+    return diagnosticsAccumulator() == null
+        ? rejectPrefilter.canRejectTail(text, scanner, fromIndex, options)
+        : reportRejection(rejectPrefilter.tailRejectionStrategy(text, scanner, fromIndex, options));
   }
 
   private boolean rejectFindFrom(InputScanner scanner, int fromIndex, EnginePathOptions options) {
@@ -407,9 +419,14 @@ public final class Matcher implements MatchResult {
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
 
-  // Back off for the rest of this search sequence after repeated unsuccessful window attempts.
+  // Retry after increasingly many eligible searches when fixed windows keep failing. The capped
+  // delay allows recovery after a long-match prefix without paying for a window on every match.
   private static final int MAX_CONSECUTIVE_WINDOW_FAILURES = 2;
+  private static final int INITIAL_WINDOW_RETRY_DELAY = 8;
+  private static final int MAX_WINDOW_RETRY_DELAY = 256;
   private int consecutiveWindowFailures;
+  private int windowRetryDelay;
+  private int windowSearchesUntilRetry;
   private int[] onePassScratchCap;
 
   /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
@@ -437,6 +454,11 @@ public final class Matcher implements MatchResult {
 
   private int deferredMatchEnd;
   private boolean deferredEndMatch;
+
+  /** Opaque input view retained only until the current region match is consumed or discarded. */
+  private InputScanner deferredRegionScanner;
+
+  private int deferredRegionOffset;
 
   /**
    * Whether the current String replacement requires inner captures during exact fallback search.
@@ -580,21 +602,29 @@ public final class Matcher implements MatchResult {
     deferredMatchStart = 0;
     deferredMatchEnd = 0;
     deferredEndMatch = false;
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
   }
 
   private void resetReplacementState() {
     appendPos = 0;
   }
 
-  private void resetSearchStateForInputStart() {
+  private void resetWindowBackoff() {
     consecutiveWindowFailures = 0;
+    windowRetryDelay = 0;
+    windowSearchesUntilRetry = 0;
+  }
+
+  private void resetSearchStateForInputStart() {
+    resetWindowBackoff();
     searchFrom = 0;
     previousMatchEnd = 0;
     startBackoff = AdaptiveBackoff.NEUTRAL;
   }
 
   private void resetSearchStateForRegionStart() {
-    consecutiveWindowFailures = 0;
+    resetWindowBackoff();
     searchFrom = regionStart;
     previousMatchEnd = regionStart;
     startBackoff = AdaptiveBackoff.NEUTRAL;
@@ -611,6 +641,7 @@ public final class Matcher implements MatchResult {
 
   private void prepareAnchoredAttempt() {
     rememberPreviousMatchEnd();
+    clearDeferredCaptureState();
     findExhaustedAfterTerminalEmptyMatch = false;
     // An anchored failure invalidates the result, but does not reset find's continuation.
     searchFrom = previousMatchEnd;
@@ -644,7 +675,7 @@ public final class Matcher implements MatchResult {
 
   private void invalidatePatternCaches() {
     regionClassSearch = null;
-    consecutiveWindowFailures = 0;
+    resetWindowBackoff();
     threadCache = null;
     cachedForwardFirstMatchDfa = null;
     cachedForwardLongestMatchDfa = null;
@@ -1325,15 +1356,14 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
-      if (dfaResult != null && prog.numLoopRegs() == 0) {
+      if (dfaResult != null) {
+        // Empty-stop changes ordered paths and captures, not full-match existence: remove empty
+        // iterations before later iterations while retaining the minimum. Input positions and
+        // assertion context are unchanged, and captures cannot affect recognition in our dialect.
+        // Here the whole region fixes group zero; the guarded program resolves captures on demand.
+        // Prefix/search matching still needs exact progress semantics to choose its match bounds.
         diagnosticBoundary(MatchStrategy.DFA);
         return applyDeferredMatchResult(0, scanner.length(), prog.numCaptures(), true, true);
-      }
-      if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
-        diagnosticDecision(
-            MatchStrategy.DFA,
-            StrategyDisposition.BYPASSED,
-            StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
       }
       if (dfaResult == null) {
         diagnosticDecision(
@@ -1355,26 +1385,6 @@ public final class Matcher implements MatchResult {
             prog.numCaptures(),
             false,
             this.groups);
-    // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
-    // may accept a match ending before a trailing \n. In that case, fall back to the NFA
-    // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
-    if (result != null && result[1] != scanner.length()) {
-      diagnosticBoundaryOverride(MatchStrategy.NFA);
-      int[] nfaResult =
-          searchNfa(
-              prog,
-              0,
-              scanner.length(),
-              scanner.length(),
-              prog.numCaptures(),
-              Nfa.Anchor.ANCHORED,
-              Nfa.MatchKind.FULL_MATCH,
-              false,
-              this.groups);
-      diagnosticCaptureOverride(
-          prog.numCaptures() > 1 && nfaResult != null ? MatchStrategy.NFA : MatchStrategy.NONE);
-      result = nfaResult;
-    }
     return applyFullMatchResult(result);
   }
 
@@ -1569,8 +1579,7 @@ public final class Matcher implements MatchResult {
     return scanner.asciiAt(pos - 2) == '\r' && scanner.asciiAt(pos - 1) == '\n';
   }
 
-  private GraphemeSupport.Context graphemeContext() {
-    InputScanner scanner = activeScanner();
+  private GraphemeSupport.Context graphemeContext(InputScanner scanner) {
     boolean bounded = fullTextRegionContext && !transparentBounds;
     int start = bounded ? regionStart : 0;
     int end = bounded ? regionEnd : scanner.length();
@@ -1590,8 +1599,8 @@ public final class Matcher implements MatchResult {
     return graphemeContext;
   }
 
-  private GraphemeSupport.Context graphemeContextFor(Prog prog) {
-    return prog.hasGraphemeSemantics() ? graphemeContext() : null;
+  private GraphemeSupport.Context graphemeContextFor(Prog prog, InputScanner scanner) {
+    return prog.hasGraphemeSemantics() ? graphemeContext(scanner) : null;
   }
 
   private int getTextLength() {
@@ -1740,7 +1749,10 @@ public final class Matcher implements MatchResult {
       return parentPattern.preparedMatchRunner(regionActive).find(this, regionActive);
     } finally {
       if (regionSubstituted) {
-        resolveCapturesBeforeRestoringRegion();
+        if (hasMatch && !capturesResolved) {
+          deferredRegionScanner = activeScanner();
+          deferredRegionOffset = regionStart;
+        }
         text = savedText;
         textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
@@ -1937,9 +1949,8 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Core find logic. When {@code regionActive} is true, the DFA sandwich with deferred captures is
-   * disabled because resolveCaptures() would run on the full text with different empty-width
-   * assertion semantics than the substring the DFA saw.
+   * Core find logic. Independent region views retain their scanner for deferred capture extraction
+   * so assertions are replayed against the same bounded input.
    */
   private boolean doFindCore(boolean regionActive) {
     InputScanner scanner = activeScanner();
@@ -1949,7 +1960,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Reset deferred-capture state; DFA sandwich path may set it to false.
-    capturesResolved = true;
+    clearDeferredCaptureState();
 
     Prog prog = parentPattern.prog();
     EnginePathOptions options = enginePathOptions();
@@ -2030,6 +2041,12 @@ public final class Matcher implements MatchResult {
           startPositionPreselected = true;
         }
       }
+    }
+    if (literalStartFirst
+        && startPositionPreselected
+        && scanner.length() - effectiveStart >= Pattern.MIN_REJECT_AFTER_START_REMAINING
+        && rejectTailFrom(scanner, effectiveStart, options)) {
+      return applyFailedMatchResult();
     }
 
     // Retry a deferred reverse probe only after rejection and start acceleration narrow its work.
@@ -2259,10 +2276,10 @@ public final class Matcher implements MatchResult {
     // callers have consumed them before, collect them in this pass rather than replaying it on
     // group access. Otherwise group-zero-only loops can still defer capture tracking.
     //
-    // Region searches keep eager capture extraction: deferred resolution runs on the full input,
-    // while the fallback below sees the substituted region view.
+    // Independent region views retain the same scanner for replay; full-context regions still
+    // use eager extraction.
     boolean lazyFallbackCaptures =
-        !regionActive
+        (!regionActive || independentRegion)
             && !replacementNeedsCaptures
             && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
@@ -2840,7 +2857,8 @@ public final class Matcher implements MatchResult {
     // when the selected match is short. If any preferred path reaches the window edge, or the work
     // budget is exceeded, restart once with the NFA and the original bounds. The extra work per
     // attempt is bounded by max(4096, MAX_WORK_PER_SLOT * prog.size() * (window size + 2)) + 1.
-    // Two consecutive failures disable speculation until reset or a pattern/region change.
+    // Two consecutive failures start an exponentially increasing, capped retry delay. Count only
+    // eligible searches; a successful window or a reset/pattern/region change clears the delay.
     int maxBitStateLen = BitState.maxTextSize(prog);
     boolean canUseBitState =
         enginePathOptions().bitState()
@@ -2859,8 +2877,14 @@ public final class Matcher implements MatchResult {
             && !preserveOuterEmptyContext
             // Keep interior region ends on the established bounded-range engine path.
             && endPos == text.length();
-    boolean speculate =
-        windowEligible && consecutiveWindowFailures < MAX_CONSECUTIVE_WINDOW_FAILURES;
+    boolean speculate = false;
+    if (windowEligible) {
+      if (windowSearchesUntilRetry == 0) {
+        speculate = true;
+      } else {
+        windowSearchesUntilRetry--;
+      }
+    }
     if (canUseBitState && maxBitStateLen >= 0 && (searchRange <= maxBitStateLen || speculate)) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
@@ -2893,23 +2917,41 @@ public final class Matcher implements MatchResult {
       Pattern.returnBitState(threadCache(), bs);
       if (!bs.budgetExceeded() && (!speculate || result != null)) {
         if (speculate) {
-          consecutiveWindowFailures = 0;
+          // Reset fully so a run of short matches can use every window immediately. Alternating
+          // long and short matches may pay for two failed windows again after each success;
+          // this trades that bounded cost for faster recovery rather than decaying the delay.
+          resetWindowBackoff();
         }
-        diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
-        // BitState is a complete engine — if it searched and found no match, NFA won't either.
-        return result;
+        // A source $ permits BitState to stop before a trailing line terminator. An explicit
+        // full-match request, including deferred capture extraction, must consume the whole range.
+        // Let NFA FULL_MATCH choose the full-length path if BitState accepted a shorter one.
+        if (!endMatch || result == null || result[1] == endPos) {
+          diagnosticExact(MatchStrategy.BIT_STATE, nsubmatch > 1 && result != null);
+          // BitState is complete: if it found no match, NFA won't either.
+          return result;
+        }
+      } else {
+        if (speculate) {
+          consecutiveWindowFailures =
+              Math.min(consecutiveWindowFailures + 1, MAX_CONSECUTIVE_WINDOW_FAILURES);
+          if (consecutiveWindowFailures == MAX_CONSECUTIVE_WINDOW_FAILURES) {
+            // Both factors are capped before doubling, so this arithmetic cannot overflow.
+            windowRetryDelay =
+                Math.min(
+                    MAX_WINDOW_RETRY_DELAY,
+                    Math.max(INITIAL_WINDOW_RETRY_DELAY, windowRetryDelay * 2));
+            windowSearchesUntilRetry = windowRetryDelay;
+          }
+        }
+        diagnosticDecision(
+            MatchStrategy.BIT_STATE,
+            StrategyDisposition.FALLBACK,
+            bs.budgetExceeded()
+                ? StrategyReason.WORK_BUDGET_EXCEEDED
+                : bs.windowExceeded()
+                    ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
+                    : StrategyReason.INPUT_TOO_LARGE);
       }
-      if (speculate) {
-        consecutiveWindowFailures++;
-      }
-      diagnosticDecision(
-          MatchStrategy.BIT_STATE,
-          StrategyDisposition.FALLBACK,
-          bs.budgetExceeded()
-              ? StrategyReason.WORK_BUDGET_EXCEEDED
-              : bs.windowExceeded()
-                  ? StrategyReason.SPECULATIVE_WINDOW_EXCEEDED
-                  : StrategyReason.INPUT_TOO_LARGE);
     } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
       diagnosticDecision(
           MatchStrategy.BIT_STATE,
@@ -2931,6 +2973,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchNfa(
             prog,
+            text,
             startPos,
             searchLimit,
             endPos,
@@ -2945,6 +2988,7 @@ public final class Matcher implements MatchResult {
 
   private int[] searchNfa(
       Prog prog,
+      InputScanner scanner,
       int startPos,
       int searchLimit,
       int endPos,
@@ -2953,7 +2997,6 @@ public final class Matcher implements MatchResult {
       Nfa.MatchKind nfaKind,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
-    InputScanner scanner = activeScanner();
     if (prog.start() == 0) {
       return null;
     }
@@ -2975,16 +3018,20 @@ public final class Matcher implements MatchResult {
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
 
+    // Independent input views carry their complete assertion context in scanner coordinates.
+    // Only full-text region operations use the matcher's original region bounds.
+    int assertionRegionStart = fullTextRegionContext ? regionStart : 0;
+    int assertionRegionEnd = fullTextRegionContext ? regionEnd : scanner.length();
     boolean useOuterEmptyContext = fullTextRegionContext || preserveOuterEmptyContext;
-    int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
-    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
+    int emptyContextEnd = preserveOuterEmptyContext ? assertionRegionEnd : endPos;
+    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? assertionRegionStart : 0;
     int boundaryEndPos =
         useOuterEmptyContext && !transparentBounds ? emptyContextEnd : scanner.length();
     int anchorEndPos =
         useOuterEmptyContext && !anchoringBounds && prog.anchorEnd()
             ? scanner.length()
             : emptyContextEnd;
-    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
+    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? assertionRegionStart : 0;
     int emptyAnchorEndPos =
         useOuterEmptyContext && !anchoringBounds ? scanner.length() : emptyContextEnd;
 
@@ -3001,7 +3048,7 @@ public final class Matcher implements MatchResult {
             anchorEndPos,
             emptyAnchorStartPos,
             emptyAnchorEndPos,
-            graphemeContextFor(prog));
+            graphemeContextFor(prog, scanner));
 
     releaseEnginesOwnedByOtherThread();
     if (cachedNfa == null && !nfaBorrowed) {
@@ -4533,13 +4580,35 @@ public final class Matcher implements MatchResult {
    * (fo|foo)} matching "fo" rather than "foo"). For {@code matches()}, the deferred search must
    * still cover the whole input.
    */
-  @SuppressWarnings("ReferenceEquality")
   private void resolveCaptures() {
     if (capturesResolved) {
       return;
     }
+    if (deferredRegionScanner == null) {
+      resolveCapturesOnInput(activeScanner());
+    } else {
+      resolveRegionCaptures();
+    }
+  }
+
+  private void resolveRegionCaptures() {
+    int offset = deferredRegionOffset;
+    resolveCapturesOnInput(deferredRegionScanner);
+    for (int i = 0; i < groups.length; i++) {
+      if (groups[i] >= 0) {
+        groups[i] += offset;
+      }
+    }
+    deferredRegionScanner = null;
+    deferredRegionOffset = 0;
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private void resolveCapturesOnInput(InputScanner scanner) {
+    if (capturesResolved) {
+      return;
+    }
     Prog prog = parentPattern.prog();
-    InputScanner scanner = activeScanner();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
     // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
     // captures within that range.
@@ -5258,6 +5327,8 @@ public final class Matcher implements MatchResult {
         result = alternation.find(matcher.text, matcher.searchFrom);
       } else if (matcher.textScanner instanceof StringRegionInputScanner regionScanner) {
         result = alternation.find(regionScanner, matcher.searchFrom);
+      } else if (matcher.textScanner instanceof Utf8InputScanner utf8Scanner) {
+        result = alternation.find(utf8Scanner, matcher.searchFrom);
       } else {
         return fallback.find(matcher, regionActive);
       }

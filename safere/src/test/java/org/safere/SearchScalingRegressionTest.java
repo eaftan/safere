@@ -1836,7 +1836,11 @@ class SearchScalingRegressionTest {
 
   @Test
   void multiLiteralPrefilterOnDenseCandidateNoiseIsBoundedByWorkLimit() {
-    Pattern pattern = Pattern.compile("APPLE|BANANA|CHERRY");
+    // Dense first bytes would select the UTF-8 literal-alternation search, which scans once per
+    // literal (see LiteralAlternationWorkTest); this test covers the start accelerator instead.
+    Pattern pattern =
+        Pattern.compile(
+            "APPLE|BANANA|CHERRY", 0, EnginePathOptions.builder().literalFastPaths(false).build());
     byte[] noise = "A B C A B C ".repeat(10_000).getBytes(UTF_8);
 
     long work =

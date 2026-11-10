@@ -15,6 +15,28 @@ import org.junit.jupiter.api.Test;
 @Tag("work-counter")
 class StringRegionWorkTest {
   @Test
+  void unusedRegionCapturesSkipExtractionWork() {
+    for (int size : List.of(256, 4096)) {
+      Pattern pattern = Pattern.compile("(a+?)b");
+      String body = "a".repeat(size) + "b";
+      Matcher matcher = pattern.matcher("x" + body + "x").region(1, body.length() + 1);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.capturesResolved()).isFalse();
+      long boundsWork =
+          WorkCounter.countForTesting(
+              () -> {
+                assertThat(matcher.start()).isEqualTo(1);
+                assertThat(matcher.end()).isEqualTo(body.length() + 1);
+              });
+      assertThat(boundsWork).isZero();
+      long captureWork =
+          WorkCounter.countForTesting(() -> assertThat(matcher.group(1)).hasSize(size));
+      assertThat(captureWork).isPositive();
+      assertThat(WorkCounter.countForTesting(() -> matcher.group(1))).isZero();
+    }
+  }
+
+  @Test
   void regionFindDoesComparableWorkToIndependentText() {
     for (String regex : List.of("q[a-z]+k\\s+b", "[a-z]*q[a-z]+k\\s+b")) {
       Pattern pattern = Pattern.compile(regex);

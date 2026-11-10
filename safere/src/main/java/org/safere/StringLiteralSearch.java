@@ -168,6 +168,15 @@ final class StringLiteralSearch {
    * @param anchorOffset an offset from {@link #anchorOffset}, or {@link #NO_ANCHOR}
    * @param anchor the character at {@code anchorOffset}, precomputed at compile time
    */
+  @MaxBytecodeSize(
+      value = 202,
+      min = 202,
+      reason =
+          "Tuned: it is called from StringStartAccelerator's literal and fixed-offset scans"
+              + " (through indexOfPlanned) and from RejectPrefilter.Literal.canReject. Variants"
+              + " about 8 bytes smaller and 10 or 19 bytes larger, including ones that only added"
+              + " bytecodes that never ran, each cost 25-35% on one of those callers. Benchmark all"
+              + " three before changing its size.")
   static int indexOf(String text, String literal, int anchorOffset, char anchor, int fromIndex) {
     int pos = Math.max(0, fromIndex);
     int length = text.length();

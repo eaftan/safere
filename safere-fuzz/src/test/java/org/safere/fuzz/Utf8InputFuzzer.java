@@ -37,6 +37,7 @@ public final class Utf8InputFuzzer {
     assertFinalLineTerminatorEndAnchorsMatchJdk(data);
     assertPositionDependentStartAccelerationMatchesJdk(data);
     assertLeadingExpansionMatchesJdk(data);
+    assertInnerLiteralBooleanSearchMatchesJdk(data);
     RepresentationChecks.assertGraphemeSearchMatchesString(data);
     RepresentationChecks.assertMultibyteMultiAnchorReverseWindowMatchesString(data);
     assertCaseInsensitivePrefixSliceBounds(data);
@@ -69,6 +70,28 @@ public final class Utf8InputFuzzer {
       if (valid) {
         throw new AssertionError("strict validation rejected valid UTF-8", e);
       }
+    }
+  }
+
+  private static void assertInnerLiteralBooleanSearchMatchesJdk(FuzzedDataProvider data) {
+    String prefix = data.pickValue(List.of("zz", "qz", "jq"));
+    String suffix = data.pickValue(List.of("qq", "zq", "qj"));
+    String regex = prefix + data.pickValue(List.of("[^;]*", "[a-z]*", "\\w*")) + suffix;
+    int length = data.consumeBoolean() ? data.consumeInt(0, 600) : 100;
+    String input =
+        data.pickValue(List.of("", "😀"))
+            + prefix
+            + "x".repeat(length)
+            + data.pickValue(List.of("", suffix, ";" + suffix));
+    Pattern pattern = Pattern.compile(regex);
+    boolean expected = java.util.regex.Pattern.compile(regex).matcher(input).find();
+    byte[] content = input.getBytes(StandardCharsets.UTF_8);
+    byte[] padded = ("pad" + input + "outside").getBytes(StandardCharsets.UTF_8);
+    Utf8Input utf8 = Utf8Input.validated(padded, 3, content.length);
+    if (pattern.asPredicate().test(input) != expected
+        || pattern.find(utf8) != expected
+        || pattern.matcher(utf8).find() != expected) {
+      throw new AssertionError("inner-literal boolean search differs from JDK: " + regex);
     }
   }
 
