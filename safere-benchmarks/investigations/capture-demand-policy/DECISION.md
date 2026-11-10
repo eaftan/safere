@@ -2,7 +2,7 @@
 
 The investigation supports selecting DFA-first as the next production policy.
 The investigation PR preserves the experiments and evidence; the dependent policy
-PR implements the decision. Both remain drafts for maintainer review.
+PR implements the decision.
 
 ## Evidence used for the decision
 
