@@ -475,6 +475,33 @@ final class MultiAnchorCompiler {
     return isWideLeadingClass(runeCount(leadingClass.ranges()));
   }
 
+  /**
+   * Returns the code points a wide leading class excludes, in increasing order, or null when the
+   * class is not wide or excludes more than {@link #MAX_LEADING_CLASS_COMPLEMENT} code points.
+   */
+  static int[] excludedCodePoints(CharClassScanInfo leadingClass) {
+    if (!isWideLeadingClass(leadingClass)) {
+      return null;
+    }
+    int[] ranges = leadingClass.ranges();
+    int[] excluded = new int[MAX_LEADING_CLASS_COMPLEMENT];
+    int count = 0;
+    int next = 0;
+    for (int i = 0; i <= ranges.length; i += 2) {
+      int lo = i < ranges.length ? ranges[i] : Utils.MAX_RUNE + 1;
+      for (int cp = next; cp < lo; cp++) {
+        if (count == excluded.length) {
+          return null;
+        }
+        excluded[count++] = cp;
+      }
+      if (i < ranges.length) {
+        next = ranges[i + 1] + 1;
+      }
+    }
+    return Arrays.copyOf(excluded, count);
+  }
+
   /** Returns whether the start plan scans for a literal at the match start. */
   private static boolean hasFixedOffset(StartPlan plan) {
     if (plan == null) {

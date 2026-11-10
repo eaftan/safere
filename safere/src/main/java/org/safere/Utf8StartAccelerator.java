@@ -7,6 +7,7 @@ package org.safere;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.safere.Pattern.FixedOffsetLiteral;
 
@@ -89,6 +90,7 @@ sealed interface Utf8StartAccelerator {
                 le.maxRepetition(),
                 le.hasLeadingAssertions(),
                 MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()),
+                LeadingExpansion.ExcludedSet.of(le),
                 inner)
             : null;
       }
@@ -727,8 +729,78 @@ sealed interface Utf8StartAccelerator {
       int maxRepetition,
       boolean hasLeadingAssertions,
       boolean wideLeadingClass,
+      ExcludedSet excludedSet,
       Utf8StartAccelerator inner)
       implements Utf8StartAccelerator {
+
+    /**
+     * The code points a wide leading class excludes, split into ASCII members and the UTF-8
+     * encodings of the others. Surrogates never occur in valid UTF-8 and are left out.
+     */
+    // Arrays are immutable, privately owned scanner metadata; array identity is never observed.
+    @SuppressWarnings("ArrayRecordComponent")
+    record ExcludedSet(int[] ascii, byte[][] nonAscii) {
+      /**
+       * Returns the excluded set when a forward search for it can stand in for the backward walk:
+       * the repetition must be unbounded with at most one required repetition. Otherwise null.
+       */
+      static ExcludedSet of(MultiAnchorDescriptor.StartPlan.LeadingExpansion le) {
+        int[] excluded = MultiAnchorCompiler.excludedCodePoints(le.leadingClass());
+        if (excluded == null || le.minRepetition() > 1 || le.maxRepetition() != Integer.MAX_VALUE) {
+          return null;
+        }
+        return new ExcludedSet(
+            Arrays.stream(excluded).filter(cp -> cp < 0x80).toArray(),
+            Arrays.stream(excluded)
+                .filter(
+                    cp ->
+                        cp >= 0x80
+                            && (cp > Character.MAX_VALUE || !Character.isSurrogate((char) cp)))
+                .mapToObj(cp -> Character.toString(cp).getBytes(StandardCharsets.UTF_8))
+                .toArray(byte[][]::new));
+      }
+
+      /**
+       * Returns false only when {@code [from, to)} holds no excluded code point. With non-ASCII
+       * members and up to three ASCII members, any non-ASCII byte also counts as a possible hit.
+       */
+      boolean mayContain(Utf8InputScanner scanner, int from, int to) {
+        boolean anyNonAscii = nonAscii.length > 0;
+        int hit =
+            switch (ascii.length) {
+              case 1 ->
+                  anyNonAscii
+                      ? scanner.indexOfAsciiOrNonAscii(ascii[0], from, to)
+                      : scanner.indexOfAscii(ascii[0], from, to);
+              case 2 ->
+                  anyNonAscii
+                      ? scanner.indexOfAsciiPairOrNonAscii(ascii[0], ascii[1], from, to)
+                      : scanner.indexOfAsciiPair(ascii[0], ascii[1], from, to);
+              case 3 ->
+                  anyNonAscii
+                      ? scanner.indexOfAsciiTripleOrNonAscii(ascii[0], ascii[1], ascii[2], from, to)
+                      : scanner.indexOfAsciiTriple(ascii[0], ascii[1], ascii[2], from, to);
+              default -> indexOfAny(scanner, from, to);
+            };
+        return hit >= 0 && hit < to;
+      }
+
+      private int indexOfAny(Utf8InputScanner scanner, int from, int to) {
+        for (int c : ascii) {
+          int hit = scanner.indexOfAscii(c, from, to);
+          if (hit >= 0) {
+            return hit;
+          }
+        }
+        for (byte[] sequence : nonAscii) {
+          int hit = scanner.indexOfUtf8Sequence(sequence, from, to);
+          if (hit >= 0) {
+            return hit;
+          }
+        }
+        return -1;
+      }
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -792,6 +864,14 @@ sealed interface Utf8StartAccelerator {
         if (wideLeadingClass
             && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
           return Math.max(0, fromIndex);
+        }
+        // When nothing between the search start and the hit is excluded, the walk would go all the
+        // way back to the search start. A vectorized forward search shows that more cheaply.
+        if (excludedSet != null
+            && innerMatch > fromIndex
+            && fromIndex >= 0
+            && !excludedSet.mayContain(scanner, fromIndex, innerMatch)) {
+          return fromIndex;
         }
         int start = innerMatch;
         int count = 0;

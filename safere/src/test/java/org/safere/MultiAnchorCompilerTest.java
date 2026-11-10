@@ -909,6 +909,21 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void excludedCodePointsOfWideLeadingClasses() {
+    assertThat(excludedCodePoints(".*error")).containsExactly('\n', '\r', 0x85, 0x2028, 0x2029);
+    assertThat(excludedCodePoints("(?d).*error")).containsExactly('\n');
+    assertThat(excludedCodePoints("[^;]*error")).containsExactly(';');
+    assertThat(excludedCodePoints("\\S+error")).containsExactly('\t', '\n', 0x0B, '\f', '\r', ' ');
+    // A narrow leading class is walked as before and has no excluded set.
+    assertThat(excludedCodePoints("[a-z]+error")).isNull();
+  }
+
+  private static int[] excludedCodePoints(String regex) {
+    StartPlan.LeadingExpansion le = (StartPlan.LeadingExpansion) Pattern.compile(regex).startPlan();
+    return MultiAnchorCompiler.excludedCodePoints(le.leadingClass());
+  }
+
+  @Test
   void surrogateLiteralsDoNotProduceStringFastPaths() {
     for (String regex :
         List.of(

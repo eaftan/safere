@@ -57,6 +57,7 @@ sealed interface StringStartAccelerator {
                 le.maxRepetition(),
                 le.hasLeadingAssertions(),
                 MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()),
+                LeadingExpansion.forwardScanChars(le),
                 inner)
             : null;
       }
@@ -614,14 +615,48 @@ sealed interface StringStartAccelerator {
     }
   }
 
+  // Arrays are immutable, privately owned scanner metadata; array identity is never observed.
+  @SuppressWarnings("ArrayRecordComponent")
   record LeadingExpansion(
       CharClassScanInfo leadingClass,
       int minRepetition,
       int maxRepetition,
       boolean hasLeadingAssertions,
       boolean wideLeadingClass,
+      char[] excludedChars,
       StringStartAccelerator inner)
       implements StringStartAccelerator {
+
+    /**
+     * Returns the code units a wide leading class excludes, when a forward search for them can
+     * stand in for the backward walk: the class must exclude only BMP non-surrogate code points,
+     * and the repetition must be unbounded with at most one required repetition. Otherwise null.
+     */
+    static char[] forwardScanChars(MultiAnchorDescriptor.StartPlan.LeadingExpansion le) {
+      int[] excluded = MultiAnchorCompiler.excludedCodePoints(le.leadingClass());
+      if (excluded == null || le.minRepetition() > 1 || le.maxRepetition() != Integer.MAX_VALUE) {
+        return null;
+      }
+      char[] chars = new char[excluded.length];
+      for (int i = 0; i < excluded.length; i++) {
+        int cp = excluded[i];
+        if (cp > Character.MAX_VALUE || Character.isSurrogate((char) cp)) {
+          return null;
+        }
+        chars[i] = (char) cp;
+      }
+      return chars;
+    }
+
+    /** Returns whether {@code text[from, to)} holds a code unit the leading class excludes. */
+    private boolean containsExcluded(String text, int from, int to) {
+      for (char c : excludedChars) {
+        if (text.indexOf(c, from, to) >= 0) {
+          return true;
+        }
+      }
+      return false;
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -683,6 +718,15 @@ sealed interface StringStartAccelerator {
         if (wideLeadingClass
             && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
           return Math.max(0, fromIndex);
+        }
+        // When nothing between the search start and the hit is excluded, the walk would go all the
+        // way back to the search start. A vectorized forward search shows that more cheaply.
+        if (excludedChars != null
+            && innerMatch > fromIndex
+            && fromIndex >= 0
+            && text instanceof String string
+            && !containsExcluded(string, fromIndex, innerMatch)) {
+          return fromIndex;
         }
         int start = innerMatch;
         int count = 0;
