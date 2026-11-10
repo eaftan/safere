@@ -350,13 +350,20 @@ public final class Matcher implements MatchResult {
   /**
    * Charges a matcher-level start-accelerator call from {@code pos} to {@link #startBackoff},
    * unless its candidates are exact match starts (see {@link #startAccelerationAllowed}).
+   *
+   * <p>A leading expansion over a wide class such as non-DOTALL {@code .} is not charged either. It
+   * often returns the search start itself (for a short skip, or a hit on the first line), and
+   * charging that as a failed skip would quarantine {@link #startBackoff}, which also stops the
+   * forward DFA from fast-forwarding through its start state. Each call already costs at most one
+   * scan to the next inner hit plus one walk back over the line holding it, and later calls resume
+   * after the previous match, which lies past that hit.
    */
   private void chargeStartAcceleration(
-      int pos, int candidate, int textLen, AcceleratorPolicy policy) {
+      int pos, int candidate, int textLen, AcceleratorPolicy policy, boolean wideLeadingClass) {
     if (WorkCounterConfig.ENABLED) {
       WorkCounter.recordStartScan(candidate - pos);
     }
-    if (!policy.isExactMatchCandidate()) {
+    if (!policy.isExactMatchCandidate() && !wideLeadingClass) {
       startBackoff = AdaptiveBackoff.recordSkip(startBackoff, pos, candidate, textLen, policy);
     }
   }
@@ -2288,7 +2295,7 @@ public final class Matcher implements MatchResult {
         }
         return -1;
       }
-      chargeStartAcceleration(fromIndex, innerMatch, scanner.length(), policy);
+      chargeStartAcceleration(fromIndex, innerMatch, scanner.length(), policy, false);
       // As in findNextStringStartCandidate, an unanchored rejection at the inner candidate rules
       // out every expanded start.
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
@@ -2306,7 +2313,12 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(strategy);
       }
     } else {
-      chargeStartAcceleration(fromIndex, candidate, scanner.length(), policy);
+      chargeStartAcceleration(
+          fromIndex,
+          candidate,
+          scanner.length(),
+          policy,
+          accelerator instanceof Utf8StartAccelerator.LeadingExpansion le && le.wideLeadingClass());
     }
     return candidate;
   }
@@ -2336,7 +2348,7 @@ public final class Matcher implements MatchResult {
         }
         return -1;
       }
-      chargeStartAcceleration(fromIndex, innerMatch, scanner.length(), policy);
+      chargeStartAcceleration(fromIndex, innerMatch, scanner.length(), policy, false);
       // Zero repetitions are legal and there are no leading assertions. Every match from an
       // expanded start therefore has a suffix matching from an inner candidate. An unanchored
       // rejection here rules out all later starts without traversing the leading run backward.
@@ -2369,7 +2381,13 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(strategy);
       }
     } else {
-      chargeStartAcceleration(fromIndex, candidate, scanner.length(), policy);
+      chargeStartAcceleration(
+          fromIndex,
+          candidate,
+          scanner.length(),
+          policy,
+          accelerator instanceof StringStartAccelerator.LeadingExpansion le
+              && le.wideLeadingClass());
     }
     return candidate;
   }
