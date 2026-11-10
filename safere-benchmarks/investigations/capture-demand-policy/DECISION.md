@@ -1,8 +1,8 @@
 # Decision: adopt DFA-first in a separate change
 
 The investigation supports selecting DFA-first as the next production policy.
-The investigation PR preserves the experiments and evidence; the dependent policy
-PR implements the decision.
+The investigation PR preserves the experiments and evidence; the follow-up PR
+[#1150](https://github.com/eaftan/safere/pull/1150) implements that policy.
 
 ## Evidence used for the decision
 
