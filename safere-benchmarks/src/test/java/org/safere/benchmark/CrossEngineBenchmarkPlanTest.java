@@ -322,6 +322,11 @@ class CrossEngineBenchmarkPlanTest {
             "ApplicationBenchmark.secretRedaction@safere-utf8",
             "RealWorldRegexBenchmark.runBenchmark.markupImageLink.match.1000@safere-utf8",
             "ReplaceBenchmark.literalReplaceFirst@safere-utf8",
+            "ReplaceBenchmark.literalReplaceFirstNoMatch@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceFirstNoMatch.literal@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceFirstNoMatch.charClass@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceAllNoMatch.literal@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceAllNoMatch.charClass@safere-utf8",
             "ReplaceBenchmark.pigLatinReplaceAll@safere-utf8",
             "ReplaceBenchmark.anchoredReplace@safere-utf8",
             "ReplaceBenchmark.manualReplaceAll@safere-utf8");
@@ -768,6 +773,12 @@ class CrossEngineBenchmarkPlanTest {
     for (String id :
         List.of(
             "ReplaceBenchmark.literalReplaceFirst@safere-utf8",
+            "ReplaceBenchmark.literalReplaceFirstNoMatch@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceFirstNoMatch.literal@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceFirstNoMatch.charClass@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceAllNoMatch.literal@safere-utf8",
+            "ReplaceBenchmark.startAnchoredReplaceAllNoMatch.charClass@safere-utf8",
+            "ReplaceBenchmark.emptyReplaceAll@safere-utf8",
             "ReplaceBenchmark.pigLatinReplaceAll@safere-utf8",
             "ReplaceBenchmark.manualReplaceAll@safere-utf8",
             "ApplicationBenchmark.secretRedaction@safere-utf8",

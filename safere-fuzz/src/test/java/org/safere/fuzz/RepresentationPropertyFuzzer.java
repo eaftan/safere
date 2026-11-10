@@ -8,7 +8,7 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 
-/** Checks representation parity on valid Unicode text; does not consult the JDK. */
+/** Checks representation parity and UTF-8 replacement properties without consulting the JDK. */
 public final class RepresentationPropertyFuzzer {
   @FuzzTest(maxDuration = "30s")
   void representation(FuzzedDataProvider data) {
@@ -22,5 +22,6 @@ public final class RepresentationPropertyFuzzer {
     RepresentationChecks.assertFixedOffsetAccelerationMatchesString(data);
     RepresentationChecks.assertGraphemeSearchMatchesString(data);
     RepresentationChecks.assertMultibyteMultiAnchorReverseWindowMatchesString(data);
+    RepresentationChecks.assertUtf8ReplacementMatchesAppendLoop(data);
   }
 }

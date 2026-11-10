@@ -18,6 +18,7 @@ public final class Utf8Matcher {
   private final org.safere.Utf8Matcher delegate;
   private final TraceRecorder trace = new TraceRecorder();
   private Oracles oracles;
+  private boolean tailAppended;
 
   Utf8Matcher(Pattern pattern, Utf8Input input) {
     this.pattern = requireNonNull(pattern, "pattern");
@@ -91,6 +92,7 @@ public final class Utf8Matcher {
   /** Resets this matcher to the whole retained input. */
   public Utf8Matcher reset() {
     delegate.reset();
+    tailAppended = false;
     if (oracles != null) {
       oracles.safereString().reset();
       oracles.jdk().reset();
@@ -102,6 +104,7 @@ public final class Utf8Matcher {
   /** Sets the byte-offset range searched by this matcher. */
   public Utf8Matcher region(int start, int end) {
     delegate.region(start, end);
+    tailAppended = false;
     if (oracles != null) {
       int utf16Start = oracles.coordinates().toUtf16(start);
       int utf16End = oracles.coordinates().toUtf16(end);
@@ -155,6 +158,79 @@ public final class Utf8Matcher {
     return actual;
   }
 
+  /** Appends the whole input with every matching subsequence replaced. */
+  public void replaceAll(Utf8Sink sink, Utf8Input replacement) {
+    replace(sink, replacement, true);
+  }
+
+  /** Appends the whole input with only the first matching subsequence replaced. */
+  public void replaceFirst(Utf8Sink sink, Utf8Input replacement) {
+    replace(sink, replacement, false);
+  }
+
+  private void replace(Utf8Sink sink, Utf8Input replacement, boolean all) {
+    requireNonNull(sink, "sink");
+    requireNonNull(replacement, "replacement");
+    ByteArrayOutputStream actualOutput = new ByteArrayOutputStream();
+    Utf8Sink recordingSink =
+        (bytes, offset, length) -> {
+          actualOutput.write(bytes, offset, length);
+          sink.append(bytes, offset, length);
+        };
+    // Callbacks may observe the delegate's current match before the String oracles catch up.
+    // Leave the oracles disabled on failure: they cannot reproduce a sink's partial output state.
+    Oracles savedOracles = oracles;
+    oracles = null;
+    if (all) {
+      delegate.replaceAll(recordingSink, replacement.delegate());
+    } else {
+      delegate.replaceFirst(recordingSink, replacement.delegate());
+    }
+    oracles = savedOracles;
+    tailAppended = true;
+    if (oracles == null) {
+      return;
+    }
+    if (!replacement.validated()) {
+      oracles = null;
+      return;
+    }
+
+    String decodedReplacement = replacement.decoded();
+    String stringResult = replaceScalarAligned(oracles.safereString(), decodedReplacement, all);
+    String jdkResult = replaceScalarAligned(oracles.jdk(), decodedReplacement, all);
+    String actual = actualOutput.toString(UTF_8);
+    String method = all ? "replaceAll" : "replaceFirst";
+    compare(
+        method, quote(decodedReplacement), "SafeRE UTF-8", actual, "SafeRE String", stringResult);
+    compare(method, quote(decodedReplacement), "SafeRE String", stringResult, "JDK", jdkResult);
+    trace.recordMatch(method, quote(decodedReplacement), actual);
+  }
+
+  private String replaceScalarAligned(MatchResult matcher, String replacement, boolean all) {
+    if (matcher instanceof org.safere.Matcher safereMatcher) {
+      safereMatcher.reset();
+    } else {
+      ((java.util.regex.Matcher) matcher).reset();
+    }
+    StringBuilder output = new StringBuilder();
+    if (findNextScalarAligned(matcher, oracles.coordinates())) {
+      do {
+        if (matcher instanceof org.safere.Matcher safereMatcher) {
+          safereMatcher.appendReplacement(output, replacement);
+        } else {
+          ((java.util.regex.Matcher) matcher).appendReplacement(output, replacement);
+        }
+      } while (all && findNextScalarAligned(matcher, oracles.coordinates()));
+    }
+    if (matcher instanceof org.safere.Matcher safereMatcher) {
+      safereMatcher.appendTail(output);
+    } else {
+      ((java.util.regex.Matcher) matcher).appendTail(output);
+    }
+    return output.toString();
+  }
+
   /** Appends the unmatched prefix and expanded replacement for the current match. */
   public Utf8Matcher appendReplacement(Utf8Sink sink, Utf8Input replacement) {
     requireNonNull(sink, "sink");
@@ -166,6 +242,7 @@ public final class Utf8Matcher {
           sink.append(bytes, offset, length);
         },
         replacement.delegate());
+    tailAppended = false;
     if (oracles == null) {
       return this;
     }
@@ -212,8 +289,12 @@ public final class Utf8Matcher {
     }
     StringBuilder stringOutput = new StringBuilder();
     StringBuilder jdkOutput = new StringBuilder();
-    oracles.safereString().appendTail(stringOutput);
-    oracles.jdk().appendTail(jdkOutput);
+    // Unlike the String API, UTF-8 appendTail consumes the append position.
+    if (!tailAppended) {
+      oracles.safereString().appendTail(stringOutput);
+      oracles.jdk().appendTail(jdkOutput);
+    }
+    tailAppended = true;
     String actual = actualOutput.toString(UTF_8);
     compare("appendTail", "", "SafeRE UTF-8", actual, "SafeRE String", stringOutput);
     compare("appendTail", "", "SafeRE String", stringOutput, "JDK", jdkOutput);

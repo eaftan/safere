@@ -181,18 +181,22 @@ enum RegexEngineVariant {
 
         @Override
         public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
-          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), true);
+          ByteArraySink sink = new ByteArraySink();
+          pattern.matcher(utf8(input)).replaceFirst(sink, utf8(replacement));
+          return sink.output();
         }
 
         @Override
         public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
-          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), false);
+          ByteArraySink sink = new ByteArraySink();
+          pattern.matcher(utf8(input)).replaceAll(sink, utf8(replacement));
+          return sink.output();
         }
 
         @Override
         public ReplacementOutput manualReplaceAll(
             RegexInput input, PreparedReplacement replacement) {
-          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), false);
+          return manualReplaceUtf8(pattern.matcher(utf8(input)), utf8(replacement));
         }
       };
     }
@@ -715,14 +719,11 @@ enum RegexEngineVariant {
     return ((Utf8Replacement) replacement).value();
   }
 
-  private static ReplacementOutput replaceUtf8(
-      org.safere.Utf8Matcher matcher, org.safere.Utf8Input replacement, boolean firstOnly) {
+  private static ReplacementOutput manualReplaceUtf8(
+      org.safere.Utf8Matcher matcher, org.safere.Utf8Input replacement) {
     ByteArraySink sink = new ByteArraySink();
     while (matcher.find()) {
       matcher.appendReplacement(sink, replacement);
-      if (firstOnly) {
-        break;
-      }
     }
     matcher.appendTail(sink);
     return sink.output();
