@@ -819,6 +819,11 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findInnerCandidate(Utf8InputScanner scanner, int searchPos) {
+      if (wideLeadingClass && inner instanceof Literal lit && lit.prefixUtf8() != null) {
+        // Search the way the UTF-8 reject prefilter does, since find() skips that prefilter when
+        // this search subsumes it (see Pattern.startSubsumesFindReject).
+        return scanner.indexOfInTail(lit.prefixUtf8(), lit.prefixUtf8Failure(), searchPos);
+      }
       return Utf8StartAccelerator.findNextCandidate(inner, scanner, searchPos);
     }
 

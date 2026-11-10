@@ -909,6 +909,21 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void wideLeadingExpansionSubsumesFindRejectWhenItsLiteralImpliesThePlan() {
+    assertThat(startSubsumesFindReject(".*error: \\w+")).isTrue();
+    assertThat(startSubsumesFindReject("[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?")).isTrue();
+    // The reject plan requires a different literal, which still filters on its own.
+    assertThat(startSubsumesFindReject(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash")).isFalse();
+    // Narrow leading classes and DOTALL keep the reject prefilter.
+    assertThat(startSubsumesFindReject("[a-z]+error")).isFalse();
+    assertThat(startSubsumesFindReject("(?s).*error: \\w+")).isFalse();
+  }
+
+  private static boolean startSubsumesFindReject(String regex) {
+    return Pattern.compile(regex).multiAnchor().startSubsumesFindReject();
+  }
+
+  @Test
   void excludedCodePointsOfWideLeadingClasses() {
     assertThat(excludedCodePoints(".*error")).containsExactly('\n', '\r', 0x85, 0x2028, 0x2029);
     assertThat(excludedCodePoints("(?d).*error")).containsExactly('\n');

@@ -1979,7 +1979,10 @@ public final class Matcher implements MatchResult {
             && !prog.anchorStart()
             && scanner.length() - searchFrom < Pattern.MAX_LITERAL_START_FIRST_LENGTH
             && hasLiteralStartAccelerator(scanner);
-    if (!literalStartFirst && rejectFindFrom(scanner, searchFrom, options)) {
+    // A wide-class leading expansion's literal search below fails exactly when this would reject.
+    if (!literalStartFirst
+        && !(options.startAcceleration() && parentPattern.startSubsumesFindReject())
+        && rejectFindFrom(scanner, searchFrom, options)) {
       return applyFailedMatchResult();
     }
 

@@ -178,6 +178,7 @@ public final class Pattern implements Serializable {
 
   private final boolean startPrecedesFindReject;
   private final boolean dfaStartAcceleration;
+  private final boolean startSubsumesFindReject;
 
   /**
    * OnePass analysis results, computed during construction when eligible analysis can support
@@ -323,6 +324,14 @@ public final class Pattern implements Serializable {
             && MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()));
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    // When find() runs a wide-class leading expansion, its inner literal search fails exactly when
+    // the reject prefilter would reject, so the prefilter's scan would only repeat it.
+    this.startSubsumesFindReject =
+        enginePathOptions.startAcceleration()
+            && !prog.anchorStart()
+            && stringStartAccelerator != null
+            && utf8StartAccelerator != null
+            && this.multiAnchor.startSubsumesFindReject();
     this.innerLiteralSearch =
         enginePathOptions.startAcceleration()
                 && enginePathOptions.literalFastPaths()
@@ -712,6 +721,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
       return false;
     }
@@ -820,6 +830,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && rejectsWithDiagnostics(findRejectPrefilter, scanner, 0, diagnostics)) {
       return false;
     }
@@ -1361,6 +1372,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
       return false;
     }
@@ -2063,6 +2075,11 @@ public final class Pattern implements Serializable {
 
   boolean startPrecedesFindReject() {
     return startPrecedesFindReject;
+  }
+
+  /** Returns whether find() skips the reject prefilter in favor of the start accelerator. */
+  boolean startSubsumesFindReject() {
+    return startSubsumesFindReject;
   }
 
   MultiAnchorDescriptor multiAnchor() {
