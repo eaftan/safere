@@ -219,18 +219,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private void diagnosticBoundaryOverride(MatchStrategy strategy) {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.replaceBoundary(strategy);
-    }
-  }
-
-  private MatchStrategy diagnosticBoundaryStrategy() {
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    return accumulator == null ? MatchStrategy.NONE : accumulator.boundaryStrategy();
-  }
-
   private void diagnosticCapture(MatchStrategy strategy) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -932,6 +920,38 @@ public final class Matcher implements MatchResult {
       return applyFullMatchResult(new int[] {idx, end});
     }
     return applyFailedMatchResult();
+  }
+
+  /** Finds a greedy, capture-free repeated class over the whole logical UTF-8 input. */
+  private boolean repeatedCharClassFindUtf8FastPath(
+      Utf8InputScanner scanner, Pattern.CharClassMatchInfo matchInfo, int fromIndex) {
+    int length = scanner.length();
+    if (fromIndex > length) {
+      return applyFailedMatchResult();
+    }
+    int start = fromIndex;
+    if (!matchInfo.allowEmpty()) {
+      start =
+          scanner.indexOfCodePointClass(
+              matchInfo.ranges(), matchInfo.bitmap0(), matchInfo.bitmap1(), fromIndex, length);
+      if (start < 0) {
+        return applyFailedMatchResult();
+      }
+    }
+    int end = start;
+    while (end < length) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int ascii = scanner.asciiAt(end);
+      long decoded = ascii < 0 ? scanner.decodeForward(end) : 0;
+      int cp = ascii < 0 ? InputScanner.codePoint(decoded) : ascii;
+      if (!charClassContains(matchInfo.ranges(), matchInfo.bitmap0(), matchInfo.bitmap1(), cp)) {
+        break;
+      }
+      end = ascii < 0 ? InputScanner.position(decoded) : end + 1;
+    }
+    return applyGroupZeroMatchResult(start, end);
   }
 
   /**
@@ -2026,25 +2046,17 @@ public final class Matcher implements MatchResult {
     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
 
-    // Once callers have demonstrated that they consume inner captures, use the capture-aware
-    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
-    // replaying the same range through BitState on every successful find().
-    //
-    // When a start accelerator preselected a candidate, the attempt is limited to that one start.
-    // BitState walks candidate starts one code point at a time with no literal acceleration of
-    // its own, so letting it cover the rest of the input costs O(text x prog) scalar work where
-    // the forward DFA path costs O(text) with in-loop start-state acceleration. Speculating on a
-    // single accelerated start keeps the win on inputs where the accelerated start is the match,
-    // and caps the loss elsewhere at one failed start before the DFA path below takes over.
-    if (shouldPreferCaptureEngine(prog, scanner)) {
-      int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
-      MatchStrategy boundaryBeforeCaptureSearch = diagnosticBoundaryStrategy();
+    // Preserve capture preference for start-anchored patterns. Unanchored find() keeps DFA
+    // rejection ahead of capture work, even after callers have consumed inner captures.
+    // On the DFA path, successful small String searches reading captures pay for a reverse DFA pass
+    // plus capture replay; see https://github.com/eaftan/safere/pull/1150 for the tradeoff.
+    if (prog.anchorStart() && shouldPreferCaptureEngine(prog, scanner)) {
       int[] result =
           searchWithBitStateOrNfa(
               prog,
               scanner,
               effectiveStart,
-              captureSearchLimit,
+              scanner.length(),
               scanner.length(),
               false,
               false,
@@ -2052,13 +2064,7 @@ public final class Matcher implements MatchResult {
               prog.numCaptures(),
               false,
               this.groups);
-      if (result != null || captureSearchLimit >= scanner.length()) {
-        return applyFullMatchResult(result);
-      }
-      // Only starts up to the accelerated candidate were tried, so this is not a decision that no
-      // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
-      // path below perform the complete search.
-      diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
+      return applyFullMatchResult(result);
     }
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
@@ -5546,14 +5552,17 @@ public final class Matcher implements MatchResult {
     private final CharClassScanInfo singleCharClass;
     private final Pattern.CharClassMatchInfo charClassMatch;
     private final boolean isStartAnchored;
+    private final boolean greedy;
 
     SingleCharClassPreparedRunner(
         CharClassScanInfo singleCharClass,
         Pattern.CharClassMatchInfo charClassMatch,
-        boolean isStartAnchored) {
+        boolean isStartAnchored,
+        boolean greedy) {
       this.singleCharClass = singleCharClass;
       this.charClassMatch = charClassMatch;
       this.isStartAnchored = isStartAnchored;
+      this.greedy = greedy;
     }
 
     @Override
@@ -5562,6 +5571,14 @@ public final class Matcher implements MatchResult {
         return matcher.applyFailedMatchResult();
       }
       if (singleCharClass == null) {
+        if (charClassMatch != null
+            && greedy
+            && !regionActive
+            && matcher.activeScanner() instanceof Utf8InputScanner scanner) {
+          matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+          return matcher.repeatedCharClassFindUtf8FastPath(
+              scanner, charClassMatch, matcher.searchFrom);
+        }
         return matcher.doFindCore(regionActive);
       }
       if (isStartAnchored) {

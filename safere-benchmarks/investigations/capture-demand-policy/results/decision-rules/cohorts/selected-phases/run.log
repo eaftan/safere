@@ -1,0 +1,2507 @@
+=== Standard mode ===
+=== Fast Building safere-benchmarks only ===
+=== Materializing benchmark inputs from /tmp/safere-1075-adaptive/safere-benchmarks/investigations/capture-demand-policy ===
+Materialized 42 benchmark inputs in /tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus
+UTF-8 scan provider startup check passed: default
+=== Running ^org\.safere\.benchmark\.AdaptiveCapturePhasesBenchmark\.phases$ (-f 2 -wi 2 -w 500ms -i 5 -r 500ms -p scenario=stack.reads.phase.ascii.128,stack.hits.phase.ascii.128,scheme.reads.phase.ascii.128,scheme.hits.phase.ascii.128 -p representation=string,utf8 -p policy=replay,work -p seed=1 -t 1 -foe true -rf json -rff /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/selected-phases/results.json) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = string, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 0.00% complete, ETA 00:01:52
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1436205.421 ns/op
+# Warmup Iteration   2: 1160787.153 ns/op
+Iteration   1: 1181360.111 ns/op
+                 phase0Documents: 217088.000 #
+                 phase0Nanos:     147399711.000 #
+                 phase1Documents: 217088.000 #
+                 phase1Nanos:     202980092.000 #
+                 phase2Documents: 217088.000 #
+                 phase2Nanos:     150182058.000 #
+
+Iteration   2: 1234015.623 ns/op
+                 phase0Documents: 207872.000 #
+                 phase0Nanos:     150022006.000 #
+                 phase1Documents: 207872.000 #
+                 phase1Nanos:     195197458.000 #
+                 phase2Documents: 207872.000 #
+                 phase2Nanos:     155456999.000 #
+
+Iteration   3: 1149448.367 ns/op
+                 phase0Documents: 223232.000 #
+                 phase0Nanos:     152701601.000 #
+                 phase1Documents: 223232.000 #
+                 phase1Nanos:     192220390.000 #
+                 phase2Documents: 223232.000 #
+                 phase2Nanos:     155886362.000 #
+
+Iteration   4: 1156913.582 ns/op
+                 phase0Documents: 221696.000 #
+                 phase0Nanos:     152300771.000 #
+                 phase1Documents: 221696.000 #
+                 phase1Nanos:     193128652.000 #
+                 phase2Documents: 221696.000 #
+                 phase2Nanos:     155138720.000 #
+
+Iteration   5: 1141446.125 ns/op
+                 phase0Documents: 224768.000 #
+                 phase0Nanos:     151433782.000 #
+                 phase1Documents: 224768.000 #
+                 phase1Nanos:     193080617.000 #
+                 phase2Documents: 224768.000 #
+                 phase2Nanos:     156234750.000 #
+
+
+# Run progress: 3.13% complete, ETA 00:02:05
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1425312.244 ns/op
+# Warmup Iteration   2: 1169548.865 ns/op
+Iteration   1: 1197887.701 ns/op
+                 phase0Documents: 214016.000 #
+                 phase0Nanos:     145014670.000 #
+                 phase1Documents: 214016.000 #
+                 phase1Nanos:     207240322.000 #
+                 phase2Documents: 214016.000 #
+                 phase2Nanos:     148100650.000 #
+
+Iteration   2: 1129270.986 ns/op
+                 phase0Documents: 226816.000 #
+                 phase0Nanos:     152558375.000 #
+                 phase1Documents: 226816.000 #
+                 phase1Nanos:     193344052.000 #
+                 phase2Documents: 226816.000 #
+                 phase2Nanos:     154044005.000 #
+
+Iteration   3: 1137375.541 ns/op
+                 phase0Documents: 225280.000 #
+                 phase0Nanos:     151813643.000 #
+                 phase1Documents: 225280.000 #
+                 phase1Nanos:     192501113.000 #
+                 phase2Documents: 225280.000 #
+                 phase2Nanos:     155796980.000 #
+
+Iteration   4: 1184127.768 ns/op
+                 phase0Documents: 216576.000 #
+                 phase0Nanos:     152930282.000 #
+                 phase1Documents: 216576.000 #
+                 phase1Nanos:     192556759.000 #
+                 phase2Documents: 216576.000 #
+                 phase2Nanos:     155031384.000 #
+
+Iteration   5: 1161056.070 ns/op
+                 phase0Documents: 220672.000 #
+                 phase0Nanos:     152137450.000 #
+                 phase1Documents: 220672.000 #
+                 phase1Nanos:     192972306.000 #
+                 phase2Documents: 220672.000 #
+                 phase2Nanos:     154962455.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1167290.187 ±(99.9%) 48711.867 ns/op [Average]
+  (min, avg, max) = (1129270.986, 1167290.187, 1234015.623), stdev = 32219.884
+  CI (99.9%): [1118578.320, 1216002.055] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2198016.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (207872.000, 219801.600, 226816.000), stdev = 5902.452
+  CI (99.9%): [2198016.000, 2198016.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1508312291.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (145014670.000, 150831229.100, 152930282.000), stdev = 2631937.158
+  CI (99.9%): [1508312291.000, 1508312291.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2198016.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (207872.000, 219801.600, 226816.000), stdev = 5902.452
+  CI (99.9%): [2198016.000, 2198016.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1955221761.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (192220390.000, 195522176.100, 207240322.000), stdev = 5215355.933
+  CI (99.9%): [1955221761.000, 1955221761.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2198016.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (207872.000, 219801.600, 226816.000), stdev = 5902.452
+  CI (99.9%): [2198016.000, 2198016.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1540834363.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (148100650.000, 154083436.300, 156234750.000), stdev = 2718302.984
+  CI (99.9%): [1540834363.000, 1540834363.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = string, scenario = stack.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 6.25% complete, ETA 00:02:00
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1216703.218 ns/op
+# Warmup Iteration   2: 1050112.472 ns/op
+Iteration   1: 1014141.864 ns/op
+                 phase0Documents: 252928.000 #
+                 phase0Nanos:     175972601.000 #
+                 phase1Documents: 252928.000 #
+                 phase1Nanos:     146446413.000 #
+                 phase2Documents: 252928.000 #
+                 phase2Nanos:     178208362.000 #
+
+Iteration   2: 1017611.407 ns/op
+                 phase0Documents: 251904.000 #
+                 phase0Nanos:     175659026.000 #
+                 phase1Documents: 251904.000 #
+                 phase1Nanos:     143792357.000 #
+                 phase2Documents: 251904.000 #
+                 phase2Nanos:     180848393.000 #
+
+Iteration   3: 1024539.583 ns/op
+                 phase0Documents: 250368.000 #
+                 phase0Nanos:     175697773.000 #
+                 phase1Documents: 250368.000 #
+                 phase1Nanos:     145031950.000 #
+                 phase2Documents: 250368.000 #
+                 phase2Nanos:     179929150.000 #
+
+Iteration   4: 1042471.369 ns/op
+                 phase0Documents: 245760.000 #
+                 phase0Nanos:     176634550.000 #
+                 phase1Documents: 245760.000 #
+                 phase1Nanos:     144181355.000 #
+                 phase2Documents: 245760.000 #
+                 phase2Nanos:     179104639.000 #
+
+Iteration   5: 1028860.339 ns/op
+                 phase0Documents: 249344.000 #
+                 phase0Nanos:     176569446.000 #
+                 phase1Documents: 249344.000 #
+                 phase1Nanos:     143166004.000 #
+                 phase2Documents: 249344.000 #
+                 phase2Nanos:     180854901.000 #
+
+
+# Run progress: 9.38% complete, ETA 00:01:56
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1201642.034 ns/op
+# Warmup Iteration   2: 1031106.451 ns/op
+Iteration   1: 999305.992 ns/op
+                 phase0Documents: 257536.000 #
+                 phase0Nanos:     181616170.000 #
+                 phase1Documents: 257536.000 #
+                 phase1Nanos:     138902148.000 #
+                 phase2Documents: 257536.000 #
+                 phase2Nanos:     181784992.000 #
+
+Iteration   2: 994705.044 ns/op
+                 phase0Documents: 257536.000 #
+                 phase0Nanos:     177936253.000 #
+                 phase1Documents: 257536.000 #
+                 phase1Nanos:     139733625.000 #
+                 phase2Documents: 257536.000 #
+                 phase2Nanos:     182324191.000 #
+
+Iteration   3: 1002317.042 ns/op
+                 phase0Documents: 256000.000 #
+                 phase0Nanos:     179541646.000 #
+                 phase1Documents: 256000.000 #
+                 phase1Nanos:     141435691.000 #
+                 phase2Documents: 256000.000 #
+                 phase2Nanos:     179823659.000 #
+
+Iteration   4: 1010083.226 ns/op
+                 phase0Documents: 253952.000 #
+                 phase0Nanos:     179751672.000 #
+                 phase1Documents: 253952.000 #
+                 phase1Nanos:     138273719.000 #
+                 phase2Documents: 253952.000 #
+                 phase2Nanos:     182626375.000 #
+
+Iteration   5: 1002143.602 ns/op
+                 phase0Documents: 256000.000 #
+                 phase0Nanos:     180910819.000 #
+                 phase1Documents: 256000.000 #
+                 phase1Nanos:     139785811.000 #
+                 phase2Documents: 256000.000 #
+                 phase2Nanos:     180008945.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1013617.947 ±(99.9%) 22732.389 ns/op [Average]
+  (min, avg, max) = (994705.044, 1013617.947, 1042471.369), stdev = 15036.068
+  CI (99.9%): [990885.557, 1036350.336] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2531328.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (245760.000, 253132.800, 257536.000), stdev = 3855.707
+  CI (99.9%): [2531328.000, 2531328.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1780289956.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (175659026.000, 178028995.600, 181616170.000), stdev = 2255657.818
+  CI (99.9%): [1780289956.000, 1780289956.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2531328.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (245760.000, 253132.800, 257536.000), stdev = 3855.707
+  CI (99.9%): [2531328.000, 2531328.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1420749073.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (138273719.000, 142074907.300, 146446413.000), stdev = 2829939.285
+  CI (99.9%): [1420749073.000, 1420749073.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2531328.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (245760.000, 253132.800, 257536.000), stdev = 3855.707
+  CI (99.9%): [2531328.000, 2531328.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1805513607.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (178208362.000, 180551360.700, 182626375.000), stdev = 1412026.912
+  CI (99.9%): [1805513607.000, 1805513607.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = string, scenario = scheme.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 12.50% complete, ETA 00:01:52
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1146321.346 ns/op
+# Warmup Iteration   2: 1050341.790 ns/op
+Iteration   1: 1048994.922 ns/op
+                 phase0Documents: 244224.000 #
+                 phase0Nanos:     169745895.000 #
+                 phase1Documents: 244224.000 #
+                 phase1Nanos:     162928229.000 #
+                 phase2Documents: 244224.000 #
+                 phase2Nanos:     167358852.000 #
+
+Iteration   2: 1025008.613 ns/op
+                 phase0Documents: 250368.000 #
+                 phase0Nanos:     168403857.000 #
+                 phase1Documents: 250368.000 #
+                 phase1Nanos:     162285073.000 #
+                 phase2Documents: 250368.000 #
+                 phase2Nanos:     170278836.000 #
+
+Iteration   3: 1028683.246 ns/op
+                 phase0Documents: 249344.000 #
+                 phase0Nanos:     169305777.000 #
+                 phase1Documents: 249344.000 #
+                 phase1Nanos:     163094953.000 #
+                 phase2Documents: 249344.000 #
+                 phase2Nanos:     168239629.000 #
+
+Iteration   4: 1036661.824 ns/op
+                 phase0Documents: 247296.000 #
+                 phase0Nanos:     169489736.000 #
+                 phase1Documents: 247296.000 #
+                 phase1Nanos:     162901597.000 #
+                 phase2Documents: 247296.000 #
+                 phase2Nanos:     167973627.000 #
+
+Iteration   5: 1067839.554 ns/op
+                 phase0Documents: 240128.000 #
+                 phase0Nanos:     166969815.000 #
+                 phase1Documents: 240128.000 #
+                 phase1Nanos:     165327685.000 #
+                 phase2Documents: 240128.000 #
+                 phase2Nanos:     168170662.000 #
+
+
+# Run progress: 15.63% complete, ETA 00:01:48
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1180039.784 ns/op
+# Warmup Iteration   2: 1058062.611 ns/op
+Iteration   1: 1063168.643 ns/op
+                 phase0Documents: 241152.000 #
+                 phase0Nanos:     167719619.000 #
+                 phase1Documents: 241152.000 #
+                 phase1Nanos:     161669061.000 #
+                 phase2Documents: 241152.000 #
+                 phase2Nanos:     171031845.000 #
+
+Iteration   2: 1046292.582 ns/op
+                 phase0Documents: 245248.000 #
+                 phase0Nanos:     167407193.000 #
+                 phase1Documents: 245248.000 #
+                 phase1Nanos:     162551390.000 #
+                 phase2Documents: 245248.000 #
+                 phase2Nanos:     170931634.000 #
+
+Iteration   3: 1040401.295 ns/op
+                 phase0Documents: 246272.000 #
+                 phase0Nanos:     169443276.000 #
+                 phase1Documents: 246272.000 #
+                 phase1Nanos:     163574134.000 #
+                 phase2Documents: 246272.000 #
+                 phase2Nanos:     167139832.000 #
+
+Iteration   4: 1065466.132 ns/op
+                 phase0Documents: 240640.000 #
+                 phase0Nanos:     168946806.000 #
+                 phase1Documents: 240640.000 #
+                 phase1Nanos:     164030016.000 #
+                 phase2Documents: 240640.000 #
+                 phase2Nanos:     167397600.000 #
+
+Iteration   5: 1080541.890 ns/op
+                 phase0Documents: 237056.000 #
+                 phase0Nanos:     168735634.000 #
+                 phase1Documents: 237056.000 #
+                 phase1Nanos:     162656937.000 #
+                 phase2Documents: 237056.000 #
+                 phase2Nanos:     168503232.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1050305.870 ±(99.9%) 27724.283 ns/op [Average]
+  (min, avg, max) = (1025008.613, 1050305.870, 1080541.890), stdev = 18337.897
+  CI (99.9%): [1022581.587, 1078030.154] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2441728.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (237056.000, 244172.800, 250368.000), stdev = 4334.060
+  CI (99.9%): [2441728.000, 2441728.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1686167608.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166969815.000, 168616760.800, 169745895.000), stdev = 962845.164
+  CI (99.9%): [1686167608.000, 1686167608.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2441728.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (237056.000, 244172.800, 250368.000), stdev = 4334.060
+  CI (99.9%): [2441728.000, 2441728.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1631019075.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (161669061.000, 163101907.500, 165327685.000), stdev = 1018176.015
+  CI (99.9%): [1631019075.000, 1631019075.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2441728.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (237056.000, 244172.800, 250368.000), stdev = 4334.060
+  CI (99.9%): [2441728.000, 2441728.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1687025749.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (167139832.000, 168702574.900, 171031845.000), stdev = 1486901.016
+  CI (99.9%): [1687025749.000, 1687025749.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = string, scenario = scheme.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 18.75% complete, ETA 00:01:43
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 906181.127 ns/op
+# Warmup Iteration   2: 815185.679 ns/op
+Iteration   1: 830267.643 ns/op
+                 phase0Documents: 308736.000 #
+                 phase0Nanos:     223639203.000 #
+                 phase1Documents: 308736.000 #
+                 phase1Nanos:     54885098.000 #
+                 phase2Documents: 308736.000 #
+                 phase2Nanos:     221764837.000 #
+
+Iteration   2: 810470.872 ns/op
+                 phase0Documents: 316416.000 #
+                 phase0Nanos:     223918391.000 #
+                 phase1Documents: 316416.000 #
+                 phase1Nanos:     54769256.000 #
+                 phase2Documents: 316416.000 #
+                 phase2Nanos:     221816640.000 #
+
+Iteration   3: 809448.998 ns/op
+                 phase0Documents: 316928.000 #
+                 phase0Nanos:     224279350.000 #
+                 phase1Documents: 316928.000 #
+                 phase1Nanos:     53630480.000 #
+                 phase2Documents: 316928.000 #
+                 phase2Nanos:     222859739.000 #
+
+Iteration   4: 809539.932 ns/op
+                 phase0Documents: 316416.000 #
+                 phase0Nanos:     222183583.000 #
+                 phase1Documents: 316416.000 #
+                 phase1Nanos:     56253316.000 #
+                 phase2Documents: 316416.000 #
+                 phase2Nanos:     221548552.000 #
+
+Iteration   5: 810362.791 ns/op
+                 phase0Documents: 316416.000 #
+                 phase0Nanos:     223319604.000 #
+                 phase1Documents: 316416.000 #
+                 phase1Nanos:     53117187.000 #
+                 phase2Documents: 316416.000 #
+                 phase2Nanos:     224070927.000 #
+
+
+# Run progress: 21.88% complete, ETA 00:01:39
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 873681.909 ns/op
+# Warmup Iteration   2: 808154.726 ns/op
+Iteration   1: 805414.698 ns/op
+                 phase0Documents: 318464.000 #
+                 phase0Nanos:     225926305.000 #
+                 phase1Documents: 318464.000 #
+                 phase1Nanos:     46777165.000 #
+                 phase2Documents: 318464.000 #
+                 phase2Nanos:     227969154.000 #
+
+Iteration   2: 827355.473 ns/op
+                 phase0Documents: 309760.000 #
+                 phase0Nanos:     226113814.000 #
+                 phase1Documents: 309760.000 #
+                 phase1Nanos:     47146004.000 #
+                 phase2Documents: 309760.000 #
+                 phase2Nanos:     226906156.000 #
+
+Iteration   3: 821995.911 ns/op
+                 phase0Documents: 311808.000 #
+                 phase0Nanos:     226683059.000 #
+                 phase1Documents: 311808.000 #
+                 phase1Nanos:     48061918.000 #
+                 phase2Documents: 311808.000 #
+                 phase2Nanos:     225560490.000 #
+
+Iteration   4: 811850.002 ns/op
+                 phase0Documents: 315904.000 #
+                 phase0Nanos:     225439422.000 #
+                 phase1Documents: 315904.000 #
+                 phase1Nanos:     47128801.000 #
+                 phase2Documents: 315904.000 #
+                 phase2Nanos:     228031196.000 #
+
+Iteration   5: 806632.573 ns/op
+                 phase0Documents: 317952.000 #
+                 phase0Nanos:     228082656.000 #
+                 phase1Documents: 317952.000 #
+                 phase1Nanos:     46776968.000 #
+                 phase2Documents: 317952.000 #
+                 phase2Nanos:     225753285.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  814333.889 ±(99.9%) 13378.218 ns/op [Average]
+  (min, avg, max) = (805414.698, 814333.889, 830267.643), stdev = 8848.863
+  CI (99.9%): [800955.671, 827712.108] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  3148800.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (308736.000, 314880.000, 318464.000), stdev = 3464.155
+  CI (99.9%): [3148800.000, 3148800.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2249585387.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (222183583.000, 224958538.700, 228082656.000), stdev = 1792171.180
+  CI (99.9%): [2249585387.000, 2249585387.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  3148800.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (308736.000, 314880.000, 318464.000), stdev = 3464.155
+  CI (99.9%): [3148800.000, 3148800.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  508546193.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (46776968.000, 50854619.300, 56253316.000), stdev = 3975302.700
+  CI (99.9%): [508546193.000, 508546193.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  3148800.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (308736.000, 314880.000, 318464.000), stdev = 3464.155
+  CI (99.9%): [3148800.000, 3148800.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2246280976.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (221548552.000, 224628097.600, 228031196.000), stdev = 2562385.528
+  CI (99.9%): [2246280976.000, 2246280976.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = utf8, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 25.00% complete, ETA 00:01:35
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 5475424.359 ns/op
+# Warmup Iteration   2: 4785968.333 ns/op
+Iteration   1: 4968068.000 ns/op
+                 phase0Documents: 51712.000 #
+                 phase0Nanos:     165947074.000 #
+                 phase1Documents: 51712.000 #
+                 phase1Nanos:     168609827.000 #
+                 phase2Documents: 51712.000 #
+                 phase2Nanos:     166802595.000 #
+
+Iteration   2: 5121515.276 ns/op
+                 phase0Documents: 50176.000 #
+                 phase0Nanos:     171085399.000 #
+                 phase1Documents: 50176.000 #
+                 phase1Nanos:     163600235.000 #
+                 phase2Documents: 50176.000 #
+                 phase2Nanos:     166892044.000 #
+
+Iteration   3: 4851983.404 ns/op
+                 phase0Documents: 53248.000 #
+                 phase0Nanos:     169093079.000 #
+                 phase1Documents: 53248.000 #
+                 phase1Nanos:     166076297.000 #
+                 phase2Documents: 53248.000 #
+                 phase2Nanos:     169195960.000 #
+
+Iteration   4: 4759172.415 ns/op
+                 phase0Documents: 54272.000 #
+                 phase0Nanos:     167520820.000 #
+                 phase1Documents: 54272.000 #
+                 phase1Nanos:     165898672.000 #
+                 phase2Documents: 54272.000 #
+                 phase2Nanos:     170915484.000 #
+
+Iteration   5: 4937979.471 ns/op
+                 phase0Documents: 52224.000 #
+                 phase0Nanos:     168606033.000 #
+                 phase1Documents: 52224.000 #
+                 phase1Nanos:     165524586.000 #
+                 phase2Documents: 52224.000 #
+                 phase2Nanos:     169324055.000 #
+
+
+# Run progress: 28.13% complete, ETA 00:01:31
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 5493514.370 ns/op
+# Warmup Iteration   2: 4776444.762 ns/op
+Iteration   1: 4696988.065 ns/op
+                 phase0Documents: 54784.000 #
+                 phase0Nanos:     167329282.000 #
+                 phase1Documents: 54784.000 #
+                 phase1Nanos:     167492903.000 #
+                 phase2Documents: 54784.000 #
+                 phase2Nanos:     167364482.000 #
+
+Iteration   2: 4927180.039 ns/op
+                 phase0Documents: 52224.000 #
+                 phase0Nanos:     170423888.000 #
+                 phase1Documents: 52224.000 #
+                 phase1Nanos:     165698620.000 #
+                 phase2Documents: 52224.000 #
+                 phase2Nanos:     166277078.000 #
+
+Iteration   3: 4895292.883 ns/op
+                 phase0Documents: 52736.000 #
+                 phase0Nanos:     169236111.000 #
+                 phase1Documents: 52736.000 #
+                 phase1Nanos:     167286563.000 #
+                 phase2Documents: 52736.000 #
+                 phase2Nanos:     167501053.000 #
+
+Iteration   4: 4779255.648 ns/op
+                 phase0Documents: 53760.000 #
+                 phase0Nanos:     167863141.000 #
+                 phase1Documents: 53760.000 #
+                 phase1Nanos:     163808967.000 #
+                 phase2Documents: 53760.000 #
+                 phase2Nanos:     169995391.000 #
+
+Iteration   5: 4717141.131 ns/op
+                 phase0Documents: 54784.000 #
+                 phase0Nanos:     167946768.000 #
+                 phase1Documents: 54784.000 #
+                 phase1Nanos:     166357167.000 #
+                 phase2Documents: 54784.000 #
+                 phase2Nanos:     170293010.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  4865457.633 ±(99.9%) 198625.219 ns/op [Average]
+  (min, avg, max) = (4696988.065, 4865457.633, 5121515.276), stdev = 131378.285
+  CI (99.9%): [4666832.414, 5064082.853] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  529920.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (50176.000, 52992.000, 54784.000), stdev = 1473.082
+  CI (99.9%): [529920.000, 529920.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1685051595.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (165947074.000, 168505159.500, 171085399.000), stdev = 1522011.543
+  CI (99.9%): [1685051595.000, 1685051595.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  529920.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (50176.000, 52992.000, 54784.000), stdev = 1473.082
+  CI (99.9%): [529920.000, 529920.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1660353837.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (163600235.000, 166035383.700, 168609827.000), stdev = 1552871.302
+  CI (99.9%): [1660353837.000, 1660353837.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  529920.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (50176.000, 52992.000, 54784.000), stdev = 1473.082
+  CI (99.9%): [529920.000, 529920.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1684561152.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166277078.000, 168456115.200, 170915484.000), stdev = 1670834.620
+  CI (99.9%): [1684561152.000, 1684561152.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = utf8, scenario = stack.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 31.25% complete, ETA 00:01:28
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4261474.246 ns/op
+# Warmup Iteration   2: 3489170.153 ns/op
+Iteration   1: 3490304.819 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     226773779.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     46035564.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     229618980.000 #
+
+Iteration   2: 3473670.528 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     226948469.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     43229404.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     229857114.000 #
+
+Iteration   3: 3489257.000 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     228644978.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     44140934.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     229311619.000 #
+
+Iteration   4: 3470927.103 ns/op
+                 phase0Documents: 74240.000 #
+                 phase0Nanos:     229926197.000 #
+                 phase1Documents: 74240.000 #
+                 phase1Nanos:     43928205.000 #
+                 phase2Documents: 74240.000 #
+                 phase2Nanos:     229244810.000 #
+
+Iteration   5: 3530567.803 ns/op
+                 phase0Documents: 72704.000 #
+                 phase0Nanos:     229989432.000 #
+                 phase1Documents: 72704.000 #
+                 phase1Nanos:     43415494.000 #
+                 phase2Documents: 72704.000 #
+                 phase2Nanos:     227778100.000 #
+
+
+# Run progress: 34.38% complete, ETA 00:01:24
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3937175.094 ns/op
+# Warmup Iteration   2: 3528834.254 ns/op
+Iteration   1: 3455530.290 ns/op
+                 phase0Documents: 74240.000 #
+                 phase0Nanos:     225647770.000 #
+                 phase1Documents: 74240.000 #
+                 phase1Nanos:     46049350.000 #
+                 phase2Documents: 74240.000 #
+                 phase2Nanos:     229177112.000 #
+
+Iteration   2: 3455076.117 ns/op
+                 phase0Documents: 74240.000 #
+                 phase0Nanos:     225390848.000 #
+                 phase1Documents: 74240.000 #
+                 phase1Nanos:     45639088.000 #
+                 phase2Documents: 74240.000 #
+                 phase2Nanos:     229770953.000 #
+
+Iteration   3: 3505124.930 ns/op
+                 phase0Documents: 73216.000 #
+                 phase0Nanos:     226877895.000 #
+                 phase1Documents: 73216.000 #
+                 phase1Nanos:     43981381.000 #
+                 phase2Documents: 73216.000 #
+                 phase2Nanos:     230168488.000 #
+
+Iteration   4: 3435844.692 ns/op
+                 phase0Documents: 74752.000 #
+                 phase0Nanos:     228466191.000 #
+                 phase1Documents: 74752.000 #
+                 phase1Nanos:     44372242.000 #
+                 phase2Documents: 74752.000 #
+                 phase2Nanos:     228631851.000 #
+
+Iteration   5: 3413271.878 ns/op
+                 phase0Documents: 75264.000 #
+                 phase0Nanos:     228944770.000 #
+                 phase1Documents: 75264.000 #
+                 phase1Nanos:     46025099.000 #
+                 phase2Documents: 75264.000 #
+                 phase2Nanos:     226595741.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  3471957.516 ±(99.9%) 51585.903 ns/op [Average]
+  (min, avg, max) = (3413271.878, 3471957.516, 3530567.803), stdev = 34120.881
+  CI (99.9%): [3420371.613, 3523543.419] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  739840.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (72704.000, 73984.000, 75264.000), stdev = 734.065
+  CI (99.9%): [739840.000, 739840.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2277610329.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (225390848.000, 227761032.900, 229989432.000), stdev = 1661059.166
+  CI (99.9%): [2277610329.000, 2277610329.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  739840.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (72704.000, 73984.000, 75264.000), stdev = 734.065
+  CI (99.9%): [739840.000, 739840.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  446816761.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (43229404.000, 44681676.100, 46049350.000), stdev = 1134487.733
+  CI (99.9%): [446816761.000, 446816761.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  739840.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (72704.000, 73984.000, 75264.000), stdev = 734.065
+  CI (99.9%): [739840.000, 739840.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2290154768.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (226595741.000, 229015476.800, 230168488.000), stdev = 1088962.794
+  CI (99.9%): [2290154768.000, 2290154768.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = utf8, scenario = scheme.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 37.50% complete, ETA 00:01:20
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1209877.191 ns/op
+# Warmup Iteration   2: 1096342.716 ns/op
+Iteration   1: 1102573.846 ns/op
+                 phase0Documents: 232448.000 #
+                 phase0Nanos:     168273611.000 #
+                 phase1Documents: 232448.000 #
+                 phase1Nanos:     162254883.000 #
+                 phase2Documents: 232448.000 #
+                 phase2Nanos:     169773961.000 #
+
+Iteration   2: 1095487.628 ns/op
+                 phase0Documents: 233984.000 #
+                 phase0Nanos:     166832463.000 #
+                 phase1Documents: 233984.000 #
+                 phase1Nanos:     164764275.000 #
+                 phase2Documents: 233984.000 #
+                 phase2Nanos:     168768358.000 #
+
+Iteration   3: 1124595.198 ns/op
+                 phase0Documents: 227840.000 #
+                 phase0Nanos:     168083969.000 #
+                 phase1Documents: 227840.000 #
+                 phase1Nanos:     163271609.000 #
+                 phase2Documents: 227840.000 #
+                 phase2Nanos:     168786452.000 #
+
+Iteration   4: 1096576.716 ns/op
+                 phase0Documents: 233984.000 #
+                 phase0Nanos:     168123935.000 #
+                 phase1Documents: 233984.000 #
+                 phase1Nanos:     162450169.000 #
+                 phase2Documents: 233984.000 #
+                 phase2Nanos:     170278586.000 #
+
+Iteration   5: 1095687.952 ns/op
+                 phase0Documents: 233984.000 #
+                 phase0Nanos:     170355475.000 #
+                 phase1Documents: 233984.000 #
+                 phase1Nanos:     163199148.000 #
+                 phase2Documents: 233984.000 #
+                 phase2Nanos:     166910677.000 #
+
+
+# Run progress: 40.63% complete, ETA 00:01:16
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1202645.525 ns/op
+# Warmup Iteration   2: 1111048.838 ns/op
+Iteration   1: 1110443.004 ns/op
+                 phase0Documents: 230912.000 #
+                 phase0Nanos:     168753431.000 #
+                 phase1Documents: 230912.000 #
+                 phase1Nanos:     162718471.000 #
+                 phase2Documents: 230912.000 #
+                 phase2Nanos:     169049922.000 #
+
+Iteration   2: 1125525.283 ns/op
+                 phase0Documents: 227840.000 #
+                 phase0Nanos:     168131167.000 #
+                 phase1Documents: 227840.000 #
+                 phase1Nanos:     164274357.000 #
+                 phase2Documents: 227840.000 #
+                 phase2Nanos:     168220206.000 #
+
+Iteration   3: 1097053.136 ns/op
+                 phase0Documents: 233472.000 #
+                 phase0Nanos:     171146468.000 #
+                 phase1Documents: 233472.000 #
+                 phase1Nanos:     162142047.000 #
+                 phase2Documents: 233472.000 #
+                 phase2Nanos:     166663869.000 #
+
+Iteration   4: 1123555.148 ns/op
+                 phase0Documents: 228352.000 #
+                 phase0Nanos:     170535776.000 #
+                 phase1Documents: 228352.000 #
+                 phase1Nanos:     161417436.000 #
+                 phase2Documents: 228352.000 #
+                 phase2Nanos:     168856884.000 #
+
+Iteration   5: 1084231.403 ns/op
+                 phase0Documents: 236544.000 #
+                 phase0Nanos:     168952197.000 #
+                 phase1Documents: 236544.000 #
+                 phase1Nanos:     163068010.000 #
+                 phase2Documents: 236544.000 #
+                 phase2Nanos:     168643108.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1105572.931 ±(99.9%) 22107.498 ns/op [Average]
+  (min, avg, max) = (1084231.403, 1105572.931, 1125525.283), stdev = 14622.741
+  CI (99.9%): [1083465.433, 1127680.429] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2319360.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (227840.000, 231936.000, 236544.000), stdev = 3052.978
+  CI (99.9%): [2319360.000, 2319360.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1689188492.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166832463.000, 168918849.200, 171146468.000), stdev = 1349395.059
+  CI (99.9%): [1689188492.000, 1689188492.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2319360.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (227840.000, 231936.000, 236544.000), stdev = 3052.978
+  CI (99.9%): [2319360.000, 2319360.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1629560405.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (161417436.000, 162956040.500, 164764275.000), stdev = 1000708.006
+  CI (99.9%): [1629560405.000, 1629560405.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2319360.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (227840.000, 231936.000, 236544.000), stdev = 3052.978
+  CI (99.9%): [2319360.000, 2319360.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1685952023.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166663869.000, 168595202.300, 170278586.000), stdev = 1119307.842
+  CI (99.9%): [1685952023.000, 1685952023.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = replay, representation = utf8, scenario = scheme.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 43.75% complete, ETA 00:01:12
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 931721.753 ns/op
+# Warmup Iteration   2: 880021.332 ns/op
+Iteration   1: 833116.150 ns/op
+                 phase0Documents: 307712.000 #
+                 phase0Nanos:     223556271.000 #
+                 phase1Documents: 307712.000 #
+                 phase1Nanos:     53563009.000 #
+                 phase2Documents: 307712.000 #
+                 phase2Nanos:     223263226.000 #
+
+Iteration   2: 831500.153 ns/op
+                 phase0Documents: 308224.000 #
+                 phase0Nanos:     224198204.000 #
+                 phase1Documents: 308224.000 #
+                 phase1Nanos:     54240264.000 #
+                 phase2Documents: 308224.000 #
+                 phase2Nanos:     221822456.000 #
+
+Iteration   3: 848025.378 ns/op
+                 phase0Documents: 302080.000 #
+                 phase0Nanos:     224851573.000 #
+                 phase1Documents: 302080.000 #
+                 phase1Nanos:     53684647.000 #
+                 phase2Documents: 302080.000 #
+                 phase2Nanos:     221519821.000 #
+
+Iteration   4: 854689.326 ns/op
+                 phase0Documents: 300032.000 #
+                 phase0Nanos:     222897574.000 #
+                 phase1Documents: 300032.000 #
+                 phase1Nanos:     54266715.000 #
+                 phase2Documents: 300032.000 #
+                 phase2Nanos:     223286767.000 #
+
+Iteration   5: 828544.925 ns/op
+                 phase0Documents: 309248.000 #
+                 phase0Nanos:     221965903.000 #
+                 phase1Documents: 309248.000 #
+                 phase1Nanos:     54101888.000 #
+                 phase2Documents: 309248.000 #
+                 phase2Nanos:     224073916.000 #
+
+
+# Run progress: 46.88% complete, ETA 00:01:07
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 922234.254 ns/op
+# Warmup Iteration   2: 872629.655 ns/op
+Iteration   1: 835415.464 ns/op
+                 phase0Documents: 306688.000 #
+                 phase0Nanos:     221715484.000 #
+                 phase1Documents: 306688.000 #
+                 phase1Nanos:     53616054.000 #
+                 phase2Documents: 306688.000 #
+                 phase2Nanos:     224760164.000 #
+
+Iteration   2: 836312.197 ns/op
+                 phase0Documents: 306688.000 #
+                 phase0Nanos:     223367660.000 #
+                 phase1Documents: 306688.000 #
+                 phase1Nanos:     54125646.000 #
+                 phase2Documents: 306688.000 #
+                 phase2Nanos:     223136767.000 #
+
+Iteration   3: 838518.342 ns/op
+                 phase0Documents: 305664.000 #
+                 phase0Nanos:     223162880.000 #
+                 phase1Documents: 305664.000 #
+                 phase1Nanos:     53666442.000 #
+                 phase2Documents: 305664.000 #
+                 phase2Nanos:     223478766.000 #
+
+Iteration   4: 852131.957 ns/op
+                 phase0Documents: 301056.000 #
+                 phase0Nanos:     223352816.000 #
+                 phase1Documents: 301056.000 #
+                 phase1Nanos:     53329331.000 #
+                 phase2Documents: 301056.000 #
+                 phase2Nanos:     224035696.000 #
+
+Iteration   5: 851146.189 ns/op
+                 phase0Documents: 301056.000 #
+                 phase0Nanos:     223954712.000 #
+                 phase1Documents: 301056.000 #
+                 phase1Nanos:     53309311.000 #
+                 phase2Documents: 301056.000 #
+                 phase2Nanos:     222898644.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  840940.008 ±(99.9%) 14522.537 ns/op [Average]
+  (min, avg, max) = (828544.925, 840940.008, 854689.326), stdev = 9605.759
+  CI (99.9%): [826417.471, 855462.545] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  3048448.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (300032.000, 304844.800, 309248.000), stdev = 3432.055
+  CI (99.9%): [3048448.000, 3048448.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2233023077.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (221715484.000, 223302307.700, 224851573.000), stdev = 953766.820
+  CI (99.9%): [2233023077.000, 2233023077.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  3048448.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (300032.000, 304844.800, 309248.000), stdev = 3432.055
+  CI (99.9%): [3048448.000, 3048448.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  537903307.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (53309311.000, 53790330.700, 54266715.000), stdev = 363830.231
+  CI (99.9%): [537903307.000, 537903307.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  3048448.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (300032.000, 304844.800, 309248.000), stdev = 3432.055
+  CI (99.9%): [3048448.000, 3048448.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2232276223.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (221519821.000, 223227622.300, 224760164.000), stdev = 988448.734
+  CI (99.9%): [2232276223.000, 2232276223.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = string, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 50.00% complete, ETA 00:01:03
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1153466.949 ns/op
+# Warmup Iteration   2: 1079303.343 ns/op
+Iteration   1: 1076762.443 ns/op
+                 phase0Documents: 238080.000 #
+                 phase0Nanos:     171861074.000 #
+                 phase1Documents: 238080.000 #
+                 phase1Nanos:     161128433.000 #
+                 phase2Documents: 238080.000 #
+                 phase2Nanos:     167313702.000 #
+
+Iteration   2: 1030244.424 ns/op
+                 phase0Documents: 248832.000 #
+                 phase0Nanos:     170519293.000 #
+                 phase1Documents: 248832.000 #
+                 phase1Nanos:     161003311.000 #
+                 phase2Documents: 248832.000 #
+                 phase2Nanos:     168915606.000 #
+
+Iteration   3: 1043158.965 ns/op
+                 phase0Documents: 245760.000 #
+                 phase0Nanos:     170138542.000 #
+                 phase1Documents: 245760.000 #
+                 phase1Nanos:     160757316.000 #
+                 phase2Documents: 245760.000 #
+                 phase2Nanos:     169514664.000 #
+
+Iteration   4: 1043217.110 ns/op
+                 phase0Documents: 245760.000 #
+                 phase0Nanos:     169721545.000 #
+                 phase1Documents: 245760.000 #
+                 phase1Nanos:     161094021.000 #
+                 phase2Documents: 245760.000 #
+                 phase2Nanos:     169642036.000 #
+
+Iteration   5: 1079514.095 ns/op
+                 phase0Documents: 238080.000 #
+                 phase0Nanos:     170944730.000 #
+                 phase1Documents: 238080.000 #
+                 phase1Nanos:     163488784.000 #
+                 phase2Documents: 238080.000 #
+                 phase2Nanos:     167221894.000 #
+
+
+# Run progress: 53.13% complete, ETA 00:00:59
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1150523.147 ns/op
+# Warmup Iteration   2: 1035690.157 ns/op
+Iteration   1: 1078089.617 ns/op
+                 phase0Documents: 238080.000 #
+                 phase0Nanos:     170533429.000 #
+                 phase1Documents: 238080.000 #
+                 phase1Nanos:     161007509.000 #
+                 phase2Documents: 238080.000 #
+                 phase2Nanos:     169422988.000 #
+
+Iteration   2: 1042493.110 ns/op
+                 phase0Documents: 245760.000 #
+                 phase0Nanos:     166267078.000 #
+                 phase1Documents: 245760.000 #
+                 phase1Nanos:     161888315.000 #
+                 phase2Documents: 245760.000 #
+                 phase2Nanos:     171966250.000 #
+
+Iteration   3: 1028647.735 ns/op
+                 phase0Documents: 249344.000 #
+                 phase0Nanos:     170116893.000 #
+                 phase1Documents: 249344.000 #
+                 phase1Nanos:     160440044.000 #
+                 phase2Documents: 249344.000 #
+                 phase2Nanos:     170108766.000 #
+
+Iteration   4: 1018154.370 ns/op
+                 phase0Documents: 251904.000 #
+                 phase0Nanos:     168226315.000 #
+                 phase1Documents: 251904.000 #
+                 phase1Nanos:     160253560.000 #
+                 phase2Documents: 251904.000 #
+                 phase2Nanos:     172199262.000 #
+
+Iteration   5: 1069331.331 ns/op
+                 phase0Documents: 239616.000 #
+                 phase0Nanos:     170154771.000 #
+                 phase1Documents: 239616.000 #
+                 phase1Nanos:     160954528.000 #
+                 phase2Documents: 239616.000 #
+                 phase2Nanos:     168893764.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1050961.320 ±(99.9%) 34733.631 ns/op [Average]
+  (min, avg, max) = (1018154.370, 1050961.320, 1079514.095), stdev = 22974.146
+  CI (99.9%): [1016227.689, 1085694.951] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2441216.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (238080.000, 244121.600, 251904.000), stdev = 5248.104
+  CI (99.9%): [2441216.000, 2441216.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1698483670.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166267078.000, 169848367.000, 171861074.000), stdev = 1559751.102
+  CI (99.9%): [1698483670.000, 1698483670.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2441216.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (238080.000, 244121.600, 251904.000), stdev = 5248.104
+  CI (99.9%): [2441216.000, 2441216.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1612015821.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (160253560.000, 161201582.100, 163488784.000), stdev = 914930.772
+  CI (99.9%): [1612015821.000, 1612015821.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2441216.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (238080.000, 244121.600, 251904.000), stdev = 5248.104
+  CI (99.9%): [2441216.000, 2441216.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1695198932.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (167221894.000, 169519893.200, 172199262.000), stdev = 1647896.555
+  CI (99.9%): [1695198932.000, 1695198932.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = string, scenario = stack.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 56.25% complete, ETA 00:00:55
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2195256.022 ns/op
+# Warmup Iteration   2: 1957753.867 ns/op
+Iteration   1: 1876377.708 ns/op
+                 phase0Documents: 136704.000 #
+                 phase0Nanos:     214693655.000 #
+                 phase1Documents: 136704.000 #
+                 phase1Nanos:     75634680.000 #
+                 phase2Documents: 136704.000 #
+                 phase2Nanos:     210285241.000 #
+
+Iteration   2: 1828459.533 ns/op
+                 phase0Documents: 140288.000 #
+                 phase0Nanos:     211167830.000 #
+                 phase1Documents: 140288.000 #
+                 phase1Nanos:     75515906.000 #
+                 phase2Documents: 140288.000 #
+                 phase2Nanos:     214057320.000 #
+
+Iteration   3: 1823462.324 ns/op
+                 phase0Documents: 140800.000 #
+                 phase0Nanos:     213936633.000 #
+                 phase1Documents: 140800.000 #
+                 phase1Nanos:     74233946.000 #
+                 phase2Documents: 140800.000 #
+                 phase2Nanos:     212966022.000 #
+
+Iteration   4: 1820198.724 ns/op
+                 phase0Documents: 140800.000 #
+                 phase0Nanos:     213510612.000 #
+                 phase1Documents: 140800.000 #
+                 phase1Nanos:     74258883.000 #
+                 phase2Documents: 140800.000 #
+                 phase2Nanos:     212522907.000 #
+
+Iteration   5: 1847544.004 ns/op
+                 phase0Documents: 138752.000 #
+                 phase0Nanos:     210835281.000 #
+                 phase1Documents: 138752.000 #
+                 phase1Nanos:     74129745.000 #
+                 phase2Documents: 138752.000 #
+                 phase2Nanos:     215429128.000 #
+
+
+# Run progress: 59.38% complete, ETA 00:00:51
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2324617.356 ns/op
+# Warmup Iteration   2: 2036135.691 ns/op
+Iteration   1: 1900957.061 ns/op
+                 phase0Documents: 135168.000 #
+                 phase0Nanos:     214341393.000 #
+                 phase1Documents: 135168.000 #
+                 phase1Nanos:     74619456.000 #
+                 phase2Documents: 135168.000 #
+                 phase2Nanos:     212619607.000 #
+
+Iteration   2: 1895516.356 ns/op
+                 phase0Documents: 135168.000 #
+                 phase0Nanos:     210961996.000 #
+                 phase1Documents: 135168.000 #
+                 phase1Nanos:     76850812.000 #
+                 phase2Documents: 135168.000 #
+                 phase2Nanos:     212343577.000 #
+
+Iteration   3: 1884482.545 ns/op
+                 phase0Documents: 136192.000 #
+                 phase0Nanos:     216289010.000 #
+                 phase1Documents: 136192.000 #
+                 phase1Nanos:     73692046.000 #
+                 phase2Documents: 136192.000 #
+                 phase2Nanos:     211042835.000 #
+
+Iteration   4: 1887936.883 ns/op
+                 phase0Documents: 135680.000 #
+                 phase0Nanos:     213444159.000 #
+                 phase1Documents: 135680.000 #
+                 phase1Nanos:     73838082.000 #
+                 phase2Documents: 135680.000 #
+                 phase2Nanos:     212755900.000 #
+
+Iteration   5: 1909773.298 ns/op
+                 phase0Documents: 134144.000 #
+                 phase0Nanos:     212308952.000 #
+                 phase1Documents: 134144.000 #
+                 phase1Nanos:     74311370.000 #
+                 phase2Documents: 134144.000 #
+                 phase2Nanos:     213398009.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  1867470.843 ±(99.9%) 51824.663 ns/op [Average]
+  (min, avg, max) = (1820198.724, 1867470.843, 1909773.298), stdev = 34278.806
+  CI (99.9%): [1815646.181, 1919295.506] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  1373696.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (134144.000, 137369.600, 140800.000), stdev = 2554.875
+  CI (99.9%): [1373696.000, 1373696.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2131489521.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (210835281.000, 213148952.100, 216289010.000), stdev = 1803474.056
+  CI (99.9%): [2131489521.000, 2131489521.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  1373696.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (134144.000, 137369.600, 140800.000), stdev = 2554.875
+  CI (99.9%): [1373696.000, 1373696.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  747084926.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (73692046.000, 74708492.600, 76850812.000), stdev = 989835.909
+  CI (99.9%): [747084926.000, 747084926.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  1373696.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (134144.000, 137369.600, 140800.000), stdev = 2554.875
+  CI (99.9%): [1373696.000, 1373696.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2127420546.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (210285241.000, 212742054.600, 215429128.000), stdev = 1436662.784
+  CI (99.9%): [2127420546.000, 2127420546.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = string, scenario = scheme.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 62.50% complete, ETA 00:00:47
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 932983.875 ns/op
+# Warmup Iteration   2: 869319.443 ns/op
+Iteration   1: 875777.857 ns/op
+                 phase0Documents: 292864.000 #
+                 phase0Nanos:     167347341.000 #
+                 phase1Documents: 292864.000 #
+                 phase1Nanos:     160552055.000 #
+                 phase2Documents: 292864.000 #
+                 phase2Nanos:     172666916.000 #
+
+Iteration   2: 888486.703 ns/op
+                 phase0Documents: 288256.000 #
+                 phase0Nanos:     168870124.000 #
+                 phase1Documents: 288256.000 #
+                 phase1Nanos:     161357472.000 #
+                 phase2Documents: 288256.000 #
+                 phase2Nanos:     169627785.000 #
+
+Iteration   3: 875711.647 ns/op
+                 phase0Documents: 292864.000 #
+                 phase0Nanos:     168898352.000 #
+                 phase1Documents: 292864.000 #
+                 phase1Nanos:     162486566.000 #
+                 phase2Documents: 292864.000 #
+                 phase2Nanos:     169105760.000 #
+
+Iteration   4: 864357.226 ns/op
+                 phase0Documents: 296448.000 #
+                 phase0Nanos:     168915497.000 #
+                 phase1Documents: 296448.000 #
+                 phase1Nanos:     161847204.000 #
+                 phase2Documents: 296448.000 #
+                 phase2Nanos:     169432057.000 #
+
+Iteration   5: 858103.640 ns/op
+                 phase0Documents: 298496.000 #
+                 phase0Nanos:     169068993.000 #
+                 phase1Documents: 298496.000 #
+                 phase1Nanos:     162173709.000 #
+                 phase2Documents: 298496.000 #
+                 phase2Nanos:     168747865.000 #
+
+
+# Run progress: 65.63% complete, ETA 00:00:43
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 986577.238 ns/op
+# Warmup Iteration   2: 924438.103 ns/op
+Iteration   1: 912398.281 ns/op
+                 phase0Documents: 281088.000 #
+                 phase0Nanos:     170382937.000 #
+                 phase1Documents: 281088.000 #
+                 phase1Nanos:     161591783.000 #
+                 phase2Documents: 281088.000 #
+                 phase2Nanos:     168667342.000 #
+
+Iteration   2: 921308.478 ns/op
+                 phase0Documents: 278528.000 #
+                 phase0Nanos:     168351718.000 #
+                 phase1Documents: 278528.000 #
+                 phase1Nanos:     162110884.000 #
+                 phase2Documents: 278528.000 #
+                 phase2Nanos:     170406020.000 #
+
+Iteration   3: 913246.166 ns/op
+                 phase0Documents: 280576.000 #
+                 phase0Nanos:     167411020.000 #
+                 phase1Documents: 280576.000 #
+                 phase1Nanos:     163318456.000 #
+                 phase2Documents: 280576.000 #
+                 phase2Nanos:     169360821.000 #
+
+Iteration   4: 903748.518 ns/op
+                 phase0Documents: 283648.000 #
+                 phase0Nanos:     169705979.000 #
+                 phase1Documents: 283648.000 #
+                 phase1Nanos:     162663323.000 #
+                 phase2Documents: 283648.000 #
+                 phase2Nanos:     168023341.000 #
+
+Iteration   5: 900701.917 ns/op
+                 phase0Documents: 284672.000 #
+                 phase0Nanos:     168396374.000 #
+                 phase1Documents: 284672.000 #
+                 phase1Nanos:     162907619.000 #
+                 phase2Documents: 284672.000 #
+                 phase2Nanos:     169213903.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  891384.043 ±(99.9%) 33391.674 ns/op [Average]
+  (min, avg, max) = (858103.640, 891384.043, 921308.478), stdev = 22086.525
+  CI (99.9%): [857992.370, 924775.717] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2877440.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (278528.000, 287744.000, 298496.000), stdev = 7078.039
+  CI (99.9%): [2877440.000, 2877440.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1687348335.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (167347341.000, 168734833.500, 170382937.000), stdev = 930212.781
+  CI (99.9%): [1687348335.000, 1687348335.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2877440.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (278528.000, 287744.000, 298496.000), stdev = 7078.039
+  CI (99.9%): [2877440.000, 2877440.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1621009071.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (160552055.000, 162100907.100, 163318456.000), stdev = 808212.341
+  CI (99.9%): [1621009071.000, 1621009071.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2877440.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (278528.000, 287744.000, 298496.000), stdev = 7078.039
+  CI (99.9%): [2877440.000, 2877440.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1695251810.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (168023341.000, 169525181.000, 172666916.000), stdev = 1271963.892
+  CI (99.9%): [1695251810.000, 1695251810.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = string, scenario = scheme.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 68.75% complete, ETA 00:00:39
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 956921.903 ns/op
+# Warmup Iteration   2: 841248.240 ns/op
+Iteration   1: 833507.388 ns/op
+                 phase0Documents: 307712.000 #
+                 phase0Nanos:     221684943.000 #
+                 phase1Documents: 307712.000 #
+                 phase1Nanos:     56175261.000 #
+                 phase2Documents: 307712.000 #
+                 phase2Nanos:     222778829.000 #
+
+Iteration   2: 839852.310 ns/op
+                 phase0Documents: 305152.000 #
+                 phase0Nanos:     220744754.000 #
+                 phase1Documents: 305152.000 #
+                 phase1Nanos:     56035172.000 #
+                 phase2Documents: 305152.000 #
+                 phase2Nanos:     223444612.000 #
+
+Iteration   3: 846247.294 ns/op
+                 phase0Documents: 303104.000 #
+                 phase0Nanos:     220900768.000 #
+                 phase1Documents: 303104.000 #
+                 phase1Nanos:     58282685.000 #
+                 phase2Documents: 303104.000 #
+                 phase2Nanos:     221458129.000 #
+
+Iteration   4: 828079.929 ns/op
+                 phase0Documents: 309760.000 #
+                 phase0Nanos:     220839157.000 #
+                 phase1Documents: 309760.000 #
+                 phase1Nanos:     56068847.000 #
+                 phase2Documents: 309760.000 #
+                 phase2Nanos:     223784012.000 #
+
+Iteration   5: 827659.046 ns/op
+                 phase0Documents: 309760.000 #
+                 phase0Nanos:     223079329.000 #
+                 phase1Documents: 309760.000 #
+                 phase1Nanos:     56667276.000 #
+                 phase2Documents: 309760.000 #
+                 phase2Nanos:     220692109.000 #
+
+
+# Run progress: 71.88% complete, ETA 00:00:35
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 978439.832 ns/op
+# Warmup Iteration   2: 849046.490 ns/op
+Iteration   1: 845715.730 ns/op
+                 phase0Documents: 303104.000 #
+                 phase0Nanos:     221375974.000 #
+                 phase1Documents: 303104.000 #
+                 phase1Nanos:     60006565.000 #
+                 phase2Documents: 303104.000 #
+                 phase2Nanos:     218929993.000 #
+
+Iteration   2: 865758.694 ns/op
+                 phase0Documents: 295936.000 #
+                 phase0Nanos:     220348198.000 #
+                 phase1Documents: 295936.000 #
+                 phase1Nanos:     58495636.000 #
+                 phase2Documents: 295936.000 #
+                 phase2Nanos:     221165308.000 #
+
+Iteration   3: 858161.731 ns/op
+                 phase0Documents: 298496.000 #
+                 phase0Nanos:     223125184.000 #
+                 phase1Documents: 298496.000 #
+                 phase1Nanos:     56551714.000 #
+                 phase2Documents: 298496.000 #
+                 phase2Nanos:     220257030.000 #
+
+Iteration   4: 845560.867 ns/op
+                 phase0Documents: 303104.000 #
+                 phase0Nanos:     223557757.000 #
+                 phase1Documents: 303104.000 #
+                 phase1Nanos:     57213405.000 #
+                 phase2Documents: 303104.000 #
+                 phase2Nanos:     219449311.000 #
+
+Iteration   5: 856253.183 ns/op
+                 phase0Documents: 299520.000 #
+                 phase0Nanos:     221469527.000 #
+                 phase1Documents: 299520.000 #
+                 phase1Nanos:     56753624.000 #
+                 phase2Documents: 299520.000 #
+                 phase2Nanos:     222289445.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  844679.617 ±(99.9%) 19372.505 ns/op [Average]
+  (min, avg, max) = (827659.046, 844679.617, 865758.694), stdev = 12813.713
+  CI (99.9%): [825307.112, 864052.122] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  3035648.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (295936.000, 303564.800, 309760.000), stdev = 4682.927
+  CI (99.9%): [3035648.000, 3035648.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2217125591.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (220348198.000, 221712559.100, 223557757.000), stdev = 1138293.317
+  CI (99.9%): [2217125591.000, 2217125591.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  3035648.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (295936.000, 303564.800, 309760.000), stdev = 4682.927
+  CI (99.9%): [3035648.000, 3035648.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  572250185.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (56035172.000, 57225018.500, 60006565.000), stdev = 1304323.985
+  CI (99.9%): [572250185.000, 572250185.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  3035648.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (295936.000, 303564.800, 309760.000), stdev = 4682.927
+  CI (99.9%): [3035648.000, 3035648.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2214248778.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (218929993.000, 221424877.800, 223784012.000), stdev = 1643915.238
+  CI (99.9%): [2214248778.000, 2214248778.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = utf8, scenario = stack.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 75.00% complete, ETA 00:00:31
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4402166.605 ns/op
+# Warmup Iteration   2: 4191042.767 ns/op
+Iteration   1: 4296972.410 ns/op
+                 phase0Documents: 59904.000 #
+                 phase0Nanos:     168700681.000 #
+                 phase1Documents: 59904.000 #
+                 phase1Nanos:     165921425.000 #
+                 phase2Documents: 59904.000 #
+                 phase2Nanos:     167879523.000 #
+
+Iteration   2: 4119704.180 ns/op
+                 phase0Documents: 62464.000 #
+                 phase0Nanos:     167895181.000 #
+                 phase1Documents: 62464.000 #
+                 phase1Nanos:     166118396.000 #
+                 phase2Documents: 62464.000 #
+                 phase2Nanos:     168459820.000 #
+
+Iteration   3: 4161313.802 ns/op
+                 phase0Documents: 61952.000 #
+                 phase0Nanos:     170387471.000 #
+                 phase1Documents: 61952.000 #
+                 phase1Nanos:     165667781.000 #
+                 phase2Documents: 61952.000 #
+                 phase2Nanos:     167311722.000 #
+
+Iteration   4: 4167387.256 ns/op
+                 phase0Documents: 61952.000 #
+                 phase0Nanos:     167766194.000 #
+                 phase1Documents: 61952.000 #
+                 phase1Nanos:     166186091.000 #
+                 phase2Documents: 61952.000 #
+                 phase2Nanos:     170126217.000 #
+
+Iteration   5: 4242162.703 ns/op
+                 phase0Documents: 60416.000 #
+                 phase0Nanos:     168222744.000 #
+                 phase1Documents: 60416.000 #
+                 phase1Nanos:     165625730.000 #
+                 phase2Documents: 60416.000 #
+                 phase2Nanos:     166611086.000 #
+
+
+# Run progress: 78.13% complete, ETA 00:00:27
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4359494.783 ns/op
+# Warmup Iteration   2: 4125359.910 ns/op
+Iteration   1: 4085101.350 ns/op
+                 phase0Documents: 62976.000 #
+                 phase0Nanos:     168359520.000 #
+                 phase1Documents: 62976.000 #
+                 phase1Nanos:     165169688.000 #
+                 phase2Documents: 62976.000 #
+                 phase2Nanos:     168441958.000 #
+
+Iteration   2: 4302981.983 ns/op
+                 phase0Documents: 59904.000 #
+                 phase0Nanos:     170055865.000 #
+                 phase1Documents: 59904.000 #
+                 phase1Nanos:     165853771.000 #
+                 phase2Documents: 59904.000 #
+                 phase2Nanos:     167429752.000 #
+
+Iteration   3: 4393607.000 ns/op
+                 phase0Documents: 58368.000 #
+                 phase0Nanos:     168372880.000 #
+                 phase1Documents: 58368.000 #
+                 phase1Nanos:     164854122.000 #
+                 phase2Documents: 58368.000 #
+                 phase2Nanos:     167479572.000 #
+
+Iteration   4: 4339992.060 ns/op
+                 phase0Documents: 59392.000 #
+                 phase0Nanos:     168427918.000 #
+                 phase1Documents: 59392.000 #
+                 phase1Nanos:     166621799.000 #
+                 phase2Documents: 59392.000 #
+                 phase2Nanos:     168267087.000 #
+
+Iteration   5: 4321476.698 ns/op
+                 phase0Documents: 59392.000 #
+                 phase0Nanos:     170281363.000 #
+                 phase1Documents: 59392.000 #
+                 phase1Nanos:     164398394.000 #
+                 phase2Documents: 59392.000 #
+                 phase2Nanos:     166489041.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  4243069.944 ±(99.9%) 157184.531 ns/op [Average]
+  (min, avg, max) = (4085101.350, 4243069.944, 4393607.000), stdev = 103967.835
+  CI (99.9%): [4085885.413, 4400254.476] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  606720.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (58368.000, 60672.000, 62976.000), stdev = 1550.157
+  CI (99.9%): [606720.000, 606720.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1688469817.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (167766194.000, 168846981.700, 170387471.000), stdev = 1000836.582
+  CI (99.9%): [1688469817.000, 1688469817.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  606720.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (58368.000, 60672.000, 62976.000), stdev = 1550.157
+  CI (99.9%): [606720.000, 606720.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1656417197.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (164398394.000, 165641719.700, 166621799.000), stdev = 666436.158
+  CI (99.9%): [1656417197.000, 1656417197.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  606720.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (58368.000, 60672.000, 62976.000), stdev = 1550.157
+  CI (99.9%): [606720.000, 606720.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1678495778.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (166489041.000, 167849577.800, 170126217.000), stdev = 1057721.646
+  CI (99.9%): [1678495778.000, 1678495778.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = utf8, scenario = stack.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 81.25% complete, ETA 00:00:23
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4049166.435 ns/op
+# Warmup Iteration   2: 3570470.298 ns/op
+Iteration   1: 3593533.821 ns/op
+                 phase0Documents: 71680.000 #
+                 phase0Nanos:     227248593.000 #
+                 phase1Documents: 71680.000 #
+                 phase1Nanos:     47561159.000 #
+                 phase2Documents: 71680.000 #
+                 phase2Nanos:     228035885.000 #
+
+Iteration   2: 3477490.931 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     225899580.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     45215961.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     229500436.000 #
+
+Iteration   3: 3539293.183 ns/op
+                 phase0Documents: 72704.000 #
+                 phase0Nanos:     229496187.000 #
+                 phase1Documents: 72704.000 #
+                 phase1Nanos:     45200359.000 #
+                 phase2Documents: 72704.000 #
+                 phase2Nanos:     227709129.000 #
+
+Iteration   4: 3544268.120 ns/op
+                 phase0Documents: 72704.000 #
+                 phase0Nanos:     230100078.000 #
+                 phase1Documents: 72704.000 #
+                 phase1Nanos:     45465185.000 #
+                 phase2Documents: 72704.000 #
+                 phase2Nanos:     227516120.000 #
+
+Iteration   5: 3525362.908 ns/op
+                 phase0Documents: 72704.000 #
+                 phase0Nanos:     227286693.000 #
+                 phase1Documents: 72704.000 #
+                 phase1Nanos:     46626443.000 #
+                 phase2Documents: 72704.000 #
+                 phase2Nanos:     226527598.000 #
+
+
+# Run progress: 84.38% complete, ETA 00:00:19
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4116556.090 ns/op
+# Warmup Iteration   2: 3515496.517 ns/op
+Iteration   1: 3530155.592 ns/op
+                 phase0Documents: 72704.000 #
+                 phase0Nanos:     226787765.000 #
+                 phase1Documents: 72704.000 #
+                 phase1Nanos:     48023644.000 #
+                 phase2Documents: 72704.000 #
+                 phase2Nanos:     226285177.000 #
+
+Iteration   2: 3470922.952 ns/op
+                 phase0Documents: 74240.000 #
+                 phase0Nanos:     225640703.000 #
+                 phase1Documents: 74240.000 #
+                 phase1Nanos:     47185472.000 #
+                 phase2Documents: 74240.000 #
+                 phase2Nanos:     230279611.000 #
+
+Iteration   3: 3457818.862 ns/op
+                 phase0Documents: 74240.000 #
+                 phase0Nanos:     225579281.000 #
+                 phase1Documents: 74240.000 #
+                 phase1Nanos:     45236851.000 #
+                 phase2Documents: 74240.000 #
+                 phase2Nanos:     230389544.000 #
+
+Iteration   4: 3495359.674 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     227556327.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     45785274.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     229813221.000 #
+
+Iteration   5: 3482587.979 ns/op
+                 phase0Documents: 73728.000 #
+                 phase0Nanos:     228521450.000 #
+                 phase1Documents: 73728.000 #
+                 phase1Nanos:     46879249.000 #
+                 phase2Documents: 73728.000 #
+                 phase2Nanos:     225895724.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  3511679.402 ±(99.9%) 63539.672 ns/op [Average]
+  (min, avg, max) = (3457818.862, 3511679.402, 3593533.821), stdev = 42027.559
+  CI (99.9%): [3448139.730, 3575219.074] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  732160.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (71680.000, 73216.000, 74240.000), stdev = 836.092
+  CI (99.9%): [732160.000, 732160.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2274116657.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (225579281.000, 227411665.700, 230100078.000), stdev = 1564791.308
+  CI (99.9%): [2274116657.000, 2274116657.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  732160.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (71680.000, 73216.000, 74240.000), stdev = 836.092
+  CI (99.9%): [732160.000, 732160.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  463179597.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (45200359.000, 46317959.700, 48023644.000), stdev = 1067754.439
+  CI (99.9%): [463179597.000, 463179597.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  732160.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (71680.000, 73216.000, 74240.000), stdev = 836.092
+  CI (99.9%): [732160.000, 732160.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2281952445.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (225895724.000, 228195244.500, 230389544.000), stdev = 1697089.596
+  CI (99.9%): [2281952445.000, 2281952445.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = utf8, scenario = scheme.reads.phase.ascii.128, seed = 1)
+
+# Run progress: 87.50% complete, ETA 00:00:15
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 997519.598 ns/op
+# Warmup Iteration   2: 939232.653 ns/op
+Iteration   1: 937186.888 ns/op
+                 phase0Documents: 273408.000 #
+                 phase0Nanos:     168766993.000 #
+                 phase1Documents: 273408.000 #
+                 phase1Nanos:     161617471.000 #
+                 phase2Documents: 273408.000 #
+                 phase2Nanos:     169650374.000 #
+
+Iteration   2: 947895.648 ns/op
+                 phase0Documents: 270336.000 #
+                 phase0Nanos:     170374992.000 #
+                 phase1Documents: 270336.000 #
+                 phase1Nanos:     160694135.000 #
+                 phase2Documents: 270336.000 #
+                 phase2Nanos:     169117174.000 #
+
+Iteration   3: 932414.767 ns/op
+                 phase0Documents: 274944.000 #
+                 phase0Nanos:     169098256.000 #
+                 phase1Documents: 274944.000 #
+                 phase1Nanos:     162585788.000 #
+                 phase2Documents: 274944.000 #
+                 phase2Nanos:     168733511.000 #
+
+Iteration   4: 931121.400 ns/op
+                 phase0Documents: 275456.000 #
+                 phase0Nanos:     171151940.000 #
+                 phase1Documents: 275456.000 #
+                 phase1Nanos:     161405369.000 #
+                 phase2Documents: 275456.000 #
+                 phase2Nanos:     168076031.000 #
+
+Iteration   5: 939019.261 ns/op
+                 phase0Documents: 272896.000 #
+                 phase0Nanos:     169097059.000 #
+                 phase1Documents: 272896.000 #
+                 phase1Nanos:     162064215.000 #
+                 phase2Documents: 272896.000 #
+                 phase2Nanos:     168977374.000 #
+
+
+# Run progress: 90.63% complete, ETA 00:00:11
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1061864.612 ns/op
+# Warmup Iteration   2: 952520.492 ns/op
+Iteration   1: 961134.338 ns/op
+                 phase0Documents: 266752.000 #
+                 phase0Nanos:     167767700.000 #
+                 phase1Documents: 266752.000 #
+                 phase1Nanos:     163525056.000 #
+                 phase2Documents: 266752.000 #
+                 phase2Nanos:     169140920.000 #
+
+Iteration   2: 930008.846 ns/op
+                 phase0Documents: 275456.000 #
+                 phase0Nanos:     170077116.000 #
+                 phase1Documents: 275456.000 #
+                 phase1Nanos:     161744480.000 #
+                 phase2Documents: 275456.000 #
+                 phase2Nanos:     168251792.000 #
+
+Iteration   3: 938099.882 ns/op
+                 phase0Documents: 273408.000 #
+                 phase0Nanos:     167718688.000 #
+                 phase1Documents: 273408.000 #
+                 phase1Nanos:     162316109.000 #
+                 phase2Documents: 273408.000 #
+                 phase2Nanos:     170614764.000 #
+
+Iteration   4: 937691.597 ns/op
+                 phase0Documents: 273408.000 #
+                 phase0Nanos:     167998189.000 #
+                 phase1Documents: 273408.000 #
+                 phase1Nanos:     162211991.000 #
+                 phase2Documents: 273408.000 #
+                 phase2Nanos:     170205594.000 #
+
+Iteration   5: 932178.806 ns/op
+                 phase0Documents: 274944.000 #
+                 phase0Nanos:     167650064.000 #
+                 phase1Documents: 274944.000 #
+                 phase1Nanos:     163171173.000 #
+                 phase2Documents: 274944.000 #
+                 phase2Nanos:     169452194.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  938675.143 ±(99.9%) 14312.810 ns/op [Average]
+  (min, avg, max) = (930008.846, 938675.143, 961134.338), stdev = 9467.037
+  CI (99.9%): [924362.333, 952987.953] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2731008.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (266752.000, 273100.800, 275456.000), stdev = 2711.399
+  CI (99.9%): [2731008.000, 2731008.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  1689700997.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (167650064.000, 168970099.700, 171151940.000), stdev = 1235238.642
+  CI (99.9%): [1689700997.000, 1689700997.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2731008.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (266752.000, 273100.800, 275456.000), stdev = 2711.399
+  CI (99.9%): [2731008.000, 2731008.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  1621335787.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (160694135.000, 162133578.700, 163525056.000), stdev = 835439.596
+  CI (99.9%): [1621335787.000, 1621335787.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2731008.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (266752.000, 273100.800, 275456.000), stdev = 2711.399
+  CI (99.9%): [2731008.000, 2731008.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  1692219728.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (168076031.000, 169221972.800, 170614764.000), stdev = 796821.228
+  CI (99.9%): [1692219728.000, 1692219728.000] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-adaptive/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases
+# Parameters: (policy = work, representation = utf8, scenario = scheme.hits.phase.ascii.128, seed = 1)
+
+# Run progress: 93.75% complete, ETA 00:00:07
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1005791.484 ns/op
+# Warmup Iteration   2: 917330.912 ns/op
+Iteration   1: 901484.305 ns/op
+                 phase0Documents: 284160.000 #
+                 phase0Nanos:     220805513.000 #
+                 phase1Documents: 284160.000 #
+                 phase1Nanos:     56765991.000 #
+                 phase2Documents: 284160.000 #
+                 phase2Nanos:     222411312.000 #
+
+Iteration   2: 903931.352 ns/op
+                 phase0Documents: 283648.000 #
+                 phase0Nanos:     221529389.000 #
+                 phase1Documents: 283648.000 #
+                 phase1Nanos:     58336002.000 #
+                 phase2Documents: 283648.000 #
+                 phase2Nanos:     220597946.000 #
+
+Iteration   3: 889438.334 ns/op
+                 phase0Documents: 288256.000 #
+                 phase0Nanos:     220136021.000 #
+                 phase1Documents: 288256.000 #
+                 phase1Nanos:     57138083.000 #
+                 phase2Documents: 288256.000 #
+                 phase2Nanos:     223203714.000 #
+
+Iteration   4: 897589.966 ns/op
+                 phase0Documents: 285696.000 #
+                 phase0Nanos:     221564288.000 #
+                 phase1Documents: 285696.000 #
+                 phase1Nanos:     56906574.000 #
+                 phase2Documents: 285696.000 #
+                 phase2Nanos:     222098726.000 #
+
+Iteration   5: 914810.792 ns/op
+                 phase0Documents: 280064.000 #
+                 phase0Nanos:     222406929.000 #
+                 phase1Documents: 280064.000 #
+                 phase1Nanos:     57031020.000 #
+                 phase2Documents: 280064.000 #
+                 phase2Nanos:     220637066.000 #
+
+
+# Run progress: 96.88% complete, ETA 00:00:03
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-adaptive/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1044439.240 ns/op
+# Warmup Iteration   2: 913405.666 ns/op
+Iteration   1: 938146.807 ns/op
+                 phase0Documents: 273408.000 #
+                 phase0Nanos:     220656698.000 #
+                 phase1Documents: 273408.000 #
+                 phase1Nanos:     59409139.000 #
+                 phase2Documents: 273408.000 #
+                 phase2Nanos:     220560186.000 #
+
+Iteration   2: 916610.996 ns/op
+                 phase0Documents: 279552.000 #
+                 phase0Nanos:     221851787.000 #
+                 phase1Documents: 279552.000 #
+                 phase1Nanos:     57392186.000 #
+                 phase2Documents: 279552.000 #
+                 phase2Nanos:     220912092.000 #
+
+Iteration   3: 903897.785 ns/op
+                 phase0Documents: 283648.000 #
+                 phase0Nanos:     221143306.000 #
+                 phase1Documents: 283648.000 #
+                 phase1Nanos:     57158101.000 #
+                 phase2Documents: 283648.000 #
+                 phase2Nanos:     222179808.000 #
+
+Iteration   4: 921798.799 ns/op
+                 phase0Documents: 278016.000 #
+                 phase0Nanos:     222897915.000 #
+                 phase1Documents: 278016.000 #
+                 phase1Nanos:     55688428.000 #
+                 phase2Documents: 278016.000 #
+                 phase2Nanos:     221629665.000 #
+
+Iteration   5: 935452.572 ns/op
+                 phase0Documents: 273920.000 #
+                 phase0Nanos:     221653420.000 #
+                 phase1Documents: 273920.000 #
+                 phase1Nanos:     56945045.000 #
+                 phase2Documents: 273920.000 #
+                 phase2Nanos:     221537185.000 #
+
+
+
+Result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases":
+  912316.171 ±(99.9%) 24251.917 ns/op [Average]
+  (min, avg, max) = (889438.334, 912316.171, 938146.807), stdev = 16041.142
+  CI (99.9%): [888064.254, 936568.088] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Documents":
+  2810368.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (273408.000, 281036.800, 288256.000), stdev = 4925.441
+  CI (99.9%): [2810368.000, 2810368.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase0Nanos":
+  2214645266.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (220136021.000, 221464526.600, 222897915.000), stdev = 823105.985
+  CI (99.9%): [2214645266.000, 2214645266.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Documents":
+  2810368.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (273408.000, 281036.800, 288256.000), stdev = 4925.441
+  CI (99.9%): [2810368.000, 2810368.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase1Nanos":
+  572770569.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (55688428.000, 57277056.900, 59409139.000), stdev = 989209.086
+  CI (99.9%): [572770569.000, 572770569.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Documents":
+  2810368.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (273408.000, 281036.800, 288256.000), stdev = 4925.441
+  CI (99.9%): [2810368.000, 2810368.000] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCapturePhasesBenchmark.phases:phase2Nanos":
+  2215767700.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (220560186.000, 221576770.000, 223203714.000), stdev = 900632.172
+  CI (99.9%): [2215767700.000, 2215767700.000] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:02:07
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                              (policy)  (representation)                    (scenario)  (seed)  Mode  Cnt           Score        Error  Units
+AdaptiveCapturePhasesBenchmark.phases                    replay            string   stack.reads.phase.ascii.128       1  avgt   10     1167290.187 ±  48711.867  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay            string   stack.reads.phase.ascii.128       1  avgt   10     2198016.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay            string   stack.reads.phase.ascii.128       1  avgt   10  1508312291.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay            string   stack.reads.phase.ascii.128       1  avgt   10     2198016.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay            string   stack.reads.phase.ascii.128       1  avgt   10  1955221761.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay            string   stack.reads.phase.ascii.128       1  avgt   10     2198016.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay            string   stack.reads.phase.ascii.128       1  avgt   10  1540834363.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay            string    stack.hits.phase.ascii.128       1  avgt   10     1013617.947 ±  22732.389  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay            string    stack.hits.phase.ascii.128       1  avgt   10     2531328.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay            string    stack.hits.phase.ascii.128       1  avgt   10  1780289956.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay            string    stack.hits.phase.ascii.128       1  avgt   10     2531328.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay            string    stack.hits.phase.ascii.128       1  avgt   10  1420749073.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay            string    stack.hits.phase.ascii.128       1  avgt   10     2531328.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay            string    stack.hits.phase.ascii.128       1  avgt   10  1805513607.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay            string  scheme.reads.phase.ascii.128       1  avgt   10     1050305.870 ±  27724.283  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay            string  scheme.reads.phase.ascii.128       1  avgt   10     2441728.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay            string  scheme.reads.phase.ascii.128       1  avgt   10  1686167608.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay            string  scheme.reads.phase.ascii.128       1  avgt   10     2441728.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay            string  scheme.reads.phase.ascii.128       1  avgt   10  1631019075.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay            string  scheme.reads.phase.ascii.128       1  avgt   10     2441728.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay            string  scheme.reads.phase.ascii.128       1  avgt   10  1687025749.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay            string   scheme.hits.phase.ascii.128       1  avgt   10      814333.889 ±  13378.218  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay            string   scheme.hits.phase.ascii.128       1  avgt   10     3148800.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay            string   scheme.hits.phase.ascii.128       1  avgt   10  2249585387.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay            string   scheme.hits.phase.ascii.128       1  avgt   10     3148800.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay            string   scheme.hits.phase.ascii.128       1  avgt   10   508546193.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay            string   scheme.hits.phase.ascii.128       1  avgt   10     3148800.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay            string   scheme.hits.phase.ascii.128       1  avgt   10  2246280976.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay              utf8   stack.reads.phase.ascii.128       1  avgt   10     4865457.633 ± 198625.219  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay              utf8   stack.reads.phase.ascii.128       1  avgt   10      529920.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay              utf8   stack.reads.phase.ascii.128       1  avgt   10  1685051595.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay              utf8   stack.reads.phase.ascii.128       1  avgt   10      529920.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay              utf8   stack.reads.phase.ascii.128       1  avgt   10  1660353837.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay              utf8   stack.reads.phase.ascii.128       1  avgt   10      529920.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay              utf8   stack.reads.phase.ascii.128       1  avgt   10  1684561152.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay              utf8    stack.hits.phase.ascii.128       1  avgt   10     3471957.516 ±  51585.903  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay              utf8    stack.hits.phase.ascii.128       1  avgt   10      739840.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay              utf8    stack.hits.phase.ascii.128       1  avgt   10  2277610329.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay              utf8    stack.hits.phase.ascii.128       1  avgt   10      739840.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay              utf8    stack.hits.phase.ascii.128       1  avgt   10   446816761.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay              utf8    stack.hits.phase.ascii.128       1  avgt   10      739840.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay              utf8    stack.hits.phase.ascii.128       1  avgt   10  2290154768.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10     1105572.931 ±  22107.498  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2319360.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1689188492.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2319360.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1629560405.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2319360.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1685952023.000                   #
+AdaptiveCapturePhasesBenchmark.phases                    replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10      840940.008 ±  14522.537  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents    replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10     3048448.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos        replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10  2233023077.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents    replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10     3048448.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos        replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10   537903307.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents    replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10     3048448.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos        replay              utf8   scheme.hits.phase.ascii.128       1  avgt   10  2232276223.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work            string   stack.reads.phase.ascii.128       1  avgt   10     1050961.320 ±  34733.631  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work            string   stack.reads.phase.ascii.128       1  avgt   10     2441216.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work            string   stack.reads.phase.ascii.128       1  avgt   10  1698483670.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work            string   stack.reads.phase.ascii.128       1  avgt   10     2441216.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work            string   stack.reads.phase.ascii.128       1  avgt   10  1612015821.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work            string   stack.reads.phase.ascii.128       1  avgt   10     2441216.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work            string   stack.reads.phase.ascii.128       1  avgt   10  1695198932.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work            string    stack.hits.phase.ascii.128       1  avgt   10     1867470.843 ±  51824.663  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work            string    stack.hits.phase.ascii.128       1  avgt   10     1373696.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work            string    stack.hits.phase.ascii.128       1  avgt   10  2131489521.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work            string    stack.hits.phase.ascii.128       1  avgt   10     1373696.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work            string    stack.hits.phase.ascii.128       1  avgt   10   747084926.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work            string    stack.hits.phase.ascii.128       1  avgt   10     1373696.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work            string    stack.hits.phase.ascii.128       1  avgt   10  2127420546.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work            string  scheme.reads.phase.ascii.128       1  avgt   10      891384.043 ±  33391.674  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work            string  scheme.reads.phase.ascii.128       1  avgt   10     2877440.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work            string  scheme.reads.phase.ascii.128       1  avgt   10  1687348335.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work            string  scheme.reads.phase.ascii.128       1  avgt   10     2877440.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work            string  scheme.reads.phase.ascii.128       1  avgt   10  1621009071.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work            string  scheme.reads.phase.ascii.128       1  avgt   10     2877440.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work            string  scheme.reads.phase.ascii.128       1  avgt   10  1695251810.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work            string   scheme.hits.phase.ascii.128       1  avgt   10      844679.617 ±  19372.505  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work            string   scheme.hits.phase.ascii.128       1  avgt   10     3035648.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work            string   scheme.hits.phase.ascii.128       1  avgt   10  2217125591.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work            string   scheme.hits.phase.ascii.128       1  avgt   10     3035648.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work            string   scheme.hits.phase.ascii.128       1  avgt   10   572250185.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work            string   scheme.hits.phase.ascii.128       1  avgt   10     3035648.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work            string   scheme.hits.phase.ascii.128       1  avgt   10  2214248778.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work              utf8   stack.reads.phase.ascii.128       1  avgt   10     4243069.944 ± 157184.531  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work              utf8   stack.reads.phase.ascii.128       1  avgt   10      606720.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work              utf8   stack.reads.phase.ascii.128       1  avgt   10  1688469817.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work              utf8   stack.reads.phase.ascii.128       1  avgt   10      606720.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work              utf8   stack.reads.phase.ascii.128       1  avgt   10  1656417197.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work              utf8   stack.reads.phase.ascii.128       1  avgt   10      606720.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work              utf8   stack.reads.phase.ascii.128       1  avgt   10  1678495778.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work              utf8    stack.hits.phase.ascii.128       1  avgt   10     3511679.402 ±  63539.672  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work              utf8    stack.hits.phase.ascii.128       1  avgt   10      732160.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work              utf8    stack.hits.phase.ascii.128       1  avgt   10  2274116657.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work              utf8    stack.hits.phase.ascii.128       1  avgt   10      732160.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work              utf8    stack.hits.phase.ascii.128       1  avgt   10   463179597.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work              utf8    stack.hits.phase.ascii.128       1  avgt   10      732160.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work              utf8    stack.hits.phase.ascii.128       1  avgt   10  2281952445.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work              utf8  scheme.reads.phase.ascii.128       1  avgt   10      938675.143 ±  14312.810  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2731008.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1689700997.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2731008.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1621335787.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work              utf8  scheme.reads.phase.ascii.128       1  avgt   10     2731008.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work              utf8  scheme.reads.phase.ascii.128       1  avgt   10  1692219728.000                   #
+AdaptiveCapturePhasesBenchmark.phases                      work              utf8   scheme.hits.phase.ascii.128       1  avgt   10      912316.171 ±  24251.917  ns/op
+AdaptiveCapturePhasesBenchmark.phases:phase0Documents      work              utf8   scheme.hits.phase.ascii.128       1  avgt   10     2810368.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase0Nanos          work              utf8   scheme.hits.phase.ascii.128       1  avgt   10  2214645266.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Documents      work              utf8   scheme.hits.phase.ascii.128       1  avgt   10     2810368.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase1Nanos          work              utf8   scheme.hits.phase.ascii.128       1  avgt   10   572770569.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Documents      work              utf8   scheme.hits.phase.ascii.128       1  avgt   10     2810368.000                   #
+AdaptiveCapturePhasesBenchmark.phases:phase2Nanos          work              utf8   scheme.hits.phase.ascii.128       1  avgt   10  2215767700.000                   #
+
+Benchmark result is saved to /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/selected-phases/results.json

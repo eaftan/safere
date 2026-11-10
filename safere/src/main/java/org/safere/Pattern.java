@@ -1515,7 +1515,7 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.charClassMatchFastPaths()
         && (singleCharClass != null || charClassMatch != null)) {
       return new Matcher.SingleCharClassPreparedRunner(
-          singleCharClass, charClassMatch, prog.anchorStart());
+          singleCharClass, charClassMatch, prog.anchorStart(), !astAnalysis.hasLazy());
     }
 
     if (regionActive) {

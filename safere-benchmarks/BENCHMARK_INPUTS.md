@@ -4,16 +4,25 @@ The bounded recipe vocabulary and normalized input declaration schema are
 described in
 [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md).
 
-`benchmark-data.json` is the only checked-in source for benchmark patterns,
-parameters, expected results, and input recipes. Large UTF-8 input files may live
+Each corpus’s `benchmark-data.json` is the checked-in source for its patterns,
+parameters, expected results, and input recipes. The module-root file defines
+the durable reporting corpus; explicitly selected
+[investigations](investigations/README.md) keep separate definitions using
+the same schema and materializer. Large UTF-8 input files may live
 under `data/` and be referenced by a `file` recipe whose SHA-256 is
 pinned in the JSON. The materializer checks the digest and copies the exact
 bytes into the generated corpus. Keep provenance and license notices alongside
 data copied from other projects.
 
+Specialized investigation protocols may store settings under
+`configuration.investigation`. The shared schema checks that this is an object;
+the investigation harness validates its contents.
+
 Before execution, each benchmark runner invokes the central materializer. It
 writes a resolved manifest and exact UTF-8 inputs under
-`target/benchmark-corpus/`. Java, C++ RE2, PCRE2 JIT, Go, Rust, .NET, and future
+`target/benchmark-corpus/` for the regular corpus; an explicitly selected
+investigation uses `target/investigations/NAME/corpus/`.
+Java, C++ RE2, PCRE2 JIT, Go, Rust, .NET, and future
 harnesses read only those generated artifacts; they do not read or interpret
 `benchmark-data.json`.
 Java string engines decode input files as UTF-8 during benchmark setup, while

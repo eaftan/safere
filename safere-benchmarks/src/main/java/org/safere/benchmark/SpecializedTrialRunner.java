@@ -124,10 +124,7 @@ final class SpecializedTrialRunner implements AutoCloseable {
     return blackhole -> {
       sink.reset();
       Utf8Matcher matcher = pattern.matcher(input);
-      while (matcher.find()) {
-        matcher.appendReplacement(sink, replacement);
-      }
-      matcher.appendTail(sink);
+      matcher.replaceAll(sink, replacement);
       blackhole.consume(sink.length());
     };
   }

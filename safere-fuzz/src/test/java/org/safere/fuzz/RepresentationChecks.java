@@ -6,7 +6,10 @@
 package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -17,6 +20,200 @@ import org.safere.Utf8Matcher;
 /** Shared representation properties on explicitly constructed valid Unicode inputs. */
 final class RepresentationChecks {
   private RepresentationChecks() {}
+
+  static void assertUtf8ReplacementMatchesAppendLoop(FuzzedDataProvider data) {
+    int groups = data.consumeInt(0, 8);
+    int invalidGroup = data.consumeInt(groups + 1, 9);
+    String invalidReplacement =
+        data.pickValue(List.of("", "[", "$0", "é😀$0-"))
+            + "$"
+            + invalidGroup
+            + data.pickValue(List.of("", "]", "0", "$0", "😀"));
+    assertUtf8NumberedReferenceValidation(
+        groups, invalidGroup, invalidReplacement, data.consumeBoolean(), data.consumeBoolean());
+    String regex =
+        data.pickValue(
+            List.of(
+                "",
+                "(?<word>[aé😀]+)([0-9]+)?",
+                "(a)?(é|😀)",
+                "^é",
+                "é$",
+                "(?m)^é",
+                "a*?",
+                "\\X",
+                "a*",
+                "a+",
+                "[é😀]*",
+                "[^a]+",
+                "(?i)é*",
+                "[aé😀]{0,}"));
+    StringBuilder source = new StringBuilder();
+    int pieces = data.consumeInt(0, 32);
+    for (int i = 0; i < pieces; i++) {
+      source.append(data.pickValue(List.of("a", "b", "é", "😀", "\n", "9", " ", "á", "👩‍💻")));
+    }
+    String replacement =
+        data.pickValue(
+            List.of("", "X", "<$0>", "$0$0", "$1", "${word}-$2", "\\$0\\\\", "$", "$9", "\\"));
+    assertUtf8ReplacementMatchesAppendLoop(
+        regex, source.toString(), replacement, data.consumeInt(0, 2), data.consumeBoolean());
+  }
+
+  static void assertUtf8ReplacementMatchesAppendLoop(
+      String regex, String source, String replacement, int initialState, boolean trusted) {
+    byte[] bytes = ("prefix" + source + "suffix").getBytes(StandardCharsets.UTF_8);
+    int length = source.getBytes(StandardCharsets.UTF_8).length;
+    Utf8Input input =
+        trusted ? Utf8Input.trusted(bytes, 6, length) : Utf8Input.validated(bytes, 6, length);
+    byte[] templateBytes = ("prefix" + replacement + "suffix").getBytes(StandardCharsets.UTF_8);
+    Utf8Input template =
+        Utf8Input.validated(templateBytes, 6, replacement.getBytes(StandardCharsets.UTF_8).length);
+    Pattern pattern = Pattern.compile(regex);
+    String context = "/" + regex + "/ on " + source + " replacing with " + replacement;
+    for (boolean all : new boolean[] {false, true}) {
+      Utf8Matcher actual = pattern.matcher(input);
+      Utf8Matcher expected = pattern.matcher(input);
+      for (Utf8Matcher matcher : List.of(actual, expected)) {
+        if (initialState == 1) {
+          matcher.region(input.length(), input.length()).find();
+        } else if (initialState == 2 && matcher.find()) {
+          matcher.appendReplacement((storage, offset, size) -> {}, templateLiteral());
+        }
+      }
+      ByteArrayOutputStream actualOutput = new ByteArrayOutputStream();
+      ByteArrayOutputStream expectedOutput = new ByteArrayOutputStream();
+      Class<?> actualFailure =
+          replacementFailure(
+              () -> {
+                if (all) {
+                  actual.replaceAll(actualOutput::write, template);
+                } else {
+                  actual.replaceFirst(actualOutput::write, template);
+                }
+              });
+      Class<?> expectedFailure =
+          replacementFailure(
+              () -> {
+                expected.reset();
+                if (expected.find()) {
+                  do {
+                    expected.appendReplacement(expectedOutput::write, template);
+                  } while (all && expected.find());
+                }
+                expected.appendTail(expectedOutput::write);
+              });
+      if (actualFailure != expectedFailure
+          || !Arrays.equals(actualOutput.toByteArray(), expectedOutput.toByteArray())) {
+        throw new AssertionError("UTF-8 replacement output or exception differs: " + context);
+      }
+      if (actual.regionStart() != expected.regionStart()
+          || actual.regionEnd() != expected.regionEnd()
+          || !matchBounds(actual).equals(matchBounds(expected))) {
+        throw new AssertionError("UTF-8 replacement final match state differs: " + context);
+      }
+      actualOutput.reset();
+      expectedOutput.reset();
+      Class<?> actualTailFailure = replacementFailure(() -> actual.appendTail(actualOutput::write));
+      Class<?> expectedTailFailure =
+          replacementFailure(() -> expected.appendTail(expectedOutput::write));
+      if (actualTailFailure != expectedTailFailure
+          || !Arrays.equals(actualOutput.toByteArray(), expectedOutput.toByteArray())) {
+        throw new AssertionError("UTF-8 replacement append state differs: " + context);
+      }
+      while (true) {
+        boolean found = expected.find();
+        if (actual.find() != found || !matchBounds(actual).equals(matchBounds(expected))) {
+          throw new AssertionError("UTF-8 replacement subsequent search differs: " + context);
+        }
+        if (!found) {
+          break;
+        }
+      }
+    }
+  }
+
+  private enum ReplacementOperation {
+    ALL,
+    FIRST,
+    APPEND
+  }
+
+  static void assertUtf8NumberedReferenceValidation(
+      int groups, int invalidGroup, String replacement, boolean hasMatch, boolean trusted) {
+    String regex = "(".repeat(groups) + "b" + ")".repeat(groups);
+    String source = "前é😀a" + (hasMatch ? "bb" : "") + "後";
+    byte[] bytes = ("prefix" + source + "suffix").getBytes(StandardCharsets.UTF_8);
+    int length = source.getBytes(StandardCharsets.UTF_8).length;
+    Utf8Input input =
+        trusted ? Utf8Input.trusted(bytes, 6, length) : Utf8Input.validated(bytes, 6, length);
+    byte[] templateBytes = ("prefix" + replacement + "suffix").getBytes(StandardCharsets.UTF_8);
+    Utf8Input template =
+        Utf8Input.validated(templateBytes, 6, replacement.getBytes(StandardCharsets.UTF_8).length);
+    Pattern pattern = Pattern.compile(regex);
+    String expectedMessage = "No group " + invalidGroup + " (groupCount=" + groups + ")";
+    for (ReplacementOperation operation : ReplacementOperation.values()) {
+      if (!hasMatch && operation == ReplacementOperation.APPEND) {
+        continue;
+      }
+      Utf8Matcher matcher = pattern.matcher(input);
+      ByteArrayOutputStream output = new ByteArrayOutputStream();
+      String context = operation + " /" + regex + "/ replacing with " + replacement;
+      try {
+        switch (operation) {
+          case ALL -> matcher.replaceAll(output::write, template);
+          case FIRST -> matcher.replaceFirst(output::write, template);
+          case APPEND -> {
+            if (!matcher.find()) {
+              throw new AssertionError("Missing generated match: " + context);
+            }
+            matcher.appendReplacement(output::write, template);
+          }
+        }
+      } catch (IndexOutOfBoundsException failure) {
+        if (!hasMatch
+            || failure.getClass() != IndexOutOfBoundsException.class
+            || !expectedMessage.equals(failure.getMessage())
+            || output.size() != 0) {
+          throw new AssertionError("Invalid reference validation differs: " + context, failure);
+        }
+        continue;
+      }
+      if (hasMatch) {
+        throw new AssertionError("Invalid numbered reference was accepted: " + context);
+      }
+      if (!Arrays.equals(output.toByteArray(), source.getBytes(StandardCharsets.UTF_8))) {
+        throw new AssertionError("Unmatched replacement output differs: " + context);
+      }
+    }
+  }
+
+  private static Utf8Input templateLiteral() {
+    return Utf8Input.validated(new byte[] {'o', 'l', 'd'});
+  }
+
+  private static Class<?> replacementFailure(Runnable operation) {
+    try {
+      operation.run();
+      return null;
+    } catch (IllegalArgumentException | IndexOutOfBoundsException | IllegalStateException failure) {
+      return failure.getClass();
+    }
+  }
+
+  private static List<Integer> matchBounds(Utf8Matcher matcher) {
+    try {
+      matcher.start();
+    } catch (IllegalStateException noMatch) {
+      return List.of();
+    }
+    List<Integer> bounds = new ArrayList<>();
+    for (int group = 0; group <= matcher.groupCount(); group++) {
+      bounds.add(matcher.start(group));
+      bounds.add(matcher.end(group));
+    }
+    return bounds;
+  }
 
   static void assertLiteralSearchMatchesString(String regex, String input) {
     Pattern pattern = Pattern.compile(regex);

@@ -1,0 +1,1 @@
+Deterministic state/work traces from the full experimental framework. No elapsed time is measured. All modes enable additional work accounting. observe follows the original shared producer preference; dfa/localSticky mirror the minimal control decision rules. UTF-8 rotation uses regions. Sources are the pinned prototype and benchmark declarations.

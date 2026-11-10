@@ -69,6 +69,15 @@ public final class BenchmarkData {
     return INSTANCE;
   }
 
+  // Specialized protocols validate their own settings without adding regular workload operations.
+  JsonObject investigationConfiguration() {
+    JsonObject configuration = root.getAsJsonObject("configuration");
+    if (configuration == null || !configuration.has("investigation")) {
+      throw new IllegalStateException("Selected corpus has no investigation configuration");
+    }
+    return configuration.getAsJsonObject("investigation").deepCopy();
+  }
+
   JsonObject executionPlan() {
     return executionPlan.deepCopy();
   }

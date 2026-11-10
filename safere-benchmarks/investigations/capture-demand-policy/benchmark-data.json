@@ -1,0 +1,2401 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    },
+    "investigation": {
+      "rounds": 32,
+      "usages": {
+        "text1": {
+          "mode": "text",
+          "readEvery": 1
+        },
+        "text4": {
+          "mode": "text",
+          "readEvery": 4
+        },
+        "offset1": {
+          "mode": "offset",
+          "readEvery": 1
+        },
+        "phase1": {
+          "mode": "phase",
+          "readEvery": 1
+        },
+        "boolean1": {
+          "mode": "boolean",
+          "readEvery": 1
+        }
+      },
+      "checksums": {
+        "CapturePolicyBenchmark.stack.ascii.128.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.511.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.512.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.513.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.1024.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.128.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.511.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.512.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.513.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.1024.all.newPerInvocation": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.128.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.511.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.512.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.513.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.1024.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.128.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.511.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.512.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.513.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.multibyte.1024.all.retained": {
+          "text1": -533340672,
+          "offset1": 30720,
+          "text4": -1207075840,
+          "phase1": -355559936,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.stack.ascii.128.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.511.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.512.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.513.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.1024.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.128.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.511.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.512.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.513.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.1024.rare.newPerInvocation": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.128.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.511.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.512.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.513.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.ascii.1024.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.128.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.511.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.512.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.513.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.stack.multibyte.1024.rare.retained": {
+          "text1": -1375511072,
+          "offset1": 1920,
+          "text4": -343877696,
+          "phase1": 514648416,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.128.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.511.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.512.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.513.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.1024.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.128.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.511.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.512.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.513.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.1024.all.newPerInvocation": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.128.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.511.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.512.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.513.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.1024.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.128.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.511.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.512.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.513.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.1024.all.retained": {
+          "text1": 397837312,
+          "offset1": 10752,
+          "text4": -2048023168,
+          "phase1": 1696881152,
+          "boolean1": 1536
+        },
+        "CapturePolicyBenchmark.scheme.ascii.128.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.511.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.512.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.513.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.1024.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.128.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.511.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.512.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.513.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.1024.rare.newPerInvocation": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.128.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.511.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.512.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.513.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.ascii.1024.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.128.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.511.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.512.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.513.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        },
+        "CapturePolicyBenchmark.scheme.multibyte.1024.rare.retained": {
+          "text1": -1585747904,
+          "offset1": 672,
+          "text4": 677304920,
+          "phase1": 374490528,
+          "boolean1": 96
+        }
+      },
+      "adaptive": {
+        "documentsPerPhase": 512,
+        "scheduleWidth": 64,
+        "scheduleSeed": 20261103,
+        "policies": [
+          "main",
+          "patchedMain",
+          "observe",
+          "dfa",
+          "localSticky",
+          "fraction",
+          "joint",
+          "replay",
+          "work",
+          "periodic",
+          "random"
+        ],
+        "randomSeeds": [
+          1,
+          17,
+          73
+        ],
+        "scenarios": {
+          "stack.all.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.all.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.all.boolean.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              }
+            ]
+          },
+          "stack.rare.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.all.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.rotate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.alternate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.shuffle.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "shuffled",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.half.blocks.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "blocked",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.reads.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.hits.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.multibyte.all.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.stack.multibyte.128.hit",
+            "missInput": "capturePolicy.stack.multibyte.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.multibyte.rare.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.stack.multibyte.128.hit",
+            "missInput": "capturePolicy.stack.multibyte.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.all.boolean.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              }
+            ]
+          },
+          "scheme.rare.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.all.fresh.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "fresh",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.rotate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.alternate.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.shuffle.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "shuffled",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.half.blocks.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "blocked",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.reads.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 0
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.hits.phase.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "rotating",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.multibyte.all.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
+            "missInput": "capturePolicy.scheme.multibyte.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.multibyte.rare.multibyte.128": {
+            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
+            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
+            "missInput": "capturePolicy.scheme.multibyte.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.boundary.ascii.511": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.511.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.511.hit",
+            "missInput": "capturePolicy.scheme.ascii.511.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.boundary.ascii.513": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.513.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.513.hit",
+            "missInput": "capturePolicy.scheme.ascii.513.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.document": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+            "missInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+            "groups": [
+              1,
+              4
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.document": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "issue481Scaling.scheme.128",
+            "missInput": "issue481Scaling.scheme.128",
+            "groups": [
+              1,
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.none.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              }
+            ]
+          },
+          "stack.rare.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.half.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              }
+            ]
+          },
+          "stack.all.offset.ascii.128": {
+            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
+            "hitInput": "capturePolicy.stack.ascii.128.hit",
+            "missInput": "capturePolicy.stack.ascii.128.miss",
+            "groups": [
+              1
+            ],
+            "consumption": "offset",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.none.text.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 0,
+                "readEvery": 1
+              }
+            ]
+          },
+          "scheme.rare.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 16,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.half.text4.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "text",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              },
+              {
+                "hitEvery": 2,
+                "readEvery": 4
+              }
+            ]
+          },
+          "scheme.all.offset.ascii.128": {
+            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
+            "hitInput": "capturePolicy.scheme.ascii.128.hit",
+            "missInput": "capturePolicy.scheme.ascii.128.miss",
+            "groups": [
+              2
+            ],
+            "consumption": "offset",
+            "lifetime": "retained",
+            "order": "periodic",
+            "phases": [
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              },
+              {
+                "hitEvery": 1,
+                "readEvery": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "capturePolicy.stack.ascii.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.ascii.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.stack.multibyte.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pr\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary proseCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinarCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordin\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinaryCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordina\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinar\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.ascii.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.128.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.128.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.511.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.511.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.512.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.512.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.513.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.513.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通のCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.1024.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
+      }
+    },
+    {
+      "id": "capturePolicy.scheme.multibyte.1024.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.scheme.{size}",
+      "axes": {
+        "size": [
+          128
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "ordinary prose without a custom scheme link ",
+        "suffix": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
+        "length": "{size}"
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.newPerInvocation",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.retained",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.newPerInvocation",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.retained",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "capturePolicy.stack.{encoding}.{size}.hit",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss",
+        "capturePolicy.stack.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.newPerInvocation",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 2,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.retained",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.hit"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 2,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.newPerInvocation",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 2,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.retained",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "capturePolicy.scheme.{encoding}.{size}.hit",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss",
+        "capturePolicy.scheme.{encoding}.{size}.miss"
+      ],
+      "resultConsumption": "boolean",
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": []
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 2,
+        "count": 1
+      },
+      "axes": {
+        "encoding": [
+          "ascii",
+          "multibyte"
+        ],
+        "size": [
+          128,
+          511,
+          512,
+          513,
+          1024
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    }
+  ]
+}

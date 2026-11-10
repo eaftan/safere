@@ -1,0 +1,63 @@
+Ratios are candidate time / baseline time, geometric means with equal weight per exact row.
+Dash = not measured; n marks actual pairwise membership. No partial set is an overall result.
+| Category | Baseline rows | dfa1073 | local4 | hybrid4 | hybrid16 | localSticky |
+|---|---:|---:|---:|---:|---:|---:|
+| 128 retained all text1 | 8 | 1.422 (n=8) | 1.348 (n=8) | 1.075 (n=8) | 1.001 (n=8) | 1.218 (n=8) |
+| 128 retained all text4 | 8 | 1.257 (n=8) | 1.379 (n=8) | 1.234 (n=8) | – | – |
+| 128 retained all phase1 | 8 | 1.348 (n=8) | 1.335 (n=8) | 1.248 (n=8) | 1.213 (n=8) | 1.220 (n=8) |
+| 128 retained rare text1 | 8 | 0.073 (n=8) | 0.080 (n=8) | 1.063 (n=8) | 0.970 (n=8) | 0.073 (n=8) |
+| 128 retained rare text4 | 8 | 0.073 (n=8) | 0.079 (n=8) | 1.064 (n=8) | – | – |
+| 128 retained rare phase1 | 8 | 0.069 (n=8) | 0.082 (n=8) | 1.186 (n=8) | 1.143 (n=8) | 0.069 (n=8) |
+| 128 fresh ASCII all text1 | 4 | 1.255 (n=4) | 1.445 (n=4) | 1.142 (n=4) | – | 1.357 (n=4) |
+| 128 fresh ASCII rare text1 | 4 | 0.078 (n=4) | 0.081 (n=4) | 1.103 (n=4) | – | 0.072 (n=4) |
+| ASCII offset1 controls | 4 | 1.492 (n=4) | 1.298 (n=4) | 1.083 (n=4) | – | – |
+| ASCII boolean1 controls | 4 | 0.996 (n=4) | 1.057 (n=4) | 1.093 (n=4) | – | – |
+| Boundary controls | 6 | 1.388 (n=6) | 1.492 (n=6) | 0.981 (n=6) | – | – |
+
+Representative retained ASCII 128 cases, ns/document (one timed cycle = 1536 documents):
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string baseline=651.5±6.0 dfa1073=1353.1±92.7 local4=681.6±42.7 hybrid4=711.2±65.4 hybrid16=664.5±27.4 localSticky=658.6±17.9
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8 baseline=2770.5±23.0 dfa1073=1666.8±370.3 local4=2791.2±40.0 hybrid4=2862.2±131.7 hybrid16=2787.3±50.6 localSticky=2772.2±44.7
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.retained@safere-string baseline=1659.9±130.2 dfa1073=603.9±145.2 local4=587.3±112.0 hybrid4=2069.2±390.8 hybrid16=1617.4±93.5 localSticky=546.9±107.4
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.retained@safere-utf8 baseline=4553.4±206.9 dfa1073=556.6±99.5 local4=742.3±64.1 hybrid4=4457.4±98.5 hybrid16=4668.7±552.7 localSticky=675.6±69.3
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string baseline=380.0±13.7 dfa1073=642.5±13.0 local4=681.2±50.4 hybrid4=470.1±49.4 hybrid16=384.0±11.8 localSticky=586.6±14.5
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8 baseline=374.8±19.5 dfa1073=698.1±24.3 local4=697.4±98.4 hybrid4=478.9±53.9 hybrid16=388.0±18.7 localSticky=570.1±9.8
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.retained@safere-string baseline=6134.6±1121.7 dfa1073=142.9±9.5 local4=154.0±10.1 hybrid4=6412.6±850.2 hybrid16=6173.5±1083.2 localSticky=133.5±6.0
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.retained@safere-utf8 baseline=7073.9±69.7 dfa1073=157.1±5.6 local4=150.6±11.8 hybrid4=5600.5±69.4 hybrid16=5592.0±67.3 localSticky=149.6±5.0
+
+Concurrent shared Pattern, four threads: two text consumers and two boolean consumers.
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string baseline=851.2ns/doc (1.000x) dfa1073=1308.6ns/doc (1.537x) local4=938.7ns/doc (1.103x) hybrid4=874.0ns/doc (1.027x) hybrid16=836.4ns/doc (0.983x) localSticky=897.3ns/doc (1.054x)
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8 baseline=3148.7ns/doc (1.000x) dfa1073=1264.5ns/doc (0.402x) local4=3908.1ns/doc (1.241x) hybrid4=2121.1ns/doc (0.674x) hybrid16=2109.2ns/doc (0.670x) localSticky=2172.4ns/doc (0.690x)
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string baseline=545.4ns/doc (1.000x) dfa1073=851.4ns/doc (1.561x) local4=992.7ns/doc (1.820x) hybrid4=760.8ns/doc (1.395x) hybrid16=744.1ns/doc (1.364x) localSticky=758.6ns/doc (1.391x)
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8 baseline=578.2ns/doc (1.000x) dfa1073=915.9ns/doc (1.584x) local4=1023.4ns/doc (1.770x) hybrid4=776.4ns/doc (1.343x) hybrid16=794.6ns/doc (1.374x) localSticky=832.5ns/doc (1.440x)
+
+Long-mode confirmation (raw ns/op; findUsage divided by 1536 for ns/document):
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string baseline=727.7±110.6 dfa1073=1375.8±194.0 local4=651.4±17.0
+CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8 baseline=2840.0±99.1 dfa1073=1435.1±143.2 local4=2744.6±38.2
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.retained@safere-string baseline=1566.5±39.1 dfa1073=457.5±18.0 local4=443.3±44.3
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.retained@safere-utf8 baseline=4469.4±22.6 dfa1073=466.7±38.1 local4=605.7±112.9
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string baseline=371.2±11.3 dfa1073=646.2±24.0 local4=594.7±28.9
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8 baseline=389.7±4.3 dfa1073=718.5±63.0 local4=554.6±9.2
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.retained@safere-string baseline=5740.1±586.5 dfa1073=135.7±4.1 local4=132.7±10.0
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.retained@safere-utf8 baseline=6326.0±1121.3 dfa1073=149.8±4.6 local4=143.5±8.0
+CapturePolicyBenchmark.stack.multibyte.511.all.text1.retained@safere-string baseline=2612.9±85.1 dfa1073=3403.9±154.0 local4=2546.4±122.2
+CapturePolicyBenchmark.stack.multibyte.511.all.text1.retained@safere-utf8 baseline=5150.2±235.3 dfa1073=4918.2±237.3 local4=4904.3±168.6
+CapturePolicyBenchmark.stack.multibyte.513.all.text1.retained@safere-string baseline=3304.9±120.3 dfa1073=3320.7±278.4 local4=3390.1±63.8
+CapturePolicyBenchmark.stack.multibyte.513.all.text1.retained@safere-utf8 baseline=4872.8±158.4 dfa1073=4924.2±188.7 local4=5022.1±359.3
+CapturePolicyBenchmark.scheme.multibyte.511.all.text1.retained@safere-string baseline=378.4±21.8 dfa1073=722.1±16.0 local4=563.0±6.7
+CapturePolicyBenchmark.scheme.multibyte.511.all.text1.retained@safere-utf8 baseline=987.4±27.7 dfa1073=966.2±10.9 local4=973.3±21.3
+CapturePolicyBenchmark.scheme.multibyte.513.all.text1.retained@safere-string baseline=822.1±13.0 dfa1073=801.6±13.3 local4=802.8±19.7
+CapturePolicyBenchmark.scheme.multibyte.513.all.text1.retained@safere-utf8 baseline=980.0±11.4 dfa1073=973.2±19.0 local4=981.0±26.8
+ApplicationBenchmark.stackTraceExtract@safere-string baseline=2531.0±130.6 dfa1073=4181.8±62.4 local4=2935.5±93.6
+ApplicationBenchmark.stackTraceExtract@safere-utf8 baseline=5798.1±116.9 dfa1073=4321.2±109.6 local4=4911.2±220.2
+CapturePolicyBenchmark.stack.ascii.128.all.text1.newPerInvocation@safere-string baseline=652.5±7.5 dfa1073=1330.4±27.0 local4=1287.4±93.6
+CapturePolicyBenchmark.stack.ascii.128.all.text1.newPerInvocation@safere-utf8 baseline=2682.8±81.4 dfa1073=1418.0±42.1 local4=1430.7±46.5
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.newPerInvocation@safere-string baseline=1550.6±37.3 dfa1073=472.3±7.1 local4=468.4±14.6
+CapturePolicyBenchmark.stack.ascii.128.rare.text1.newPerInvocation@safere-utf8 baseline=4511.2±233.0 dfa1073=468.8±12.9 local4=465.2±5.4
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.newPerInvocation@safere-string baseline=375.5±20.6 dfa1073=655.2±12.5 local4=691.2±52.6
+CapturePolicyBenchmark.scheme.ascii.128.all.text1.newPerInvocation@safere-utf8 baseline=408.0±95.0 dfa1073=741.9±119.3 local4=701.5±25.5
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.newPerInvocation@safere-string baseline=6159.7±1012.4 dfa1073=138.5±2.3 local4=141.1±1.4
+CapturePolicyBenchmark.scheme.ascii.128.rare.text1.newPerInvocation@safere-utf8 baseline=6302.9±1149.7 dfa1073=157.3±2.3 local4=158.1±2.6
+
+Existing scheme document extraction, raw us/op:
+Issue481ScalingBenchmark.schemeExtract.128@safere-string baseline=0.7049±0.0493 dfa1073=1.3522±0.1473 local4=1.2287±0.0650
+Issue481ScalingBenchmark.schemeExtract.128@safere-utf8 baseline=0.7214±0.0530 dfa1073=1.3703±0.1017 local4=1.2503±0.0790

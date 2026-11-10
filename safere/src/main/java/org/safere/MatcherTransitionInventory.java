@@ -288,6 +288,8 @@ final class MatcherTransitionInventory {
           matchObserver(signature("start", int.class)),
           matchObserver(signature("end")),
           matchObserver(signature("end", int.class)),
+          replacementLoop(signature("replaceFirst", Utf8Sink.class, Utf8Input.class)),
+          replacementLoop(signature("replaceAll", Utf8Sink.class, Utf8Input.class)),
           appendReplacement(signature("appendReplacement", Utf8Sink.class, Utf8Input.class)),
           appendTail(signature("appendTail", Utf8Sink.class)));
 
