@@ -1,0 +1,4556 @@
+diff --git a/run-java-benchmarks.sh b/run-java-benchmarks.sh
+index ca0e7865..c0a11afe 100755
+--- a/run-java-benchmarks.sh
++++ b/run-java-benchmarks.sh
+@@ -43,6 +43,8 @@
+ #
+ # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
+ # explicitly when working on safere-crosscheck performance.
++# Investigative sources and inputs require --investigation NAME and an explicit
++# benchmark filter; see safere-benchmarks/investigations/README.md.
+ #
+ # Arguments after the mode flag are passed directly to JMH as benchmark regex
+ # filters. Use `--` to pass additional options directly to JMH, for example:
+@@ -55,6 +57,7 @@ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
+ BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
++BENCHMARK_DATA_DIR="$SCRIPT_DIR/safere-benchmarks"
+ RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
+ DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
+ 
+@@ -86,6 +89,7 @@ Modes:
+ Options:
+   --provider default|vector  Select a provider (declared runs include both by default).
+   --fastbuild      Skip FFM native C++ builds and target only benchmark modules (saves ~1 minute).
++  --investigation NAME  Build and run one investigation with its own inputs (explicit filter required).
+ EOF
+ }
+ 
+@@ -95,6 +99,8 @@ FASTBUILD=false
+ DECLARED=false
+ SCAN_PROVIDER="default"
+ PROVIDER_SELECTED=false
++INVESTIGATION=""
++MAVEN_INVESTIGATION_ARGS=()
+ BENCHMARKS=()
+ JMH_EXTRA_ARGS=()
+ 
+@@ -116,6 +122,14 @@ while [[ $# -gt 0 ]]; do
+       FASTBUILD=true
+       shift
+       ;;
++    --investigation)
++      if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
++        echo "ERROR: --investigation requires a directory name under safere-benchmarks/investigations" >&2
++        exit 2
++      fi
++      INVESTIGATION="$2"
++      shift 2
++      ;;
+     --provider)
+       if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^(default|vector)$ ]]; then
+         echo "ERROR: --provider requires default or vector" >&2
+@@ -150,6 +164,22 @@ while [[ $# -gt 0 ]]; do
+   esac
+ done
+ 
++if [ -n "$INVESTIGATION" ]; then
++  if [ "$DECLARED" = true ] || [ ${#BENCHMARKS[@]} -eq 0 ]; then
++    echo "ERROR: investigations require an explicit benchmark filter and cannot use --declared" >&2
++    exit 2
++  fi
++  BENCHMARK_DATA_DIR="$SCRIPT_DIR/safere-benchmarks/investigations/$INVESTIGATION"
++  if [ ! -f "$BENCHMARK_DATA_DIR/benchmark-data.json" ] \
++    || [ ! -d "$BENCHMARK_DATA_DIR/src/main/java" ]; then
++    echo "ERROR: investigation is missing its workload definitions or sources: $INVESTIGATION" >&2
++    exit 2
++  fi
++  BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/investigations/$INVESTIGATION/corpus"
++  BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/investigations/$INVESTIGATION/build/benchmarks.jar"
++  MAVEN_INVESTIGATION_ARGS=("-Dbenchmark.investigation=$INVESTIGATION")
++fi
++
+ # Normalize attached JMH parameter forms so selection and rejection use one syntax.
+ # Keep profiler options intact; -prof=gc is not a parameter override.
+ NORMALIZED_JMH_ARGS=()
+@@ -202,8 +232,10 @@ fi
+ 
+ if [ "$FASTBUILD" = true ]; then
+   echo "=== Fast Building safere-benchmarks only ==="
+-  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
++  mvn ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
++    -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
+   mvn install \
++    ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
+     -pl safere-benchmarks -am \
+     -DskipTests \
+     -Dpmd.skip=true \
+@@ -215,12 +247,15 @@ if [ "$FASTBUILD" = true ]; then
+     -f "$SCRIPT_DIR/pom.xml"
+ else
+   echo "=== Building safere + benchmark JAR ==="
+-  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
+-  mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
++  mvn ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
++    -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
++  mvn install ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
++    -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
+ fi
+ 
+-echo "=== Materializing shared benchmark inputs ==="
+-"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
++echo "=== Materializing benchmark inputs from $BENCHMARK_DATA_DIR ==="
++java -cp "$BENCHMARK_JAR" org.safere.benchmark.BenchmarkInputMaterializer \
++  "$BENCHMARK_DATA_DIR" "$BENCHMARK_CORPUS"
+ 
+ # Keep provider selection identical in launcher and measurement forks.
+ BASE_JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+diff --git a/safere-benchmarks/pom.xml b/safere-benchmarks/pom.xml
+index fe267f87..d82ca66c 100644
+--- a/safere-benchmarks/pom.xml
++++ b/safere-benchmarks/pom.xml
+@@ -75,6 +75,20 @@
+ 
+   <build>
+     <plugins>
++      <plugin>
++        <groupId>com.diffplug.spotless</groupId>
++        <artifactId>spotless-maven-plugin</artifactId>
++        <configuration>
++          <java>
++            <includes>
++              <include>src/main/java/**/*.java</include>
++              <include>src/test/java/**/*.java</include>
++              <include>investigations/*/src/main/java/**/*.java</include>
++              <include>investigations/*/src/test/java/**/*.java</include>
++            </includes>
++          </java>
++        </configuration>
++      </plugin>
+       <plugin>
+         <groupId>org.apache.maven.plugins</groupId>
+         <artifactId>maven-compiler-plugin</artifactId>
+@@ -132,4 +146,47 @@
+       </plugin>
+     </plugins>
+   </build>
++
++  <profiles>
++    <profile>
++      <id>benchmark-investigation</id>
++      <activation>
++        <property>
++          <name>benchmark.investigation</name>
++        </property>
++      </activation>
++      <build>
++        <directory>${project.basedir}/target/investigations/${benchmark.investigation}/build</directory>
++        <plugins>
++          <plugin>
++            <groupId>org.codehaus.mojo</groupId>
++            <artifactId>build-helper-maven-plugin</artifactId>
++            <version>3.6.2</version>
++            <executions>
++              <execution>
++                <id>investigation-source</id>
++                <phase>generate-sources</phase>
++                <goals><goal>add-source</goal></goals>
++                <configuration>
++                  <sources>
++                    <source>${project.basedir}/investigations/${benchmark.investigation}/src/main/java</source>
++                  </sources>
++                </configuration>
++              </execution>
++              <execution>
++                <id>investigation-tests</id>
++                <phase>generate-test-sources</phase>
++                <goals><goal>add-test-source</goal></goals>
++                <configuration>
++                  <sources>
++                    <source>${project.basedir}/investigations/${benchmark.investigation}/src/test/java</source>
++                  </sources>
++                </configuration>
++              </execution>
++            </executions>
++          </plugin>
++        </plugins>
++      </build>
++    </profile>
++  </profiles>
+ </project>
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkData.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkData.java
+index ccb6d6a1..0a958edc 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkData.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkData.java
+@@ -69,6 +69,15 @@ public final class BenchmarkData {
+     return INSTANCE;
+   }
+ 
++  // Specialized protocols validate their own settings without adding regular workload operations.
++  JsonObject investigationConfiguration() {
++    JsonObject configuration = root.getAsJsonObject("configuration");
++    if (configuration == null || !configuration.has("investigation")) {
++      throw new IllegalStateException("Selected corpus has no investigation configuration");
++    }
++    return configuration.getAsJsonObject("investigation").deepCopy();
++  }
++
+   JsonObject executionPlan() {
+     return executionPlan.deepCopy();
+   }
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkDataSchema.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkDataSchema.java
+index 0f4347f5..2b36a53c 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkDataSchema.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkDataSchema.java
+@@ -15,7 +15,7 @@ final class BenchmarkDataSchema {
+   private static final Set<String> ROOT_FIELDS =
+       Set.of("schemaVersion", "configuration", "inputs", "workloads");
+   private static final Set<String> CONFIGURATION_FIELDS =
+-      Set.of("collection", "crosscheckOverhead", "vectorScan");
++      Set.of("collection", "crosscheckOverhead", "vectorScan", "investigation");
+   private static final Set<String> COLLECTION_FIELDS = Set.of("allocationWorkloadPrefixes");
+   private static final Set<String> CROSSCHECK_OVERHEAD_FIELDS = Set.of("pattern", "replacement");
+   private static final Set<String> VECTOR_SCAN_FIELDS = Set.of("smokeTrials", "standardTrials");
+@@ -43,6 +43,9 @@ final class BenchmarkDataSchema {
+ 
+   private static void validateConfiguration(JsonObject configuration) {
+     requireOnly(configuration, "benchmark-data.json configuration", CONFIGURATION_FIELDS);
++    if (configuration.has("investigation")) {
++      requiredObject(configuration, "investigation");
++    }
+     if (configuration.has("collection")) {
+       JsonObject collection = requiredObject(configuration, "collection");
+       requireOnly(collection, "benchmark-data.json configuration.collection", COLLECTION_FIELDS);
+diff --git a/safere/src/main/java/org/safere/Matcher.java b/safere/src/main/java/org/safere/Matcher.java
+index dc07aa0e..3d4ea890 100644
+--- a/safere/src/main/java/org/safere/Matcher.java
++++ b/safere/src/main/java/org/safere/Matcher.java
+@@ -224,11 +224,6 @@ public final class Matcher implements MatchResult {
+     }
+   }
+ 
+-  private MatchStrategy diagnosticBoundaryStrategy() {
+-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+-    return accumulator == null ? MatchStrategy.NONE : accumulator.boundaryStrategy();
+-  }
+-
+   private void diagnosticCapture(MatchStrategy strategy) {
+     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+     if (accumulator != null) {
+@@ -1989,39 +1984,12 @@ public final class Matcher implements MatchResult {
+     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
+     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
+ 
+-    // Once callers have demonstrated that they consume inner captures, use the capture-aware
+-    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
+-    // replaying the same range through BitState on every successful find().
+-    //
+-    // When a start accelerator preselected a candidate, the attempt is limited to that one start.
+-    // BitState walks candidate starts one code point at a time with no literal acceleration of
+-    // its own, so letting it cover the rest of the input costs O(text x prog) scalar work where
+-    // the forward DFA path costs O(text) with in-loop start-state acceleration. Speculating on a
+-    // single accelerated start keeps the win on inputs where the accelerated start is the match,
+-    // and caps the loss elsewhere at one failed start before the DFA path below takes over.
+-    if (shouldPreferCaptureEngine(prog, scanner)) {
+-      int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
+-      MatchStrategy boundaryBeforeCaptureSearch = diagnosticBoundaryStrategy();
+-      int[] result =
+-          searchWithBitStateOrNfa(
+-              prog,
+-              scanner,
+-              effectiveStart,
+-              captureSearchLimit,
+-              scanner.length(),
+-              false,
+-              false,
+-              false,
+-              prog.numCaptures(),
+-              false,
+-              this.groups);
+-      if (result != null || captureSearchLimit >= scanner.length()) {
+-        return applyFullMatchResult(result);
+-      }
+-      // Only starts up to the accelerated candidate were tried, so this is not a decision that no
+-      // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
+-      // path below perform the complete search.
+-      diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
++    // Preserve anchored capture preference; use DFA first for unanchored find.
++    if (prog.anchorStart() && shouldPreferCaptureEngine(prog, scanner)) {
++      int[] result = searchWithBitStateOrNfa(
++          prog, scanner, effectiveStart, scanner.length(), scanner.length(),
++          false, false, false, prog.numCaptures(), false, this.groups);
++      return applyFullMatchResult(result);
+     }
+ 
+     // Fast path: use cached DFA to check if a match exists in the remaining text.
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/README.md b/safere-benchmarks/investigations/capture-demand-policy/README.md
+new file mode 100644
+index 00000000..579a9ab8
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/README.md
+@@ -0,0 +1,100 @@
++# Capture-demand producer policy
++
++This investigation addresses [#1075](https://github.com/eaftan/safere/issues/1075):
++how capture-use history should influence producer selection before DFA rejection.
++It follows the opt-in investigation convention introduced in
++[#1127](https://github.com/eaftan/safere/pull/1127). Its sources, tests, inputs,
++protocol settings, and historical evidence are separate from the release benchmark
++corpus and recurring reports.
++
++## Workloads and provenance
++
++The policy matrix is constructed data. Its two regexes come from the existing
++`ApplicationBenchmark.stackTraceExtract` and
++`Issue481ScalingBenchmark.schemeExtract.128` workloads. The inputs are newly
++constructed valid/invalid frames and links padded with ASCII prose or multibyte
++text. They are not production traces. Historical measurements also used the
++existing four-frame stack-trace and scheme-extraction documents as controls.
++
++This directory's `benchmark-data.json` owns patterns, input recipes, cursor reuse,
++protocol parameters, and expected checksums. Base workloads describe a find and
++capture-participation query using the existing schema. The specialized protocol
++selects consumption through `configuration.investigation`: `text1`, `text4`,
++`offset1`, `phase1`, or `boolean1`. This avoids introducing an investigation-only
++operation or UTF-8 capture-text capability into the release suite.
++
++Each invocation scans three phases, each with the declared number of rounds over
++16 documents. Hit rate (all documents or one in 16) is independent of capture-read
++frequency conditional on a hit. `text4` hashes capture text on one in four hits;
++`phase1` reads captures in the first and third phases and uses Boolean results in
++the middle phase. `offset1` reads native bounds. String input and pre-existing
++UTF-8 bytes are prepared before timing; UTF-8 capture decoding is timed when used.
++
++Retained means a cursor per input, with one shared Pattern, not one cursor rotating
++through `reset(newInput)`. The default rounds produce 1,536 documents per JMH
++invocation. Divide the cycle time by that number for time per document. Validation
++and timing use the same protocol and cursor-lifetime factory.
++
++## Explicit invocation
++
++Choose an output directory that does not exist:
++
++```bash
++python3 safere-benchmarks/investigations/capture-demand-policy/run.py --smoke \
++  benchmark-results/capture-policy-smoke \
++  CapturePolicyBenchmark.scheme.ascii.128.rare.retained@safere-string \
++  CapturePolicyBenchmark.scheme.ascii.128.rare.retained@safere-utf8 \
++  --consumption text1 phase1
++```
++
++Use standard mode for screening or `--long` for confirmation. Smoke results check
++execution only. Add `--shared` to use four workers sharing a Pattern, split evenly
++between selected consumption and Boolean-only consumers. Their result is a worker
++average, not separate role latencies. Raw JSON, logs, and exact commands are saved.
++The shared wrapper owns timing settings and runs JMH sequentially.
++
++The equivalent wrapper invocation is:
++
++```bash
++./run-java-benchmarks.sh --smoke --fastbuild \
++  --investigation capture-demand-policy CapturePolicyBenchmark.run -- \
++  -p captureTrial=CapturePolicyBenchmark.scheme.ascii.128.rare.retained@safere-string \
++  -p consumption=text1 -foe true
++```
++
++`--investigation` requires an explicit filter and rejects `--declared`. Its corpus
++and build artifacts live under `target/investigations/capture-demand-policy/`.
++Normal builds and collections use the module-root data and exclude these classes.
++
++Run protocol tests explicitly:
++
++```bash
++mvn -pl safere-benchmarks -am -Dbenchmark.investigation=capture-demand-policy \
++  -Dexec.skip=true -Dtest=CapturePolicyProtocolTest \
++  -Dsurefire.failIfNoSpecifiedTests=false test
++```
++
++## Policies and historical evidence
++
++[Prototype patches](policies/README.md) preserve the five alternatives to the
++original shared sticky preference: DFA-first, local sticky history, a local lease,
++and two Pattern-seeded local leases. No alternative is applied by the runner or
++adopted as production policy.
++
++[Results and assessment](results/README.md) explain the completed comparisons using
++the original harness at `2c562a0a`. The no-aging ownership control also obtains the
++large rejection benefit; seeding history retains rejection costs. DFA-first trades
++large rejection gains for material successful-extraction costs, with different
++results for String and UTF-8. The evidence does not establish a better general
++default or justify selecting an aging window from these fixtures.
++
++The isolated harness is a reorganization of that protocol, with its cycle checksums
++checked against the historical declarations. Its source layout and call structure
++have changed, so the historical timings are not claimed as measurements of this
++new harness. This migration needs execution and isolation checks, not a repeat of
++the full performance study.
++
++For comparisons, use clean isolated snapshots with identical harnesses, inputs,
++wrapper settings, and JVMs. Keep new captures under ignored `benchmark-results/`.
++Broader application mixes, a single cursor with rotating input, and full
++reset/region/bounds/replacement transitions remain outside the measured evidence.
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/benchmark-data.json b/safere-benchmarks/investigations/capture-demand-policy/benchmark-data.json
+new file mode 100644
+index 00000000..c593d0a2
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/benchmark-data.json
+@@ -0,0 +1,2401 @@
++{
++  "schemaVersion": 2,
++  "configuration": {
++    "collection": {
++      "allocationWorkloadPrefixes": []
++    },
++    "investigation": {
++      "rounds": 32,
++      "usages": {
++        "text1": {
++          "mode": "text",
++          "readEvery": 1
++        },
++        "text4": {
++          "mode": "text",
++          "readEvery": 4
++        },
++        "offset1": {
++          "mode": "offset",
++          "readEvery": 1
++        },
++        "phase1": {
++          "mode": "phase",
++          "readEvery": 1
++        },
++        "boolean1": {
++          "mode": "boolean",
++          "readEvery": 1
++        }
++      },
++      "checksums": {
++        "CapturePolicyBenchmark.stack.ascii.128.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.511.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.512.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.513.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.1024.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.128.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.511.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.512.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.513.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.1024.all.newPerInvocation": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.128.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.511.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.512.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.513.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.1024.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.128.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.511.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.512.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.513.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.multibyte.1024.all.retained": {
++          "text1": -533340672,
++          "offset1": 30720,
++          "text4": -1207075840,
++          "phase1": -355559936,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.stack.ascii.128.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.511.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.512.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.513.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.1024.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.128.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.511.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.512.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.513.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.1024.rare.newPerInvocation": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.128.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.511.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.512.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.513.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.ascii.1024.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.128.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.511.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.512.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.513.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.stack.multibyte.1024.rare.retained": {
++          "text1": -1375511072,
++          "offset1": 1920,
++          "text4": -343877696,
++          "phase1": 514648416,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.128.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.511.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.512.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.513.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.1024.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.128.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.511.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.512.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.513.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.1024.all.newPerInvocation": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.128.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.511.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.512.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.513.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.1024.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.128.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.511.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.512.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.513.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.1024.all.retained": {
++          "text1": 397837312,
++          "offset1": 10752,
++          "text4": -2048023168,
++          "phase1": 1696881152,
++          "boolean1": 1536
++        },
++        "CapturePolicyBenchmark.scheme.ascii.128.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.511.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.512.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.513.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.1024.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.128.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.511.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.512.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.513.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.1024.rare.newPerInvocation": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.128.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.511.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.512.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.513.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.ascii.1024.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.128.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.511.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.512.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.513.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        },
++        "CapturePolicyBenchmark.scheme.multibyte.1024.rare.retained": {
++          "text1": -1585747904,
++          "offset1": 672,
++          "text4": 677304920,
++          "phase1": 374490528,
++          "boolean1": 96
++        }
++      },
++      "adaptive": {
++        "documentsPerPhase": 512,
++        "scheduleWidth": 64,
++        "scheduleSeed": 20261103,
++        "policies": [
++          "main",
++          "patchedMain",
++          "observe",
++          "dfa",
++          "localSticky",
++          "fraction",
++          "joint",
++          "replay",
++          "work",
++          "periodic",
++          "random"
++        ],
++        "randomSeeds": [
++          1,
++          17,
++          73
++        ],
++        "scenarios": {
++          "stack.all.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.rare.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.all.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              }
++            ]
++          },
++          "stack.all.boolean.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              }
++            ]
++          },
++          "stack.rare.fresh.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "fresh",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.all.fresh.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "fresh",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.rare.rotate.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.half.alternate.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.half.shuffle.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "shuffled",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.half.blocks.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "blocked",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.reads.phase.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.hits.phase.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.multibyte.all.multibyte.128": {
++            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
++            "hitInput": "capturePolicy.stack.multibyte.128.hit",
++            "missInput": "capturePolicy.stack.multibyte.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.multibyte.rare.multibyte.128": {
++            "reference": "CapturePolicyBenchmark.stack.multibyte.128.all.retained",
++            "hitInput": "capturePolicy.stack.multibyte.128.hit",
++            "missInput": "capturePolicy.stack.multibyte.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.all.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.rare.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.all.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 4
++              }
++            ]
++          },
++          "scheme.all.boolean.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              }
++            ]
++          },
++          "scheme.rare.fresh.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "fresh",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.all.fresh.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "fresh",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.rare.rotate.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.half.alternate.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.half.shuffle.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "shuffled",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.half.blocks.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "blocked",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.reads.phase.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 0
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.hits.phase.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "rotating",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.multibyte.all.multibyte.128": {
++            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
++            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
++            "missInput": "capturePolicy.scheme.multibyte.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.multibyte.rare.multibyte.128": {
++            "reference": "CapturePolicyBenchmark.scheme.multibyte.128.all.retained",
++            "hitInput": "capturePolicy.scheme.multibyte.128.hit",
++            "missInput": "capturePolicy.scheme.multibyte.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.boundary.ascii.511": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.511.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.511.hit",
++            "missInput": "capturePolicy.scheme.ascii.511.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.boundary.ascii.513": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.513.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.513.hit",
++            "missInput": "capturePolicy.scheme.ascii.513.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.document": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
++            "missInput": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
++            "groups": [
++              1,
++              4
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.document": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "issue481Scaling.scheme.128",
++            "missInput": "issue481Scaling.scheme.128",
++            "groups": [
++              1,
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.none.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              }
++            ]
++          },
++          "stack.rare.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              }
++            ]
++          },
++          "stack.half.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              }
++            ]
++          },
++          "stack.all.offset.ascii.128": {
++            "reference": "CapturePolicyBenchmark.stack.ascii.128.all.retained",
++            "hitInput": "capturePolicy.stack.ascii.128.hit",
++            "missInput": "capturePolicy.stack.ascii.128.miss",
++            "groups": [
++              1
++            ],
++            "consumption": "offset",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.none.text.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 0,
++                "readEvery": 1
++              }
++            ]
++          },
++          "scheme.rare.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 16,
++                "readEvery": 4
++              }
++            ]
++          },
++          "scheme.half.text4.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "text",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              },
++              {
++                "hitEvery": 2,
++                "readEvery": 4
++              }
++            ]
++          },
++          "scheme.all.offset.ascii.128": {
++            "reference": "CapturePolicyBenchmark.scheme.ascii.128.all.retained",
++            "hitInput": "capturePolicy.scheme.ascii.128.hit",
++            "missInput": "capturePolicy.scheme.ascii.128.miss",
++            "groups": [
++              2
++            ],
++            "consumption": "offset",
++            "lifetime": "retained",
++            "order": "periodic",
++            "phases": [
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              },
++              {
++                "hitEvery": 1,
++                "readEvery": 1
++              }
++            ]
++          }
++        }
++      }
++    }
++  },
++  "inputs": [
++    {
++      "id": "capturePolicy.stack.ascii.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pro\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pros\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.ascii.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é \n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:42)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.stack.multibyte.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\n    at com.example.Service.run(Service.java:xx)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pr\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary proseCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinarCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordin\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinaryCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordina\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinar\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.ascii.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordinary pCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.128.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.128.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.511.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.511.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.512.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.512.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.513.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é\nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.513.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通のCheck [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.1024.hit",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 \nCheck [this link](customScheme://<id_1>)\n"
++      }
++    },
++    {
++      "id": "capturePolicy.scheme.multibyte.1024.miss",
++      "recipe": {
++        "kind": "literal",
++        "text": "普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通の文章 é 普通Check [this link](customScheme://<id_1>(bad(nested)))\n"
++      }
++    },
++    {
++      "id": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
++      "recipe": {
++        "kind": "literal",
++        "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)"
++      },
++      "shared": true
++    },
++    {
++      "id": "issue481Scaling.scheme.{size}",
++      "axes": {
++        "size": [
++          128
++        ]
++      },
++      "recipe": {
++        "kind": "suffixToLength",
++        "prefixUnit": "ordinary prose without a custom scheme link ",
++        "suffix": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
++        "length": "{size}"
++      },
++      "shared": true
++    }
++  ],
++  "workloads": [
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.newPerInvocation",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 1,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.all.retained",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 1,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.newPerInvocation",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 1,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.stack.{encoding}.{size}.rare.retained",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
++      ],
++      "inputs": [
++        "capturePolicy.stack.{encoding}.{size}.hit",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss",
++        "capturePolicy.stack.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 1,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.newPerInvocation",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 2,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.all.retained",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.hit"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 2,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.newPerInvocation",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "newPerInvocation",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 2,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    },
++    {
++      "id": "CapturePolicyBenchmark.scheme.{encoding}.{size}.rare.retained",
++      "operation": "findSampledGroup",
++      "patterns": [
++        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
++      ],
++      "inputs": [
++        "capturePolicy.scheme.{encoding}.{size}.hit",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss",
++        "capturePolicy.scheme.{encoding}.{size}.miss"
++      ],
++      "resultConsumption": "boolean",
++      "lifecycle": {
++        "matcher": "retained",
++        "steps": []
++      },
++      "measurement": {
++        "mode": "averageTime",
++        "timingUnit": "nanoseconds",
++        "constraints": [
++          "prematerializedInput"
++        ]
++      },
++      "arguments": {
++        "mode": "capture",
++        "group": 2,
++        "count": 1
++      },
++      "axes": {
++        "encoding": [
++          "ascii",
++          "multibyte"
++        ],
++        "size": [
++          128,
++          511,
++          512,
++          513,
++          1024
++        ]
++      },
++      "expected": {
++        "type": "boolean",
++        "value": true
++      }
++    }
++  ]
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/README.md b/safere-benchmarks/investigations/capture-demand-policy/policies/README.md
+new file mode 100644
+index 00000000..9bf8a2cc
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/README.md
+@@ -0,0 +1,29 @@
++# Historical producer-selection prototypes
++
++These patches reconstruct the measured experimental `Matcher.java` implementations
++from library base `524eaa4cfe09a4f40302333c436d4c19e2d8f0e8`.
++Use a separate clean checkout for each comparison, with identical benchmark
++sources and data. Apply one patch with `git apply`; the investigation runner never
++changes library sources automatically.
++
++| Patch | Producer-history owner and behavior |
++|---|---|
++| `dfa1073.patch` | Preserve anchored preference; unanchored `find()` uses DFA first, following the captured #1073 gate. |
++| `localSticky.patch` | Own inner-capture reads set a Matcher-local sticky preference; no Pattern seeding or aging. |
++| `local4.patch` | Own reads renew a local lease to four; retiring a successful unused result decrements it once. |
++| `hybrid4.patch` | Seed once from Pattern at the first producer decision, then use a local lease of four. |
++| `hybrid16.patch` | Same seeding and aging with a lease of sixteen. |
++
++Every variant preserves shared Pattern demand recording for already-required
++exact fallback passes. Operation-scoped replacement requirements and result capture
++availability remain separate. Failed searches do not age a successful-result
++lease; consequently a seeded rejection-only cursor can retain its preference.
++Local history survives reset and input/region changes and starts again on pattern
++change. Reads renew it immediately. The experiment does not choose a new production
++threshold or change the existing 512-native-unit eligibility limit or search budget.
++
++These are investigation prototypes, not production implementations with complete
++transition coverage. The historical data exercises `find()`, consumption changes,
++fresh/retained cursors, and shared Patterns. Replacements, delayed snapshots, and
++all region/bounds/pattern transitions were not measured for every prototype. The
++separate speculative-window retry/backoff work in #966 is untouched.
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/dfa1073.patch b/safere-benchmarks/investigations/capture-demand-policy/policies/dfa1073.patch
+new file mode 100644
+index 00000000..4604f783
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/dfa1073.patch
+@@ -0,0 +1,60 @@
++--- a/safere/src/main/java/org/safere/Matcher.java
+++++ b/safere/src/main/java/org/safere/Matcher.java
++@@ -222,11 +222,6 @@
++     if (accumulator != null) {
++       accumulator.replaceBoundary(strategy);
++     }
++-  }
++-
++-  private MatchStrategy diagnosticBoundaryStrategy() {
++-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
++-    return accumulator == null ? MatchStrategy.NONE : accumulator.boundaryStrategy();
++   }
++ 
++   private void diagnosticCapture(MatchStrategy strategy) {
++@@ -1989,39 +1984,12 @@
++     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
++     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
++ 
++-    // Once callers have demonstrated that they consume inner captures, use the capture-aware
++-    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
++-    // replaying the same range through BitState on every successful find().
++-    //
++-    // When a start accelerator preselected a candidate, the attempt is limited to that one start.
++-    // BitState walks candidate starts one code point at a time with no literal acceleration of
++-    // its own, so letting it cover the rest of the input costs O(text x prog) scalar work where
++-    // the forward DFA path costs O(text) with in-loop start-state acceleration. Speculating on a
++-    // single accelerated start keeps the win on inputs where the accelerated start is the match,
++-    // and caps the loss elsewhere at one failed start before the DFA path below takes over.
++-    if (shouldPreferCaptureEngine(prog, scanner)) {
++-      int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
++-      MatchStrategy boundaryBeforeCaptureSearch = diagnosticBoundaryStrategy();
++-      int[] result =
++-          searchWithBitStateOrNfa(
++-              prog,
++-              scanner,
++-              effectiveStart,
++-              captureSearchLimit,
++-              scanner.length(),
++-              false,
++-              false,
++-              false,
++-              prog.numCaptures(),
++-              false,
++-              this.groups);
++-      if (result != null || captureSearchLimit >= scanner.length()) {
++-        return applyFullMatchResult(result);
++-      }
++-      // Only starts up to the accelerated candidate were tried, so this is not a decision that no
++-      // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
++-      // path below perform the complete search.
++-      diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
+++    // Preserve anchored capture preference; use DFA first for unanchored find.
+++    if (prog.anchorStart() && shouldPreferCaptureEngine(prog, scanner)) {
+++      int[] result = searchWithBitStateOrNfa(
+++          prog, scanner, effectiveStart, scanner.length(), scanner.length(),
+++          false, false, false, prog.numCaptures(), false, this.groups);
+++      return applyFullMatchResult(result);
++     }
++ 
++     // Fast path: use cached DFA to check if a match exists in the remaining text.
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid16.patch b/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid16.patch
+new file mode 100644
+index 00000000..00f24e26
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid16.patch
+@@ -0,0 +1,101 @@
++--- a/safere/src/main/java/org/safere/Matcher.java
+++++ b/safere/src/main/java/org/safere/Matcher.java
++@@ -523,6 +523,8 @@
++ 
++   @SuppressWarnings("ReferenceEquality")
++   private boolean applyFullMatchResult(int[] resultGroups) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = resultGroups != null;
++     if (hasMatch && resultGroups != this.groups) {
++@@ -534,6 +536,8 @@
++   }
++ 
++   private boolean applyGroupZeroMatchResult(int start, int end) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     groups[0] = start;
++     groups[1] = end;
++@@ -552,6 +556,8 @@
++ 
++   private boolean applyDeferredMatchResult(
++       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     Arrays.fill(groups, -1);
++     groups[0] = start;
++@@ -567,6 +573,7 @@
++   }
++ 
++   private void clearCurrentResult() {
+++    retireExperimentalCaptureResult();
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = false;
++     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
++@@ -693,12 +700,29 @@
++     return parentPattern.enginePathOptions();
++   }
++ 
+++  private int experimentalCaptureLease = -1;
+++  private boolean experimentalResultRead;
+++  private boolean experimentalResultRetired;
+++
+++  private void retireExperimentalCaptureResult() {
+++    if (!experimentalResultRetired && hasMatch && !experimentalResultRead
+++        && experimentalCaptureLease > 0) {
+++      experimentalCaptureLease--;
+++    }
+++    experimentalResultRetired = true;
+++  }
+++
++   private void recordInnerCaptureDemand() {
+++    experimentalCaptureLease = 16;
+++    experimentalResultRead = true;
++     parentPattern.recordInnerCaptureAccess();
++   }
++ 
++   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
++-    return parentPattern.innerCapturesObserved()
+++    if (experimentalCaptureLease < 0) {
+++      experimentalCaptureLease = parentPattern.innerCapturesObserved() ? 16 : 0;
+++    }
+++    return experimentalCaptureLease > 0
++         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
++         && enginePathOptions().bitState()
++         && !fullTextRegionContext
++@@ -1135,6 +1159,7 @@
++   }
++ 
++   private boolean matchesImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1385,6 +1410,7 @@
++   }
++ 
++   private boolean lookingAtImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1507,6 +1533,7 @@
++   }
++ 
++   private boolean findImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     rememberPreviousMatchEnd();
++     if (findExhaustedAfterTerminalEmptyMatch) {
++@@ -4382,6 +4409,8 @@
++       this.groups = new int[2 * newPattern.prog().numCaptures()];
++       clearCurrentResult();
++     }
+++    experimentalCaptureLease = -1;
+++    experimentalResultRetired = true;
++     invalidatePatternCaches();
++     replacementNeedsCaptures = false;
++     if (preservedGroupZero) {
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid4.patch b/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid4.patch
+new file mode 100644
+index 00000000..3e936892
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/hybrid4.patch
+@@ -0,0 +1,101 @@
++--- a/safere/src/main/java/org/safere/Matcher.java
+++++ b/safere/src/main/java/org/safere/Matcher.java
++@@ -523,6 +523,8 @@
++ 
++   @SuppressWarnings("ReferenceEquality")
++   private boolean applyFullMatchResult(int[] resultGroups) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = resultGroups != null;
++     if (hasMatch && resultGroups != this.groups) {
++@@ -534,6 +536,8 @@
++   }
++ 
++   private boolean applyGroupZeroMatchResult(int start, int end) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     groups[0] = start;
++     groups[1] = end;
++@@ -552,6 +556,8 @@
++ 
++   private boolean applyDeferredMatchResult(
++       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     Arrays.fill(groups, -1);
++     groups[0] = start;
++@@ -567,6 +573,7 @@
++   }
++ 
++   private void clearCurrentResult() {
+++    retireExperimentalCaptureResult();
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = false;
++     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
++@@ -693,12 +700,29 @@
++     return parentPattern.enginePathOptions();
++   }
++ 
+++  private int experimentalCaptureLease = -1;
+++  private boolean experimentalResultRead;
+++  private boolean experimentalResultRetired;
+++
+++  private void retireExperimentalCaptureResult() {
+++    if (!experimentalResultRetired && hasMatch && !experimentalResultRead
+++        && experimentalCaptureLease > 0) {
+++      experimentalCaptureLease--;
+++    }
+++    experimentalResultRetired = true;
+++  }
+++
++   private void recordInnerCaptureDemand() {
+++    experimentalCaptureLease = 4;
+++    experimentalResultRead = true;
++     parentPattern.recordInnerCaptureAccess();
++   }
++ 
++   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
++-    return parentPattern.innerCapturesObserved()
+++    if (experimentalCaptureLease < 0) {
+++      experimentalCaptureLease = parentPattern.innerCapturesObserved() ? 4 : 0;
+++    }
+++    return experimentalCaptureLease > 0
++         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
++         && enginePathOptions().bitState()
++         && !fullTextRegionContext
++@@ -1135,6 +1159,7 @@
++   }
++ 
++   private boolean matchesImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1385,6 +1410,7 @@
++   }
++ 
++   private boolean lookingAtImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1507,6 +1533,7 @@
++   }
++ 
++   private boolean findImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     rememberPreviousMatchEnd();
++     if (findExhaustedAfterTerminalEmptyMatch) {
++@@ -4382,6 +4409,8 @@
++       this.groups = new int[2 * newPattern.prog().numCaptures()];
++       clearCurrentResult();
++     }
+++    experimentalCaptureLease = -1;
+++    experimentalResultRetired = true;
++     invalidatePatternCaches();
++     replacementNeedsCaptures = false;
++     if (preservedGroupZero) {
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/local4.patch b/safere-benchmarks/investigations/capture-demand-policy/policies/local4.patch
+new file mode 100644
+index 00000000..d7c25a0a
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/local4.patch
+@@ -0,0 +1,101 @@
++--- a/safere/src/main/java/org/safere/Matcher.java
+++++ b/safere/src/main/java/org/safere/Matcher.java
++@@ -523,6 +523,8 @@
++ 
++   @SuppressWarnings("ReferenceEquality")
++   private boolean applyFullMatchResult(int[] resultGroups) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = resultGroups != null;
++     if (hasMatch && resultGroups != this.groups) {
++@@ -534,6 +536,8 @@
++   }
++ 
++   private boolean applyGroupZeroMatchResult(int start, int end) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     groups[0] = start;
++     groups[1] = end;
++@@ -552,6 +556,8 @@
++ 
++   private boolean applyDeferredMatchResult(
++       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
+++    experimentalResultRead = false;
+++    experimentalResultRetired = false;
++     findExhaustedAfterTerminalEmptyMatch = false;
++     Arrays.fill(groups, -1);
++     groups[0] = start;
++@@ -567,6 +573,7 @@
++   }
++ 
++   private void clearCurrentResult() {
+++    retireExperimentalCaptureResult();
++     findExhaustedAfterTerminalEmptyMatch = false;
++     hasMatch = false;
++     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
++@@ -693,12 +700,29 @@
++     return parentPattern.enginePathOptions();
++   }
++ 
+++  private int experimentalCaptureLease = 0;
+++  private boolean experimentalResultRead;
+++  private boolean experimentalResultRetired;
+++
+++  private void retireExperimentalCaptureResult() {
+++    if (!experimentalResultRetired && hasMatch && !experimentalResultRead
+++        && experimentalCaptureLease > 0) {
+++      experimentalCaptureLease--;
+++    }
+++    experimentalResultRetired = true;
+++  }
+++
++   private void recordInnerCaptureDemand() {
+++    experimentalCaptureLease = 4;
+++    experimentalResultRead = true;
++     parentPattern.recordInnerCaptureAccess();
++   }
++ 
++   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
++-    return parentPattern.innerCapturesObserved()
+++    if (experimentalCaptureLease < 0) {
+++      experimentalCaptureLease = parentPattern.innerCapturesObserved() ? 4 : 0;
+++    }
+++    return experimentalCaptureLease > 0
++         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
++         && enginePathOptions().bitState()
++         && !fullTextRegionContext
++@@ -1135,6 +1159,7 @@
++   }
++ 
++   private boolean matchesImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1385,6 +1410,7 @@
++   }
++ 
++   private boolean lookingAtImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     prepareAnchoredAttempt();
++ 
++@@ -1507,6 +1533,7 @@
++   }
++ 
++   private boolean findImpl() {
+++    retireExperimentalCaptureResult();
++     modCount++;
++     rememberPreviousMatchEnd();
++     if (findExhaustedAfterTerminalEmptyMatch) {
++@@ -4382,6 +4409,8 @@
++       this.groups = new int[2 * newPattern.prog().numCaptures()];
++       clearCurrentResult();
++     }
+++    experimentalCaptureLease = 0;
+++    experimentalResultRetired = true;
++     invalidatePatternCaches();
++     replacementNeedsCaptures = false;
++     if (preservedGroupZero) {
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/policies/localSticky.patch b/safere-benchmarks/investigations/capture-demand-policy/policies/localSticky.patch
+new file mode 100644
+index 00000000..4b4c99da
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/policies/localSticky.patch
+@@ -0,0 +1,27 @@
++--- a/safere/src/main/java/org/safere/Matcher.java
+++++ b/safere/src/main/java/org/safere/Matcher.java
++@@ -693,12 +693,15 @@
++     return parentPattern.enginePathOptions();
++   }
++ 
+++  private boolean experimentalLocalCaptureDemand;
+++
++   private void recordInnerCaptureDemand() {
+++    experimentalLocalCaptureDemand = true;
++     parentPattern.recordInnerCaptureAccess();
++   }
++ 
++   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
++-    return parentPattern.innerCapturesObserved()
+++    return experimentalLocalCaptureDemand
++         && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
++         && enginePathOptions().bitState()
++         && !fullTextRegionContext
++@@ -4382,6 +4385,7 @@
++       this.groups = new int[2 * newPattern.prog().numCaptures()];
++       clearCurrentResult();
++     }
+++    experimentalLocalCaptureDemand = false;
++     invalidatePatternCaches();
++     replacementNeedsCaptures = false;
++     if (preservedGroupZero) {
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/run.py b/safere-benchmarks/investigations/capture-demand-policy/run.py
+new file mode 100644
+index 00000000..c3952541
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/run.py
+@@ -0,0 +1,56 @@
++#!/usr/bin/env python3
++# Copyright (c) 2026 Eddie Aftandilian. Licensed under the BSD 3-Clause License.
++# See LICENSE file in the project root for details.
++
++"""Capture an explicitly selected capture-demand investigation into a fresh directory."""
++
++import argparse
++import json
++from pathlib import Path
++import subprocess
++
++
++def main():
++    study = Path(__file__).resolve().parent
++    definition = json.loads((study / "benchmark-data.json").read_text())
++    usages = definition["configuration"]["investigation"]["usages"]
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("output", type=Path)
++    parser.add_argument("trials", nargs="+")
++    parser.add_argument("--consumption", nargs="+", choices=usages, default=["text1"])
++    parser.add_argument("--shared", action="store_true", help="Use four threads split between reader roles")
++    mode = parser.add_mutually_exclusive_group()
++    mode.add_argument("--long", action="store_true")
++    mode.add_argument("--smoke", action="store_true", help="Execution check, not performance evidence")
++    args = parser.parse_args()
++    if len(set(args.trials)) != len(args.trials) or len(set(args.consumption)) != len(args.consumption):
++        parser.error("Select each trial and consumption mode once")
++    root = study.parents[2]
++    output = args.output.resolve()
++    output.mkdir(parents=True, exist_ok=False)
++    benchmark = "CapturePolicySharedBenchmark" if args.shared else "CapturePolicyBenchmark"
++    command = [str(root / "run-java-benchmarks.sh")]
++    if args.long:
++        command.append("--long")
++    elif args.smoke:
++        command.append("--smoke")
++    command += ["--fastbuild", "--investigation", "capture-demand-policy", benchmark + ".run", "--",
++                "-p", "captureTrial=" + ",".join(args.trials),
++                "-p", "consumption=" + ",".join(args.consumption),
++                "-t", "4" if args.shared else "1", "-foe", "true", "-rf", "json",
++                "-rff", str(output / "results.json")]
++    (output / "commands.json").write_text(json.dumps([command], indent=2) + "\n")
++    with (output / "run.log").open("w") as log:
++        subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True)
++    results = json.loads((output / "results.json").read_text())
++    identities = {(row["params"]["captureTrial"], row["params"]["consumption"]) for row in results}
++    expected = {(trial, usage) for trial in args.trials for usage in args.consumption}
++    if identities != expected or len(results) != len(expected):
++        raise RuntimeError("JMH result membership differs from the explicit selection")
++    if any(row["forks"] != (0 if args.smoke else 2) for row in results):
++        raise RuntimeError("Unexpected fork mode")
++    print(f"Captured investigation under {output}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureBenchmark.java
+new file mode 100644
+index 00000000..67e4884f
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureBenchmark.java
+@@ -0,0 +1,78 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.util.concurrent.TimeUnit;
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++import org.openjdk.jmh.annotations.OutputTimeUnit;
++import org.openjdk.jmh.annotations.Param;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++
++/** Complete uninstrumented adaptation cycles; requires explicit investigation selection. */
++@BenchmarkMode(Mode.AverageTime)
++@OutputTimeUnit(TimeUnit.NANOSECONDS)
++@State(Scope.Thread)
++public class AdaptiveCaptureBenchmark {
++  /** Explicit investigation-owned scenario. */
++  @Param({})
++  public String scenario;
++
++  /** Native String or UTF-8 execution. */
++  @Param({"string", "utf8"})
++  public String representation;
++
++  /** Experimental library policy selected before Matcher initialization in each fresh fork. */
++  @Param({})
++  public String policy;
++
++  /** Reproducible Matcher-local exploration seed. */
++  @Param({"1"})
++  public long seed;
++
++  protected AdaptiveCaptureCase.Task task;
++
++  /** Validates against a separate JDK oracle without teaching the measurement Pattern. */
++  @Setup
++  public void setup() {
++    configure(policy, seed);
++    AdaptiveCaptureCase selected = AdaptiveCaptureCase.load(scenario, representation);
++    selected.validate();
++    verify(policy, seed);
++    task = selected.task(false);
++  }
++
++  static void configure(String policy, long seed) {
++    System.setProperty(
++        "safere.experimental.capturePolicy", policy.equals("patchedMain") ? "main" : policy);
++    System.setProperty("safere.experimental.captureSeed", Long.toString(seed));
++  }
++
++  static void verify(String policy, long seed) {
++    String actual = System.getProperty("safere.experimental.captureActualMode");
++    if (actual == null
++        && (policy.equals("main")
++            || policy.equals(System.getProperty("safere.experimental.bareControl")))) {
++      return;
++    }
++    String expected = policy.equals("patchedMain") ? "main" : policy;
++    if (!expected.equals(actual)
++        || !Long.toString(seed)
++            .equals(System.getProperty("safere.experimental.captureActualSeed"))) {
++      throw new IllegalStateException(
++          "Experimental policy/seed initialized before benchmark setup");
++    }
++  }
++
++  /** Scans the declared phases and consumes capture checksums. */
++  @Benchmark
++  public long run() {
++    return task.run(null);
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureCase.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureCase.java
+new file mode 100644
+index 00000000..28c38732
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureCase.java
+@@ -0,0 +1,353 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Portions derived from RE2/J (https://github.com/google/re2j),
++// Copyright (c) 2009 The Go Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import com.google.gson.JsonArray;
++import com.google.gson.JsonObject;
++import java.nio.charset.StandardCharsets;
++import java.util.Random;
++import java.util.function.Function;
++import org.safere.Matcher;
++import org.safere.Pattern;
++import org.safere.Utf8Input;
++import org.safere.Utf8Matcher;
++
++/** Prepared schedules and independent capture oracle for adaptive-policy experiments. */
++final class AdaptiveCaptureCase {
++  private final String regex;
++  private final CapturePolicyProtocol.Input[] inputs;
++  private final int[] groups;
++  private final int[] readEvery;
++  private final int[][] order;
++  private final String lifetime;
++  private final boolean utf8;
++  private final boolean offsets;
++
++  AdaptiveCaptureCase(
++      JsonObject config,
++      String scenario,
++      String representation,
++      Function<String, CrossEngineBenchmarkPlan.Trial> trials,
++      Function<String, CapturePolicyProtocol.Input> source) {
++    JsonObject definition = config.getAsJsonObject("scenarios").getAsJsonObject(scenario);
++    if (definition == null || !(representation.equals("string") || representation.equals("utf8"))) {
++      throw new IllegalArgumentException("Unknown adaptive scenario or representation");
++    }
++    utf8 = representation.equals("utf8");
++    String trial = definition.get("reference").getAsString() + "@safere-" + representation;
++    regex = trials.apply(trial).workload().patterns().getFirst();
++    groups =
++        definition.getAsJsonArray("groups").asList().stream().mapToInt(v -> v.getAsInt()).toArray();
++    inputs = new CapturePolicyProtocol.Input[2];
++    String[] keys = {
++      definition.get("hitInput").getAsString(), definition.get("missInput").getAsString()
++    };
++    for (int i = 0; i < inputs.length; i++) {
++      inputs[i] = source.apply(keys[i]);
++    }
++    offsets = definition.get("consumption").getAsString().equals("offset");
++    lifetime = definition.get("lifetime").getAsString();
++    JsonArray phases = definition.getAsJsonArray("phases");
++    if (phases.size() != 3) {
++      throw new IllegalArgumentException("Expected exactly three adaptive phases");
++    }
++    readEvery = new int[phases.size()];
++    order = new int[phases.size()][];
++    for (int phase = 0; phase < phases.size(); phase++) {
++      JsonObject phaseConfig = phases.get(phase).getAsJsonObject();
++      readEvery[phase] = phaseConfig.get("readEvery").getAsInt();
++      if (readEvery[phase] < 0) {
++        throw new IllegalArgumentException("Capture-read period must be nonnegative");
++      }
++      order[phase] =
++          schedule(
++              config.get("documentsPerPhase").getAsInt(),
++              phaseConfig.get("hitEvery").getAsInt(),
++              definition.get("order").getAsString(),
++              config.get("scheduleWidth").getAsInt(),
++              config.get("scheduleSeed").getAsLong() + phase);
++    }
++  }
++
++  static AdaptiveCaptureCase load(String scenario, String representation) {
++    BenchmarkData data = BenchmarkData.get();
++    return new AdaptiveCaptureCase(
++        data.investigationConfiguration().getAsJsonObject("adaptive"),
++        scenario,
++        representation,
++        CrossEngineBenchmarkPlan.load()::resolve,
++        key -> new CapturePolicyProtocol.Input(data.getInputString(key), data.getInputBytes(key)));
++  }
++
++  static int[] schedule(int count, int hitEvery, String ordering, int width, long seed) {
++    if (count < 1
++        || hitEvery < 0
++        || width < 1
++        || count % width != 0
++        || (hitEvery > 0 && width % hitEvery != 0)) {
++      throw new IllegalArgumentException("Invalid adaptive document schedule");
++    }
++    int[] slots = new int[count];
++    for (int i = 0; i < count; i++) {
++      boolean hit =
++          hitEvery != 0
++              && (ordering.equals("blocked") ? i % width < width / hitEvery : i % hitEvery == 0);
++      slots[i] = hit ? 0 : 1;
++    }
++    if (ordering.equals("shuffled")) {
++      Random random = new Random(seed);
++      for (int i = slots.length - 1; i > 0; i--) {
++        int other = random.nextInt(i + 1);
++        int swap = slots[i];
++        slots[i] = slots[other];
++        slots[other] = swap;
++      }
++    } else if (!ordering.equals("periodic") && !ordering.equals("blocked")) {
++      throw new IllegalArgumentException("Unknown document ordering");
++    }
++    return slots;
++  }
++
++  Task task(boolean booleanOnly) {
++    return new Task(Pattern.compile(regex), booleanOnly);
++  }
++
++  Shared shared() {
++    return new Shared(Pattern.compile(regex));
++  }
++
++  final class Shared {
++    private final Pattern pattern;
++
++    private Shared(Pattern pattern) {
++      this.pattern = pattern;
++    }
++
++    Task task(boolean booleanOnly) {
++      return new Task(pattern, booleanOnly);
++    }
++  }
++
++  void validate() {
++    long expected = oracle(false);
++    Task single = task(false);
++    long sampledChecksum = 0;
++    for (int[] phase : order) {
++      for (int i = 0; i < phase.length; i++) {
++        sampledChecksum += single.runOne();
++      }
++    }
++    if (task(false).run(null) != expected
++        || sampledChecksum != expected
++        || task(true).run(null) != oracle(true)) {
++      throw new IllegalStateException("Adaptive capture protocol differs from its JDK oracle");
++    }
++  }
++
++  long oracle(boolean booleanOnly) {
++    java.util.regex.Pattern compiled = java.util.regex.Pattern.compile(regex);
++    long sum = 0;
++    for (int phase = 0; phase < order.length; phase++) {
++      int hits = 0;
++      for (int slot : order[phase]) {
++        java.util.regex.Matcher matcher = compiled.matcher(inputs[slot].text);
++        while (matcher.find()) {
++          sum++;
++          if (!booleanOnly && readEvery[phase] != 0 && hits % readEvery[phase] == 0) {
++            for (int group : groups) {
++              String value = matcher.group(group);
++              sum +=
++                  value == null
++                      ? 0
++                      : offsets
++                          ? (utf8 ? value.getBytes(StandardCharsets.UTF_8).length : value.length())
++                          : value.hashCode();
++            }
++          }
++          hits++;
++        }
++      }
++    }
++    return sum;
++  }
++
++  final class Task {
++    private final Pattern pattern;
++    private final boolean booleanOnly;
++    private final Cursor[] retained;
++    private final Cursor rotating;
++    private int stepPhase;
++    private int stepDocument;
++    private int stepHits;
++
++    private Task(Pattern pattern, boolean booleanOnly) {
++      this.pattern = pattern;
++      this.booleanOnly = booleanOnly;
++      retained =
++          lifetime.equals("retained") ? new Cursor[] {cursor(0, false), cursor(1, false)} : null;
++      rotating = lifetime.equals("rotating") ? cursor(0, true) : null;
++      if (retained == null && rotating == null && !lifetime.equals("fresh")) {
++        throw new IllegalArgumentException("Unknown adaptive cursor lifetime");
++      }
++    }
++
++    long run(AdaptivePhaseCounters counters) {
++      long sum = 0;
++      for (int phase = 0; phase < order.length; phase++) {
++        long started = counters == null ? 0 : System.nanoTime();
++        int hits = 0;
++        for (int slot : order[phase]) {
++          Cursor matcher =
++              retained != null ? retained[slot] : rotating != null ? rotating : cursor(slot, false);
++          if (retained != null || rotating != null) {
++            matcher.reset(slot);
++          }
++          while (matcher.find()) {
++            sum++;
++            if (!booleanOnly && readEvery[phase] != 0 && hits % readEvery[phase] == 0) {
++              for (int group : groups) {
++                sum +=
++                    offsets
++                        ? matcher.end(group) - matcher.start(group)
++                        : hash(matcher.group(group));
++              }
++            }
++            hits++;
++          }
++        }
++        if (counters != null) {
++          counters.record(phase, System.nanoTime() - started, order[phase].length);
++        }
++      }
++      return sum;
++    }
++
++    long runOne() {
++      int slot = order[stepPhase][stepDocument];
++      Cursor matcher =
++          retained != null ? retained[slot] : rotating != null ? rotating : cursor(slot, false);
++      if (retained != null || rotating != null) {
++        matcher.reset(slot);
++      }
++      long sum = 0;
++      while (matcher.find()) {
++        sum++;
++        if (!booleanOnly && readEvery[stepPhase] != 0 && stepHits % readEvery[stepPhase] == 0) {
++          for (int group : groups) {
++            sum += offsets ? matcher.end(group) - matcher.start(group) : hash(matcher.group(group));
++          }
++        }
++        stepHits++;
++      }
++      stepDocument++;
++      if (stepDocument == order[stepPhase].length) {
++        stepDocument = 0;
++        stepHits = 0;
++        stepPhase = (stepPhase + 1) % order.length;
++      }
++      return sum;
++    }
++
++    private Cursor cursor(int slot, boolean rotate) {
++      if (!utf8) {
++        Matcher matcher = pattern.matcher(inputs[slot].text);
++        return new Cursor() {
++          @Override
++          public void reset(int next) {
++            if (rotate) {
++              matcher.reset(inputs[next].text);
++            } else {
++              matcher.reset();
++            }
++          }
++
++          @Override
++          public boolean find() {
++            return matcher.find();
++          }
++
++          @Override
++          public int start(int group) {
++            return matcher.start(group);
++          }
++
++          @Override
++          public int end(int group) {
++            return matcher.end(group);
++          }
++
++          @Override
++          public String group(int group) {
++            return matcher.group(group);
++          }
++        };
++      }
++      byte[] bytes;
++      int split;
++      if (rotate) {
++        split = inputs[0].bytes.length;
++        bytes = new byte[split + inputs[1].bytes.length];
++        System.arraycopy(inputs[0].bytes, 0, bytes, 0, split);
++        System.arraycopy(inputs[1].bytes, 0, bytes, split, inputs[1].bytes.length);
++      } else {
++        bytes = inputs[slot].bytes;
++        split = 0;
++      }
++      Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(bytes));
++      return new Cursor() {
++        @Override
++        public void reset(int next) {
++          if (rotate) {
++            matcher.region(next == 0 ? 0 : split, next == 0 ? split : bytes.length);
++          } else {
++            matcher.reset();
++          }
++        }
++
++        @Override
++        public boolean find() {
++          return matcher.find();
++        }
++
++        @Override
++        public int start(int group) {
++          return matcher.start(group);
++        }
++
++        @Override
++        public int end(int group) {
++          return matcher.end(group);
++        }
++
++        @Override
++        public String group(int group) {
++          int begin = matcher.start(group);
++          return begin < 0
++              ? null
++              : new String(bytes, begin, matcher.end(group) - begin, StandardCharsets.UTF_8);
++        }
++      };
++    }
++  }
++
++  private static int hash(String value) {
++    return value == null ? 0 : value.hashCode();
++  }
++
++  private interface Cursor {
++    void reset(int slot);
++
++    boolean find();
++
++    int start(int group);
++
++    int end(int group);
++
++    String group(int group);
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureLatencyBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureLatencyBenchmark.java
+new file mode 100644
+index 00000000..c2a1ee83
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureLatencyBenchmark.java
+@@ -0,0 +1,20 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++
++/** Samples individual document scans, including their public reset/region and capture reads. */
++@BenchmarkMode(Mode.SampleTime)
++public class AdaptiveCaptureLatencyBenchmark extends AdaptiveCaptureBenchmark {
++  /** Advances one document in the same declared phased schedule. */
++  @Benchmark
++  public long latency() {
++    return task.runOne();
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCapturePhasesBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCapturePhasesBenchmark.java
+new file mode 100644
+index 00000000..8480903e
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCapturePhasesBenchmark.java
+@@ -0,0 +1,17 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import org.openjdk.jmh.annotations.Benchmark;
++
++/** Separately labeled phase diagnostics; its clocks are excluded from ordinary cycle timing. */
++public class AdaptiveCapturePhasesBenchmark extends AdaptiveCaptureBenchmark {
++  /** Records phase time and document counts for diagnosis of adaptation and recovery. */
++  @Benchmark
++  public long phases(AdaptivePhaseCounters counters) {
++    return task.run(counters);
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureSharedBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureSharedBenchmark.java
+new file mode 100644
+index 00000000..b085b1d2
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureSharedBenchmark.java
+@@ -0,0 +1,62 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.util.concurrent.TimeUnit;
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++import org.openjdk.jmh.annotations.OutputTimeUnit;
++import org.openjdk.jmh.annotations.Param;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++import org.openjdk.jmh.infra.ThreadParams;
++
++/** Four workers share a Pattern while retaining private cursors and adaptation state. */
++@BenchmarkMode(Mode.AverageTime)
++@OutputTimeUnit(TimeUnit.NANOSECONDS)
++@State(Scope.Benchmark)
++public class AdaptiveCaptureSharedBenchmark {
++  /** Explicit investigation-owned scenario. */
++  @Param({})
++  public String scenario;
++
++  /** Native String or UTF-8 execution. */
++  @Param({"string", "utf8"})
++  public String representation;
++
++  /** Experimental library policy selected before Matcher initialization in each fresh fork. */
++  @Param({})
++  public String policy;
++
++  /** Reproducible Matcher-local exploration seed. */
++  @Param({"1"})
++  public long seed;
++
++  private ThreadLocal<Tasks> tasks;
++
++  /** Prepares one shared Pattern and independently validates both consumption roles. */
++  @Setup
++  public void setup() {
++    AdaptiveCaptureBenchmark.configure(policy, seed);
++    AdaptiveCaptureCase selected = AdaptiveCaptureCase.load(scenario, representation);
++    selected.validate();
++    AdaptiveCaptureBenchmark.verify(policy, seed);
++    AdaptiveCaptureCase.Shared shared = selected.shared();
++    tasks = ThreadLocal.withInitial(() -> new Tasks(shared.task(false), shared.task(true)));
++  }
++
++  /** Even workers read captures; odd workers consume only match existence. */
++  @Benchmark
++  public long run(ThreadParams thread) {
++    Tasks local = tasks.get();
++    return ((thread.getThreadIndex() & 1) == 0 ? local.reader() : local.booleanConsumer())
++        .run(null);
++  }
++
++  private record Tasks(AdaptiveCaptureCase.Task reader, AdaptiveCaptureCase.Task booleanConsumer) {}
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptivePhaseCounters.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptivePhaseCounters.java
+new file mode 100644
+index 00000000..49083ace
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptivePhaseCounters.java
+@@ -0,0 +1,53 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import org.openjdk.jmh.annotations.AuxCounters;
++import org.openjdk.jmh.annotations.Level;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++
++/** Phase-diagnostic totals; divide each phase's nanos counter by its documents counter. */
++@AuxCounters(AuxCounters.Type.EVENTS)
++@State(Scope.Thread)
++public class AdaptivePhaseCounters {
++  public long phase0Nanos;
++  public long phase1Nanos;
++  public long phase2Nanos;
++  public long phase0Documents;
++  public long phase1Documents;
++  public long phase2Documents;
++
++  /** Starts fresh totals for each JMH iteration. */
++  @Setup(Level.Iteration)
++  public void reset() {
++    phase0Nanos = 0;
++    phase1Nanos = 0;
++    phase2Nanos = 0;
++    phase0Documents = 0;
++    phase1Documents = 0;
++    phase2Documents = 0;
++  }
++
++  void record(int phase, long nanos, int documents) {
++    switch (phase) {
++      case 0 -> {
++        phase0Nanos += nanos;
++        phase0Documents += documents;
++      }
++      case 1 -> {
++        phase1Nanos += nanos;
++        phase1Documents += documents;
++      }
++      case 2 -> {
++        phase2Nanos += nanos;
++        phase2Documents += documents;
++      }
++      default -> throw new IllegalArgumentException("Expected three adaptation phases");
++    }
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyBenchmark.java
+new file mode 100644
+index 00000000..f68090b9
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyBenchmark.java
+@@ -0,0 +1,46 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.util.concurrent.TimeUnit;
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++import org.openjdk.jmh.annotations.OutputTimeUnit;
++import org.openjdk.jmh.annotations.Param;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++
++/** Explicitly selected capture-history investigation, excluded from the release corpus. */
++@BenchmarkMode(Mode.AverageTime)
++@OutputTimeUnit(TimeUnit.NANOSECONDS)
++@State(Scope.Thread)
++public class CapturePolicyBenchmark {
++  /** Materialized workload and String/UTF-8 representation. */
++  @Param({})
++  public String captureTrial;
++
++  /** Consumption protocol declared in the investigation configuration. */
++  @Param({})
++  public String consumption;
++
++  private CapturePolicyProtocol.Task task;
++
++  /** Uses the declared cursor lifetime for both the oracle and measurement. */
++  @Setup
++  public void setup() {
++    CapturePolicyCase selected = CapturePolicyCase.load(captureTrial, consumption);
++    selected.validate();
++    task = selected.task();
++  }
++
++  /** Runs one complete capture/Boolean/capture cycle and consumes its checksum. */
++  @Benchmark
++  public int run() {
++    return task.run();
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyCase.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyCase.java
+new file mode 100644
+index 00000000..24b07716
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyCase.java
+@@ -0,0 +1,76 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import com.google.gson.JsonObject;
++import java.util.List;
++import java.util.function.Function;
++
++/** Joins materialized inputs and investigation-owned protocol settings. */
++final class CapturePolicyCase {
++  private final CapturePolicyProtocol.Compiled pattern;
++  private final List<CapturePolicyProtocol.Input> inputs;
++  private final int group;
++  private final boolean retained;
++  private final int rounds;
++  private final CapturePolicyProtocol.Usage usage;
++  private final int expected;
++
++  CapturePolicyCase(
++      CrossEngineBenchmarkPlan.Trial trial,
++      Function<String, CapturePolicyProtocol.Input> inputSource,
++      JsonObject configuration,
++      String consumption) {
++    CrossEngineWorkload workload = trial.workload();
++    if (workload.operation() != BenchmarkOperation.FIND_SAMPLED_GROUP) {
++      throw new IllegalArgumentException("Expected a find-and-capture-participation workload");
++    }
++    JsonObject declared = configuration.getAsJsonObject("usages");
++    if (!declared.has(consumption)) {
++      throw new IllegalArgumentException("Unknown capture usage: " + consumption);
++    }
++    JsonObject settings = declared.getAsJsonObject(consumption);
++    usage =
++        new CapturePolicyProtocol.Usage(
++            settings.get("mode").getAsString(), settings.get("readEvery").getAsInt());
++    rounds = configuration.get("rounds").getAsInt();
++    group = workload.groups()[0];
++    retained = workload.lifecycle().matcher() == DeclarativeBenchmarkPlan.MatcherReuse.RETAINED;
++    inputs = workload.inputKeys().stream().map(inputSource).toList();
++    pattern = CapturePolicyProtocol.compile(workload.patterns().getFirst(), trial.variant());
++    expected =
++        configuration
++            .getAsJsonObject("checksums")
++            .getAsJsonObject(workload.id())
++            .get(consumption)
++            .getAsInt();
++  }
++
++  static CapturePolicyCase load(String trialId, String consumption) {
++    BenchmarkData data = BenchmarkData.get();
++    return new CapturePolicyCase(
++        CrossEngineBenchmarkPlan.load().resolve(trialId),
++        key -> new CapturePolicyProtocol.Input(data.getInputString(key), data.getInputBytes(key)),
++        data.investigationConfiguration(),
++        consumption);
++  }
++
++  CapturePolicyProtocol.Task task() {
++    return CapturePolicyProtocol.bind(pattern, inputs, group, retained, rounds, usage);
++  }
++
++  CapturePolicyProtocol.Task booleanTask() {
++    return CapturePolicyProtocol.bind(
++        pattern, inputs, group, retained, rounds, new CapturePolicyProtocol.Usage("boolean", 1));
++  }
++
++  void validate() {
++    if (task().run() != expected) {
++      throw new IllegalArgumentException(
++          "Capture-policy cycle did not match its declared checksum");
++    }
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyProtocol.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyProtocol.java
+new file mode 100644
+index 00000000..d90819bc
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyProtocol.java
+@@ -0,0 +1,177 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Portions derived from RE2/J (https://github.com/google/re2j),
++// Copyright (c) 2009 The Go Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.nio.charset.StandardCharsets;
++import java.util.List;
++import org.safere.Matcher;
++import org.safere.Pattern;
++import org.safere.Utf8Input;
++import org.safere.Utf8Matcher;
++
++/** Capture-consumption cycles used only by this investigation. */
++final class CapturePolicyProtocol {
++  private CapturePolicyProtocol() {}
++
++  static final class Input {
++    final String text;
++    final byte[] bytes;
++
++    Input(byte[] bytes) {
++      this(new String(bytes, StandardCharsets.UTF_8), bytes);
++    }
++
++    Input(String text, byte[] bytes) {
++      this.bytes = bytes;
++      this.text = text;
++    }
++  }
++
++  interface Cursor {
++    boolean find();
++
++    void reset();
++
++    int start(int group);
++
++    int end(int group);
++
++    String group(int group);
++  }
++
++  interface Compiled {
++    Cursor matcher(Input input);
++  }
++
++  interface Task {
++    int run();
++  }
++
++  record Usage(String mode, int readEvery) {
++    Usage {
++      if (!List.of("text", "offset", "phase", "boolean").contains(mode) || readEvery < 1) {
++        throw new IllegalArgumentException("Invalid capture consumption mode or read period");
++      }
++    }
++  }
++
++  static Compiled compile(String regex, RegexEngineVariant variant) {
++    Pattern pattern = Pattern.compile(regex);
++    if (variant == RegexEngineVariant.SAFERE_STRING) {
++      return input -> {
++        Matcher matcher = pattern.matcher(input.text);
++        return new Cursor() {
++          @Override
++          public boolean find() {
++            return matcher.find();
++          }
++
++          @Override
++          public void reset() {
++            matcher.reset();
++          }
++
++          @Override
++          public int start(int group) {
++            return matcher.start(group);
++          }
++
++          @Override
++          public int end(int group) {
++            return matcher.end(group);
++          }
++
++          @Override
++          public String group(int group) {
++            return matcher.group(group);
++          }
++        };
++      };
++    }
++    if (variant != RegexEngineVariant.SAFERE_UTF8) {
++      throw new IllegalArgumentException("Capture policy investigation supports String and UTF-8");
++    }
++    return input -> {
++      Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(input.bytes));
++      return new Cursor() {
++        @Override
++        public boolean find() {
++          return matcher.find();
++        }
++
++        @Override
++        public void reset() {
++          matcher.reset();
++        }
++
++        @Override
++        public int start(int group) {
++          return matcher.start(group);
++        }
++
++        @Override
++        public int end(int group) {
++          return matcher.end(group);
++        }
++
++        @Override
++        public String group(int group) {
++          int start = matcher.start(group);
++          int end = matcher.end(group);
++          return start < 0
++              ? null
++              : new String(input.bytes, start, end - start, StandardCharsets.UTF_8);
++        }
++      };
++    };
++  }
++
++  static Task bind(
++      Compiled pattern, List<Input> inputs, int group, boolean reuse, int rounds, Usage usage) {
++    if (inputs.isEmpty() || group < 0 || rounds < 1) {
++      throw new IllegalArgumentException(
++          "Expected inputs, a nonnegative group and positive rounds");
++    }
++    List<Cursor> retained = reuse ? inputs.stream().map(pattern::matcher).toList() : null;
++    return () -> cycle(pattern, inputs, retained, group, rounds, usage);
++  }
++
++  private static int cycle(
++      Compiled pattern,
++      List<Input> inputs,
++      List<Cursor> retained,
++      int group,
++      int rounds,
++      Usage usage) {
++    int sum = 0;
++    int hits = 0;
++    for (int phase = 0; phase < 3; phase++) {
++      for (int round = 0; round < rounds; round++) {
++        for (int i = 0; i < inputs.size(); i++) {
++          Cursor matcher = retained == null ? pattern.matcher(inputs.get(i)) : retained.get(i);
++          if (retained != null) {
++            matcher.reset();
++          }
++          while (matcher.find()) {
++            sum++;
++            boolean read = hits++ % usage.readEvery() == 0 && !usage.mode().equals("boolean");
++            if (read && !(usage.mode().equals("phase") && phase == 1)) {
++              if (usage.mode().equals("offset")) {
++                sum += matcher.end(group) - matcher.start(group);
++              } else {
++                String text = matcher.group(group);
++                sum += text == null ? 0 : text.hashCode();
++              }
++            }
++          }
++        }
++      }
++    }
++    return sum;
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java
+new file mode 100644
+index 00000000..de519752
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java
+@@ -0,0 +1,50 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import java.util.concurrent.TimeUnit;
++import org.openjdk.jmh.annotations.Benchmark;
++import org.openjdk.jmh.annotations.BenchmarkMode;
++import org.openjdk.jmh.annotations.Mode;
++import org.openjdk.jmh.annotations.OutputTimeUnit;
++import org.openjdk.jmh.annotations.Param;
++import org.openjdk.jmh.annotations.Scope;
++import org.openjdk.jmh.annotations.Setup;
++import org.openjdk.jmh.annotations.State;
++import org.openjdk.jmh.infra.ThreadParams;
++
++/** Private cursors and alternating consumption roles share one compiled Pattern. */
++@BenchmarkMode(Mode.AverageTime)
++@OutputTimeUnit(TimeUnit.NANOSECONDS)
++@State(Scope.Benchmark)
++public class CapturePolicySharedBenchmark {
++  /** Materialized workload and String/UTF-8 representation. */
++  @Param({})
++  public String captureTrial;
++
++  /** Consumption protocol for reader threads. */
++  @Param({})
++  public String consumption;
++
++  private ThreadLocal<Tasks> tasks;
++
++  /** Creates independent cursors for each thread using the same Pattern. */
++  @Setup
++  public void setup() {
++    CapturePolicyCase selected = CapturePolicyCase.load(captureTrial, consumption);
++    tasks = ThreadLocal.withInitial(() -> new Tasks(selected.task(), selected.booleanTask()));
++  }
++
++  /** Uses an even thread count to balance text readers and Boolean consumers. */
++  @Benchmark
++  public int run(ThreadParams thread) {
++    Tasks local = tasks.get();
++    return ((thread.getThreadIndex() & 1) == 0 ? local.reader() : local.booleanConsumer()).run();
++  }
++
++  private record Tasks(
++      CapturePolicyProtocol.Task reader, CapturePolicyProtocol.Task booleanConsumer) {}
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/AdaptiveCaptureCaseTest.java b/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/AdaptiveCaptureCaseTest.java
+new file mode 100644
+index 00000000..83e62cca
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/AdaptiveCaptureCaseTest.java
+@@ -0,0 +1,83 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.Arrays;
++import java.util.List;
++import java.util.Map;
++import org.junit.jupiter.api.Test;
++
++class AdaptiveCaptureCaseTest {
++  @Test
++  void orderingChangesClusteringWithoutChangingHitCounts() {
++    for (int every : new int[] {0, 1, 2, 16}) {
++      for (String order : List.of("periodic", "blocked", "shuffled")) {
++        int[] actual = AdaptiveCaptureCase.schedule(512, every, order, 64, 19);
++        assertThat(Arrays.stream(actual).filter(slot -> slot == 0).count())
++            .isEqualTo(every == 0 ? 0 : 512 / every);
++        assertThat(actual).isEqualTo(AdaptiveCaptureCase.schedule(512, every, order, 64, 19));
++      }
++    }
++    assertThat(AdaptiveCaptureCase.schedule(512, 2, "shuffled", 64, 19))
++        .isNotEqualTo(AdaptiveCaptureCase.schedule(512, 2, "shuffled", 64, 20));
++  }
++
++  @Test
++  void everyDeclaredLifetimeAndPhaseScheduleMatchesIndependentJdkCaptures() throws Exception {
++    Path path = Path.of("investigations/capture-demand-policy/benchmark-data.json");
++    if (!Files.exists(path)) {
++      path = Path.of("safere-benchmarks").resolve(path);
++    }
++    JsonObject source = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
++    Map<String, byte[]> inputs = BenchmarkInputMaterializer.materialize(source);
++    CrossEngineBenchmarkPlan plan =
++        CrossEngineBenchmarkPlan.fromMaterialized(
++            MaterializedExecutionPlan.parse(ResolvedBenchmarkPlan.create(source))
++                .entriesForRunner("java"));
++    JsonObject config =
++        source
++            .getAsJsonObject("configuration")
++            .getAsJsonObject("investigation")
++            .getAsJsonObject("adaptive");
++    for (String scenario : config.getAsJsonObject("scenarios").keySet()) {
++      for (String representation : List.of("string", "utf8")) {
++        AdaptiveCaptureCase selected =
++            new AdaptiveCaptureCase(
++                config,
++                scenario,
++                representation,
++                plan::resolve,
++                key -> new CapturePolicyProtocol.Input(inputs.get(key)));
++        selected.validate();
++        AdaptiveCaptureCase.Task steps = selected.task(false);
++        long sampled = 0;
++        for (int i = 0; i < 1536; i++) {
++          sampled += steps.runOne();
++        }
++        assertThat(sampled).isEqualTo(selected.oracle(false));
++        AdaptiveCaptureCase.Task task = selected.task(false);
++        assertThat(task.run(null))
++            .as(scenario + " " + representation)
++            .isEqualTo(selected.oracle(false));
++        assertThat(task.run(null)).isEqualTo(selected.oracle(false));
++        AdaptivePhaseCounters counters = new AdaptivePhaseCounters();
++        assertThat(task.run(counters)).isEqualTo(selected.oracle(false));
++        assertThat(counters.phase0Documents).isEqualTo(512);
++        assertThat(counters.phase1Documents).isEqualTo(512);
++        assertThat(counters.phase2Documents).isEqualTo(512);
++        AdaptiveCaptureCase.Shared shared = selected.shared();
++        assertThat(shared.task(true).run(null)).isEqualTo(selected.oracle(true));
++        assertThat(shared.task(false).run(null)).isEqualTo(selected.oracle(false));
++      }
++    }
++  }
++}
+diff --git a/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/CapturePolicyProtocolTest.java b/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/CapturePolicyProtocolTest.java
+new file mode 100644
+index 00000000..80ddcdc5
+--- /dev/null
++++ b/safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/CapturePolicyProtocolTest.java
+@@ -0,0 +1,153 @@
++// This file is part of a Java port of RE2 (https://github.com/google/re2).
++// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
++// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
++// Licensed under the BSD 3-Clause License (see LICENSE file).
++
++package org.safere.benchmark;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.List;
++import java.util.Map;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.CsvSource;
++
++class CapturePolicyProtocolTest {
++  @ParameterizedTest
++  @CsvSource({"text,1,1404", "text,4,472", "phase,1,938", "boolean,1,6", "offset,1,12"})
++  void readsAreConditionalOnHitsAndUseNativeOffsets(String mode, int every, int expected) {
++    for (RegexEngineVariant variant :
++        List.of(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8)) {
++      for (boolean retained : new boolean[] {false, true}) {
++        List<CapturePolicyProtocol.Input> inputs = List.of(input("é é"), input("x"));
++        CapturePolicyProtocol.Task task =
++            CapturePolicyProtocol.bind(
++                CapturePolicyProtocol.compile("(é)", variant),
++                inputs,
++                1,
++                retained,
++                1,
++                new CapturePolicyProtocol.Usage(mode, every));
++        int actualExpected =
++            mode.equals("offset") && variant == RegexEngineVariant.SAFERE_UTF8 ? 18 : expected;
++        assertThat(task.run()).isEqualTo(actualExpected);
++        assertThat(task.run()).isEqualTo(actualExpected);
++      }
++    }
++  }
++
++  @ParameterizedTest
++  @CsvSource({"true,2,24", "false,24,0"})
++  void cursorsFollowTheDeclaredLifetimeAcrossCompleteCycles(
++      boolean retained, int expectedCreations, int expectedResets) {
++    int[] creations = {0};
++    int[] resets = {0};
++    int[] reads = {0};
++    CapturePolicyProtocol.Compiled compiled =
++        input -> {
++          creations[0]++;
++          return new CapturePolicyProtocol.Cursor() {
++            private boolean exhausted;
++
++            @Override
++            public boolean find() {
++              if (exhausted) {
++                return false;
++              }
++              exhausted = true;
++              return input.text.equals("hit");
++            }
++
++            @Override
++            public void reset() {
++              resets[0]++;
++              exhausted = false;
++            }
++
++            @Override
++            public int start(int group) {
++              return 0;
++            }
++
++            @Override
++            public int end(int group) {
++              return 7;
++            }
++
++            @Override
++            public String group(int group) {
++              reads[0]++;
++              return "payload";
++            }
++          };
++        };
++    CapturePolicyProtocol.Task task =
++        CapturePolicyProtocol.bind(
++            compiled,
++            List.of(input("hit"), input("miss")),
++            1,
++            retained,
++            2,
++            new CapturePolicyProtocol.Usage("phase", 1));
++    task.run();
++    task.run();
++    assertThat(creations[0]).isEqualTo(expectedCreations);
++    assertThat(resets[0]).isEqualTo(expectedResets);
++    assertThat(reads[0]).isEqualTo(8);
++  }
++
++  @Test
++  void investigationCasesKeepTheirHistoricalCycleChecksums() throws Exception {
++    Path path = Path.of("investigations/capture-demand-policy/benchmark-data.json");
++    if (!Files.exists(path)) {
++      path = Path.of("safere-benchmarks").resolve(path);
++    }
++    JsonObject source = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
++    Map<String, byte[]> inputs = BenchmarkInputMaterializer.materialize(source);
++    CrossEngineBenchmarkPlan plan =
++        CrossEngineBenchmarkPlan.fromMaterialized(
++            MaterializedExecutionPlan.parse(ResolvedBenchmarkPlan.create(source))
++                .entriesForRunner("java"));
++    JsonObject config = source.getAsJsonObject("configuration").getAsJsonObject("investigation");
++    for (String family : List.of("stack", "scheme")) {
++      for (String encoding : List.of("ascii", "multibyte")) {
++        for (String rate : List.of("all", "rare")) {
++          for (String reuse : List.of("retained", "newPerInvocation")) {
++            for (String engine : List.of("safere-string", "safere-utf8")) {
++              String id =
++                  "CapturePolicyBenchmark."
++                      + family
++                      + "."
++                      + encoding
++                      + ".128."
++                      + rate
++                      + "."
++                      + reuse
++                      + "@"
++                      + engine;
++              for (String usage : config.getAsJsonObject("usages").keySet()) {
++                CapturePolicyCase selected =
++                    new CapturePolicyCase(
++                        plan.resolve(id),
++                        key -> new CapturePolicyProtocol.Input(inputs.get(key)),
++                        config,
++                        usage);
++                selected.validate();
++              }
++            }
++          }
++        }
++      }
++    }
++  }
++
++  private static CapturePolicyProtocol.Input input(String text) {
++    return new CapturePolicyProtocol.Input(text.getBytes(StandardCharsets.UTF_8));
++  }
++}

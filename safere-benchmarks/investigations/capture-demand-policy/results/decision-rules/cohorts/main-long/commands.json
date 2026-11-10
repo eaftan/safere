@@ -1,0 +1,27 @@
+[
+  [
+    "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+    "--long",
+    "--fastbuild",
+    "--investigation",
+    "capture-demand-policy",
+    "^org\\.safere\\.benchmark\\.AdaptiveCaptureBenchmark\\.run$",
+    "--",
+    "-p",
+    "scenario=stack.all.text.ascii.128,stack.rare.text.ascii.128,stack.rare.rotate.ascii.128,stack.reads.phase.ascii.128,scheme.all.text.ascii.128,scheme.rare.text.ascii.128,scheme.rare.rotate.ascii.128,scheme.reads.phase.ascii.128,stack.document,scheme.document",
+    "-p",
+    "representation=string,utf8",
+    "-p",
+    "policy=main",
+    "-p",
+    "seed=1",
+    "-t",
+    "1",
+    "-foe",
+    "true",
+    "-rf",
+    "json",
+    "-rff",
+    "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/main-long/results.json"
+  ]
+]

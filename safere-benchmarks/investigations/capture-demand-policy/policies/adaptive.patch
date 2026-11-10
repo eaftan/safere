@@ -1,0 +1,442 @@
+diff --git a/safere/src/main/java/org/safere/BitState.java b/safere/src/main/java/org/safere/BitState.java
+index 2a9c29bf..bb8527bb 100644
+--- a/safere/src/main/java/org/safere/BitState.java
++++ b/safere/src/main/java/org/safere/BitState.java
+@@ -886,6 +886,10 @@ final class BitState {
+   }
+ 
+   /** Returns the current work budget. Package-private for testing. */
++  long capturePolicyWork() {
++    return stepCount;
++  }
++
+   long stepBudgetForTesting() {
+     return stepBudget;
+   }
+diff --git a/safere/src/main/java/org/safere/Dfa.java b/safere/src/main/java/org/safere/Dfa.java
+index 4150fefd..172d74ba 100644
+--- a/safere/src/main/java/org/safere/Dfa.java
++++ b/safere/src/main/java/org/safere/Dfa.java
+@@ -32,6 +32,18 @@ import java.util.Map;
+  * </ul>
+  */
+ final class Dfa {
++  private int capturePolicyWork;
++
++  int capturePolicyWork() {
++    return capturePolicyWork;
++  }
++
++  private void capturePolicyCharge(int units) {
++    capturePolicyWork =
++        (int)
++            Math.min(
++                CapturePolicyExperiment.MAX_WORK, (long) capturePolicyWork + Math.max(0, units));
++  }
+ 
+   /** Result of a DFA search. */
+   record SearchResult(boolean matched, int pos, boolean ambiguous, boolean scanLimitReached) {
+@@ -918,6 +930,9 @@ final class Dfa {
+ 
+   /** Anchors the next scan without crediting input that the DFA has not actually visited. */
+   private void beginSearch(int anchorPos) {
++    if (CapturePolicyExperiment.WORK) {
++      capturePolicyWork = 0;
++    }
+     if (hasProgressAnchor && lastSearchBailed) {
+       // The caller may have used the NFA after a bailout, but its exact work is unknown here.
+       // Give each fallback one bounded retry credit, never the possibly unscanned gap to the
+@@ -2043,6 +2058,9 @@ final class Dfa {
+           && ((pos >= accelerationResumePos && pos != preselectedPos && textLen - pos >= minSkip)
+               || (!matched && innerProbeState == INNER_PROBE_READY))) {
+         int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor, !matched);
++        if (CapturePolicyExperiment.WORK) {
++          capturePolicyCharge(1 + Math.max(0, nextPos < 0 ? textLen - pos : nextPos - pos) / 16);
++        }
+         if (WorkCounterConfig.ENABLED) {
+           WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
+         }
+@@ -2091,6 +2109,9 @@ final class Dfa {
+       }
+       if (s.accelerator != null && (!s.isStartState || anchored) && (textLen - pos >= 16)) {
+         int nextPos = StateAccelerator.findNextEscape(s.accelerator, text, pos, textLen);
++        if (CapturePolicyExperiment.WORK) {
++          capturePolicyCharge(1 + Math.max(0, nextPos < 0 ? textLen - pos : nextPos - pos) / 16);
++        }
+         if (nextPos == -1) {
+           pos = textLen;
+           break;
+@@ -2120,6 +2141,9 @@ final class Dfa {
+           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
+             break;
+           }
++          if (CapturePolicyExperiment.WORK) {
++            capturePolicyCharge(1);
++          }
+           if (WorkCounterConfig.ENABLED) {
+             WorkCounter.recordForwardDfaStep();
+           }
+@@ -2167,6 +2191,9 @@ final class Dfa {
+           if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
+             break;
+           }
++          if (CapturePolicyExperiment.WORK) {
++            capturePolicyCharge(1);
++          }
+           if (WorkCounterConfig.ENABLED) {
+             WorkCounter.recordForwardDfaStep();
+           }
+@@ -2256,6 +2283,9 @@ final class Dfa {
+           && ((pos >= accelerationResumePos && pos != preselectedPos && textLen - pos >= minSkip)
+               || (!matched && innerProbeState == INNER_PROBE_READY))) {
+         int nextPos = fastForward(text, pos, posDepThreshold, s, utf8Cursor, !matched);
++        if (CapturePolicyExperiment.WORK) {
++          capturePolicyCharge(1 + Math.max(0, nextPos < 0 ? textLen - pos : nextPos - pos) / 16);
++        }
+         if (WorkCounterConfig.ENABLED) {
+           WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
+         }
+@@ -2306,6 +2336,9 @@ final class Dfa {
+       do {
+         if (s.accelerator != null && (textLen - pos >= 16) && (!s.isStartState || anchored)) {
+           int nextPos = StateAccelerator.findNextEscape(s.accelerator, text, pos, textLen);
++          if (CapturePolicyExperiment.WORK) {
++            capturePolicyCharge(1 + Math.max(0, nextPos < 0 ? textLen - pos : nextPos - pos) / 16);
++          }
+           if (nextPos == -1) {
+             pos = textLen;
+           } else if (nextPos > pos) {
+@@ -2315,6 +2348,9 @@ final class Dfa {
+             }
+           }
+         }
++        if (CapturePolicyExperiment.WORK) {
++          capturePolicyCharge(1);
++        }
+         if (WorkCounterConfig.ENABLED) {
+           WorkCounter.record();
+           WorkCounter.recordForwardDfaStep();
+@@ -2509,6 +2545,9 @@ final class Dfa {
+           if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+             WorkCounter.record();
+           }
++          if (CapturePolicyExperiment.WORK) {
++            capturePolicyCharge(1);
++          }
+           int ch = text.asciiAt(pos - 1);
+           if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
+             break;
+@@ -2566,6 +2605,9 @@ final class Dfa {
+       if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+         WorkCounter.record();
+       }
++      if (CapturePolicyExperiment.WORK) {
++        capturePolicyCharge(1);
++      }
+       int ch = text.asciiAt(pos - 1);
+       if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
+         break; // fall back
+@@ -2624,6 +2666,9 @@ final class Dfa {
+       if (pos <= scanLimit && pos > startLimit) {
+         return completeSearch(new SearchResult(matched, matchStart, ambiguous, true), pos);
+       }
++      if (CapturePolicyExperiment.WORK) {
++        capturePolicyCharge(1);
++      }
+       if (WorkCounterConfig.ENABLED) {
+         WorkCounter.record();
+       }
+diff --git a/safere/src/main/java/org/safere/Matcher.java b/safere/src/main/java/org/safere/Matcher.java
+index dc07aa0e..746a913a 100644
+--- a/safere/src/main/java/org/safere/Matcher.java
++++ b/safere/src/main/java/org/safere/Matcher.java
+@@ -311,6 +311,9 @@ public final class Matcher implements MatchResult {
+       boolean startPositionPreselected) {
+     Dfa.SearchResult result =
+         dfa.doSearch(scanner, startPos, anchored, longest, startPositionPreselected, startBackoff);
++    if (CapturePolicyExperiment.WORK && capturePolicy != null) {
++      capturePolicy.work(dfa.capturePolicyWork());
++    }
+     startBackoff = dfa.startBackoff();
+     return result;
+   }
+@@ -369,6 +372,9 @@ public final class Matcher implements MatchResult {
+       boolean anchored,
+       boolean longest) {
+     Dfa.SearchResult result = dfa.doSearchReverse(scanner, endPos, startLimit, anchored, longest);
++    if (CapturePolicyExperiment.WORK && capturePolicy != null) {
++      capturePolicy.work(dfa.capturePolicyWork());
++    }
+     DiagnosticOperation activeDiagnostics = diagnosticOperation;
+     if (activeDiagnostics != null) {
+       activeDiagnostics.accumulator().incrementReverseDfaSearchCount();
+@@ -422,6 +428,13 @@ public final class Matcher implements MatchResult {
+    * avoids the expensive BitState/NFA submatch extraction in find-all loops that only check match
+    * existence or read group 0.
+    */
++  private final CapturePolicyExperiment capturePolicy =
++      CapturePolicyExperiment.ENABLED ? new CapturePolicyExperiment() : null;
++
++  CapturePolicyExperiment.Snapshot capturePolicySnapshot() {
++    return capturePolicy == null ? null : capturePolicy.snapshot();
++  }
++
+   private boolean capturesResolved = true;
+ 
+   /** Returns whether inner captures are currently resolved without triggering lazy extraction. */
+@@ -567,6 +580,9 @@ public final class Matcher implements MatchResult {
+   }
+ 
+   private void clearCurrentResult() {
++    if (capturePolicy != null) {
++      capturePolicy.retire();
++    }
+     findExhaustedAfterTerminalEmptyMatch = false;
+     hasMatch = false;
+     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
+@@ -694,16 +710,25 @@ public final class Matcher implements MatchResult {
+   }
+ 
+   private void recordInnerCaptureDemand() {
++    if (capturePolicy != null) {
++      capturePolicy.read(!capturesResolved);
++    }
+     parentPattern.recordInnerCaptureAccess();
+   }
+ 
+   private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
+-    return parentPattern.innerCapturesObserved()
+-        && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
+-        && enginePathOptions().bitState()
+-        && !fullTextRegionContext
+-        && !prog.hasGraphemeSemantics()
+-        && BitState.maxTextSize(prog) >= scanner.length();
++    boolean eligible =
++        scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
++            && enginePathOptions().bitState()
++            && !fullTextRegionContext
++            && !prog.hasGraphemeSemantics()
++            && BitState.maxTextSize(prog) >= scanner.length();
++    if (!eligible) {
++      return false;
++    }
++    return capturePolicy == null
++        ? parentPattern.innerCapturesObserved()
++        : capturePolicy.prefer(parentPattern.innerCapturesObserved(), prog.anchorStart());
+   }
+ 
+   private Pattern.ThreadCache threadCache() {
+@@ -1135,6 +1160,9 @@ public final class Matcher implements MatchResult {
+   }
+ 
+   private boolean matchesImpl() {
++    if (capturePolicy != null) {
++      capturePolicy.retire();
++    }
+     modCount++;
+     prepareAnchoredAttempt();
+ 
+@@ -1385,6 +1413,9 @@ public final class Matcher implements MatchResult {
+   }
+ 
+   private boolean lookingAtImpl() {
++    if (capturePolicy != null) {
++      capturePolicy.retire();
++    }
+     modCount++;
+     prepareAnchoredAttempt();
+ 
+@@ -1507,6 +1538,9 @@ public final class Matcher implements MatchResult {
+   }
+ 
+   private boolean findImpl() {
++    if (capturePolicy != null) {
++      capturePolicy.retire();
++    }
+     modCount++;
+     rememberPreviousMatchEnd();
+     if (findExhaustedAfterTerminalEmptyMatch) {
+@@ -1665,7 +1699,13 @@ public final class Matcher implements MatchResult {
+ 
+   /** Restores the next search position when an engine search fails. */
+   private boolean findWithContinuation(int continuationAfterFailure) {
++    if (capturePolicy != null) {
++      capturePolicy.begin(Math.max(0, regionEnd - Math.max(regionStart, searchFrom)));
++    }
+     boolean matched = doFind();
++    if (capturePolicy != null) {
++      capturePolicy.finish(matched);
++    }
+     if (!matched) {
+       // Advancement past an empty match belongs only to the immediately following attempt.
+       // After failure, restore the continuation before that advancement or explicit find(int)
+@@ -2827,6 +2867,9 @@ public final class Matcher implements MatchResult {
+           speculate
+               ? bs.doSearchWindow(startPos, searchLimit, anchoredEffective, destBuf)
+               : bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
++      if (CapturePolicyExperiment.WORK && capturePolicy != null) {
++        capturePolicy.work(bs.capturePolicyWork());
++      }
+       cachedBitState = bs;
+       // Return to Pattern's cache for reuse by future Matchers.
+       Pattern.returnBitState(threadCache(), bs);
+@@ -2878,6 +2921,10 @@ public final class Matcher implements MatchResult {
+             nfaKind,
+             preserveOuterEmptyContext,
+             reuseGroups);
++    if (CapturePolicyExperiment.WORK && capturePolicy != null) {
++      // Conservative proxy for an exact engine without instruction accounting in this prototype.
++      capturePolicy.work(CapturePolicyExperiment.MAX_WORK);
++    }
+     diagnosticExact(MatchStrategy.NFA, nsubmatch > 1 && result != null);
+     return result;
+   }
+@@ -4383,6 +4430,9 @@ public final class Matcher implements MatchResult {
+       clearCurrentResult();
+     }
+     invalidatePatternCaches();
++    if (capturePolicy != null) {
++      capturePolicy.resetPattern();
++    }
+     replacementNeedsCaptures = false;
+     if (preservedGroupZero) {
+       Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.USE_PATTERN_GROUP_ZERO);
+@@ -4477,59 +4527,71 @@ public final class Matcher implements MatchResult {
+     if (capturesResolved) {
+       return;
+     }
+-    Prog prog = parentPattern.prog();
+-    InputScanner scanner = activeScanner();
+-    // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
+-    // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
+-    // captures within that range.
+-    //
+-    // Prefer OnePass when available — it's a single deterministic pass with no bitmap or job
+-    // stack overhead. Pattern.canOnePassSubmatch() already excludes lazy quantifiers, nullable
+-    // alternations, grapheme programs, and disabled OnePass options.
+-    int[] result;
+-    if (parentPattern.canOnePassSubmatch()) {
+-      diagnosticCapture(MatchStrategy.ONE_PASS);
+-      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+-      if (onePassScratchCap == null || onePassScratchCap.length < ncap) {
+-        onePassScratchCap = new int[ncap];
+-      }
+-      result =
+-          parentPattern
+-              .onePass()
+-              .search(
++    if (capturePolicy != null) {
++      capturePolicy.beginReplay();
++    }
++    try {
++      Prog prog = parentPattern.prog();
++      InputScanner scanner = activeScanner();
++      // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
++      // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
++      // captures within that range.
++      //
++      // Prefer OnePass when available — it's a single deterministic pass with no bitmap or job
++      // stack overhead. Pattern.canOnePassSubmatch() already excludes lazy quantifiers, nullable
++      // alternations, grapheme programs, and disabled OnePass options.
++      int[] result;
++      if (parentPattern.canOnePassSubmatch()) {
++        if (CapturePolicyExperiment.WORK && capturePolicy != null) {
++          capturePolicy.work(Math.max(1, deferredMatchEnd - deferredMatchStart));
++        }
++        diagnosticCapture(MatchStrategy.ONE_PASS);
++        int ncap = 2 * Math.max(prog.numCaptures(), 1);
++        if (onePassScratchCap == null || onePassScratchCap.length < ncap) {
++          onePassScratchCap = new int[ncap];
++        }
++        result =
++            parentPattern
++                .onePass()
++                .search(
++                    scanner,
++                    deferredMatchStart,
++                    deferredMatchEnd,
++                    true,
++                    prog.numCaptures(),
++                    groups,
++                    onePassScratchCap);
++      } else {
++        boolean savedCaptureSearch = diagnosticCaptureSearch;
++        diagnosticCaptureSearch = true;
++        try {
++          result =
++              searchWithBitStateOrNfa(
++                  prog,
+                   scanner,
+                   deferredMatchStart,
+                   deferredMatchEnd,
++                  deferredMatchEnd,
+                   true,
++                  false,
++                  deferredEndMatch,
+                   prog.numCaptures(),
+-                  groups,
+-                  onePassScratchCap);
+-    } else {
+-      boolean savedCaptureSearch = diagnosticCaptureSearch;
+-      diagnosticCaptureSearch = true;
+-      try {
+-        result =
+-            searchWithBitStateOrNfa(
+-                prog,
+-                scanner,
+-                deferredMatchStart,
+-                deferredMatchEnd,
+-                deferredMatchEnd,
+-                true,
+-                false,
+-                deferredEndMatch,
+-                prog.numCaptures(),
+-                true,
+-                groups);
+-      } finally {
+-        diagnosticCaptureSearch = savedCaptureSearch;
++                  true,
++                  groups);
++        } finally {
++          diagnosticCaptureSearch = savedCaptureSearch;
++        }
++      }
++      if (result != null && result != groups) {
++        groups = result;
++      }
++      capturesResolved = true;
++      groupZeroResolved = true;
++    } finally {
++      if (capturePolicy != null) {
++        capturePolicy.endReplay();
+       }
+     }
+-    if (result != null && result != groups) {
+-      groups = result;
+-    }
+-    capturesResolved = true;
+-    groupZeroResolved = true;
+   }
+ 
+   private void resolveCapturesBeforeRestoringRegion() {
+diff --git a/safere/src/test/java/org/safere/MatcherDeferredCaptureStateTest.java b/safere/src/test/java/org/safere/MatcherDeferredCaptureStateTest.java
+index 046d8c57..8842a5e1 100644
+--- a/safere/src/test/java/org/safere/MatcherDeferredCaptureStateTest.java
++++ b/safere/src/test/java/org/safere/MatcherDeferredCaptureStateTest.java
+@@ -7,6 +7,7 @@ package org.safere;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.junit.jupiter.api.Assumptions.assumeTrue;
+ 
+ import java.lang.reflect.Field;
+ import java.util.concurrent.ExecutorService;
+@@ -163,6 +164,8 @@ class MatcherDeferredCaptureStateTest {
+   @Test
+   @DisplayName("inner capture demand makes later small finds capture eagerly")
+   void innerCaptureDemandMakesLaterSmallFindsCaptureEagerly() throws ReflectiveOperationException {
++    // This assertion specifies the original producer policy, which the prototypes vary.
++    assumeTrue(!CapturePolicyExperiment.ENABLED || CapturePolicyExperiment.MODE.equals("observe"));
+     Pattern pattern = Pattern.compile("a\\s+(.+)");
+     Matcher first = pattern.matcher("prefix a value");
+ 

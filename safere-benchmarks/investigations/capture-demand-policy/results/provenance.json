@@ -1,0 +1,26 @@
+{
+  "baseCommit": "524eaa4cfe09a4f40302333c436d4c19e2d8f0e8",
+  "baseCommitUtc": "2026-11-03T03:54:42Z",
+  "files": {
+    "harness-corrected.patch": "7b3a972077d3498f245b904eba3719f3369bfa14318dc0e506ff9d75708f66ec",
+    "CapturePolicySharedBenchmark.java": "3bb247c0301d48e5a109f3cd961e59148214a69acdfcaab9b913de7a7147a311",
+    "Matcher.baseline.java": "940e9313c9f95893855108f734d830a495f1e1d8e3aec02ae34a635c3e4fb333",
+    "Matcher.hybrid16.java": "af7ee0df218d14708594970c2e7545e13106e82b0bcd886139c6e209557c8d2b",
+    "Matcher.local4.java": "2bf2343198fc7e143388a4239ea2a95d84eabb3e86a04f6ab42a5c82225acae2",
+    "Matcher.localSticky.java": "f35d35f5fad6e5e86ea1b3ae7fc6c05848b31809a34df277f1ef37d3213e2042",
+    "Matcher.dfa1073.java": "91407157d2c8c9d9aeccbadfa9c768e7584d1ffab124ec9a9f8a7ae43633e5a6",
+    "Matcher.hybrid4.java": "cedc57c29609ae666d72f1bebf74d35d2f253d2371bc5e462d25005f611fec5c",
+    "Matcher.dfa.java": "dbb0ba548493f3d46a9ecab10a20077e2805bd480afd3c176e75f80eb776a596"
+  },
+  "primaryPolicies": [
+    "baseline",
+    "dfa1073",
+    "local4",
+    "hybrid4",
+    "hybrid16",
+    "localSticky"
+  ],
+  "diagnosticPolicies": {
+    "dfa": "Earlier general DFA-first prototype, excluded from primary evidence"
+  }
+}

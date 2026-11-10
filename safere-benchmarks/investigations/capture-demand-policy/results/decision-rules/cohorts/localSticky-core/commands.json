@@ -1,0 +1,28 @@
+[
+  [
+    "/tmp/safere-1075-adaptive/run-java-benchmarks.sh",
+    "--fastbuild",
+    "--investigation",
+    "capture-demand-policy",
+    "^org\\.safere\\.benchmark\\.AdaptiveCaptureBenchmark\\.run$",
+    "--",
+    "-p",
+    "scenario=stack.all.text.ascii.128,stack.rare.text.ascii.128,stack.all.text4.ascii.128,stack.all.boolean.ascii.128,stack.rare.rotate.ascii.128,stack.half.shuffle.ascii.128,stack.reads.phase.ascii.128,scheme.all.text.ascii.128,scheme.rare.text.ascii.128,scheme.all.text4.ascii.128,scheme.all.boolean.ascii.128,scheme.rare.rotate.ascii.128,scheme.half.shuffle.ascii.128,scheme.reads.phase.ascii.128,stack.document,scheme.document",
+    "-p",
+    "representation=string,utf8",
+    "-p",
+    "policy=localSticky",
+    "-p",
+    "seed=1",
+    "-t",
+    "1",
+    "-foe",
+    "true",
+    "-rf",
+    "json",
+    "-rff",
+    "/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-adaptive/localSticky-core/results.json",
+    "-jvmArgsAppend",
+    "-Dsafere.experimental.bareControl=localSticky"
+  ]
+]

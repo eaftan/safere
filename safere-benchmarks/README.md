@@ -40,6 +40,15 @@ It compares SafeRE and `java.util.regex` on compatible workloads adapted from
 OpenJDK's regex microbenchmarks. That suite is GPL-2.0-only, so its source is
 not vendored here or included in the `safere-benchmarks` Maven module.
 
+### Investigative benchmarks
+
+Preserved diagnostic experiments live under [investigations/](investigations/README.md).
+They have their own sources, workload definitions, protocols, and historical evidence.
+They require explicit invocation and are excluded from the regular benchmark corpus,
+collection plan, and recurring reports. See the
+[capture-demand policy investigation](investigations/capture-demand-policy/README.md)
+for an example.
+
 ### Benchmark Collection
 
 To collect a full set of benchmark data for updating

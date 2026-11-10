@@ -1,0 +1,223 @@
+=== Standard mode ===
+=== Fast Building safere-benchmarks only ===
+=== Materializing shared benchmark inputs ===
+Materialized 778 benchmark inputs in /home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus
+UTF-8 scan provider startup check passed: default
+=== Running CapturePolicySharedBenchmark.run (-f 2 -wi 2 -w 500ms -i 5 -r 500ms -p crossEngineTrial=CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string,CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8,CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string,CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8 -t 4 -foe true -rf json -rff /tmp/safere-1075/localSticky-shared.json) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 4 threads, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CapturePolicySharedBenchmark.run
+# Parameters: (crossEngineTrial = CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string)
+
+# Run progress: 0.00% complete, ETA 00:00:28
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1634616.154 ±(99.9%) 972982.735 ns/op
+# Warmup Iteration   2: 1540756.364 ±(99.9%) 2539225.960 ns/op
+Iteration   1: 1479687.546 ±(99.9%) 2384525.190 ns/op
+Iteration   2: 1176211.467 ±(99.9%) 1061975.546 ns/op
+Iteration   3: 1241049.687 ±(99.9%) 1482388.422 ns/op
+Iteration   4: 1398696.965 ±(99.9%) 2047218.954 ns/op
+Iteration   5: 1314694.209 ±(99.9%) 1994634.269 ns/op
+
+# Run progress: 12.50% complete, ETA 00:00:30
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1927330.881 ±(99.9%) 1868926.873 ns/op
+# Warmup Iteration   2: 1445002.399 ±(99.9%) 1577911.422 ns/op
+Iteration   1: 1673103.966 ±(99.9%) 2567714.905 ns/op
+Iteration   2: 1312308.932 ±(99.9%) 881373.903 ns/op
+Iteration   3: 1431967.622 ±(99.9%) 678546.744 ns/op
+Iteration   4: 1276352.583 ±(99.9%) 1136105.611 ns/op
+Iteration   5: 1478389.108 ±(99.9%) 1845261.775 ns/op
+
+
+Result "org.safere.benchmark.CapturePolicySharedBenchmark.run":
+  1378246.209 ±(99.9%) 219073.915 ns/op [Average]
+  (min, avg, max) = (1176211.467, 1378246.209, 1673103.966), stdev = 144903.830
+  CI (99.9%): [1159172.294, 1597320.123] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 4 threads, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CapturePolicySharedBenchmark.run
+# Parameters: (crossEngineTrial = CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8)
+
+# Run progress: 25.00% complete, ETA 00:00:25
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 3745540.462 ±(99.9%) 10155599.070 ns/op
+# Warmup Iteration   2: 3519804.668 ±(99.9%) 11996192.228 ns/op
+Iteration   1: 3538400.142 ±(99.9%) 11654113.514 ns/op
+Iteration   2: 3604131.976 ±(99.9%) 15385268.941 ns/op
+Iteration   3: 3653587.699 ±(99.9%) 15144387.405 ns/op
+Iteration   4: 3215797.957 ±(99.9%) 12260477.872 ns/op
+Iteration   5: 3634991.600 ±(99.9%) 13868159.951 ns/op
+
+# Run progress: 37.50% complete, ETA 00:00:21
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 4000289.191 ±(99.9%) 12405341.268 ns/op
+# Warmup Iteration   2: 3359340.348 ±(99.9%) 13803710.476 ns/op
+Iteration   1: 3212782.041 ±(99.9%) 12397193.470 ns/op
+Iteration   2: 3082498.287 ±(99.9%) 12627469.240 ns/op
+Iteration   3: 3302421.127 ±(99.9%) 13867202.650 ns/op
+Iteration   4: 2939107.407 ±(99.9%) 11786047.580 ns/op
+Iteration   5: 3183906.514 ±(99.9%) 12988849.205 ns/op
+
+
+Result "org.safere.benchmark.CapturePolicySharedBenchmark.run":
+  3336762.475 ±(99.9%) 383398.421 ns/op [Average]
+  (min, avg, max) = (2939107.407, 3336762.475, 3653587.699), stdev = 253594.317
+  CI (99.9%): [2953364.054, 3720160.896] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 4 threads, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CapturePolicySharedBenchmark.run
+# Parameters: (crossEngineTrial = CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string)
+
+# Run progress: 50.00% complete, ETA 00:00:17
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1581079.331 ±(99.9%) 1430362.735 ns/op
+# Warmup Iteration   2: 1124101.759 ±(99.9%) 689494.234 ns/op
+Iteration   1: 1062659.338 ±(99.9%) 495233.793 ns/op
+Iteration   2: 1228421.446 ±(99.9%) 907060.491 ns/op
+Iteration   3: 1120325.072 ±(99.9%) 442251.431 ns/op
+Iteration   4: 1203604.909 ±(99.9%) 1290508.195 ns/op
+Iteration   5: 1074487.053 ±(99.9%) 478383.684 ns/op
+
+# Run progress: 62.50% complete, ETA 00:00:12
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1286915.029 ±(99.9%) 1050166.506 ns/op
+# Warmup Iteration   2: 1097122.948 ±(99.9%) 983009.127 ns/op
+Iteration   1: 1254079.124 ±(99.9%) 1285485.392 ns/op
+Iteration   2: 1063297.132 ±(99.9%) 781730.346 ns/op
+Iteration   3: 1212216.002 ±(99.9%) 1179006.194 ns/op
+Iteration   4: 1284680.507 ±(99.9%) 1222875.782 ns/op
+Iteration   5: 1148817.803 ±(99.9%) 732595.209 ns/op
+
+
+Result "org.safere.benchmark.CapturePolicySharedBenchmark.run":
+  1165258.839 ±(99.9%) 124739.379 ns/op [Average]
+  (min, avg, max) = (1062659.338, 1165258.839, 1284680.507), stdev = 82507.376
+  CI (99.9%): [1040519.459, 1289998.218] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-issue-1075/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmark-corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 4 threads, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CapturePolicySharedBenchmark.run
+# Parameters: (crossEngineTrial = CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8)
+
+# Run progress: 75.00% complete, ETA 00:00:08
+# Fork: 1 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1297127.450 ±(99.9%) 1099935.802 ns/op
+# Warmup Iteration   2: 1317785.323 ±(99.9%) 2101483.197 ns/op
+Iteration   1: 1240115.243 ±(99.9%) 1336899.056 ns/op
+Iteration   2: 1204029.071 ±(99.9%) 400749.112 ns/op
+Iteration   3: 1164312.443 ±(99.9%) 845326.076 ns/op
+Iteration   4: 1144645.501 ±(99.9%) 885765.198 ns/op
+Iteration   5: 1190890.174 ±(99.9%) 1027864.375 ns/op
+
+# Run progress: 87.50% complete, ETA 00:00:04
+# Fork: 2 of 2
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-issue-1075/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1371386.017 ±(99.9%) 1432771.313 ns/op
+# Warmup Iteration   2: 1372877.601 ±(99.9%) 2579527.769 ns/op
+Iteration   1: 1405271.313 ±(99.9%) 2634741.327 ns/op
+Iteration   2: 1313670.183 ±(99.9%) 1845494.772 ns/op
+Iteration   3: 1372000.771 ±(99.9%) 2788167.311 ns/op
+Iteration   4: 1402341.754 ±(99.9%) 1713615.497 ns/op
+Iteration   5: 1349854.696 ±(99.9%) 2469401.098 ns/op
+
+
+Result "org.safere.benchmark.CapturePolicySharedBenchmark.run":
+  1278713.115 ±(99.9%) 152963.251 ns/op [Average]
+  (min, avg, max) = (1144645.501, 1278713.115, 1405271.313), stdev = 101175.720
+  CI (99.9%): [1125749.864, 1431676.366] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:00:34
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                                                               (crossEngineTrial)  Mode  Cnt        Score        Error  Units
+CapturePolicySharedBenchmark.run   CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-string  avgt   10  1378246.209 ± 219073.915  ns/op
+CapturePolicySharedBenchmark.run     CapturePolicyBenchmark.stack.ascii.128.all.text1.retained@safere-utf8  avgt   10  3336762.475 ± 383398.421  ns/op
+CapturePolicySharedBenchmark.run  CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-string  avgt   10  1165258.839 ± 124739.379  ns/op
+CapturePolicySharedBenchmark.run    CapturePolicyBenchmark.scheme.ascii.128.all.text1.retained@safere-utf8  avgt   10  1278713.115 ± 152963.251  ns/op
+
+Benchmark result is saved to /tmp/safere-1075/localSticky-shared.json

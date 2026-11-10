@@ -43,6 +43,8 @@
 #
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
+# Investigative sources and inputs require --investigation NAME and an explicit
+# benchmark filter; see safere-benchmarks/investigations/README.md.
 #
 # Arguments after the mode flag are passed directly to JMH as benchmark regex
 # filters. Use `--` to pass additional options directly to JMH, for example:
@@ -55,6 +57,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
+BENCHMARK_DATA_DIR="$SCRIPT_DIR/safere-benchmarks"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
 
@@ -86,6 +89,7 @@ Modes:
 Options:
   --provider default|vector  Select a provider (declared runs include both by default).
   --fastbuild      Skip FFM native C++ builds and target only benchmark modules (saves ~1 minute).
+  --investigation NAME  Build and run one investigation with its own inputs (explicit filter required).
 EOF
 }
 
@@ -95,6 +99,8 @@ FASTBUILD=false
 DECLARED=false
 SCAN_PROVIDER="default"
 PROVIDER_SELECTED=false
+INVESTIGATION=""
+MAVEN_INVESTIGATION_ARGS=()
 BENCHMARKS=()
 JMH_EXTRA_ARGS=()
 
@@ -115,6 +121,14 @@ while [[ $# -gt 0 ]]; do
     --fastbuild)
       FASTBUILD=true
       shift
+      ;;
+    --investigation)
+      if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+        echo "ERROR: --investigation requires a directory name under safere-benchmarks/investigations" >&2
+        exit 2
+      fi
+      INVESTIGATION="$2"
+      shift 2
       ;;
     --provider)
       if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^(default|vector)$ ]]; then
@@ -149,6 +163,22 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ -n "$INVESTIGATION" ]; then
+  if [ "$DECLARED" = true ] || [ ${#BENCHMARKS[@]} -eq 0 ]; then
+    echo "ERROR: investigations require an explicit benchmark filter and cannot use --declared" >&2
+    exit 2
+  fi
+  BENCHMARK_DATA_DIR="$SCRIPT_DIR/safere-benchmarks/investigations/$INVESTIGATION"
+  if [ ! -f "$BENCHMARK_DATA_DIR/benchmark-data.json" ] \
+    || [ ! -d "$BENCHMARK_DATA_DIR/src/main/java" ]; then
+    echo "ERROR: investigation is missing its workload definitions or sources: $INVESTIGATION" >&2
+    exit 2
+  fi
+  BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/investigations/$INVESTIGATION/corpus"
+  BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/investigations/$INVESTIGATION/build/benchmarks.jar"
+  MAVEN_INVESTIGATION_ARGS=("-Dbenchmark.investigation=$INVESTIGATION")
+fi
 
 # Normalize attached JMH parameter forms so selection and rejection use one syntax.
 # Keep profiler options intact; -prof=gc is not a parameter override.
@@ -202,8 +232,10 @@ fi
 
 if [ "$FASTBUILD" = true ]; then
   echo "=== Fast Building safere-benchmarks only ==="
-  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
+  mvn ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
+    -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
   mvn install \
+    ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
     -pl safere-benchmarks -am \
     -DskipTests \
     -Dpmd.skip=true \
@@ -215,12 +247,15 @@ if [ "$FASTBUILD" = true ]; then
     -f "$SCRIPT_DIR/pom.xml"
 else
   echo "=== Building safere + benchmark JAR ==="
-  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
-  mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
+  mvn ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
+    -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
+  mvn install ${MAVEN_INVESTIGATION_ARGS[@]+"${MAVEN_INVESTIGATION_ARGS[@]}"} \
+    -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 fi
 
-echo "=== Materializing shared benchmark inputs ==="
-"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
+echo "=== Materializing benchmark inputs from $BENCHMARK_DATA_DIR ==="
+java -cp "$BENCHMARK_JAR" org.safere.benchmark.BenchmarkInputMaterializer \
+  "$BENCHMARK_DATA_DIR" "$BENCHMARK_CORPUS"
 
 # Keep provider selection identical in launcher and measurement forks.
 BASE_JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"

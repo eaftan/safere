@@ -1,0 +1,256 @@
+{
+  "cohorts": {
+    "candidates-core": {
+      "stage": "core",
+      "policies": [
+        "patchedMain",
+        "observe",
+        "fraction",
+        "joint",
+        "replay",
+        "work",
+        "periodic",
+        "random"
+      ],
+      "rows": 256
+    },
+    "dfa-cold-long": {
+      "stage": "long",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 4
+    },
+    "dfa-latency": {
+      "stage": "latency",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 8
+    },
+    "dfa-long": {
+      "stage": "long",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 20
+    },
+    "dfa-phases": {
+      "stage": "phases",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 8
+    },
+    "dfa-shared": {
+      "stage": "shared",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 8
+    },
+    "dfa-standard": {
+      "stage": "core",
+      "policies": [
+        "dfa"
+      ],
+      "rows": 80
+    },
+    "exploration-latency": {
+      "stage": "latency",
+      "policies": [
+        "periodic",
+        "random"
+      ],
+      "rows": 16
+    },
+    "exploration-long": {
+      "stage": "long",
+      "policies": [
+        "periodic",
+        "random"
+      ],
+      "rows": 40
+    },
+    "exploration-phases": {
+      "stage": "phases",
+      "policies": [
+        "periodic",
+        "random"
+      ],
+      "rows": 16
+    },
+    "localSticky-cold-long": {
+      "stage": "long",
+      "policies": [
+        "localSticky"
+      ],
+      "rows": 4
+    },
+    "localSticky-core": {
+      "stage": "core",
+      "policies": [
+        "localSticky"
+      ],
+      "rows": 32
+    },
+    "localSticky-long": {
+      "stage": "long",
+      "policies": [
+        "localSticky"
+      ],
+      "rows": 20
+    },
+    "main-cold-long": {
+      "stage": "long",
+      "policies": [
+        "main"
+      ],
+      "rows": 4
+    },
+    "main-latency": {
+      "stage": "latency",
+      "policies": [
+        "main"
+      ],
+      "rows": 8
+    },
+    "main-long": {
+      "stage": "long",
+      "policies": [
+        "main"
+      ],
+      "rows": 20
+    },
+    "main-phases": {
+      "stage": "phases",
+      "policies": [
+        "main"
+      ],
+      "rows": 8
+    },
+    "main-shared": {
+      "stage": "shared",
+      "policies": [
+        "main"
+      ],
+      "rows": 8
+    },
+    "main-standard": {
+      "stage": "core",
+      "policies": [
+        "main"
+      ],
+      "rows": 80
+    },
+    "periodic-seeds": {
+      "stage": "seeds",
+      "policies": [
+        "periodic"
+      ],
+      "rows": 10
+    },
+    "random-seeds": {
+      "stage": "seeds",
+      "policies": [
+        "random"
+      ],
+      "rows": 30
+    },
+    "selected-cold-long": {
+      "stage": "long",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 8
+    },
+    "selected-latency": {
+      "stage": "latency",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 16
+    },
+    "selected-long": {
+      "stage": "long",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 40
+    },
+    "selected-phases": {
+      "stage": "phases",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 16
+    },
+    "selected-robustness": {
+      "stage": "robustness",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 96
+    },
+    "selected-shared": {
+      "stage": "shared",
+      "policies": [
+        "replay",
+        "work"
+      ],
+      "rows": 16
+    }
+  },
+  "normalizedRows": 872,
+  "benchmarkSourceSha256": {
+    "run-java-benchmarks.sh": "62e7fb383cd90a77db869984bb044637d5ab53b55dae132baa5157eaed540193",
+    "safere-benchmarks/investigations/capture-demand-policy/benchmark-data.json": "e1d9cfe9cf5744387dbe17769db850f3fc67db55b9f9df2c1c0a99a233a943a1",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureBenchmark.java": "be2d8f82d8f1e20766258e715aa191ec3db7ea9780e93134f4796a03d64eaa5a",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureCase.java": "26ccf3ee09cf2e26e9bb8ecb57c0418cabcf9f493450c82418f5641271936a6a",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureLatencyBenchmark.java": "d18a39d38e4138d90fb463af78ec3ce841083e6eaf32f9f0445c483e66422057",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCapturePhasesBenchmark.java": "117a90dd759435bca33dd9998fd4dc00616fa6a1e178aaf47773ae852dc9ab5d",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptiveCaptureSharedBenchmark.java": "981e87fc5f533997d7eab4f326bce80f8e06f5b1aea0b20604e4882fb34b1067",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/AdaptivePhaseCounters.java": "6fce154c6af41ecb3dd3c1c4ad216f91052c1e8bd860a7a5c12dd0e02c725212",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyBenchmark.java": "94f1953be8cf5fa25ca0d130a466ce3411a1adcb68a820de0d017096aa85eba3",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyCase.java": "a7cdef7f50082103178241920712bf148e8eafbbab6dc8c9995529aeb728bcf2",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicyProtocol.java": "efcbd0e451faf147287d678eef59437ebaa7644ea76fdec1df84746ee43bfb3c",
+    "safere-benchmarks/investigations/capture-demand-policy/src/main/java/org/safere/benchmark/CapturePolicySharedBenchmark.java": "74e0acd9220990f14a6743cbbbba2964bb8c635ceb79ec141d95002ac6431072",
+    "safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/AdaptiveCaptureCaseTest.java": "9598b58840f6144f65f8940df76ae0540d5939f70f1bb5659f3848a7fba3af41",
+    "safere-benchmarks/investigations/capture-demand-policy/src/test/java/org/safere/benchmark/CapturePolicyProtocolTest.java": "2ed7c39b5ac4592df6ecca8e3d65e50b316ebdf40ba94d9052e1cfac83b355c8",
+    "safere-benchmarks/pom.xml": "b09793deae5176572f0eda80521f5adaaefed39becf11e57aff6f2edced09bba"
+  },
+  "rawSha256": {
+    "candidates-core/results.json": "d7e9208719dc0f9e63b98d14eb825164b05a65c814c7758d9241646be13bbe36",
+    "dfa-cold-long/results.json": "e673c7e3d6ce29f4c44b896b8a2d86f35448bc98383dbf485a68857e42c121df",
+    "dfa-latency/results.json": "22f7b1787a88548ed3e2403dd3b3353a43bc524c47dd0b1a2d0904d975713956",
+    "dfa-long/results.json": "a131402128316f9fc35ab33a769944094feb61c0b794a0726e54cb8f86850d56",
+    "dfa-phases/results.json": "b66ac24507d20023d981221b86091c2797661e5aec03b3dad95d36f8994b0fb8",
+    "dfa-shared/results.json": "8ed4ac5920f205cedc2c6b897b94f0640dc0c3d33186a610980ab573c8c9309e",
+    "dfa-standard/results.json": "a36fce13cf4ccc9e8ceeba571e9df2abce4f26f200549d723e5c4f14980c7a78",
+    "exploration-latency/results.json": "8f5298bd276460e0e9b8cefcfd9c5e0452704582eb83189de19bc0aa1e4d0021",
+    "exploration-long/results.json": "60efe3b0477153a35467ba1db111dfb223f292276279c8277630a319c056b33d",
+    "exploration-phases/results.json": "5d879d1ee1fdba7a6373201126aefb1483bec2d9406799f8533306bb0d45d8c7",
+    "localSticky-cold-long/results.json": "546b3636c608738b018c44d2b4e43abd9201e115800c000a856f25c31074c449",
+    "localSticky-core/results.json": "1c5d379029c54bc87d48fc01b4f98352ee5f3056544a73471ace1a5cbda6443e",
+    "localSticky-long/results.json": "f6d8372a0882f140e6103770ba19bcdb4bac80a0f0436d02f955c4481096f331",
+    "main-cold-long/results.json": "adb574d24e4d62c312b48e3df76dac3052f1177673af07163c22b279f33db6b2",
+    "main-latency/results.json": "426cceb7934077bf6b0501efd3570b3f76ac1b17c5a6a2342b2ebf7f33e6c0d0",
+    "main-long/results.json": "6f219b4fc301b0e13570e5520eff3af00b4b4911c83c59584b7d2505e48a8755",
+    "main-phases/results.json": "14d48491d15fefd939827c68087bd4d110311bb4dc5dd5acf3abeb6ea4007631",
+    "main-shared/results.json": "3828bc783c14e22ae37614e28fe7c5fe1dfa2a350b48165dda34642cb5015f93",
+    "main-standard/results.json": "e144470f425fb12ab4c6606511295b856610943f64251aba53a1218eaad2922d",
+    "periodic-seeds/results.json": "702d3e333d48d49e419c4f8a4e01af156feda09356bf3d882030ad5b98e8b0cb",
+    "random-seeds/results.json": "0a44ba70b16fb34bf479326d7aeacace096557234606134e3b1a2438d2504db4",
+    "selected-cold-long/results.json": "97f7a16ef50ea9e87d8e017cb11d1809503984660c7367c59309a50877643a41",
+    "selected-latency/results.json": "75a8040ff0920d9d491558647a26cbe6f27d3ecd8ec830fd234022e262f47bbb",
+    "selected-long/results.json": "83b8fccfa0af910585f2d2a710597437ab5fbab2a6ed273b9d1a32ce94ee9409",
+    "selected-phases/results.json": "b5396e7316581ff1eb37c1a6749a484e6d2dd539f63eafa7f67edcf1ebf0be31",
+    "selected-robustness/results.json": "addc1976820786154e527a30ec3ae4b7188b459e350f17b40a88ae8a0ea97528",
+    "selected-shared/results.json": "371edd5deaf10be45184d1bd5d358a27873af5d660889bfb5653e6e8585db473"
+  }
+}
