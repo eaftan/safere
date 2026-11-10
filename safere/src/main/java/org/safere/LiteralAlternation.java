@@ -5,7 +5,9 @@
 
 package org.safere;
 
-/** Complete, ordered literal alternatives for a bounded String search fast path. */
+import static java.nio.charset.StandardCharsets.US_ASCII;
+
+/** Complete, ordered literal alternatives for a bounded String and UTF-8 search fast path. */
 final class LiteralAlternation {
   static final long NO_MATCH = -1;
   static final long FALLBACK = -2;
@@ -13,17 +15,44 @@ final class LiteralAlternation {
   private static final int MAX_ALTERNATIVES = 8;
   private static final int WINDOW_LENGTH = 256;
   private static final int MAX_LITERAL_LENGTH = 12;
+  // The UTF-8 search verifies first-byte candidates one at a time until it sees this many within
+  // DENSE_CANDIDATE_SPAN bytes, then switches to one bounded scan per literal.
+  private static final int DENSE_CANDIDATES = 8;
+  private static final int DENSE_CANDIDATE_SPAN = 256;
 
   private final String[] literals;
   private final boolean wholeInputRejection;
+  // The literals are ASCII, so their UTF-8 encodings are their chars as bytes.
+  private final byte[][] utf8Literals;
+  private final int[][] utf8Failures;
+  // The first-byte scan that UTF-8 searches without this plan start with, or null when they use
+  // something else; the UTF-8 search is then off.
+  private final Utf8StartAccelerator.CharClass utf8FirstByteScan;
 
-  private LiteralAlternation(String[] literals, boolean wholeInputRejection) {
+  private LiteralAlternation(
+      String[] literals,
+      boolean wholeInputRejection,
+      Utf8StartAccelerator.CharClass utf8FirstByteScan) {
     this.literals = literals;
     this.wholeInputRejection = wholeInputRejection;
+    this.utf8Literals = new byte[literals.length][];
+    this.utf8Failures = new int[literals.length][];
+    for (int i = 0; i < literals.length; i++) {
+      utf8Literals[i] = literals[i].getBytes(US_ASCII);
+      utf8Failures[i] = Pattern.literalFailure(utf8Literals[i]);
+    }
+    this.utf8FirstByteScan = utf8FirstByteScan;
   }
 
-  /** Caller must have ruled out explicit captures. */
-  static LiteralAlternation compile(Regexp ast, boolean wholeInputRejection) {
+  /**
+   * Caller must have ruled out explicit captures. {@code utf8FirstByteScan} is the UTF-8 start
+   * accelerator when it scans for the literals' first bytes, or null. Only then is the UTF-8 search
+   * used: otherwise UTF-8 searches use either a vector multi-literal search, which is faster, or
+   * the DFA from the start, which with several first bytes is about as fast as several literal
+   * scans.
+   */
+  static LiteralAlternation compile(
+      Regexp ast, boolean wholeInputRejection, Utf8StartAccelerator.CharClass utf8FirstByteScan) {
     while (ast.op == RegexpOp.NON_CAPTURE || (ast.op == RegexpOp.CAPTURE && ast.cap == 0)) {
       ast = ast.sub();
     }
@@ -46,7 +75,7 @@ final class LiteralAlternation {
         return null;
       }
     }
-    return new LiteralAlternation(literals, wholeInputRejection);
+    return new LiteralAlternation(literals, wholeInputRejection, utf8FirstByteScan);
   }
 
   /**
@@ -104,6 +133,109 @@ final class LiteralAlternation {
       start = limit;
     }
     return NO_MATCH;
+  }
+
+  /**
+   * UTF-8 counterpart to {@link #find(String, int)}, returning byte offsets. ASCII literals only
+   * match ASCII bytes, so a match never splits a code point, even in malformed input.
+   *
+   * <p>Every match starts with one of the literals' first bytes, so this hops between those bytes
+   * with the fallback's own first-byte scan and checks the literals at each one, without starting
+   * the DFA. When the first bytes are common, that stops at almost every word, so after {@link
+   * #DENSE_CANDIDATES} candidates within {@link #DENSE_CANDIDATE_SPAN} bytes it switches to the
+   * String path's strategy of one bounded scan per literal. Those scans start with {@link
+   * #PROBE_LENGTH}-byte windows, long enough for the word-at-a-time literal filter.
+   */
+  long find(Utf8InputScanner text, int from) {
+    if (from != 0 || utf8FirstByteScan == null) {
+      return FALLBACK;
+    }
+    byte[] bytes = text.bytes();
+    int offset = text.offset();
+    int length = text.length();
+    int spanStart = 0;
+    int candidates = 0;
+    for (int position = 0; ; position++) {
+      int candidate = utf8FirstByteScan.findCandidate(text, position);
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record((candidate < 0 ? length : candidate + 1) - position);
+      }
+      if (candidate < 0) {
+        return NO_MATCH;
+      }
+      long match = matchAt(bytes, offset, length, candidate);
+      if (match >= 0) {
+        return match;
+      }
+      position = candidate;
+      if (++candidates == DENSE_CANDIDATES) {
+        if (position - spanStart < DENSE_CANDIDATE_SPAN) {
+          return searchFrom(text, position + 1);
+        }
+        candidates = 0;
+        spanStart = position;
+      }
+    }
+  }
+
+  /** Returns the bounds of the highest-priority literal starting at {@code position}, or -1. */
+  private long matchAt(byte[] bytes, int offset, int length, int position) {
+    for (byte[] literal : utf8Literals) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record(literal.length);
+      }
+      if (literal.length <= length - position
+          && ByteSwarScan.matchesAt(bytes, offset, literal, position)) {
+        return ((long) position << 32) | (position + literal.length);
+      }
+    }
+    return NO_MATCH;
+  }
+
+  /** Searches [start, length), where no literal starts before start. */
+  private long searchFrom(Utf8InputScanner text, int start) {
+    int length = text.length();
+    if (length - start <= PROBE_LENGTH * 4) {
+      return search(text, start, length);
+    }
+    long match = search(text, start, start + PROBE_LENGTH);
+    return match >= 0 ? match : searchGrowingWindows(text, start + PROBE_LENGTH, PROBE_LENGTH * 2);
+  }
+
+  private long searchGrowingWindows(Utf8InputScanner text, int start, int windowLength) {
+    int length = text.length();
+    while (start < length) {
+      int remaining = length - start;
+      int width = Math.min(windowLength, remaining);
+      int limit = remaining - width <= PROBE_LENGTH * 4 ? length : start + width;
+      long match = search(text, start, limit);
+      if (match >= 0) {
+        return match;
+      }
+      start = limit;
+      windowLength = (int) Math.min(2L * windowLength, length - start);
+    }
+    return NO_MATCH;
+  }
+
+  /** Search literal starts in [from, limit), including literals crossing the upper boundary. */
+  private long search(Utf8InputScanner text, int from, int limit) {
+    int bestStart = limit;
+    int bestEnd = -1;
+    for (int i = 0; i < utf8Literals.length; i++) {
+      byte[] literal = utf8Literals[i];
+      // indexOfWithin charges WorkCounter for the bytes it scans.
+      int idx = text.indexOfWithin(literal, utf8Failures[i], from, bestStart - 1);
+      if (idx >= 0) {
+        bestStart = idx;
+        bestEnd = idx + literal.length;
+        // Alternatives are visited in priority order; no later alternative can improve this.
+        if (idx == from) {
+          break;
+        }
+      }
+    }
+    return bestEnd < 0 ? NO_MATCH : ((long) bestStart << 32) | bestEnd;
   }
 
   private long searchGrowingWindows(String text, int start, int windowLength) {
