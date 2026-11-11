@@ -897,6 +897,19 @@ public final class Pattern implements Serializable {
       diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
     }
     if (utf8StartAccelerator instanceof Utf8StartAccelerator.LeadingExpansion le
+        && le.wideLeadingClass()
+        && le.minRepetition() == 0
+        && !le.hasLeadingAssertions()
+        && le.inner() instanceof Utf8StartAccelerator.Literal) {
+      // Existence does not need the expanded match start. Every match has a suffix at or after
+      // the first inner literal, and that suffix is itself a match with zero leading repetitions.
+      // Keep the full scanner so assertions retain their input context. One ordinary search from
+      // this candidate verifies the tail and handles later candidates without repeated probes.
+      int candidate = le.findInnerCandidate(scanner, 0);
+      if (candidate >= 0) {
+        return candidate;
+      }
+    } else if (utf8StartAccelerator instanceof Utf8StartAccelerator.LeadingExpansion le
         && le.canVerifyAtInner()) {
       int innerMatch = le.findInnerCandidate(scanner, 0);
       if (innerMatch >= 0) {

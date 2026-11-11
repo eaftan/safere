@@ -59,6 +59,16 @@ final class EngineEquivalenceFuzzerTest {
   }
 
   @Test
+  void wideLeadingExistenceChecksRejectedAndLaterCandidates() {
+    for (String leading : new String[] {".*", ".*?", "[^;]*", ".+", "^.*", "\\b.*"}) {
+      for (String tail : new String[] {": -", ": disk", ": -\nerror: disk", ": -;error: disk"}) {
+        EngineEquivalenceFuzzer.check(
+            leading + "error: \\w+", "abcdefghijklmnopqrstuvwxyz".repeat(16) + "error" + tail, 0);
+      }
+    }
+  }
+
+  @Test
   void emptyFindContinuationUsesEachRepresentationsOwnProgression() {
     EngineEquivalenceFuzzer.check("a|", "😀aaa", 0);
     EngineEquivalenceFuzzer.check("", "😀", 0);
