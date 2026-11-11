@@ -11,7 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Substring and original-input anchor models from docs/OPAQUE_REGION_BOUNDS.md. */
 @DisabledForCrosscheck("Opaque substring semantics intentionally differ from JDK region behavior")
@@ -127,6 +131,114 @@ class OpaqueRegionContractTest {
                 .build())) {
       checkSubstrings(LOCAL_PATTERNS, true, options);
     }
+  }
+
+  private static Stream<Arguments> graphemeCandidateCases() {
+    Stream.Builder<Arguments> cases = Stream.builder();
+    for (String regex :
+        List.of(
+            "\\uDE00\\X?",
+            "\\p{Cs}\\X?",
+            "[a\\uDE00]\\X?",
+            "(?<half>\\p{Cs})(?<cluster>\\X*)",
+            "\\X?\\p{Cs}",
+            "\\X\\p{Cs}",
+            ".\\uDE00\\X?",
+            "a?\\uDE00\\X?",
+            "[a\\uDE00]{2}\\X?",
+            "(\\uDE00)(\\X?)",
+            "\\X?\\uDE00",
+            "(?:\\p{Cs})|(?:\\Xz)",
+            "(?:\\Xz)|(?:\\p{Cs})",
+            "(?:\\uDE00\\X?)|(?m:^Q)",
+            "(?:\\p{Cs}\\X?)|(?m:^Q)",
+            "(?:\\X?\\uDE00)|(?m:^Q)")) {
+      for (String visible :
+          List.of(
+              "😀",
+              "😀😀",
+              "😀\uDE00",
+              "\uDE00😀",
+              "x😀y",
+              "\uDE00",
+              "😀\uD83D",
+              "😀\uDE00!",
+              "😀\uD83D!")) {
+        for (String prefix : List.of("", "a", "ab", "\uD83D")) {
+          for (boolean anchoring : List.of(false, true)) {
+            cases.add(Arguments.of(regex, visible, prefix, anchoring));
+          }
+        }
+      }
+    }
+    return cases.build();
+  }
+
+  @ParameterizedTest
+  @MethodSource("graphemeCandidateCases")
+  void opaqueGraphemeRegionsPreserveSubstringCandidateStarts(
+      String regex, String visible, String prefix, boolean anchoring) {
+    Pattern pattern = Pattern.compile(regex);
+    String input = prefix + visible + "!";
+    int start = prefix.length();
+    for (int operation = 0; operation < 3; operation++) {
+      Matcher region =
+          pattern
+              .matcher(input)
+              .region(start, start + visible.length())
+              .useAnchoringBounds(anchoring);
+      assertThat(OpaqueRegionChecks.trace(region, operation, start))
+          .as("%s regionStart=%s anchoring=%s operation=%s", regex, start, anchoring, operation)
+          .isEqualTo(OpaqueRegionChecks.trace(pattern.matcher(visible), operation, 0));
+    }
+  }
+
+  @Test
+  void scalarGraphemeSearchKeepsAnchorsInTheirConfiguredCoordinates() {
+    String input = "\na😀😀\n";
+    for (String regex : List.of("(?m)^(\\X?)(\\p{Cs})", "(\\X?)(\\p{Cs})(?m:$)")) {
+      Pattern pattern = Pattern.compile(regex);
+      Matcher anchored = pattern.matcher(input).region(2, 5);
+      assertThat(anchored.find()).as(regex).isTrue();
+      assertThat(anchored.start()).isEqualTo(2);
+      assertThat(anchored.end()).isEqualTo(5);
+      assertThat(anchored.group(1)).isEqualTo("😀");
+      assertThat(anchored.group(2)).isEqualTo("\uD83D");
+      assertThat(pattern.matcher(input).region(2, 5).useAnchoringBounds(false).find())
+          .as(regex)
+          .isFalse();
+    }
+  }
+
+  @Test
+  void scalarClassSearchStateSurvivesRegionChangesAndIsClearedForNewInputsAndPatterns() {
+    Pattern pattern = Pattern.compile("\\X?\\uDE00");
+    Matcher matcher = pattern.matcher("");
+    for (String visible : List.of("😀😀\uDE00!", "😀😀!", "😀\uD83D!", "\uDE00😀!")) {
+      String input = "a" + visible + "!";
+      matcher.reset(input);
+      for (int direction : new int[] {1, -1}) {
+        for (int step = 1; step < input.length(); step++) {
+          int end = direction == 1 ? step : input.length() - step;
+          for (int start = 1; start <= end; start++) {
+            matcher.region(start, end);
+            assertThat(OpaqueRegionChecks.trace(matcher, 2, start))
+                .isEqualTo(
+                    OpaqueRegionChecks.trace(pattern.matcher(input.substring(start, end)), 2, 0));
+          }
+        }
+      }
+    }
+    StringBuilder input = new StringBuilder("a😀😀\uDE00!");
+    matcher.reset(input).region(1, input.length());
+    assertThat(matcher.find()).isTrue();
+    input.setCharAt(input.length() - 2, '!');
+    matcher.reset().region(1, input.length());
+    assertThat(matcher.find()).isFalse();
+    matcher.usePattern(Pattern.compile("\\X?\\p{Cs}")).region(1, 4);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(4);
   }
 
   @Test
