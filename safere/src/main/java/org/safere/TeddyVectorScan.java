@@ -24,12 +24,16 @@ final class TeddyVectorScan {
 
     ByteVector lutLo0 = ByteVector.fromArray(SPECIES, model.lutLo(), 0);
     ByteVector lutHi0 = ByteVector.fromArray(SPECIES, model.lutHi(), 0);
+    // Keep guarded vector operands non-null. On affected JDK 25 and 26 releases, C2 can
+    // schedule a vector payload load before its guard and dereference a null vector box.
+    // See JDK-8387012 and https://github.com/eaftan/safere/issues/1170.
+    ByteVector disabledLut = ByteVector.zero(SPECIES);
     boolean is2Byte = model.is2Byte();
-    ByteVector lutLo1 = is2Byte ? ByteVector.fromArray(SPECIES, model.lutLo1(), 0) : null;
-    ByteVector lutHi1 = is2Byte ? ByteVector.fromArray(SPECIES, model.lutHi1(), 0) : null;
+    ByteVector lutLo1 = is2Byte ? ByteVector.fromArray(SPECIES, model.lutLo1(), 0) : disabledLut;
+    ByteVector lutHi1 = is2Byte ? ByteVector.fromArray(SPECIES, model.lutHi1(), 0) : disabledLut;
     boolean is3Byte = model.is3Byte();
-    ByteVector lutLo2 = is3Byte ? ByteVector.fromArray(SPECIES, model.lutLo2(), 0) : null;
-    ByteVector lutHi2 = is3Byte ? ByteVector.fromArray(SPECIES, model.lutHi2(), 0) : null;
+    ByteVector lutLo2 = is3Byte ? ByteVector.fromArray(SPECIES, model.lutLo2(), 0) : disabledLut;
+    ByteVector lutHi2 = is3Byte ? ByteVector.fromArray(SPECIES, model.lutHi2(), 0) : disabledLut;
 
     String[] literals = model.literals();
     int[] buckets = model.literalBuckets();

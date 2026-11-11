@@ -287,3 +287,45 @@ and nonzero-offset input windows. Follow the
 The [historical Trino measurements](benchmarks/TRINO_UTF8.md) record a local
 integration experiment; use the host project's current test names and build
 requirements when repeating validation.
+
+## Vector compiler stress
+
+`TeddyVectorScanTest` directly checks the experimental Teddy kernel with alternating
+stage counts, misses, candidate-heavy input, nonzero array offsets, search starts,
+and vector/tail boundaries. It runs when the Vector provider is enabled:
+
+```bash
+mvn -pl safere -Pvector-tests -Dtest=TeddyVectorScanTest test
+```
+
+`TeddyVectorScanStress` is a separate diagnostic entry point for the C2 failure in
+[SafeRE #1170](https://github.com/eaftan/safere/issues/1170). It warms three-byte
+models before introducing two-byte models and checks each scan result. Run it in
+fresh JVMs on an x86-64 AVX2 machine with an affected JDK 25 or 26. Build using the
+project build JDK first:
+
+```bash
+mvn -pl safere -Pvector-tests -DskipTests package
+/path/to/affected-jdk/bin/java --add-modules=jdk.incubator.vector \
+  -XX:UseAVX=2 -XX:+UnlockDiagnosticVMOptions \
+  -XX:+StressIncrementalInlining -XX:+StressGCM -XX:+StressLCM -XX:+StressIGVN \
+  -XX:StressSeed=5 -XX:-CreateCoredumpOnCrash \
+  -XX:ErrorFile=/tmp/teddy-hs_err_pid%p.log \
+  -cp 'safere/target/test-classes:safere/target/safere-1.2.0-SNAPSHOT.jar' \
+  org.safere.TeddyVectorScanStress
+```
+
+The diagnostic flags are HotSpot-specific and are not supported on every JDK.
+Repeat with varied `StressSeed` values, preserving the exact JDK, commands, exit
+statuses, output, and crash logs. Compare unpatched and patched production JARs
+with the same compiled driver, seeds, flags, and hardware. Establish crashes in
+the unpatched control before treating passing patched runs as evidence. Check
+that crashes have the expected C2 Teddy frame and null payload fault; other
+failures need separate diagnosis.
+
+For representative seeds, add `-XX:+PrintCompilation -XX:+PrintIntrinsics` and
+`-XX:CompileCommand=option,org.safere.TeddyVectorScan::indexOfTeddyUtf8,PrintInlining`
+to verify that C2 compiles the kernel and intrinsifies its vector operations.
+Stress passes complement the source invariant that disabled-stage vector operands
+are non-null; neither ordinary CI passes nor a finite stress campaign alone proves
+absence of a compiler bug. Keep these diagnostic flags out of the default suite.
