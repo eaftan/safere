@@ -881,6 +881,64 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void leadingClassExcludingFewCodePointsGetsLeadingExpansion() {
+    // Non-DOTALL `.` excludes the five line terminators (only `\n` with UNIX_LINES), and `[^;]`
+    // excludes one character. Walking back over such a class stops at the nearest excluded code
+    // point, so the inner literal can drive the start plan.
+    for (String regex :
+        List.of(
+            ".*error: \\w+",
+            ".+error: \\w+",
+            "[^\\n]*error: \\w+",
+            "(?d).*error: \\w+",
+            "(.*)(error): (\\w+)",
+            ".*?error",
+            "[^;]*error")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.startPlan()).as(regex).isInstanceOf(StartPlan.LeadingExpansion.class);
+      StartPlan.LeadingExpansion le = (StartPlan.LeadingExpansion) pattern.startPlan();
+      assertThat(le.innerPlan()).as(regex).isInstanceOf(StartPlan.Literal.class);
+    }
+    // DOTALL `.` never stops before the search start, and a class excluding more than a handful
+    // of code points is still too large to walk.
+    for (String regex : List.of("(?s).*error", "[^\\n\\r\\u0085\\u2028\\u2029abcd]*error")) {
+      assertThat(Pattern.compile(regex).startPlan())
+          .as(regex)
+          .isNotInstanceOf(StartPlan.LeadingExpansion.class);
+    }
+  }
+
+  @Test
+  void wideLeadingExpansionSubsumesFindRejectWhenItsLiteralImpliesThePlan() {
+    assertThat(startSubsumesFindReject(".*error: \\w+")).isTrue();
+    assertThat(startSubsumesFindReject("[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?")).isTrue();
+    // The reject plan requires a different literal, which still filters on its own.
+    assertThat(startSubsumesFindReject(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash")).isFalse();
+    // Narrow leading classes and DOTALL keep the reject prefilter.
+    assertThat(startSubsumesFindReject("[a-z]+error")).isFalse();
+    assertThat(startSubsumesFindReject("(?s).*error: \\w+")).isFalse();
+  }
+
+  private static boolean startSubsumesFindReject(String regex) {
+    return Pattern.compile(regex).multiAnchor().startSubsumesFindReject();
+  }
+
+  @Test
+  void excludedCodePointsOfWideLeadingClasses() {
+    assertThat(excludedCodePoints(".*error")).containsExactly('\n', '\r', 0x85, 0x2028, 0x2029);
+    assertThat(excludedCodePoints("(?d).*error")).containsExactly('\n');
+    assertThat(excludedCodePoints("[^;]*error")).containsExactly(';');
+    assertThat(excludedCodePoints("\\S+error")).containsExactly('\t', '\n', 0x0B, '\f', '\r', ' ');
+    // A narrow leading class is walked as before and has no excluded set.
+    assertThat(excludedCodePoints("[a-z]+error")).isNull();
+  }
+
+  private static int[] excludedCodePoints(String regex) {
+    StartPlan.LeadingExpansion le = (StartPlan.LeadingExpansion) Pattern.compile(regex).startPlan();
+    return MultiAnchorCompiler.excludedCodePoints(le.leadingClass());
+  }
+
+  @Test
   void surrogateLiteralsDoNotProduceStringFastPaths() {
     for (String regex :
         List.of(

@@ -84,6 +84,23 @@ public final class EngineEquivalenceFuzzer {
     int start = data.consumeInt(0, input.length());
     int end = data.consumeInt(start, input.length());
     checkRegion(regex, input.toString(), start, end, data.consumeBoolean(), data.consumeBoolean());
+    if (data.consumeBoolean()) {
+      checkWideLeadingGraphemeExpansion(data);
+    }
+  }
+
+  private static void checkWideLeadingGraphemeExpansion(FuzzedDataProvider data) {
+    String delimiter = data.pickValue(List.of("😀", "🧪", "👍"));
+    String repetition = data.pickValue(List.of("+", "+?", "{1,3}"));
+    String literal = data.pickValue(List.of("error", "stop", "marker"));
+    String cluster = data.pickValue(List.of("!", "e\u0301", "👩‍💻"));
+    String regex = "([^" + delimiter + "]" + repetition + ")" + literal + "\\X";
+    String input = "p".repeat(data.consumeInt(256, 320)) + delimiter + literal + cluster;
+    // String grapheme programs can start at a low surrogate; UTF-8 cannot represent that start.
+    List<String> expected = trace(Pattern.compile(regex, 0, PATHS.getLast()), input, 0);
+    for (EnginePathOptions path : PATHS) {
+      assertThat(trace(Pattern.compile(regex, 0, path), input, 0)).isEqualTo(expected);
+    }
   }
 
   static void check(String regex, String input, int start) {

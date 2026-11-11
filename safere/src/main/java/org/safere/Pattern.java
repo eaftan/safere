@@ -177,6 +177,8 @@ public final class Pattern implements Serializable {
   private final transient RejectPrefilter utf8FindRejectPrefilter;
 
   private final boolean startPrecedesFindReject;
+  private final boolean dfaStartAcceleration;
+  private final boolean startSubsumesFindReject;
 
   /**
    * OnePass analysis results, computed during construction when eligible analysis can support
@@ -311,10 +313,28 @@ public final class Pattern implements Serializable {
     this.anchoredCharClassPrefix = this.multiAnchor.anchoredCharClassPrefix();
     this.utf8StartAccelerator =
         Utf8StartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+    boolean wideLeadingExpansion =
+        this.multiAnchor.startPlan() instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion le
+            && MultiAnchorCompiler.isWideLeadingClass(le.leadingClass());
+    // A String program containing \X may start at the low half of a surrogate pair. A scalar
+    // backward walk can see the excluded pair and miss a valid start at its low surrogate.
     this.stringStartAccelerator =
-        StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+        wideLeadingExpansion && prog.hasGraphemeClusterInstruction()
+            ? null
+            : StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+    // The wide expansion can walk backward over an entire line. Keep it out of the DFA loop,
+    // which could otherwise repeat that walk at each position before the same inner hit.
+    this.dfaStartAcceleration = !wideLeadingExpansion;
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    // When find() runs a wide-class leading expansion, its inner literal search fails exactly when
+    // the reject prefilter would reject, so the prefilter's scan would only repeat it.
+    this.startSubsumesFindReject =
+        enginePathOptions.startAcceleration()
+            && !prog.anchorStart()
+            && stringStartAccelerator != null
+            && utf8StartAccelerator != null
+            && this.multiAnchor.startSubsumesFindReject();
     this.innerLiteralSearch =
         enginePathOptions.startAcceleration()
                 && enginePathOptions.literalFastPaths()
@@ -704,6 +724,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && findRejectPrefilter.canReject(null, scanner, 0, enginePathOptions)) {
       return false;
     }
@@ -812,6 +833,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && rejectsWithDiagnostics(findRejectPrefilter, scanner, 0, diagnostics)) {
       return false;
     }
@@ -1353,6 +1375,7 @@ public final class Pattern implements Serializable {
             && length < MAX_LITERAL_START_FIRST_LENGTH;
     if (findRejectPrefilter != null
         && !rejectAfterStart
+        && !startSubsumesFindReject
         && findRejectPrefilter.canReject(input, null, 0, enginePathOptions)) {
       return false;
     }
@@ -1648,6 +1671,10 @@ public final class Pattern implements Serializable {
     return p;
   }
 
+  private boolean dfaStartAcceleration() {
+    return enginePathOptions.startAcceleration() && dfaStartAcceleration;
+  }
+
   /** Returns whether DFA paths implement every instruction in {@link #flatDfaProg()}. */
   boolean forwardDfaSupported() {
     return forwardDfaSupported;
@@ -1670,8 +1697,8 @@ public final class Pattern implements Serializable {
               MAX_DFA_STATES,
               forwardDfaSetup(),
               false,
-              enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null,
+              dfaStartAcceleration() ? utf8StartAccelerator : null,
+              dfaStartAcceleration() ? stringStartAccelerator : null,
               innerLiteralSearch);
       cache.forwardFirstMatchDfa = dfa;
     }
@@ -1691,8 +1718,8 @@ public final class Pattern implements Serializable {
               MAX_DFA_STATES,
               forwardDfaSetup(),
               true,
-              enginePathOptions.startAcceleration() ? utf8StartAccelerator : null,
-              enginePathOptions.startAcceleration() ? stringStartAccelerator : null);
+              dfaStartAcceleration() ? utf8StartAccelerator : null,
+              dfaStartAcceleration() ? stringStartAccelerator : null);
       cache.forwardLongestMatchDfa = dfa;
     }
     return dfa;
@@ -2051,6 +2078,11 @@ public final class Pattern implements Serializable {
 
   boolean startPrecedesFindReject() {
     return startPrecedesFindReject;
+  }
+
+  /** Returns whether find() skips the reject prefilter in favor of the start accelerator. */
+  boolean startSubsumesFindReject() {
+    return startSubsumesFindReject;
   }
 
   MultiAnchorDescriptor multiAnchor() {

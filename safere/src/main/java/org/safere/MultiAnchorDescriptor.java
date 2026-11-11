@@ -102,6 +102,43 @@ final class MultiAnchorDescriptor {
         && RarityOracle.startLiteralCompetitiveWithReject(startLiteral, rl.literal());
   }
 
+  /**
+   * Returns whether a failed start search already rejects the input, so that {@code find()} can
+   * skip {@code findRejectPrefilter}. Holds for a leading expansion over a wide class whose inner
+   * plan is an exact literal that contains every literal and some member of every class the reject
+   * plan requires: the expansion's literal search then reports no candidate exactly when the reject
+   * prefilter would reject, and running both scans the same text twice.
+   */
+  boolean startSubsumesFindReject() {
+    if (startAnchored
+        || !(startPlan instanceof StartPlan.LeadingExpansion le)
+        || !MultiAnchorCompiler.isWideLeadingClass(le.leadingClass())
+        || !(le.innerPlan() instanceof StartPlan.Literal lit)
+        || lit.foldCase()) {
+      return false;
+    }
+    return switch (rejectPlan) {
+      case RejectPlan.Composite composite -> {
+        for (RejectPlan plan : composite.plans()) {
+          if (!impliedByLiteral(plan, lit.prefix())) {
+            yield false;
+          }
+        }
+        yield true;
+      }
+      default -> impliedByLiteral(rejectPlan, lit.prefix());
+    };
+  }
+
+  private static boolean impliedByLiteral(RejectPlan plan, String literal) {
+    return switch (plan) {
+      case RejectPlan.RequiredLiteral rl -> literal.contains(rl.literal());
+      case RejectPlan.RequiredCharClass rc ->
+          literal.codePoints().anyMatch(rc.scanInfo()::contains);
+      default -> false;
+    };
+  }
+
   sealed interface StartPlan {
     record None() implements StartPlan {
       static final None INSTANCE = new None();
