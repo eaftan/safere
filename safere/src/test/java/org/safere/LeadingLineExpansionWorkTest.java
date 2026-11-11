@@ -8,8 +8,12 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Work bounds for leading expansions over a class that excludes only a few code points. */
 @DisabledForCrosscheck("WorkCounter is an internal SafeRE API")
@@ -36,6 +40,35 @@ class LeadingLineExpansionWorkTest {
                     .isEqualTo(lines));
     assertThat(stringSteps).isLessThan(text.length() / 2);
     assertThat(utf8Steps).isLessThan(text.length() / 2);
+  }
+
+  @ParameterizedTest
+  @MethodSource("excludedSeparatorCases")
+  void rejectedInnerHitsDoNotRescanThePrefix(String regex, String separator, boolean utf8) {
+    Pattern pattern = Pattern.compile(regex);
+    String rejected = "p".repeat(256) + separator + ("error" + separator).repeat(1024);
+    for (String tail : new String[] {"", "perror"}) {
+      String input = rejected + tail;
+      int expected = tail.isEmpty() ? 0 : 1;
+      long work =
+          WorkCounter.countWithForwardDfaStepsForTesting(
+              () -> {
+                int matches =
+                    utf8
+                        ? count(pattern.matcher(Utf8Input.trusted(input.getBytes(UTF_8))))
+                        : count(pattern.matcher(input));
+                assertThat(matches).isEqualTo(expected);
+              });
+      assertThat(work).isLessThan(10L * input.length());
+    }
+  }
+
+  static Stream<Arguments> excludedSeparatorCases() {
+    return Stream.of(
+        Arguments.of(".+error", "\r", false),
+        Arguments.of(".+error", "\r", true),
+        Arguments.of("\\S+error", " ", false),
+        Arguments.of("\\S+error", " ", true));
   }
 
   private static int count(Matcher matcher) {

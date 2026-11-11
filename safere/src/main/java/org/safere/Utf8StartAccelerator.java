@@ -870,11 +870,11 @@ sealed interface Utf8StartAccelerator {
             && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
           return Math.max(0, fromIndex);
         }
-        // When nothing between the search start and the hit is excluded, the walk would go all the
-        // way back to the search start. A vectorized forward search shows that more cheaply.
+        // A forward scan can show that the walk would reach the search start. Probe only the
+        // first hit: an excluded code point before it will also precede every later hit.
         if (excludedSet != null
+            && searchPos == fromIndex
             && innerMatch > fromIndex
-            && fromIndex >= 0
             && !excludedSet.mayContain(scanner, fromIndex, innerMatch)) {
           return fromIndex;
         }

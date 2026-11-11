@@ -651,7 +651,11 @@ sealed interface StringStartAccelerator {
     /** Returns whether {@code text[from, to)} holds a code unit the leading class excludes. */
     private boolean containsExcluded(String text, int from, int to) {
       for (char c : excludedChars) {
-        if (text.indexOf(c, from, to) >= 0) {
+        int hit = text.indexOf(c, from, to);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(hit < 0 ? to - from : hit - from + 1);
+        }
+        if (hit >= 0) {
           return true;
         }
       }
@@ -719,11 +723,11 @@ sealed interface StringStartAccelerator {
             && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
           return Math.max(0, fromIndex);
         }
-        // When nothing between the search start and the hit is excluded, the walk would go all the
-        // way back to the search start. A vectorized forward search shows that more cheaply.
+        // A forward scan can show that the walk would reach the search start. Probe only the
+        // first hit: an excluded code point before it will also precede every later hit.
         if (excludedChars != null
+            && searchPos == fromIndex
             && innerMatch > fromIndex
-            && fromIndex >= 0
             && text instanceof String string
             && !containsExcluded(string, fromIndex, innerMatch)) {
           return fromIndex;

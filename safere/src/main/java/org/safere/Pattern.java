@@ -313,15 +313,18 @@ public final class Pattern implements Serializable {
     this.anchoredCharClassPrefix = this.multiAnchor.anchoredCharClassPrefix();
     this.utf8StartAccelerator =
         Utf8StartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+    boolean wideLeadingExpansion =
+        this.multiAnchor.startPlan() instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion le
+            && MultiAnchorCompiler.isWideLeadingClass(le.leadingClass());
+    // A String program containing \X may start at the low half of a surrogate pair. A scalar
+    // backward walk can see the excluded pair and miss a valid start at its low surrogate.
     this.stringStartAccelerator =
-        StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
-    // A leading expansion over a wide class such as non-DOTALL `.` only picks the first start of
-    // each search. Inside the DFA loop it would be asked again at nearly every position of a line
-    // holding an inner hit, walking back to that position each time.
-    this.dfaStartAcceleration =
-        !(this.multiAnchor.startPlan()
-                instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion le
-            && MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()));
+        wideLeadingExpansion && prog.hasGraphemeClusterInstruction()
+            ? null
+            : StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
+    // The wide expansion can walk backward over an entire line. Keep it out of the DFA loop,
+    // which could otherwise repeat that walk at each position before the same inner hit.
+    this.dfaStartAcceleration = !wideLeadingExpansion;
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
     // When find() runs a wide-class leading expansion, its inner literal search fails exactly when
