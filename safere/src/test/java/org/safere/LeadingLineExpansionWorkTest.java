@@ -22,6 +22,39 @@ import org.junit.jupiter.params.provider.ValueSource;
 class LeadingLineExpansionWorkTest {
 
   @ParameterizedTest
+  @ValueSource(strings = {".*X![0-9]", ".*?X![0-9]", "[^;]*X![0-9]", "(.*)X![0-9]"})
+  void tinyUtf8ExistenceDoesNotAddScanningToNativeVerification(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    for (boolean expected : new boolean[] {false, true}) {
+      byte[] bytes = (expected ? "X!7" : "X!-7").getBytes(UTF_8);
+      long nativeWork =
+          WorkCounter.countWithForwardDfaStepsForTesting(
+              () -> {
+                Dfa.SearchResult result =
+                    pattern
+                        .forwardFirstMatchDfa()
+                        .doSearch(new Utf8InputScanner(bytes), 0, false, false, true);
+                assertThat(result).isNotNull();
+                assertThat(result.matched()).isEqualTo(expected);
+              });
+      for (boolean diagnostics : new boolean[] {false, true}) {
+        long work =
+            WorkCounter.countWithForwardDfaStepsForTesting(
+                () -> {
+                  boolean found =
+                      diagnostics
+                          ? pattern.findWithDiagnostics(new Utf8InputScanner(bytes))
+                          : pattern.find(Utf8Input.trusted(bytes));
+                  assertThat(found).isEqualTo(expected);
+                });
+        assertThat(work)
+            .as("%s expected=%s diagnostics=%s", regex, expected, diagnostics)
+            .isLessThanOrEqualTo(nativeWork);
+      }
+    }
+  }
+
+  @ParameterizedTest
   @ValueSource(strings = {".*error: \\w+", ".*?error: \\w+", "[^;]*error: \\w+", "(.*)error: \\w+"})
   void utf8ExistenceDoesNotTraverseTheLeadingRunInTheDfa(String regex) {
     Pattern pattern = Pattern.compile(regex);
