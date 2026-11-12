@@ -1,0 +1,109 @@
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.all.text.ascii.128-seed-1
+242 samples; {'other regex/consumer': 60, 'exact boundary/fallback': 162, 'forward DFA': 18, 'start acceleration': 2}
+53 org.safere.BitState.trySearch
+41 org.safere.BitState.progressContinuation
+32 org.safere.StringInputScanner.asciiAt
+27 org.safere.BitState.shouldVisit
+17 org.safere.Dfa.doSearchInternal
+16 org.safere.BitState.push
+12 org.safere.BitState.shouldVisitTracked
+10 org.safere.BitState.stepWithinBudget
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1
+241 samples; {'other regex/consumer': 47, 'start acceleration': 15, 'forward DFA': 133, 'exact boundary/fallback': 46}
+122 org.safere.Dfa.doSearchInternal
+19 org.safere.BitState.trySearch
+18 org.safere.BitState.progressContinuation
+17 org.safere.StringInputScanner.asciiAt
+11 org.safere.StringLiteralSearch.indexOfChar
+5 org.safere.BitState.push
+4 org.safere.StringInputScanner.length
+3 org.safere.BitState.shouldVisitTracked
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text.ascii.128-seed-1
+239 samples; {'capture replay': 52, 'start acceleration': 31, 'other regex/consumer': 86, 'exact boundary/fallback': 21, 'forward DFA': 39, 'reverse DFA': 10}
+50 org.safere.BitState.trySearch
+31 org.safere.Dfa.doSearchInternal
+18 org.safere.StringStartAccelerator$LineAnchor.isBeginLine
+11 org.safere.BitState.shouldVisit
+8 org.safere.StringInputScanner.asciiAt
+8 org.safere.Dfa.computeNext
+8 org.safere.Dfa.doSearchReverse
+8 org.safere.AsciiBitmap.contains
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text4.ascii.128-seed-1
+237 samples; {'other regex/consumer': 101, 'reverse DFA': 13, 'start acceleration': 27, 'capture replay': 16, 'forward DFA': 69, 'exact boundary/fallback': 11}
+63 org.safere.Dfa.doSearchInternal
+23 org.safere.Dfa.computeNext
+16 org.safere.BitState.trySearch
+12 org.safere.Dfa.doSearchReverse
+12 org.safere.StringStartAccelerator$LineAnchor.isBeginLine
+9 org.safere.AsciiBitmap.contains
+9 org.safere.Dfa.expand
+8 org.safere.StringInputScanner.length
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.document-seed-1
+239 samples; {'capture replay': 68, 'exact boundary/fallback': 44, 'forward DFA': 43, 'other regex/consumer': 55, 'start acceleration': 13, 'reverse DFA': 15, 'other': 1}
+59 org.safere.BitState.trySearch
+37 org.safere.Dfa.doSearchInternal
+17 org.safere.StringInputScanner.asciiAt
+17 org.safere.BitState.shouldVisit
+12 org.safere.Dfa.doSearchReverse
+11 org.safere.BitState.push
+6 org.safere.BitState.doSearch
+6 org.safere.Inst.matchesChar
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.all.text.ascii.128-seed-1
+241 samples; {'exact boundary/fallback': 180, 'forward DFA': 17, 'other regex/consumer': 38, 'start acceleration': 5, 'other': 1}
+72 org.safere.BitState.trySearch
+48 org.safere.BitState.progressContinuation
+24 org.safere.BitState.shouldVisit
+17 org.safere.Dfa.doSearchInternal
+14 org.safere.Utf8InputScanner.unsignedByteAt
+12 org.safere.BitState.stepWithinBudget
+10 org.safere.BitState.push
+7 org.safere.BitState.shouldVisitTracked
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.rare.rotate.ascii.128-seed-1
+244 samples; {'exact boundary/fallback': 47, 'other regex/consumer': 58, 'forward DFA': 120, 'start acceleration': 19}
+112 org.safere.Dfa.doSearchInternal
+18 org.safere.BitState.trySearch
+16 org.safere.ByteSwarScan.indexOfByte
+14 org.safere.BitState.progressContinuation
+13 org.safere.Utf8InputScanner.unsignedByteAt
+10 org.safere.Utf8InputScanner.isCodePointBoundary
+6 org.safere.Utf8InputScanner.asciiAt
+6 org.safere.Matcher.doFindCore
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text.ascii.128-seed-1
+240 samples; {'other regex/consumer': 79, 'exact boundary/fallback': 28, 'reverse DFA': 16, 'forward DFA': 65, 'capture replay': 51, 'other': 1}
+62 org.safere.Dfa.doSearchInternal
+50 org.safere.BitState.trySearch
+20 org.safere.Utf8InputScanner.unsignedByteAt
+12 org.safere.Dfa.doSearchReverse
+11 org.safere.BitState.shouldVisit
+8 org.safere.Dfa.computeNext
+8 org.safere.Prog.inst
+6 org.safere.Dfa.expand
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text4.ascii.128-seed-1
+239 samples; {'other regex/consumer': 113, 'reverse DFA': 23, 'exact boundary/fallback': 14, 'forward DFA': 81, 'capture replay': 8}
+75 org.safere.Dfa.doSearchInternal
+24 org.safere.Dfa.computeNext
+17 org.safere.Utf8InputScanner.unsignedByteAt
+13 org.safere.Dfa.doSearchReverse
+10 org.safere.Prog.inst
+10 org.safere.Dfa.expand
+9 org.safere.BitState.trySearch
+6 org.safere.BitState.shouldVisit
+
+org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.document-seed-1
+238 samples; {'forward DFA': 58, 'other regex/consumer': 59, 'capture replay': 61, 'exact boundary/fallback': 36, 'reverse DFA': 24}
+57 org.safere.BitState.trySearch
+55 org.safere.Dfa.doSearchInternal
+21 org.safere.Dfa.doSearchReverse
+15 org.safere.Utf8InputScanner.unsignedByteAt
+14 org.safere.BitState.shouldVisit
+7 org.safere.BitState.stepWithinBudget
+6 org.safere.BitState.push
+5 org.safere.benchmark.AdaptiveCaptureCase.hash

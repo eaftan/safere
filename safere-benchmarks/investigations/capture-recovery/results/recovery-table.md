@@ -1,0 +1,34 @@
+| Mode | Input | Scenario | Main ns/cycle ± JMH error | Candidate ns/cycle ± JMH error | Ratio |
+|---|---|---|---:|---:|---:|
+| standard | string | scheme.all.text.ascii.128 | 999709.8 ± 31988.5 | 974629.5 ± 12686.0 | 0.975× |
+| standard | string | scheme.all.text4.ascii.128 | 986481.5 ± 34747.7 | 960988.1 ± 14416.4 | 0.974× |
+| standard | string | scheme.none.text.ascii.128 | 163841.7 ± 8940.4 | 166091.3 ± 7705.5 | 1.014× |
+| standard | string | scheme.rare.rotate.ascii.128 | 217363.6 ± 14890.3 | 226412.8 ± 2902.5 | 1.042× |
+| standard | string | stack.all.text.ascii.128 | 2116936.9 ± 21699.1 | 1948043.0 ± 89886.7 | 0.920× |
+| standard | string | stack.all.text4.ascii.128 | 1561747.2 ± 70723.2 | 1476063.9 ± 50449.6 | 0.945× |
+| standard | string | stack.document | 6537476.8 ± 293780.5 | 5473819.0 ± 54524.6 | 0.837× |
+| standard | string | stack.none.text.ascii.128 | 607461.4 ± 7236.4 | 587419.7 ± 30778.1 | 0.967× |
+| standard | utf8 | scheme.all.text.ascii.128 | 1002989.5 ± 43958.2 | 1009013.8 ± 19923.0 | 1.006× |
+| standard | utf8 | scheme.all.text4.ascii.128 | 974929.5 ± 12495.1 | 995788.1 ± 23222.0 | 1.021× |
+| standard | utf8 | scheme.none.text.ascii.128 | 159494.4 ± 4595.1 | 173246.9 ± 3737.6 | 1.086× |
+| standard | utf8 | scheme.rare.rotate.ascii.128 | 239741.8 ± 2696.8 | 238002.5 ± 5463.8 | 0.993× |
+| standard | utf8 | stack.all.text.ascii.128 | 2109914.0 ± 69499.1 | 1980213.4 ± 19193.2 | 0.939× |
+| standard | utf8 | stack.all.text4.ascii.128 | 1522342.8 ± 44360.9 | 1461613.7 ± 22733.1 | 0.960× |
+| standard | utf8 | stack.document | 6470155.6 ± 126453.9 | 5623892.2 ± 184805.1 | 0.869× |
+| standard | utf8 | stack.none.text.ascii.128 | 557565.7 ± 8495.4 | 551744.3 ± 5928.5 | 0.990× |
+| long | string | scheme.all.text.ascii.128 | 1067499.5 ± 16541.2 | 1051986.0 ± 28705.9 | 0.985× |
+| long | string | scheme.all.text4.ascii.128 | 1040563.2 ± 18113.3 | 1035218.9 ± 20704.7 | 0.995× |
+| long | string | scheme.none.text.ascii.128 | 165896.3 ± 11672.0 | 176051.4 ± 7913.9 | 1.061× |
+| long | string | scheme.rare.rotate.ascii.128 | 245324.1 ± 3849.4 | 233373.1 ± 13297.7 | 0.951× |
+| long | string | stack.all.text.ascii.128 | 2332479.8 ± 34220.0 | 2118758.5 ± 38793.9 | 0.908× |
+| long | string | stack.all.text4.ascii.128 | 1667811.5 ± 49328.1 | 1570752.7 ± 42787.6 | 0.942× |
+| long | string | stack.document | 7060599.4 ± 195463.6 | 5986630.0 ± 138904.1 | 0.848× |
+| long | string | stack.none.text.ascii.128 | 636895.1 ± 25672.4 | 626637.6 ± 21231.5 | 0.984× |
+| long | utf8 | scheme.all.text.ascii.128 | 1061032.8 ± 18499.0 | 1101558.2 ± 13881.8 | 1.038× |
+| long | utf8 | scheme.all.text4.ascii.128 | 1046067.8 ± 10087.9 | 1067114.0 ± 47814.0 | 1.020× |
+| long | utf8 | scheme.none.text.ascii.128 | 177432.6 ± 3432.0 | 185597.1 ± 15652.0 | 1.046× |
+| long | utf8 | scheme.rare.rotate.ascii.128 | 260346.3 ± 5805.9 | 258399.0 ± 3898.7 | 0.993× |
+| long | utf8 | stack.all.text.ascii.128 | 2296191.8 ± 39005.1 | 2117702.9 ± 147106.4 | 0.922× |
+| long | utf8 | stack.all.text4.ascii.128 | 1602536.3 ± 16277.8 | 1562310.7 ± 43198.2 | 0.975× |
+| long | utf8 | stack.document | 7162582.4 ± 275842.6 | 5967655.0 ± 203669.8 | 0.833× |
+| long | utf8 | stack.none.text.ascii.128 | 600751.4 ± 15570.4 | 593960.1 ± 10052.6 | 0.989× |

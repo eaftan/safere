@@ -1,0 +1,50 @@
+[
+  {
+    "mode": "standard",
+    "representation": "string",
+    "rows": 8,
+    "geometricMean": 0.957449346515947,
+    "p90NearestRank": 1.041631835691258,
+    "worst": 1.041631835691258
+  },
+  {
+    "mode": "standard",
+    "representation": "utf8",
+    "rows": 8,
+    "geometricMean": 0.9811501473351327,
+    "p90NearestRank": 1.0862257053699123,
+    "worst": 1.0862257053699123
+  },
+  {
+    "mode": "standard",
+    "representation": "both",
+    "rows": 16,
+    "geometricMean": 0.9692273042996921,
+    "p90NearestRank": 1.041631835691258,
+    "worst": 1.0862257053699123
+  },
+  {
+    "mode": "long",
+    "representation": "string",
+    "rows": 8,
+    "geometricMean": 0.9574787092910304,
+    "p90NearestRank": 1.0612134486196654,
+    "worst": 1.0612134486196654
+  },
+  {
+    "mode": "long",
+    "representation": "utf8",
+    "rows": 8,
+    "geometricMean": 0.974658519559628,
+    "p90NearestRank": 1.0460146954270804,
+    "worst": 1.0460146954270804
+  },
+  {
+    "mode": "long",
+    "representation": "both",
+    "rows": 16,
+    "geometricMean": 0.9660304246282615,
+    "p90NearestRank": 1.0460146954270804,
+    "worst": 1.0612134486196654
+  }
+]

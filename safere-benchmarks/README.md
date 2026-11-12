@@ -34,6 +34,14 @@ harness implementation and validation. See
 and
 [`safere-benchmarks/DECLARATIVE_COLLECTION.md`](DECLARATIVE_COLLECTION.md).
 
+UTF-8 capture-text operations decode only the requested byte range during timing.
+The generic adapter retains the original input storage and its logical-view offset;
+input encoding remains outside timing. Capture-participation operations use bounds
+without decoding. This enables UTF-8 variants of existing text-extraction workloads
+as well as the focused `CaptureRecoveryBenchmark` standing cases. See the
+[capture-recovery investigation](investigations/capture-recovery/README.md) for the
+larger opt-in cutoff study.
+
 SafeRE also maintains a separate
 [OpenJDK-derived regex benchmark suite](https://github.com/safere/openjdk-regex-benchmarks).
 It compares SafeRE and `java.util.regex` on compatible workloads adapted from

@@ -1,0 +1,667 @@
+=== Standard mode ===
+=== Fast Building safere-benchmarks only ===
+=== Materializing benchmark inputs from /tmp/safere-1075-followups-base/safere-benchmarks/investigations/capture-demand-policy ===
+Materialized 42 benchmark inputs in /tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus
+UTF-8 scan provider startup check passed: default
+=== Running ^org\.safere\.benchmark\.AdaptiveCaptureBenchmark\.run$ (-f 2 -wi 2 -w 500ms -i 5 -r 500ms -p scenario=stack.all.text.ascii.128,stack.all.text4.ascii.128,stack.document,scheme.all.text.ascii.128,scheme.rare.rotate.ascii.128 -p representation=string,utf8 -p policy=main -p seed=1 -prof jfr:dir=/home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr -foe true -rf json -rff /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-profile.json) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = string, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 0.00% complete, ETA 00:01:10
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2654407.032 ns/op
+# Warmup Iteration   2: 2275402.732 ns/op
+Iteration   1: 2201250.311 ns/op
+Iteration   2: 2190172.192 ns/op
+Iteration   3: 2186833.354 ns/op
+Iteration   4: 2213517.699 ns/op
+Iteration   5: 2183756.665 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 5.00% complete, ETA 00:01:28
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2666604.521 ns/op
+# Warmup Iteration   2: 2268456.864 ns/op
+Iteration   1: 2204697.838 ns/op
+Iteration   2: 2179498.330 ns/op
+Iteration   3: 2161707.892 ns/op
+Iteration   4: 2170502.654 ns/op
+Iteration   5: 2203530.855 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  2189546.779 ±(99.9%) 24773.861 ns/op [Average]
+  (min, avg, max) = (2161707.892, 2189546.779, 2213517.699), stdev = 16386.375
+  CI (99.9%): [2164772.919, 2214320.640] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = string, scenario = stack.all.text4.ascii.128, seed = 1)
+
+# Run progress: 10.00% complete, ETA 00:01:23
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2007607.160 ns/op
+# Warmup Iteration   2: 1569905.364 ns/op
+Iteration   1: 1593630.203 ns/op
+Iteration   2: 1598130.780 ns/op
+Iteration   3: 1571596.455 ns/op
+Iteration   4: 1569312.282 ns/op
+Iteration   5: 1585133.934 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 15.00% complete, ETA 00:01:18
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2053938.004 ns/op
+# Warmup Iteration   2: 1573042.583 ns/op
+Iteration   1: 1586168.111 ns/op
+Iteration   2: 1586964.231 ns/op
+Iteration   3: 1572786.245 ns/op
+Iteration   4: 1575164.748 ns/op
+Iteration   5: 1586505.028 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  1582539.202 ±(99.9%) 14826.104 ns/op [Average]
+  (min, avg, max) = (1569312.282, 1582539.202, 1598130.780), stdev = 9806.550
+  CI (99.9%): [1567713.098, 1597365.306] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text4.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text4.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = string, scenario = stack.document, seed = 1)
+
+# Run progress: 20.00% complete, ETA 00:01:13
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 6986723.903 ns/op
+# Warmup Iteration   2: 6835720.365 ns/op
+Iteration   1: 6842147.757 ns/op
+Iteration   2: 6820834.392 ns/op
+Iteration   3: 6716810.027 ns/op
+Iteration   4: 6669510.447 ns/op
+Iteration   5: 6948901.603 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 25.00% complete, ETA 00:01:09
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 7344132.029 ns/op
+# Warmup Iteration   2: 6470714.295 ns/op
+Iteration   1: 6681773.547 ns/op
+Iteration   2: 6513708.169 ns/op
+Iteration   3: 6659051.395 ns/op
+Iteration   4: 6670921.447 ns/op
+Iteration   5: 6649487.066 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  6717314.585 ±(99.9%) 185221.506 ns/op [Average]
+  (min, avg, max) = (6513708.169, 6717314.585, 6948901.603), stdev = 122512.558
+  CI (99.9%): [6532093.079, 6902536.090] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.document-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.document-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = string, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 30.00% complete, ETA 00:01:04
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1136552.971 ns/op
+# Warmup Iteration   2: 1002740.569 ns/op
+Iteration   1: 1004584.759 ns/op
+Iteration   2: 993573.458 ns/op
+Iteration   3: 993240.621 ns/op
+Iteration   4: 1010343.218 ns/op
+Iteration   5: 1014726.957 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 35.00% complete, ETA 00:00:59
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1111810.206 ns/op
+# Warmup Iteration   2: 996200.664 ns/op
+Iteration   1: 994311.089 ns/op
+Iteration   2: 1006787.610 ns/op
+Iteration   3: 998286.492 ns/op
+Iteration   4: 1006393.376 ns/op
+Iteration   5: 992661.412 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  1001490.899 ±(99.9%) 12196.783 ns/op [Average]
+  (min, avg, max) = (992661.412, 1001490.899, 1014726.957), stdev = 8067.416
+  CI (99.9%): [989294.117, 1013687.682] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.all.text.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.all.text.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = string, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 40.00% complete, ETA 00:00:55
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 262283.257 ns/op
+# Warmup Iteration   2: 224619.409 ns/op
+Iteration   1: 229084.016 ns/op
+Iteration   2: 229590.650 ns/op
+Iteration   3: 232042.518 ns/op
+Iteration   4: 245555.821 ns/op
+Iteration   5: 231668.404 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 45.00% complete, ETA 00:00:50
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 234110.417 ns/op
+# Warmup Iteration   2: 205026.215 ns/op
+Iteration   1: 212596.439 ns/op
+Iteration   2: 208832.868 ns/op
+Iteration   3: 212026.932 ns/op
+Iteration   4: 209892.202 ns/op
+Iteration   5: 216474.361 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  222776.421 ±(99.9%) 18784.476 ns/op [Average]
+  (min, avg, max) = (208832.868, 222776.421, 245555.821), stdev = 12424.768
+  CI (99.9%): [203991.945, 241560.897] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = utf8, scenario = stack.all.text.ascii.128, seed = 1)
+
+# Run progress: 50.00% complete, ETA 00:00:45
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2451322.668 ns/op
+# Warmup Iteration   2: 2175032.268 ns/op
+Iteration   1: 2117944.675 ns/op
+Iteration   2: 2113069.937 ns/op
+Iteration   3: 2102419.025 ns/op
+Iteration   4: 2106752.382 ns/op
+Iteration   5: 2138397.494 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 55.00% complete, ETA 00:00:41
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 2510547.460 ns/op
+# Warmup Iteration   2: 2218233.229 ns/op
+Iteration   1: 2174545.255 ns/op
+Iteration   2: 2120911.525 ns/op
+Iteration   3: 2132498.243 ns/op
+Iteration   4: 2137715.949 ns/op
+Iteration   5: 2141100.269 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  2128535.475 ±(99.9%) 32024.036 ns/op [Average]
+  (min, avg, max) = (2102419.025, 2128535.475, 2174545.255), stdev = 21181.917
+  CI (99.9%): [2096511.439, 2160559.512] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = utf8, scenario = stack.all.text4.ascii.128, seed = 1)
+
+# Run progress: 60.00% complete, ETA 00:00:36
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1883756.158 ns/op
+# Warmup Iteration   2: 1511895.242 ns/op
+Iteration   1: 1514347.205 ns/op
+Iteration   2: 1496835.546 ns/op
+Iteration   3: 1488173.593 ns/op
+Iteration   4: 1491159.765 ns/op
+Iteration   5: 1506237.453 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 65.00% complete, ETA 00:00:32
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1917789.709 ns/op
+# Warmup Iteration   2: 1502073.631 ns/op
+Iteration   1: 1517154.776 ns/op
+Iteration   2: 1505361.321 ns/op
+Iteration   3: 1512941.341 ns/op
+Iteration   4: 1493828.878 ns/op
+Iteration   5: 1528675.854 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  1505471.573 ±(99.9%) 19675.391 ns/op [Average]
+  (min, avg, max) = (1488173.593, 1505471.573, 1528675.854), stdev = 13014.053
+  CI (99.9%): [1485796.182, 1525146.964] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text4.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text4.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = utf8, scenario = stack.document, seed = 1)
+
+# Run progress: 70.00% complete, ETA 00:00:27
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 7377567.294 ns/op
+# Warmup Iteration   2: 6460360.038 ns/op
+Iteration   1: 6715871.947 ns/op
+Iteration   2: 6588556.303 ns/op
+Iteration   3: 6685187.373 ns/op
+Iteration   4: 6578915.026 ns/op
+Iteration   5: 6623248.237 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 75.00% complete, ETA 00:00:22
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 7396955.118 ns/op
+# Warmup Iteration   2: 6566635.714 ns/op
+Iteration   1: 6694556.360 ns/op
+Iteration   2: 6675071.307 ns/op
+Iteration   3: 6578496.494 ns/op
+Iteration   4: 6641768.289 ns/op
+Iteration   5: 6647968.803 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  6642964.014 ±(99.9%) 75466.351 ns/op [Average]
+  (min, avg, max) = (6578496.494, 6642964.014, 6715871.947), stdev = 49916.319
+  CI (99.9%): [6567497.663, 6718430.365] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.document-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.document-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = utf8, scenario = scheme.all.text.ascii.128, seed = 1)
+
+# Run progress: 80.00% complete, ETA 00:00:18
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1122433.752 ns/op
+# Warmup Iteration   2: 1006706.292 ns/op
+Iteration   1: 1011272.309 ns/op
+Iteration   2: 1047167.345 ns/op
+Iteration   3: 1010003.766 ns/op
+Iteration   4: 998416.677 ns/op
+Iteration   5: 996643.485 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 85.00% complete, ETA 00:00:13
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1098921.246 ns/op
+# Warmup Iteration   2: 994507.540 ns/op
+Iteration   1: 1017265.045 ns/op
+Iteration   2: 998050.600 ns/op
+Iteration   3: 999233.583 ns/op
+Iteration   4: 989477.630 ns/op
+Iteration   5: 1013806.984 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  1008133.742 ±(99.9%) 24729.211 ns/op [Average]
+  (min, avg, max) = (989477.630, 1008133.742, 1047167.345), stdev = 16356.842
+  CI (99.9%): [983404.531, 1032862.954] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.all.text.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.all.text.ascii.128-seed-1/profile.jfr
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build -Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus -Dsafere.benchmark.scanProvider=default
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.AdaptiveCaptureBenchmark.run
+# Parameters: (policy = main, representation = utf8, scenario = scheme.rare.rotate.ascii.128, seed = 1)
+
+# Run progress: 90.00% complete, ETA 00:00:09
+# Fork: 1 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 276456.106 ns/op
+# Warmup Iteration   2: 238298.410 ns/op
+Iteration   1: 244222.750 ns/op
+Iteration   2: 236410.392 ns/op
+Iteration   3: 239696.240 ns/op
+Iteration   4: 239064.935 ns/op
+Iteration   5: 249126.209 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+# Run progress: 95.00% complete, ETA 00:00:04
+# Fork: 2 of 2
+# Preparing profilers: JavaFlightRecorderProfiler 
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/build/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 273095.835 ns/op
+# Warmup Iteration   2: 240424.483 ns/op
+Iteration   1: 242529.217 ns/op
+Iteration   2: 234635.928 ns/op
+Iteration   3: 232071.994 ns/op
+Iteration   4: 235278.650 ns/op
+Iteration   5: 234620.273 ns/op
+                 jfr: (text only)
+
+# Processing profiler results: JavaFlightRecorderProfiler 
+
+
+Result "org.safere.benchmark.AdaptiveCaptureBenchmark.run":
+  238765.659 ±(99.9%) 7952.097 ns/op [Average]
+  (min, avg, max) = (232071.994, 238765.659, 249126.209), stdev = 5259.820
+  CI (99.9%): [230813.562, 246717.756] (assumes normal distribution)
+
+Secondary result "org.safere.benchmark.AdaptiveCaptureBenchmark.run:jfr":
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.rare.rotate.ascii.128-seed-1/profile.jfr
+JFR profiler results:
+  /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-jfr/org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.rare.rotate.ascii.128-seed-1/profile.jfr
+
+
+# Run complete. Total time: 00:01:31
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                         (policy)  (representation)                    (scenario)  (seed)  Mode  Cnt        Score        Error  Units
+AdaptiveCaptureBenchmark.run          main            string      stack.all.text.ascii.128       1  avgt   10  2189546.779 ±  24773.861  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main            string      stack.all.text.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main            string     stack.all.text4.ascii.128       1  avgt   10  1582539.202 ±  14826.104  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main            string     stack.all.text4.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main            string                stack.document       1  avgt   10  6717314.585 ± 185221.506  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main            string                stack.document       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main            string     scheme.all.text.ascii.128       1  avgt   10  1001490.899 ±  12196.783  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main            string     scheme.all.text.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main            string  scheme.rare.rotate.ascii.128       1  avgt   10   222776.421 ±  18784.476  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main            string  scheme.rare.rotate.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main              utf8      stack.all.text.ascii.128       1  avgt   10  2128535.475 ±  32024.036  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main              utf8      stack.all.text.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main              utf8     stack.all.text4.ascii.128       1  avgt   10  1505471.573 ±  19675.391  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main              utf8     stack.all.text4.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main              utf8                stack.document       1  avgt   10  6642964.014 ±  75466.351  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main              utf8                stack.document       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main              utf8     scheme.all.text.ascii.128       1  avgt   10  1008133.742 ±  24729.211  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main              utf8     scheme.all.text.ascii.128       1  avgt               NaN                 ---
+AdaptiveCaptureBenchmark.run          main              utf8  scheme.rare.rotate.ascii.128       1  avgt   10   238765.659 ±   7952.097  ns/op
+AdaptiveCaptureBenchmark.run:jfr      main              utf8  scheme.rare.rotate.ascii.128       1  avgt               NaN                 ---
+
+Benchmark result is saved to /home/eaftan/safere-issue-1075/benchmark-results/issue-1075-followups/baseline-profile.json

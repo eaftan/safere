@@ -1,0 +1,534 @@
+[
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.all.text.ascii.128-seed-1",
+    "samples": 242,
+    "stages": {
+      "other regex/consumer": 60,
+      "exact boundary/fallback": 162,
+      "forward DFA": 18,
+      "start acceleration": 2
+    },
+    "topFrames": [
+      [
+        "org.safere.BitState.trySearch",
+        53
+      ],
+      [
+        "org.safere.BitState.progressContinuation",
+        41
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        32
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        27
+      ],
+      [
+        "org.safere.Dfa.doSearchInternal",
+        17
+      ],
+      [
+        "org.safere.BitState.push",
+        16
+      ],
+      [
+        "org.safere.BitState.shouldVisitTracked",
+        12
+      ],
+      [
+        "org.safere.BitState.stepWithinBudget",
+        10
+      ],
+      [
+        "org.safere.BitState.reset",
+        5
+      ],
+      [
+        "org.safere.benchmark.AdaptiveCaptureCase$Task.run",
+        3
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-scheme.rare.rotate.ascii.128-seed-1",
+    "samples": 241,
+    "stages": {
+      "other regex/consumer": 47,
+      "start acceleration": 15,
+      "forward DFA": 133,
+      "exact boundary/fallback": 46
+    },
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        122
+      ],
+      [
+        "org.safere.BitState.trySearch",
+        19
+      ],
+      [
+        "org.safere.BitState.progressContinuation",
+        18
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        17
+      ],
+      [
+        "org.safere.StringLiteralSearch.indexOfChar",
+        11
+      ],
+      [
+        "org.safere.BitState.push",
+        5
+      ],
+      [
+        "org.safere.StringInputScanner.length",
+        4
+      ],
+      [
+        "org.safere.BitState.shouldVisitTracked",
+        3
+      ],
+      [
+        "org.safere.Matcher.searchForwardDfa",
+        3
+      ],
+      [
+        "org.safere.Matcher.invalidateInputDependentCaches",
+        3
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text.ascii.128-seed-1",
+    "samples": 239,
+    "stages": {
+      "capture replay": 52,
+      "start acceleration": 31,
+      "other regex/consumer": 86,
+      "exact boundary/fallback": 21,
+      "forward DFA": 39,
+      "reverse DFA": 10
+    },
+    "topFrames": [
+      [
+        "org.safere.BitState.trySearch",
+        50
+      ],
+      [
+        "org.safere.Dfa.doSearchInternal",
+        31
+      ],
+      [
+        "org.safere.StringStartAccelerator$LineAnchor.isBeginLine",
+        18
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        11
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        8
+      ],
+      [
+        "org.safere.Dfa.computeNext",
+        8
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        8
+      ],
+      [
+        "org.safere.AsciiBitmap.contains",
+        8
+      ],
+      [
+        "org.safere.Nfa.emptyFlags",
+        7
+      ],
+      [
+        "org.safere.Prog.inst",
+        6
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.all.text4.ascii.128-seed-1",
+    "samples": 237,
+    "stages": {
+      "other regex/consumer": 101,
+      "reverse DFA": 13,
+      "start acceleration": 27,
+      "capture replay": 16,
+      "forward DFA": 69,
+      "exact boundary/fallback": 11
+    },
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        63
+      ],
+      [
+        "org.safere.Dfa.computeNext",
+        23
+      ],
+      [
+        "org.safere.BitState.trySearch",
+        16
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        12
+      ],
+      [
+        "org.safere.StringStartAccelerator$LineAnchor.isBeginLine",
+        12
+      ],
+      [
+        "org.safere.AsciiBitmap.contains",
+        9
+      ],
+      [
+        "org.safere.Dfa.expand",
+        9
+      ],
+      [
+        "org.safere.StringInputScanner.length",
+        8
+      ],
+      [
+        "org.safere.Dfa$StateKey.equals",
+        7
+      ],
+      [
+        "org.safere.StringLiteralSearch.indexOfDirect",
+        6
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-string-scenario-stack.document-seed-1",
+    "samples": 239,
+    "stages": {
+      "capture replay": 68,
+      "exact boundary/fallback": 44,
+      "forward DFA": 43,
+      "other regex/consumer": 55,
+      "start acceleration": 13,
+      "reverse DFA": 15,
+      "other": 1
+    },
+    "topFrames": [
+      [
+        "org.safere.BitState.trySearch",
+        59
+      ],
+      [
+        "org.safere.Dfa.doSearchInternal",
+        37
+      ],
+      [
+        "org.safere.StringInputScanner.asciiAt",
+        17
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        17
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        12
+      ],
+      [
+        "org.safere.BitState.push",
+        11
+      ],
+      [
+        "org.safere.BitState.doSearch",
+        6
+      ],
+      [
+        "org.safere.Inst.matchesChar",
+        6
+      ],
+      [
+        "org.safere.benchmark.AdaptiveCaptureCase.hash",
+        5
+      ],
+      [
+        "org.safere.StringStartAccelerator$LineAnchor.isBeginLine",
+        4
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.all.text.ascii.128-seed-1",
+    "samples": 241,
+    "stages": {
+      "exact boundary/fallback": 180,
+      "forward DFA": 17,
+      "other regex/consumer": 38,
+      "start acceleration": 5,
+      "other": 1
+    },
+    "topFrames": [
+      [
+        "org.safere.BitState.trySearch",
+        72
+      ],
+      [
+        "org.safere.BitState.progressContinuation",
+        48
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        24
+      ],
+      [
+        "org.safere.Dfa.doSearchInternal",
+        17
+      ],
+      [
+        "org.safere.Utf8InputScanner.unsignedByteAt",
+        14
+      ],
+      [
+        "org.safere.BitState.stepWithinBudget",
+        12
+      ],
+      [
+        "org.safere.BitState.push",
+        10
+      ],
+      [
+        "org.safere.BitState.shouldVisitTracked",
+        7
+      ],
+      [
+        "org.safere.ByteSwarScan.indexOfByte",
+        5
+      ],
+      [
+        "org.safere.Inst.matchesCharClass",
+        5
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-scheme.rare.rotate.ascii.128-seed-1",
+    "samples": 244,
+    "stages": {
+      "exact boundary/fallback": 47,
+      "other regex/consumer": 58,
+      "forward DFA": 120,
+      "start acceleration": 19
+    },
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        112
+      ],
+      [
+        "org.safere.BitState.trySearch",
+        18
+      ],
+      [
+        "org.safere.ByteSwarScan.indexOfByte",
+        16
+      ],
+      [
+        "org.safere.BitState.progressContinuation",
+        14
+      ],
+      [
+        "org.safere.Utf8InputScanner.unsignedByteAt",
+        13
+      ],
+      [
+        "org.safere.Utf8InputScanner.isCodePointBoundary",
+        10
+      ],
+      [
+        "org.safere.Utf8InputScanner.asciiAt",
+        6
+      ],
+      [
+        "org.safere.Matcher.doFindCore",
+        6
+      ],
+      [
+        "org.safere.BitState.push",
+        5
+      ],
+      [
+        "org.safere.BitState.shouldVisitTracked",
+        4
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text.ascii.128-seed-1",
+    "samples": 240,
+    "stages": {
+      "other regex/consumer": 79,
+      "exact boundary/fallback": 28,
+      "reverse DFA": 16,
+      "forward DFA": 65,
+      "capture replay": 51,
+      "other": 1
+    },
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        62
+      ],
+      [
+        "org.safere.BitState.trySearch",
+        50
+      ],
+      [
+        "org.safere.Utf8InputScanner.unsignedByteAt",
+        20
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        12
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        11
+      ],
+      [
+        "org.safere.Dfa.computeNext",
+        8
+      ],
+      [
+        "org.safere.Prog.inst",
+        8
+      ],
+      [
+        "org.safere.Dfa.expand",
+        6
+      ],
+      [
+        "org.safere.Inst.matchesChar",
+        5
+      ],
+      [
+        "org.safere.Inst.matchesCharClass",
+        4
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.all.text4.ascii.128-seed-1",
+    "samples": 239,
+    "stages": {
+      "other regex/consumer": 113,
+      "reverse DFA": 23,
+      "exact boundary/fallback": 14,
+      "forward DFA": 81,
+      "capture replay": 8
+    },
+    "topFrames": [
+      [
+        "org.safere.Dfa.doSearchInternal",
+        75
+      ],
+      [
+        "org.safere.Dfa.computeNext",
+        24
+      ],
+      [
+        "org.safere.Utf8InputScanner.unsignedByteAt",
+        17
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        13
+      ],
+      [
+        "org.safere.Prog.inst",
+        10
+      ],
+      [
+        "org.safere.Dfa.expand",
+        10
+      ],
+      [
+        "org.safere.BitState.trySearch",
+        9
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        6
+      ],
+      [
+        "org.safere.BitState.push",
+        4
+      ],
+      [
+        "org.safere.benchmark.AdaptiveCaptureCase$Task.run",
+        4
+      ]
+    ]
+  },
+  {
+    "id": "org.safere.benchmark.AdaptiveCaptureBenchmark.run-AverageTime-policy-main-representation-utf8-scenario-stack.document-seed-1",
+    "samples": 238,
+    "stages": {
+      "forward DFA": 58,
+      "other regex/consumer": 59,
+      "capture replay": 61,
+      "exact boundary/fallback": 36,
+      "reverse DFA": 24
+    },
+    "topFrames": [
+      [
+        "org.safere.BitState.trySearch",
+        57
+      ],
+      [
+        "org.safere.Dfa.doSearchInternal",
+        55
+      ],
+      [
+        "org.safere.Dfa.doSearchReverse",
+        21
+      ],
+      [
+        "org.safere.Utf8InputScanner.unsignedByteAt",
+        15
+      ],
+      [
+        "org.safere.BitState.shouldVisit",
+        14
+      ],
+      [
+        "org.safere.BitState.stepWithinBudget",
+        7
+      ],
+      [
+        "org.safere.BitState.push",
+        6
+      ],
+      [
+        "org.safere.benchmark.AdaptiveCaptureCase.hash",
+        5
+      ],
+      [
+        "org.safere.benchmark.AdaptiveCaptureCase$Task$2.group",
+        5
+      ],
+      [
+        "org.safere.ByteSwarScan.indexOfFiltered",
+        4
+      ]
+    ]
+  }
+]

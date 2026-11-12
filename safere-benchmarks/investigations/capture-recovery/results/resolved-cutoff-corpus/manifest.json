@@ -1,0 +1,5737 @@
+{
+  "version": 1,
+  "description": "Resolved benchmark configuration and generated UTF-8 inputs.",
+  "benchmarkDataSha256": "55e11ce077f29e27052aa7389c068c065a9e7aa9e40f2e50ea24a595b7ea6f16",
+  "benchmarkData": {
+    "schemaVersion": 2,
+    "configuration": {
+      "collection": {
+        "allocationWorkloadPrefixes": []
+      },
+      "investigation": {
+        "documentsPerInvocation": 16,
+        "profiles": {
+          "text": {
+            "hitEvery": 1,
+            "readEvery": 1
+          },
+          "mixed": {
+            "hitEvery": 1,
+            "readEvery": 4
+          },
+          "rare": {
+            "hitEvery": 16,
+            "readEvery": 1
+          },
+          "reject": {
+            "hitEvery": 0,
+            "readEvery": 0
+          },
+          "boolean": {
+            "hitEvery": 1,
+            "readEvery": 0
+          }
+        }
+      }
+    },
+    "inputs": [
+      {
+        "id": "stack.hit.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "recipe": {
+          "kind": "surroundToLength",
+          "prefix": "",
+          "unit": " ",
+          "suffix": " at com.example.Service.run(Service.java:42)",
+          "length": "{size}"
+        }
+      },
+      {
+        "id": "stack.miss.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "recipe": {
+          "kind": "surroundToLength",
+          "prefix": "",
+          "unit": " ",
+          "suffix": " at com.example.Service.run(Service.java:42x)",
+          "length": "{size}"
+        }
+      },
+      {
+        "id": "onePass.hit.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "recipe": {
+          "kind": "surroundToLength",
+          "prefix": "",
+          "unit": " ",
+          "suffix": " word:42",
+          "length": "{size}"
+        }
+      },
+      {
+        "id": "onePass.miss.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "recipe": {
+          "kind": "surroundToLength",
+          "prefix": "",
+          "unit": " ",
+          "suffix": " word:xx42",
+          "length": "{size}"
+        }
+      }
+    ],
+    "workloads": [
+      {
+        "id": "CaptureCutoffBenchmark.stack.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "operation": "matches",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.{size}",
+          "stack.miss.{size}"
+        ],
+        "resultConsumption": "boolean",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "expected": {
+          "type": "boolean",
+          "value": true
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.{size}",
+        "axes": {
+          "size": [
+            128,
+            256,
+            511,
+            512,
+            513,
+            1024,
+            2048
+          ]
+        },
+        "operation": "matches",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.{size}",
+          "onePass.miss.{size}"
+        ],
+        "resultConsumption": "boolean",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "expected": {
+          "type": "boolean",
+          "value": true
+        }
+      }
+    ],
+    "patternProfiles": {
+      "rust-regex": [
+        {
+          "java": "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)",
+          "alternate": "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)",
+          "reason": "Rust regex gives \\d and \\s Unicode semantics"
+        }
+      ],
+      "dotnet": [
+        {
+          "java": "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)",
+          "alternate": "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)",
+          "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+        }
+      ]
+    },
+    "replacementProfiles": {}
+  },
+  "executionPlan": {
+    "version": 1,
+    "engines": [
+      {
+        "id": "safere-string",
+        "reportEngine": "safere",
+        "runner": "java"
+      },
+      {
+        "id": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "runner": "java"
+      },
+      {
+        "id": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "runner": "java"
+      },
+      {
+        "id": "jdk-string",
+        "reportEngine": "jdk",
+        "runner": "java"
+      },
+      {
+        "id": "re2j-string",
+        "reportEngine": "re2j",
+        "runner": "java"
+      },
+      {
+        "id": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "runner": "java"
+      },
+      {
+        "id": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "runner": "cpp"
+      },
+      {
+        "id": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "runner": "cpp"
+      },
+      {
+        "id": "go_regexp",
+        "reportEngine": "go_regexp",
+        "runner": "go"
+      },
+      {
+        "id": "rust_regex",
+        "reportEngine": "rust_regex",
+        "runner": "rust"
+      },
+      {
+        "id": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "runner": "dotnet"
+      }
+    ],
+    "workloadCount": 14,
+    "engineCount": 11,
+    "entries": [
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.128@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.128",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.128",
+          "stack.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.256@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.256",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.256",
+          "stack.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.511@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.511",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.511",
+          "stack.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.512@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.512",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.512",
+          "stack.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.513@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.513",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.513",
+          "stack.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.1024@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.1024",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.1024",
+          "stack.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.stack.2048@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.stack.2048",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)"
+        ],
+        "inputs": [
+          "stack.hit.2048",
+          "stack.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.128@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.128",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.128",
+          "onePass.miss.128"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.256@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.256",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.256",
+          "onePass.miss.256"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.511@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.511",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.511",
+          "onePass.miss.511"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.512@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.512",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.512",
+          "onePass.miss.512"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.513@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.513",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.513",
+          "onePass.miss.513"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.1024@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.1024",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.1024",
+          "onePass.miss.1024"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@safere-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "safere-string",
+        "reportEngine": "safere",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@safere-utf8",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "safere-utf8",
+        "reportEngine": "safere_utf8",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@safere-utf8-vector",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "safere-utf8-vector",
+        "reportEngine": "safere_utf8_vector",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@jdk-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "jdk-string",
+        "reportEngine": "jdk",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@re2j-string",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "re2j-string",
+        "reportEngine": "re2j",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@re2-ffm-string-conversion",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "re2-ffm-string-conversion",
+        "reportEngine": "re2_ffm",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaStringWithTimedUtf8Conversion",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@re2_cpp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "re2_cpp",
+        "reportEngine": "re2_cpp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@pcre2_jit",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "pcre2_jit",
+        "reportEngine": "pcre2_jit",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@go_regexp",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "go_regexp",
+        "reportEngine": "go_regexp",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@rust_regex",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "rust_regex",
+        "reportEngine": "rust_regex",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "preexistingUtf8",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      },
+      {
+        "id": "CaptureCutoffBenchmark.onePass.2048@dotnet_nonbacktracking",
+        "workloadId": "CaptureCutoffBenchmark.onePass.2048",
+        "engineId": "dotnet_nonbacktracking",
+        "reportEngine": "dotnet_nonbacktracking",
+        "operation": "matches",
+        "measurement": {
+          "mode": "averageTime",
+          "timingUnit": "nanoseconds",
+          "constraints": [
+            "prematerializedInput"
+          ]
+        },
+        "status": "runnable",
+        "patterns": [
+          "^\\s*([a-z]+):([0-9]+)"
+        ],
+        "inputs": [
+          "onePass.hit.2048",
+          "onePass.miss.2048"
+        ],
+        "arguments": {},
+        "options": [],
+        "inputRepresentation": "javaString",
+        "resultConsumption": "boolean",
+        "expected": {
+          "type": "boolean",
+          "value": true
+        },
+        "lifecycle": {
+          "matcher": "none",
+          "steps": []
+        }
+      }
+    ]
+  },
+  "inputs": {
+    "stack.hit.128": {
+      "file": "stack/hit/128.txt",
+      "shared": false,
+      "utf8Bytes": 128,
+      "utf16CodeUnits": 128,
+      "unicodeScalars": 128,
+      "sha256": "62c24a3275c6fa22d5e36fc194b7ef4a3e74c32fb0fbd69a8a18236abd2e17b2"
+    },
+    "stack.hit.256": {
+      "file": "stack/hit/256.txt",
+      "shared": false,
+      "utf8Bytes": 256,
+      "utf16CodeUnits": 256,
+      "unicodeScalars": 256,
+      "sha256": "e43525f201b29be5e5727b80249a1ec84f9361fec54d1267d65ce0ce50e3ae0a"
+    },
+    "stack.hit.511": {
+      "file": "stack/hit/511.txt",
+      "shared": false,
+      "utf8Bytes": 511,
+      "utf16CodeUnits": 511,
+      "unicodeScalars": 511,
+      "sha256": "4174e895a448c8a216fc539ac1ebdc7b9cc5ac0cfda2bf6c7288dfc137425565"
+    },
+    "stack.hit.512": {
+      "file": "stack/hit/512.txt",
+      "shared": false,
+      "utf8Bytes": 512,
+      "utf16CodeUnits": 512,
+      "unicodeScalars": 512,
+      "sha256": "463f91dcd474505614b7cc1fd2cb46df4d7bc1a9597712a34610e13e6aaa73fb"
+    },
+    "stack.hit.513": {
+      "file": "stack/hit/513.txt",
+      "shared": false,
+      "utf8Bytes": 513,
+      "utf16CodeUnits": 513,
+      "unicodeScalars": 513,
+      "sha256": "fc272f4a8bc170ea81e9da10bda190774a806824cd916c69bc6a14dae46fee00"
+    },
+    "stack.hit.1024": {
+      "file": "stack/hit/1024.txt",
+      "shared": false,
+      "utf8Bytes": 1024,
+      "utf16CodeUnits": 1024,
+      "unicodeScalars": 1024,
+      "sha256": "618a685625fb03fcc50cb894dbee867842656da014e48bd442cbfe746b590703"
+    },
+    "stack.hit.2048": {
+      "file": "stack/hit/2048.txt",
+      "shared": false,
+      "utf8Bytes": 2048,
+      "utf16CodeUnits": 2048,
+      "unicodeScalars": 2048,
+      "sha256": "b2fb106cdb485413eda1db67fe3c3e13ca21414d93cafb1872cb23dff7efa81b"
+    },
+    "stack.miss.128": {
+      "file": "stack/miss/128.txt",
+      "shared": false,
+      "utf8Bytes": 128,
+      "utf16CodeUnits": 128,
+      "unicodeScalars": 128,
+      "sha256": "41b8c1a9bea837c6ce907c878a1c6d145633d3da8742963a7f4706c86eb1d610"
+    },
+    "stack.miss.256": {
+      "file": "stack/miss/256.txt",
+      "shared": false,
+      "utf8Bytes": 256,
+      "utf16CodeUnits": 256,
+      "unicodeScalars": 256,
+      "sha256": "7625269dae689290802935c1f9b2845f926574d49606fa2bf2442f8b33eafd6a"
+    },
+    "stack.miss.511": {
+      "file": "stack/miss/511.txt",
+      "shared": false,
+      "utf8Bytes": 511,
+      "utf16CodeUnits": 511,
+      "unicodeScalars": 511,
+      "sha256": "a51cc158b27f2b7322e564ffdb5bef2db07273d8999fc4b0f61fb69bf66b4003"
+    },
+    "stack.miss.512": {
+      "file": "stack/miss/512.txt",
+      "shared": false,
+      "utf8Bytes": 512,
+      "utf16CodeUnits": 512,
+      "unicodeScalars": 512,
+      "sha256": "df14e06a2c5d02e4470bba8ed67aefedd69c53ab0ded05140dfe370752dd5a60"
+    },
+    "stack.miss.513": {
+      "file": "stack/miss/513.txt",
+      "shared": false,
+      "utf8Bytes": 513,
+      "utf16CodeUnits": 513,
+      "unicodeScalars": 513,
+      "sha256": "24c16bf47c3874a378c23a7bb3a8ce2fe888e1b702956881939b907f8a704173"
+    },
+    "stack.miss.1024": {
+      "file": "stack/miss/1024.txt",
+      "shared": false,
+      "utf8Bytes": 1024,
+      "utf16CodeUnits": 1024,
+      "unicodeScalars": 1024,
+      "sha256": "cf86e8a83ce62d00314ef9c29f1b288cfce77d3a589cdb5debac041e96853def"
+    },
+    "stack.miss.2048": {
+      "file": "stack/miss/2048.txt",
+      "shared": false,
+      "utf8Bytes": 2048,
+      "utf16CodeUnits": 2048,
+      "unicodeScalars": 2048,
+      "sha256": "589d155db92a5b47dee651f0b0cf6e073a03d5479a01d2393073801315534ea8"
+    },
+    "onePass.hit.128": {
+      "file": "onePass/hit/128.txt",
+      "shared": false,
+      "utf8Bytes": 128,
+      "utf16CodeUnits": 128,
+      "unicodeScalars": 128,
+      "sha256": "1ab20be011523a3d2ab746ac8f352498fed36038d1252251a243cf6c92d4b561"
+    },
+    "onePass.hit.256": {
+      "file": "onePass/hit/256.txt",
+      "shared": false,
+      "utf8Bytes": 256,
+      "utf16CodeUnits": 256,
+      "unicodeScalars": 256,
+      "sha256": "344b73fe387704205394fa1b47a5266e9f3116a79c808386d356bca81b5765b7"
+    },
+    "onePass.hit.511": {
+      "file": "onePass/hit/511.txt",
+      "shared": false,
+      "utf8Bytes": 511,
+      "utf16CodeUnits": 511,
+      "unicodeScalars": 511,
+      "sha256": "8894e0689d4eed46e1f13931a3f07f40ed3270db756594945010c7cef4f759c5"
+    },
+    "onePass.hit.512": {
+      "file": "onePass/hit/512.txt",
+      "shared": false,
+      "utf8Bytes": 512,
+      "utf16CodeUnits": 512,
+      "unicodeScalars": 512,
+      "sha256": "07bfbf9d3d0f870a74e5a0d92dde3a831ca76996bb4afde5afb560c6d9705ed1"
+    },
+    "onePass.hit.513": {
+      "file": "onePass/hit/513.txt",
+      "shared": false,
+      "utf8Bytes": 513,
+      "utf16CodeUnits": 513,
+      "unicodeScalars": 513,
+      "sha256": "5d10fb4149d837b4ae6869aea8bbd78eb55b40810a58277977e2f234827afea7"
+    },
+    "onePass.hit.1024": {
+      "file": "onePass/hit/1024.txt",
+      "shared": false,
+      "utf8Bytes": 1024,
+      "utf16CodeUnits": 1024,
+      "unicodeScalars": 1024,
+      "sha256": "f65278c558ab280618f0fa336dc6578e1da00d5f31ef49cbdf6aaf533e3d7303"
+    },
+    "onePass.hit.2048": {
+      "file": "onePass/hit/2048.txt",
+      "shared": false,
+      "utf8Bytes": 2048,
+      "utf16CodeUnits": 2048,
+      "unicodeScalars": 2048,
+      "sha256": "7006a96cc6e22be420836a9f84c194334e5f2c28ab95df151e9e0ad81498d931"
+    },
+    "onePass.miss.128": {
+      "file": "onePass/miss/128.txt",
+      "shared": false,
+      "utf8Bytes": 128,
+      "utf16CodeUnits": 128,
+      "unicodeScalars": 128,
+      "sha256": "aa63c6f72da6f0abd71ea530dd13793d56f5c9aad79c7b9bb4e3858178354f79"
+    },
+    "onePass.miss.256": {
+      "file": "onePass/miss/256.txt",
+      "shared": false,
+      "utf8Bytes": 256,
+      "utf16CodeUnits": 256,
+      "unicodeScalars": 256,
+      "sha256": "dcb81eb34d59565e295dd9bf4fd6552d9a922b56a6d0f07efea37bf4242ed851"
+    },
+    "onePass.miss.511": {
+      "file": "onePass/miss/511.txt",
+      "shared": false,
+      "utf8Bytes": 511,
+      "utf16CodeUnits": 511,
+      "unicodeScalars": 511,
+      "sha256": "a81ab650f009e51b3163bf969405e4da5cc9f377b8f4ae9869a509c6cad60111"
+    },
+    "onePass.miss.512": {
+      "file": "onePass/miss/512.txt",
+      "shared": false,
+      "utf8Bytes": 512,
+      "utf16CodeUnits": 512,
+      "unicodeScalars": 512,
+      "sha256": "f2043681da7846de1ce1032dd88792f9a2b9982f0eb8a21c61b0f07ef3ad7b60"
+    },
+    "onePass.miss.513": {
+      "file": "onePass/miss/513.txt",
+      "shared": false,
+      "utf8Bytes": 513,
+      "utf16CodeUnits": 513,
+      "unicodeScalars": 513,
+      "sha256": "bee5dd511cbad21ccd16b4ba2c26c12e5a60a1846a8cf674be01d74ec8e730aa"
+    },
+    "onePass.miss.1024": {
+      "file": "onePass/miss/1024.txt",
+      "shared": false,
+      "utf8Bytes": 1024,
+      "utf16CodeUnits": 1024,
+      "unicodeScalars": 1024,
+      "sha256": "f327afc5fbd8ce3447fd0a0b3c741731623b416f8ca1e61fb3e37586da121ba3"
+    },
+    "onePass.miss.2048": {
+      "file": "onePass/miss/2048.txt",
+      "shared": false,
+      "utf8Bytes": 2048,
+      "utf16CodeUnits": 2048,
+      "unicodeScalars": 2048,
+      "sha256": "44cd2603b7c15f9336557f207e4cc8816e32a5dd1a6823bddc4c27279612b5cc"
+    }
+  }
+}

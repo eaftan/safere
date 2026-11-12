@@ -1,0 +1,92 @@
+[
+  {
+    "cohort": "base-screen",
+    "rows": 16,
+    "role": "comparison",
+    "file": "base-screen.json"
+  },
+  {
+    "cohort": "greedy-screen",
+    "rows": 16,
+    "role": "comparison",
+    "file": "greedy-screen.json"
+  },
+  {
+    "cohort": "base-long",
+    "rows": 16,
+    "role": "comparison",
+    "file": "base-long.json"
+  },
+  {
+    "cohort": "greedy-long",
+    "rows": 16,
+    "role": "comparison",
+    "file": "greedy-long.json"
+  },
+  {
+    "cohort": "base-confirm",
+    "rows": 6,
+    "role": "comparison",
+    "file": "base-confirm.json"
+  },
+  {
+    "cohort": "greedy-confirm",
+    "rows": 6,
+    "role": "comparison",
+    "file": "greedy-confirm.json"
+  },
+  {
+    "cohort": "baseline-profile",
+    "rows": 10,
+    "role": "profile",
+    "file": "baseline-profile.json"
+  },
+  {
+    "cohort": "cutoff-0-stack-screen",
+    "rows": 48,
+    "role": "comparison",
+    "file": "cutoff-0-stack-screen/results.json"
+  },
+  {
+    "cohort": "cutoff-2048-stack-screen",
+    "rows": 48,
+    "role": "comparison",
+    "file": "cutoff-2048-stack-screen/results.json"
+  },
+  {
+    "cohort": "cutoff-0-onePass-screen",
+    "rows": 24,
+    "role": "comparison",
+    "file": "cutoff-0-onePass-screen/results.json"
+  },
+  {
+    "cohort": "cutoff-2048-onePass-screen",
+    "rows": 24,
+    "role": "comparison",
+    "file": "cutoff-2048-onePass-screen/results.json"
+  },
+  {
+    "cohort": "cutoff-512-boundary-screen",
+    "rows": 36,
+    "role": "comparison",
+    "file": "cutoff-512-boundary-screen/results.json"
+  },
+  {
+    "cohort": "cutoff-0-long-512",
+    "rows": 18,
+    "role": "comparison",
+    "file": "cutoff-0-long-512/results.json"
+  },
+  {
+    "cohort": "cutoff-2048-long-512",
+    "rows": 18,
+    "role": "comparison",
+    "file": "cutoff-2048-long-512/results.json"
+  },
+  {
+    "cohort": "cutoff-512-profile",
+    "rows": 12,
+    "role": "profile",
+    "file": "cutoff-512-profile/results.json"
+  }
+]

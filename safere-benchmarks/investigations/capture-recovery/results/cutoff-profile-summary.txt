@@ -1,0 +1,111 @@
+Cutoff JFR sampling: diagnostic evidence only.
+Counts are retained last-fork ExecutionSample events; inlining affects attribution.
+Profiled timings are excluded from comparison tables.
+
+1024/find/reject/profile.jfr; 239 execution samples
+{'forward DFA': 221, 'other': 18}
+218 org.safere.Dfa.doSearchInternal
+5 java.lang.StringLatin1.charAt
+2 org.safere.Dfa.startState
+2 org.safere.Dfa.transitionDependsOnPosition
+2 org.safere.benchmark.jmh_generated.CaptureCutoffBenchmark_run_jmhTest.run_avgt_jmhStub
+2 java.lang.String.length
+
+1024/find/text/profile.jfr; 233 execution samples
+{'other': 120, 'forward DFA': 93, 'capture replay': 7, 'exact boundary/fallback': 13}
+93 org.safere.Dfa.doSearchInternal
+40 org.safere.Inst.matchesCharClass
+33 org.safere.BitState.push
+20 org.safere.BitState.stepWithinBudget
+9 java.lang.StringLatin1.charAt
+9 org.safere.BitState.runGreedyLoop
+
+1024/lookingAt/reject/profile.jfr; 234 execution samples
+{'forward DFA': 225, 'other': 8, 'start acceleration': 1}
+223 org.safere.Dfa.doSearchInternal
+6 java.lang.StringLatin1.charAt
+1 org.safere.Dfa.transitionDependsOnPosition
+1 org.safere.StringInputScanner.asciiAt
+1 java.lang.String.checkIndex
+1 org.safere.StringStartAccelerator$LeadingExpansion.policy
+
+1024/lookingAt/text/profile.jfr; 229 execution samples
+{'other': 134, 'forward DFA': 73, 'exact boundary/fallback': 15, 'capture replay': 7}
+72 org.safere.Dfa.doSearchInternal
+51 org.safere.Inst.matchesCharClass
+34 org.safere.BitState.push
+21 org.safere.BitState.stepWithinBudget
+16 java.lang.StringLatin1.charAt
+13 org.safere.BitState.runGreedyLoop
+
+1024/matches/reject/profile.jfr; 238 execution samples
+{'forward DFA': 227, 'other': 11}
+191 org.safere.Dfa.doSearchInternal
+35 org.safere.Dfa.transitionDependsOnPosition
+6 java.lang.String.checkIndex
+1 org.safere.EnginePathOptions.dfa
+1 org.safere.Matcher.matches
+1 org.safere.Matcher$FallbackPreparedRunner.matches
+
+1024/matches/text/profile.jfr; 233 execution samples
+{'other': 112, 'capture replay': 14, 'forward DFA': 89, 'exact boundary/fallback': 18}
+88 org.safere.Dfa.doSearchInternal
+41 org.safere.Inst.matchesCharClass
+31 org.safere.BitState.push
+24 org.safere.BitState.stepWithinBudget
+14 org.safere.BitState.runGreedyLoop
+11 java.lang.StringLatin1.charAt
+
+512/find/reject/profile.jfr; 237 execution samples
+{'other': 123, 'exact boundary/fallback': 114}
+78 org.safere.BitState.trySearch
+64 java.lang.StringLatin1.charAt
+23 org.safere.BitState.stepWithinBudget
+19 java.lang.String.charAt
+14 org.safere.BitState.push
+13 org.safere.Inst.matchesCharClass
+
+512/find/text/profile.jfr; 237 execution samples
+{'exact boundary/fallback': 39, 'other': 198}
+59 org.safere.StringInputScanner.asciiAt
+43 org.safere.BitState.stepWithinBudget
+41 org.safere.BitState.push
+32 org.safere.Inst.matchesCharClass
+18 org.safere.BitState.trySearch
+11 java.lang.StringLatin1.charAt
+
+512/lookingAt/reject/profile.jfr; 245 execution samples
+{'exact boundary/fallback': 123, 'other': 122}
+64 org.safere.BitState.trySearch
+47 java.lang.StringLatin1.charAt
+29 org.safere.BitState.push
+23 org.safere.BitState.stepWithinBudget
+20 org.safere.Inst.matchesCharClass
+17 java.lang.String.charAt
+
+512/lookingAt/text/profile.jfr; 235 execution samples
+{'other': 190, 'exact boundary/fallback': 45}
+51 org.safere.BitState.push
+46 org.safere.StringInputScanner.asciiAt
+45 org.safere.BitState.stepWithinBudget
+29 org.safere.Inst.matchesCharClass
+22 org.safere.BitState.trySearch
+13 org.safere.BitState.runGreedyLoop
+
+512/matches/reject/profile.jfr; 238 execution samples
+{'exact boundary/fallback': 122, 'other': 116}
+68 org.safere.BitState.trySearch
+54 java.lang.StringLatin1.charAt
+22 org.safere.BitState.stepWithinBudget
+19 org.safere.Inst.matchesCharClass
+15 org.safere.BitState.push
+14 java.lang.String.charAt
+
+512/matches/text/profile.jfr; 239 execution samples
+{'other': 188, 'exact boundary/fallback': 51}
+92 org.safere.StringInputScanner.asciiAt
+32 org.safere.BitState.push
+30 org.safere.BitState.stepWithinBudget
+23 org.safere.BitState.trySearch
+20 org.safere.Inst.matchesCharClass
+9 org.safere.BitState.runGreedyLoop

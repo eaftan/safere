@@ -1,0 +1,239 @@
+diff --git a/safere/src/main/java/org/safere/BitState.java b/safere/src/main/java/org/safere/BitState.java
+index 57f98d59..d56f2fab 100644
+--- a/safere/src/main/java/org/safere/BitState.java
++++ b/safere/src/main/java/org/safere/BitState.java
+@@ -407,6 +407,9 @@ final class BitState {
+   /** Progress checks immediately following captures, or null when none exist. */
+   private final Inst[] captureProgressChecks;
+ 
++  /** Consuming bodies of simple greedy loops, or null when none exist. */
++  private final Inst[] greedyRunes;
++
+   private static final byte NOT_ALT = 0;
+   private static final byte ALT = 1;
+   private static final byte CYCLE_ALT = 2;
+@@ -475,6 +478,7 @@ final class BitState {
+     this.captureRunes = prog.captureRunes();
+     this.loopEntries = prog.loopEntries();
+     this.captureProgressChecks = prog.captureProgressChecks();
++    this.greedyRunes = prog.greedyRunes();
+ 
+     int totalBits = progSize * textSlots;
+     int visitedLen = (totalBits + 63) / 64;
+@@ -665,6 +669,14 @@ final class BitState {
+           case InstOp.OP_FAIL -> {}
+ 
+           case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
++            Inst rune = greedyRunes == null ? null : greedyRunes[id];
++            if (rune != null) {
++              runGreedyLoop(id, ip, rune, pos);
++              if (budgetExceeded || windowExceeded) {
++                return false;
++              }
++              break;
++            }
+             // Push second alternative first (it will be tried if first fails).
+             if (shouldVisit(ip.out1, pos)) {
+               push(ip.out1, pos);
+@@ -894,6 +906,45 @@ final class BitState {
+     return matched;
+   }
+ 
++  /**
++   * Executes a greedy ALT/consumer cycle without redispatching each instruction. The entry ALT has
++   * already been charged. Keep every deferred exit and visitation in the original order, and charge
++   * each logical instruction so pruning activation and the work limit remain unchanged.
++   */
++  private void runGreedyLoop(int id, Inst alt, Inst rune, int pos) {
++    while (true) {
++      if (shouldVisit(alt.out1, pos)) {
++        push(alt.out1, pos);
++      }
++      if (!shouldVisit(alt.out, pos) || !stepWithinBudget()) {
++        return;
++      }
++      if (pos >= endPos) {
++        if (speculative && endPos < textLen) {
++          windowExceeded = true;
++        }
++        return;
++      }
++      int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
++      int nextPos = pos + 1;
++      if (cp < 0) {
++        long decoded = text.decodeForward(pos);
++        cp = InputScanner.codePoint(decoded);
++        nextPos = InputScanner.position(decoded);
++        if (speculative && nextPos > endPos) {
++          windowExceeded = true;
++          return;
++        }
++      }
++      boolean matches =
++          rune.opCode == InstOp.OP_CHAR_RANGE ? rune.matchesChar(cp) : rune.matchesCharClass(cp);
++      if (!matches || !shouldVisit(id, nextPos) || !stepWithinBudget()) {
++        return;
++      }
++      pos = nextPos;
++    }
++  }
++
+   /** Executes one progress check, returning a continuation or -1 when none is eligible. */
+   private int progressContinuation(Inst check, int pos) {
+     int reg = check.arg;
+diff --git a/safere/src/main/java/org/safere/Prog.java b/safere/src/main/java/org/safere/Prog.java
+index 91099d14..18f038e7 100644
+--- a/safere/src/main/java/org/safere/Prog.java
++++ b/safere/src/main/java/org/safere/Prog.java
+@@ -402,16 +402,19 @@ final class Prog {
+     final CaptureRune[] captureRunes;
+     final LoopEntry[] loopEntries;
+     final Inst[] captureProgressChecks;
++    final Inst[] greedyRunes;
+ 
+     BitStateAnalysis(
+         boolean[] epsilonCycleAlts,
+         CaptureRune[] captureRunes,
+         LoopEntry[] loopEntries,
+-        Inst[] captureProgressChecks) {
++        Inst[] captureProgressChecks,
++        Inst[] greedyRunes) {
+       this.epsilonCycleAlts = epsilonCycleAlts;
+       this.captureRunes = captureRunes;
+       this.loopEntries = loopEntries;
+       this.captureProgressChecks = captureProgressChecks;
++      this.greedyRunes = greedyRunes;
+     }
+   }
+ 
+@@ -443,6 +446,29 @@ final class Prog {
+     return bitStateAnalysis().captureProgressChecks;
+   }
+ 
++  /** Returns consuming bodies of simple greedy loops, or null when none exist. */
++  Inst[] greedyRunes() {
++    return bitStateAnalysis().greedyRunes;
++  }
++
++  private Inst[] computeGreedyRunes(boolean[] reachable) {
++    Inst[] runes = null;
++    for (int i = 0; i < size(); i++) {
++      Inst alt = inst(i);
++      if (reachable[i] && (alt.opCode == InstOp.OP_ALT || alt.opCode == InstOp.OP_ALT_MATCH)) {
++        Inst rune = inst(alt.out);
++        if ((rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS)
++            && rune.out == i) {
++          if (runes == null) {
++            runes = new Inst[size()];
++          }
++          runes[i] = rune;
++        }
++      }
++    }
++    return runes;
++  }
++
+   private BitStateAnalysis bitStateAnalysis() {
+     BitStateAnalysis result = bitStateAnalysis;
+     if (result == null) {
+@@ -453,7 +479,8 @@ final class Prog {
+               computeEpsilonCycleAlts(reachable),
+               captures,
+               computeLoopEntries(reachable, captures),
+-              computeCaptureProgressChecks(reachable));
++              computeCaptureProgressChecks(reachable),
++              computeGreedyRunes(reachable));
+       bitStateAnalysis = result;
+     }
+     return result;
+diff --git a/safere/src/test/java/org/safere/BitStateTest.java b/safere/src/test/java/org/safere/BitStateTest.java
+index 6b6df6ae..af0d6aa5 100644
+--- a/safere/src/test/java/org/safere/BitStateTest.java
++++ b/safere/src/test/java/org/safere/BitStateTest.java
+@@ -29,6 +29,23 @@ class BitStateTest {
+   private static final int FLAGS =
+       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
+ 
++  @Test
++  void greedyRuneLoopsPreserveExitPriorityAndCaptureRollback() {
++    for (String body : List.of("a", "[a-z]", "[a-z0-9_]", "[é😀]", "(?i:a)")) {
++      for (String suffix : List.of("(a|ab)", "(ab|a)", "(a?)b", "b")) {
++        for (String quantifier : List.of("*", "+", "*?")) {
++          String regex = "(" + body + quantifier + ")" + suffix;
++          for (String input : List.of("", "a", "aab", "aaaab", "aaaac", "é😀b", "AAAAab")) {
++            assertConsistentAnchored(regex, input, false, false);
++            assertConsistentAnchored(regex, input, true, false);
++            assertConsistentAnchored(regex, input, true, true);
++            assertConsistentUnanchored(regex, input);
++          }
++        }
++      }
++    }
++  }
++
+   @Test
+   void fusionMetadataIsSharedWhenInputGrowthRequiresANewWorkspace() {
+     String regex = "(?:(a)b(c)|a(b)d|)+";
+diff --git a/safere/src/test/java/org/safere/BitStateWindowTest.java b/safere/src/test/java/org/safere/BitStateWindowTest.java
+index 1b1a1fd6..a02771ff 100644
+--- a/safere/src/test/java/org/safere/BitStateWindowTest.java
++++ b/safere/src/test/java/org/safere/BitStateWindowTest.java
+@@ -67,6 +67,34 @@ class BitStateWindowTest {
+     }
+   }
+ 
++  @Test
++  void greedyUnicodeLoopsRetainDeferredCapturesAndRespectWindowEdges() {
++    Prog prog = Pattern.compile("([é😀]*)(😀b|b)").prog();
++    String text = "é😀😀b";
++    for (InputScanner input : scanners(text)) {
++      BitState bs = window(prog, input, 2);
++      assertThat(bs.doSearchWindow(0, 0, true, null)).isNull();
++      assertThat(bs.windowExceeded()).isTrue();
++      bs =
++          BitState.getOrCreate(
++              bs, prog, input, 0, input.length(), 2 * prog.numCaptures(), false, true);
++      int[] expected =
++          Nfa.search(
++              prog,
++              input,
++              0,
++              input.length(),
++              input.length(),
++              0,
++              Nfa.Anchor.ANCHORED,
++              Nfa.MatchKind.FULL_MATCH,
++              prog.numCaptures(),
++              null);
++      assertThat(bs.doSearch(0, input.length(), true)).isEqualTo(expected);
++      assertThat(bs.windowExceeded()).isFalse();
++    }
++  }
++
+   @Test
+   void reusedWindowClearsAbortedSearchState() {
+     Prog prog = Pattern.compile("a+|a").prog();
+diff --git a/safere/src/test/java/org/safere/ProgTest.java b/safere/src/test/java/org/safere/ProgTest.java
+index 2ff9feab..7561b665 100644
+--- a/safere/src/test/java/org/safere/ProgTest.java
++++ b/safere/src/test/java/org/safere/ProgTest.java
+@@ -20,6 +20,19 @@ import org.junit.jupiter.api.Test;
+ @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
+ class ProgTest {
+ 
++  @Test
++  void greedyRuneMetadataRequiresAnImmediatePreferredConsumingCycle() {
++    for (String regex : List.of("a+", "[a-z]*b", "[é😀]+")) {
++      Prog prog = Pattern.compile(regex).prog();
++      Inst[] runes = prog.greedyRunes();
++      assertThat(runes).as(regex).isNotNull();
++      assertThat(prog.greedyRunes()).isSameAs(runes);
++    }
++    for (String regex : List.of("a+?", "(a)+", "(a?)*", "abc")) {
++      assertThat(Pattern.compile(regex).prog().greedyRunes()).as(regex).isNull();
++    }
++  }
++
+   @Test
+   void bitStateAnalysisIsSharedRegardlessOfFirstRequestedMetadata() {
+     for (boolean fusionFirst : new boolean[] {false, true}) {
