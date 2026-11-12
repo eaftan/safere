@@ -58,7 +58,7 @@ implementation 'org.safere:safere:1.1.0'
 ```
 
 See the [installation guide](docs/INSTALLATION.md) for development snapshots
-and building from source, and [releases](https://github.com/eaftan/safere/releases)
+and building from source, and [releases](https://github.com/safere/safere/releases)
 for release notes.
 
 ## Usage
@@ -132,7 +132,7 @@ For guidance on compiling, caching, and using patterns efficiently, see
 
 ## Support and contributing
 
-Use [GitHub issues](https://github.com/eaftan/safere/issues) for questions,
+Use [GitHub issues](https://github.com/safere/safere/issues) for questions,
 bug reports, and feature requests. For a matching bug, include the pattern,
 input, flags, operation sequence, expected result, and SafeRE/JDK versions.
 A minimal reproducer or crosscheck trace is especially helpful.

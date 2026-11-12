@@ -205,6 +205,24 @@ def test_resolver_checks_head_repository_even_when_branch_and_commit_match(workt
     resolve_worktree(repository, metadata)
 
 
+def test_transferred_worktree_keeps_unpublished_repairs_after_remote_update(worktree):
+  repository, original, metadata = worktree
+  local_head = commit(original, "unpublished repair")
+  checkpoint = {
+    "lastRemoteHeadSha": metadata["head_oid"],
+    "lastLocalHeadSha": local_head,
+    "worktree": str(original),
+    "branch": "feature",
+  }
+  metadata["head_repository"] = "organization/r"
+  with pytest.raises(WorktreeError, match="remote"):
+    resolve_worktree(repository, metadata, checkpoint)
+  git(repository, "remote", "set-url", "origin", "https://github.com/organization/r.git")
+  result = resolve_worktree(repository, metadata, checkpoint)
+  assert result["localHeadSha"] == local_head
+  assert result["worktree"] == str(original)
+
+
 def test_resolver_blocks_unrecorded_local_commits_but_accepts_recorded_unpublished_fixes(worktree):
   repository, original, metadata = worktree
   local_head = commit(original, "local repair")
@@ -371,3 +389,20 @@ def test_contributor_discovery_excludes_repository_owner_when_viewer_is_differen
   assert result["repositoryOwner"] == "owner"
   assert [pr["number"] for pr in result["trusted"]] == [3]
   assert [pr["number"] for pr in result["authored"]] == [2]
+
+
+def test_organization_owner_does_not_change_authenticated_author_categories(monkeypatch, capsys):
+  from argparse import Namespace
+
+  from repo_assist import cli
+
+  source = FeedbackSource()
+  source.repository_metadata = lambda: {"owner": "organization"}
+  monkeypatch.setattr(cli, "GitHub", lambda repository: source)
+  cli.discover(Namespace(repository="organization/r", limit=1000))
+  result = json.loads(capsys.readouterr().out)
+  assert result["repositoryOwner"] == "organization"
+  assert result["authenticatedLogin"] == "owner"
+  assert [pr["number"] for pr in result["authored"]] == [1]
+  assert [pr["number"] for pr in result["trusted"]] == [2]
+  assert result["drafts"] == []

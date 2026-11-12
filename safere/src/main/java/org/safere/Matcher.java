@@ -2100,7 +2100,7 @@ public final class Matcher implements MatchResult {
     // Preserve capture preference for start-anchored patterns. Unanchored find() keeps DFA
     // rejection ahead of capture work, even after callers have consumed inner captures.
     // On the DFA path, successful small String searches reading captures pay for a reverse DFA pass
-    // plus capture replay; see https://github.com/eaftan/safere/pull/1150 for the tradeoff.
+    // plus capture replay; see https://github.com/safere/safere/pull/1150 for the tradeoff.
     if (prog.anchorStart() && shouldPreferCaptureEngine(prog, scanner)) {
       int[] result =
           searchWithBitStateOrNfa(

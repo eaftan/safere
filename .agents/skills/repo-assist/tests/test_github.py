@@ -53,6 +53,31 @@ def test_empty_collaborator_response_does_not_fall_back_to_explicit_users():
     GitHub("o/r", FakeRunner([[[]]])).trusted_users()
 
 
+@pytest.mark.parametrize("kind", ["issue", "pr"])
+def test_item_metadata_reports_canonical_repository_after_transfer(kind):
+  item = "pullRequest" if kind == "pr" else "issue"
+  data = {
+    "number": 1,
+    "repository": {"nameWithOwner": "organization/r"},
+    "url": f"https://github.com/organization/r/{'pull' if kind == 'pr' else 'issues'}/1",
+    "state": "OPEN",
+    "updatedAt": "t",
+    "author": {"login": "writer"},
+    "isDraft": False,
+    "baseRefName": "main",
+    "headRefName": "feature",
+    "baseRefOid": "a" * 40,
+    "headRefOid": "b" * 40,
+  }
+  runner = FakeRunner([{"data": {"repository": {item: data}}}])
+  metadata = GitHub("former/r", runner).item_metadata(kind, 1)
+  assert metadata["repository"] == "organization/r"
+  assert metadata["author"] == "writer"
+  assert "repository{nameWithOwner}" in " ".join(runner.commands[0])
+  assert "body" not in " ".join(runner.commands[0])
+  assert "title" not in " ".join(runner.commands[0])
+
+
 def test_discovery_exposes_no_untrusted_body_or_title():
   runner = FakeRunner(
     [

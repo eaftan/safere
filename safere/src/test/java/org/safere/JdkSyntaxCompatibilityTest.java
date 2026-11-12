@@ -32,8 +32,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  *   <li>SafeRE intentionally rejects it (for features that violate linear-time guarantees)
  * </ul>
  *
- * <p>Refs: <a href="https://github.com/eaftan/safere/issues/131">#131</a>, <a
- * href="https://github.com/eaftan/safere/issues/127">#127</a>
+ * <p>Refs: <a href="https://github.com/safere/safere/issues/131">#131</a>, <a
+ * href="https://github.com/safere/safere/issues/127">#127</a>
  */
 @DisplayName("JDK syntax compatibility")
 class JdkSyntaxCompatibilityTest {

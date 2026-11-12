@@ -19,7 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for {@code \p{java...}} character classes that delegate to {@link java.lang.Character}
  * predicate methods. Regression test for <a
- * href="https://github.com/eaftan/safere/issues/106">#106</a>.
+ * href="https://github.com/safere/safere/issues/106">#106</a>.
  */
 @DisplayName("Java character classes (\\p{java...})")
 class JavaCharacterClassesTest {

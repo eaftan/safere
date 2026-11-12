@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * JDK's known category/script names should still be present. The case-fold and binary property
  * checks detect table drift that may need an intentional Unicode data update.
  *
- * <p>See <a href="https://github.com/eaftan/safere/issues/107">#107</a>.
+ * <p>See <a href="https://github.com/safere/safere/issues/107">#107</a>.
  */
 @DisplayName("Unicode JDK consistency canary tests")
 @DisabledForCrosscheck("Unicode table canary uses package-private SafeRE internals")

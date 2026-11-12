@@ -72,7 +72,7 @@ if [[ ! -d "$EXTERNAL_REPO" ]]; then
   cat >&2 <<EOF
 ERROR: external benchmark checkout not found: $EXTERNAL_REPO
 
-Clone https://github.com/eaftan/safere-openjdk-regex-benchmarks outside this
+Clone https://github.com/safere/openjdk-regex-benchmarks outside this
 repository, or select an existing checkout with --repo PATH.
 EOF
   exit 1

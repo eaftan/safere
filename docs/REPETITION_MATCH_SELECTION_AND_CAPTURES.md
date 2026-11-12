@@ -949,9 +949,9 @@ supplementary String cursor control covers only empty-match advancement.
   priority and execution descriptions, not a substitute for the complete
   nullable-repetition contract above.
 
-[issue1079]: https://github.com/eaftan/safere/issues/1079
-[issue1051]: https://github.com/eaftan/safere/issues/1051
-[issue1091]: https://github.com/eaftan/safere/issues/1091
+[issue1079]: https://github.com/safere/safere/issues/1079
+[issue1051]: https://github.com/safere/safere/issues/1051
+[issue1091]: https://github.com/safere/safere/issues/1091
 [jdk-pattern]: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html
 [jdk-matcher]: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html
 [ecma-repeat]: https://tc39.es/ecma262/2026/multipage/text-processing.html#sec-repeatmatcher

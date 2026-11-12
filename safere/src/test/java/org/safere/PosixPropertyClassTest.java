@@ -19,7 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for POSIX character classes accessed via the {@code \p{...}} property syntax (e.g., {@code
  * \p{Lower}}, {@code \p{Upper}}, etc.). These are the 13 POSIX classes defined in the JDK's {@code
  * java.util.regex.Pattern} documentation. Regression test for <a
- * href="https://github.com/eaftan/safere/issues/112">#112</a>.
+ * href="https://github.com/safere/safere/issues/112">#112</a>.
  */
 @DisplayName("POSIX \\p{...} property classes")
 class PosixPropertyClassTest {

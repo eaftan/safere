@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from repo_assist.github import GitHub, fingerprint
+from repo_assist.github import GitHub, fingerprint, repository_name
 
 
 def timestamp(value: str) -> datetime:
@@ -131,17 +131,29 @@ def collect_activity(
       linked_github = repositories[repository]
       pr_number = link["number"]
       identity = (repository, pr_number)
+      if identity not in pr_cache:
+        pr_meta = linked_github.item_metadata("pr", pr_number)
+        # Saved links can use a repository's former owner/name. Resolve their current
+        # identity from body-free GitHub metadata before deduplication and checkpointing.
+        canonical = repository_name(pr_meta["repository"])
+        canonical_identity = (canonical, pr_number)
+        if canonical_identity in pr_cache:
+          if pr_cache[canonical_identity]["metadata"] != pr_meta:
+            raise RuntimeError("linked PR changed during activity collection; retry")
+        else:
+          pr_cache[canonical_identity] = {
+            "metadata": pr_meta,
+            "closingIssues": sorted(linked_github.pull_request_closing_issues(pr_number)),
+          }
+        pr_cache[identity] = pr_cache[canonical_identity]
+        if canonical not in repositories:
+          repositories[canonical] = github.for_repository(canonical)
+      pr = pr_cache[identity]
+      repository = pr["metadata"]["repository"]
+      identity = (repository, pr_number)
       if identity in seen:
         continue
       seen.add(identity)
-      if identity not in pr_cache:
-        pr_meta = linked_github.item_metadata("pr", pr_number)
-        pr_closing = linked_github.pull_request_closing_issues(pr_number)
-        pr_cache[identity] = {
-          "metadata": pr_meta,
-          "closingIssues": sorted(pr_closing),
-        }
-      pr = pr_cache[identity]
       safe_pr = {
         key: pr["metadata"][key]
         for key in (

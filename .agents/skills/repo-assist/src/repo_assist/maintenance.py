@@ -428,7 +428,7 @@ def main():
   order.add_argument("--repository", type=Path, default=Path.cwd())
   order.set_defaults(func=merge_order)
   fresh = commands.add_parser("refresh", help="Refresh discovery and sanitized snapshots through the trust helper")
-  fresh.add_argument("--repository-name", default="eaftan/safere")
+  fresh.add_argument("--repository-name", default="safere/safere")
   fresh.add_argument("--output-dir", type=Path)
   fresh.set_defaults(func=refresh)
   args = parser.parse_args()

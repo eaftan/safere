@@ -26,7 +26,7 @@ final class TeddyVectorScan {
     ByteVector lutHi0 = ByteVector.fromArray(SPECIES, model.lutHi(), 0);
     // Keep guarded vector operands non-null. On affected JDK 25 and 26 releases, C2 can
     // schedule a vector payload load before its guard and dereference a null vector box.
-    // See JDK-8387012 and https://github.com/eaftan/safere/issues/1170.
+    // See JDK-8387012 and https://github.com/safere/safere/issues/1170.
     ByteVector disabledLut = ByteVector.zero(SPECIES);
     boolean is2Byte = model.is2Byte();
     ByteVector lutLo1 = is2Byte ? ByteVector.fromArray(SPECIES, model.lutLo1(), 0) : disabledLut;

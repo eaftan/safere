@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  * may also be valid if the optional prefix is skipped, yielding a later start. These tests verify
  * that {@link Matcher#find()} preserves JDK-compatible leftmost-first boundaries.
  *
- * <p>See <a href="https://github.com/eaftan/safere/issues/159">issue #159</a>.
+ * <p>See <a href="https://github.com/safere/safere/issues/159">issue #159</a>.
  */
 @DisplayName("Bounded repeats: leftmost position")
 class BoundedRepeatLeftmostPositionTest {

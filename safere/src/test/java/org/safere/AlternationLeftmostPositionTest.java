@@ -26,7 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * alternation where alternatives compete at the <em>same</em> starting position. This test class
  * covers the missing dimension: alternatives that match at <em>different</em> positions.
  *
- * <p>See <a href="https://github.com/eaftan/safere/issues/150">issue #150</a>.
+ * <p>See <a href="https://github.com/safere/safere/issues/150">issue #150</a>.
  */
 @DisplayName("Alternation: leftmost position across alternatives")
 class AlternationLeftmostPositionTest {

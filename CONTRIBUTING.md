@@ -1,7 +1,7 @@
 # Contributing to SafeRE
 
 Bug reports, documentation improvements, and code contributions are welcome.
-Use [GitHub issues](https://github.com/eaftan/safere/issues) to report a problem
+Use [GitHub issues](https://github.com/safere/safere/issues) to report a problem
 or discuss substantial changes before starting work. Include a minimal
 reproducer and the SafeRE and JDK versions for a bug report.
 

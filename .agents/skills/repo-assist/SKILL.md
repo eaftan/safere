@@ -32,7 +32,9 @@ Resolve `REPO_ASSIST_SKILL_DIR` to the directory containing this loaded `SKILL.m
 helper through `uv --project "$REPO_ASSIST_SKILL_DIR"`; this is the SafeRE repository's skill, not
 another installed copy with the same name. Preserve this selection in scheduled prompts.
 
-Default repository: `/home/eaftan/safere`.
+Default GitHub repository: `safere/safere`.
+
+Default local checkout: `/home/eaftan/safere`.
 
 Default storage root: `$HOME/.codex/safere-pr-review`.
 
@@ -174,6 +176,13 @@ The workflow references define their category records. `issueActivity` and
 issue-activity checkpoint. Checkpoint completed assessments and local commits as each workflow
 requires so they survive interruption.
 
+Repository transfers keep issue/PR numbers and the existing storage root. Preserve cutoffs,
+assessments, and unpublished-repair checkpoints. Selected issue coverage resolves saved repository
+aliases through current GitHub metadata before deduplication; changed identity/evidence requires
+fresh assessment before reuse. Inactive checkpoints refresh when next selected. Authored-worktree
+checks still require a remote for the current PR head repository; update checkout remotes as part
+of the transfer rather than bypassing that identity check.
+
 ## Scheduled Prompt
 
 Use this prompt for `codex exec` or a Codex app automation:
@@ -182,7 +191,8 @@ Use this prompt for `codex exec` or a Codex app automation:
 Use the repo-assist skill in /home/eaftan/safere/.agents/skills/repo-assist.
 Run one serialized SafeRE contributor-PR, authored-feedback, and issue-activity sweep.
 
-Repository: /home/eaftan/safere.
+GitHub repository: safere/safere.
+Local checkout: /home/eaftan/safere.
 Read the loaded SKILL.md and all three workflow references in full before performing their work:
 references/issue-activity.md, references/authored-pr-feedback.md, and
 references/contributor-pr-review.md. Use this skill's deterministic helpers for discovery, author

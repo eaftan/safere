@@ -299,7 +299,7 @@ mvn -pl safere -Pvector-tests -Dtest=TeddyVectorScanTest test
 ```
 
 `TeddyVectorScanStress` is a separate diagnostic entry point for the C2 failure in
-[SafeRE #1170](https://github.com/eaftan/safere/issues/1170). It warms three-byte
+[SafeRE #1170](https://github.com/safere/safere/issues/1170). It warms three-byte
 models before introducing two-byte models and checks each scan result. Run it in
 fresh JVMs on an x86-64 AVX2 machine with an affected JDK 25 or 26. Build using the
 project build JDK first:

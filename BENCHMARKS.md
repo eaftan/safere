@@ -232,7 +232,7 @@ Compilation costs are measured separately in the SafeRE suite.
 ## Reproducing the measurements
 
 The exact SafeRE source measured was
-[`5bfcec92acda26fcde50fc8bc510f3a4afe855ea`](https://github.com/eaftan/safere/commit/5bfcec92acda26fcde50fc8bc510f3a4afe855ea),
+[`5bfcec92acda26fcde50fc8bc510f3a4afe855ea`](https://github.com/safere/safere/commit/5bfcec92acda26fcde50fc8bc510f3a4afe855ea),
 committed **2026-09-26T00:51:20Z**.
 
 Rebar was measured at

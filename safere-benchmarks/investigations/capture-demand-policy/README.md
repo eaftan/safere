@@ -4,10 +4,10 @@
 expanded comparison, the implementation choice, and the known tradeoffs. This
 investigation layer preserves the evidence without changing production policy.
 
-This investigation addresses [#1075](https://github.com/eaftan/safere/issues/1075):
+This investigation addresses [#1075](https://github.com/safere/safere/issues/1075):
 how capture-use history should influence producer selection before DFA rejection.
 It follows the opt-in investigation convention introduced in
-[#1127](https://github.com/eaftan/safere/pull/1127). Its sources, tests, inputs,
+[#1127](https://github.com/safere/safere/pull/1127). Its sources, tests, inputs,
 protocol settings, and historical evidence are separate from the release benchmark
 corpus and recurring reports.
 
