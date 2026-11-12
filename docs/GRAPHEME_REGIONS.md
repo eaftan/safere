@@ -168,7 +168,7 @@ coverage in `LinebreakGraphemeTest` and the region tests.
 the Cartesian product of a bounded `left atom + assertion + right atom` grammar,
 curated Unicode inputs, every region in those inputs, and both bounds settings.
 The inputs include sliced LF, NEL, and CRLF regions. The focused split-CRLF
-regression from [#1038](https://github.com/eaftan/safere/issues/1038) is active.
+regression from [#1038](https://github.com/safere/safere/issues/1038) is active.
 `OpaqueRegionContractTest` compares all matching operations, captures, and find
 sequences against independent substrings, and checks original-input anchors when
 anchoring is disabled.

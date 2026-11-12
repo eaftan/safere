@@ -89,7 +89,7 @@ A short description of the most important release themes.
 Thank the community contributors by GitHub handle and briefly summarize their
 areas of contribution.
 
-**Full changelog:** https://github.com/eaftan/safere/compare/PREVIOUS_TAG...vX.Y.Z
+**Full changelog:** https://github.com/safere/safere/compare/PREVIOUS_TAG...vX.Y.Z
 ```
 
 The commit messages are the complete input inventory, but the release notes
@@ -133,7 +133,7 @@ Pushing the tag triggers the
 
 ### 5. Verify the release
 
-- Check the [GitHub Actions run](https://github.com/eaftan/safere/actions/workflows/release.yml)
+- Check the [GitHub Actions run](https://github.com/safere/safere/actions/workflows/release.yml)
   for success.
 - After a few minutes, verify the artifact appears on
   [Maven Central](https://central.sonatype.com/artifact/org.safere/safere).

@@ -65,7 +65,7 @@ class SnapshotFreshnessTest(unittest.TestCase):
                 os.environ,
                 PATH=directory + os.pathsep + os.environ["PATH"],
                 CI_RUN_NUMBER="10",
-                GITHUB_REPOSITORY="eaftan/safere",
+                GITHUB_REPOSITORY="safere/safere",
                 GITHUB_OUTPUT=str(output),
                 TEST_RUN_NUMBERS=numbers,
                 TEST_EXIT=str(exit_code),

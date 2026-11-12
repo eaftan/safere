@@ -1,3 +1,3 @@
-module github.com/eaftan/safere/benchmarks
+module github.com/safere/safere/benchmarks
 
 go 1.21

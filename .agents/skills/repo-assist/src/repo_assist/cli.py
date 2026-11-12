@@ -275,7 +275,7 @@ def path_command(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
   result = argparse.ArgumentParser()
   result.add_argument("--root", type=Path, default=root_default())
-  result.add_argument("--repository", default="eaftan/safere")
+  result.add_argument("--repository", default="safere/safere")
   commands = result.add_subparsers(required=True)
   start = commands.add_parser("begin-run")
   start.set_defaults(func=begin)

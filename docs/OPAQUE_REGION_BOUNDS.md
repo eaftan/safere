@@ -89,5 +89,5 @@ decoding at region edges. This document records SafeRE's chosen interpretation.
 inconsistencies; the
 [upstream response](https://mail.openjdk.org/archives/list/core-libs-dev@openjdk.org/thread/3QJPR27AJJXTW62W5PLL3NPRZE4XUZXN/)
 identifies grapheme consumption beyond the region as a bug but does not specify
-every remaining edge case. See also [#867](https://github.com/eaftan/safere/issues/867)
+every remaining edge case. See also [#867](https://github.com/safere/safere/issues/867)
 and the [intentional divergences](../INTENTIONAL_DIVERGENCES.md).

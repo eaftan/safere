@@ -17,7 +17,7 @@
   <licenses>
     <license>
       <name>BSD-3-Clause</name>
-      <url>https://github.com/eaftan/safere/blob/main/LICENSE</url>
+      <url>https://github.com/safere/safere/blob/main/LICENSE</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
@@ -33,9 +33,9 @@
   <scm child.scm.connection.inherit.append.path="false"
        child.scm.developerConnection.inherit.append.path="false"
        child.scm.url.inherit.append.path="false">
-    <connection>scm:git:https://github.com/eaftan/safere.git</connection>
-    <developerConnection>scm:git:git@github.com:eaftan/safere.git</developerConnection>
-    <url>https://github.com/eaftan/safere</url>
+    <connection>scm:git:https://github.com/safere/safere.git</connection>
+    <developerConnection>scm:git:git@github.com:safere/safere.git</developerConnection>
+    <url>https://github.com/safere/safere</url>
   </scm>
 
   <modules>

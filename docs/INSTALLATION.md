@@ -2,7 +2,7 @@
 
 SafeRE requires Java 21 or later. The [README](../README.md#installation)
 shows the Maven and Gradle coordinates for a numbered release. See
-[GitHub releases](https://github.com/eaftan/safere/releases) for release notes.
+[GitHub releases](https://github.com/safere/safere/releases) for release notes.
 
 ## Development snapshots
 

@@ -175,7 +175,7 @@ class GitHub:
         "-f",
         "query=query($owner:String!,$repo:String!,$n:Int!){"
         f"repository(owner:$owner,name:$repo){{{item}(number:$n){{"
-        f"number url state updatedAt author{{login}}{extra}}}}}}}",
+        f"number url state updatedAt author{{login}} repository{{nameWithOwner}}{extra}}}}}}}",
         "-F",
         f"owner={owner}",
         "-F",
@@ -188,6 +188,7 @@ class GitHub:
       raise RuntimeError(f"{kind} {number} metadata is unavailable")
     metadata = {
       "number": number,
+      "repository": repository_name(result["repository"]["nameWithOwner"]),
       "url": result["url"],
       "author": (result.get("author") or {}).get("login"),
       "state": result["state"],

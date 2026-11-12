@@ -25,7 +25,7 @@ intent/evidence decisions, and benchmark selection remain the agent's work.
 ```bash
 uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
   "$REPO_ASSIST_SKILL_DIR/scripts/review-tools.py" --root "$REVIEW_ROOT" \
-  refresh --repository-name eaftan/safere --output-dir "$RUN_ARTIFACTS/freshness"
+  refresh --repository-name safere/safere --output-dir "$RUN_ARTIFACTS/freshness"
 ```
 
 Runs discovery and sanitized snapshots **serially through the existing trust helper** and compares

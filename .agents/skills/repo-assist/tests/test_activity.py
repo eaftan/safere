@@ -95,6 +95,7 @@ class Source:
     if kind == "pr":
       return {
         "number": number,
+        "repository": self.repository,
         "url": f"https://github.com/{self.repository}/pull/{number}",
         "author": "writer",
         "state": "OPEN",
@@ -431,6 +432,63 @@ def test_legacy_linked_pr_checkpoint_defaults_to_local_repository():
   source.draft = False
   output, _ = run(source, previous)
   assert output["issues"][0]["pullRequests"][0]["repository"] == "o/r"
+
+
+@pytest.mark.parametrize("state", ["OPEN", "MERGED", "CLOSED"])
+@pytest.mark.parametrize("author", ["writer", "stranger"])
+def test_transferred_repository_refreshes_prior_coverage_without_duplicate_aliases(state, author):
+  source = Source()
+  source.repository = "former/project"
+  source.issue["url"] = "https://github.com/former/project/issues/1"
+  source.draft = True
+  _, previous = run(source)
+  assessments = saved_assessment(previous)
+  original_previous = copy.deepcopy(previous)
+
+  source.repository = "organization/project"
+  source.issue["url"] = "https://github.com/organization/project/issues/1"
+  source.draft = state == "OPEN"
+  source.sources["former/project"] = source
+  metadata = source.item_metadata
+  source.item_metadata = lambda kind, number: metadata(kind, number) | (
+    {"state": state, "author": author} if kind == "pr" else {}
+  )
+  output, checkpoint = run(source, previous, assessments=assessments)
+  item = output["issues"][0]
+  assert item["assessmentAction"] == "review"
+  assert item["changed"]
+  assert len(item["pullRequests"]) == 1
+  context = item["pullRequests"][0]
+  assert context["repository"] == "organization/project"
+  assert context["relationship"] == "fixes"
+  assert context["state"] == state
+  assert context["trustedAuthor"] == (author == "writer")
+  assert ("snapshot" in context) == (author == "writer")
+  assert previous == original_previous
+
+  again, _ = run(source, checkpoint, assessments=saved_assessment(checkpoint))
+  assert again["issues"][0]["assessmentAction"] == "reuse"
+  assert len(again["issues"][0]["pullRequests"]) == 1
+
+
+def test_alias_metadata_disagreement_fails_before_fetching_prose():
+  source = Source()
+  source.draft = True
+  alias = external_context(source, repository="former/r")
+  source.links.insert(0, {
+    "__typename": "PullRequest", "number": 2, "repository": {"nameWithOwner": "o/r"},
+  })
+  calls = []
+
+  def metadata(kind, number):
+    calls.append(number)
+    return source.item_metadata(kind, number) | {"author": "stranger"}
+
+  alias.item_metadata = metadata
+  with pytest.raises(RuntimeError, match="linked PR changed"):
+    run(source)
+  assert calls == [2]
+  assert not source.reads and not source.summary_reads and not alias.summary_reads
 
 
 def test_external_author_change_during_collection_still_fails_closed():

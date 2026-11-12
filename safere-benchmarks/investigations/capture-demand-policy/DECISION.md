@@ -45,7 +45,7 @@ removes the worst-case advantage suggested by the smaller screen. Greedy work's
 counts are not calibrated across engines; periodic and probabilistic exploration
 also pay for repeated expensive probes. No policy dominates every workload.
 
-The [review feedback](https://github.com/eaftan/safere/pull/1140#issuecomment-6682360802)
+The [review feedback](https://github.com/safere/safere/pull/1140#issuecomment-6682360802)
 also favors DFA-first and reports an additional forward-DFA-then-
 capture variant that did not justify its complexity. That additional experiment
 is reported by the reviewer and is not part of the archived matrix.
