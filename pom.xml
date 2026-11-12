@@ -59,7 +59,7 @@
     <icu4j.version>78.3</icu4j.version>
     <gson.version>2.15.0</gson.version>
     <jmh.version>1.37</jmh.version>
-    <asm.version>9.10.1</asm.version>
+    <asm.version>9.11.1</asm.version>
     <error-prone.version>2.52.0</error-prone.version>
     <error-prone.checks>-XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/generated-sources/.* -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <!-- Checks for production code only (src/main), not tests. DefaultLocale keeps output such as
@@ -70,7 +70,7 @@
     <error-prone.extra-checks></error-prone.extra-checks>
     <google-java-format.version>1.35.0</google-java-format.version>
     <pmd.version>7.29.0</pmd.version>
-    <spotless.version>3.10.4</spotless.version>
+    <spotless.version>3.11.0</spotless.version>
   </properties>
 
   <build>
@@ -154,7 +154,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>flatten-maven-plugin</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.0</version>
             <configuration>
               <flattenMode>ossrh</flattenMode>
             </configuration>
