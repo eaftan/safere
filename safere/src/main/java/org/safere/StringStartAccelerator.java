@@ -56,6 +56,8 @@ sealed interface StringStartAccelerator {
                 le.minRepetition(),
                 le.maxRepetition(),
                 le.hasLeadingAssertions(),
+                MultiAnchorCompiler.isWideLeadingClass(le.leadingClass()),
+                LeadingExpansion.forwardScanChars(le),
                 inner)
             : null;
       }
@@ -613,21 +615,67 @@ sealed interface StringStartAccelerator {
     }
   }
 
+  // Arrays are immutable, privately owned scanner metadata; array identity is never observed.
+  @SuppressWarnings("ArrayRecordComponent")
   record LeadingExpansion(
       CharClassScanInfo leadingClass,
       int minRepetition,
       int maxRepetition,
       boolean hasLeadingAssertions,
+      boolean wideLeadingClass,
+      char[] excludedChars,
       StringStartAccelerator inner)
       implements StringStartAccelerator {
+
+    /**
+     * Returns the code units a wide leading class excludes, when a forward search for them can
+     * stand in for the backward walk: the class must exclude only BMP non-surrogate code points,
+     * and the repetition must be unbounded with at most one required repetition. Otherwise null.
+     */
+    static char[] forwardScanChars(MultiAnchorDescriptor.StartPlan.LeadingExpansion le) {
+      int[] excluded = MultiAnchorCompiler.excludedCodePoints(le.leadingClass());
+      if (excluded == null || le.minRepetition() > 1 || le.maxRepetition() != Integer.MAX_VALUE) {
+        return null;
+      }
+      char[] chars = new char[excluded.length];
+      for (int i = 0; i < excluded.length; i++) {
+        int cp = excluded[i];
+        if (cp > Character.MAX_VALUE || Character.isSurrogate((char) cp)) {
+          return null;
+        }
+        chars[i] = (char) cp;
+      }
+      return chars;
+    }
+
+    /** Returns whether {@code text[from, to)} holds a code unit the leading class excludes. */
+    private boolean containsExcluded(String text, int from, int to) {
+      for (char c : excludedChars) {
+        int hit = text.indexOf(c, from, to);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(hit < 0 ? to - from : hit - from + 1);
+        }
+        if (hit >= 0) {
+          return true;
+        }
+      }
+      return false;
+    }
 
     @Override
     public AcceleratorPolicy policy() {
       return AcceleratorPolicy.LEADING_EXPANSION.withStrategy(inner.policy().strategy());
     }
 
+    /**
+     * Returns whether an unanchored DFA probe from the inner candidate can reject every expanded
+     * start at once. Not for a wide leading class such as non-DOTALL {@code .}: its expanded start
+     * is the line start, and when the probe succeeds on a later line the search scans that gap a
+     * second time from the expanded start. Searching from the expanded start directly is never
+     * worse than the probe there.
+     */
     boolean canVerifyAtInner() {
-      return minRepetition == 0 && !hasLeadingAssertions;
+      return minRepetition == 0 && !hasLeadingAssertions && !wideLeadingClass;
     }
 
     int findInnerCandidate(CharSequence text, int searchPos, boolean unixLines) {
@@ -660,10 +708,29 @@ sealed interface StringStartAccelerator {
     int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
       int searchPos = Math.max(0, fromIndex);
       int textLen = text.length();
+      // A wide class's walk covers the rest of the line, so a skip shorter than
+      // MIN_WIDE_LEADING_SKIP saves less than the literal scan and the walk cost. Such searches
+      // start at the search start, as they would with no start plan.
+      if (wideLeadingClass && textLen - searchPos < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
+        return searchPos;
+      }
       while (searchPos < textLen) {
         int innerMatch = findInnerCandidate(text, searchPos, unixLines);
         if (innerMatch < 0) {
           return -1;
+        }
+        if (wideLeadingClass
+            && innerMatch - fromIndex < MultiAnchorCompiler.MIN_WIDE_LEADING_SKIP) {
+          return Math.max(0, fromIndex);
+        }
+        // A forward scan can show that the walk would reach the search start. Probe only the
+        // first hit: an excluded code point before it will also precede every later hit.
+        if (excludedChars != null
+            && searchPos == fromIndex
+            && innerMatch > fromIndex
+            && text instanceof String string
+            && !containsExcluded(string, fromIndex, innerMatch)) {
+          return fromIndex;
         }
         int start = innerMatch;
         int count = 0;

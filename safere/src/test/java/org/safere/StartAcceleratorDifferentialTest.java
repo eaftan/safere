@@ -8,6 +8,7 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.CharBuffer;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,31 @@ class StartAcceleratorDifferentialTest {
       EnginePathOptions.builder().startAcceleration(true).build();
   private static final EnginePathOptions UNACCELERATED =
       EnginePathOptions.builder().startAcceleration(false).build();
+
+  @ParameterizedTest
+  @ValueSource(strings = {"😀", "🧪", "👍"})
+  void wideExpansionsPreserveGraphemeProgramLowSurrogateStarts(String excluded) {
+    String padding = "p".repeat(300);
+    String text = padding + excluded + "error!";
+    for (String repetition : List.of("+", "+?", "{1,3}")) {
+      String regex = "([^" + excluded + "]" + repetition + ")error\\X";
+      Pattern accelerated = Pattern.compile(regex, 0, ACCELERATED);
+      Pattern control = Pattern.compile(regex, 0, UNACCELERATED);
+      Matcher expected = control.matcher(text);
+      assertThat(expected.find()).isTrue();
+      assertThat(expected.start()).isEqualTo(padding.length() + 1);
+      assertThat(expected.group(1)).isEqualTo(excluded.substring(1));
+      for (CharSequence input : List.of(text, CharBuffer.wrap(text))) {
+        Matcher actual = accelerated.matcher(input);
+        assertThat(actual.find()).as("%s on %s", regex, input.getClass()).isTrue();
+        assertThat(actual.start()).isEqualTo(expected.start());
+        assertThat(actual.end()).isEqualTo(expected.end());
+        assertThat(actual.group(1)).isEqualTo(expected.group(1));
+        assertThat(actual.find()).isFalse();
+      }
+      assertThat(accelerated.asPredicate().test(text)).isTrue();
+    }
+  }
 
   @ParameterizedTest
   @ValueSource(

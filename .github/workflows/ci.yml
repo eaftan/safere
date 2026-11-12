@@ -150,6 +150,18 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
+      - name: Upload failed test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-diagnostics-${{ github.job }}
+          path: |
+            **/target/surefire-reports/**
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: warn
+          retention-days: 7
+
   build-vector-runtime-artifacts:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
@@ -273,6 +285,18 @@ jobs:
             -Dtest.parallelism=4 \
             --batch-mode --no-transfer-progress
 
+      - name: Upload failed test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-diagnostics-${{ github.job }}-${{ matrix.java }}
+          path: |
+            **/target/surefire-reports/**
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: warn
+          retention-days: 7
+
   fuzz-regression:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
@@ -307,6 +331,18 @@ jobs:
           -Dtest=WorkBoundFuzzer,WorkBoundFuzzerTest -Dsafere.fuzz.workCounters=true
           -Dsurefire.failIfNoSpecifiedTests=false
           --batch-mode --no-transfer-progress
+
+      - name: Upload failed test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-diagnostics-${{ github.job }}
+          path: |
+            **/target/surefire-reports/**
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: warn
+          retention-days: 7
 
   benchmark-python-tests:
     needs: changes
@@ -370,6 +406,18 @@ jobs:
             -cp safere-benchmarks/target/benchmarks.jar \
             org.safere.benchmark.MemoryBenchmark
 
+      - name: Upload benchmark JVM crash diagnostics
+        # A JMH fork can fail without the benchmark command exiting nonzero.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmark-crash-${{ github.job }}
+          path: |
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   vector-benchmark-smoke:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
@@ -410,6 +458,18 @@ jobs:
             --end-to-end \
             --trials \
             'pair/first/absent/1024/0,range/first/absent/1024/0'
+
+      - name: Upload benchmark JVM crash diagnostics
+        # A JMH fork can fail without the benchmark command exiting nonzero.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmark-crash-${{ github.job }}
+          path: |
+            **/hs_err_pid*.log
+            **/replay_pid*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   benchmark-smoke-test-cpp:
     needs: [changes, prepare-maven-cache]

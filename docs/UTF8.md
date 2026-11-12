@@ -235,6 +235,19 @@ configuration error.
 The activation property, supported scans, implementation, and tuning thresholds are experimental
 and may change incompatibly or be removed in any SafeRE release.
 
+### Vector kernel maintenance
+
+Keep guarded Vector API operands non-null, including lookup vectors for disabled Teddy
+stages. On affected HotSpot releases, C2 can move a vector payload load ahead of its guard
+and crash the JVM when the vector box is null
+([JDK-8387012](https://bugs.openjdk.org/browse/JDK-8387012),
+[SafeRE #1170](https://github.com/eaftan/safere/issues/1170)). Teddy uses same-species zero
+vectors for disabled stages; the stage guards still control which filters execute.
+This workaround applies on every runtime without JDK version checks.
+
+Compiler stress validation is separate from ordinary semantic tests; see the
+[Vector compiler stress protocol](TESTING.md#vector-compiler-stress).
+
 ## Integrating with a byte-oriented application
 
 An adapter can construct a trusted array window from storage that already

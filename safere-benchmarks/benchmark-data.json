@@ -4630,6 +4630,116 @@
       }
     },
     {
+      "id": "leadingWildcard.log.end",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n",
+        "suffix": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n",
+        "length": 1048576
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.early",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n",
+        "unit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n",
+        "suffix": "",
+        "length": 1048576
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.every",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n",
+        "length": 1048576
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.every100",
+      "recipe": {
+        "kind": "periodicAlternationToLength",
+        "hitUnit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n",
+        "missUnit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n",
+        "hitInterval": 100,
+        "length": 1048576
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.failingLines",
+      "recipe": {
+        "kind": "periodicAlternationToLength",
+        "hitUnit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                            error: -\n",
+        "missUnit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n",
+        "hitInterval": 100,
+        "length": 1048448
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.failing",
+      "recipe": {
+        "kind": "appendInput",
+        "input": "leadingWildcard.log.failingLines",
+        "suffix": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.none",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                                    \n",
+        "length": 1048576
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.log.short",
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-11-07T12:34:56.789 INFO  [worker-17] request handled in 23 ms path=/api/v1/items/12345                         error: disk\n"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.singleLine.{size}",
+      "axes": {
+        "size": [
+          384,
+          768
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "abcdefghijklmnopqrstuvwxyz",
+        "suffix": " error: disk",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "leadingWildcard.shortLines.{size}",
+      "axes": {
+        "size": [
+          384,
+          768
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstu\n",
+        "suffix": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx error: disk",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "previousMatch.ascii.128",
       "recipe": {
         "kind": "repeat",
@@ -21114,6 +21224,233 @@
       "expected": {
         "type": "integer",
         "value": 2049
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.find.{leading}.{shape}",
+      "operation": "find",
+      "patterns": [
+        "{leading}error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.log.{shape}"
+      ],
+      "axes": {
+        "leading": [
+          {
+            "id": "dotStar",
+            "value": ".*"
+          },
+          {
+            "id": "dotPlus",
+            "value": ".+"
+          },
+          {
+            "id": "notNewlineStar",
+            "value": "[^\\n]*"
+          }
+        ],
+        "shape": [
+          "end",
+          "early",
+          "failing"
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.find.{leading}.none",
+      "operation": "find",
+      "patterns": [
+        "{leading}error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.log.none"
+      ],
+      "axes": {
+        "leading": [
+          {
+            "id": "dotStar",
+            "value": ".*"
+          },
+          {
+            "id": "dotPlus",
+            "value": ".+"
+          },
+          {
+            "id": "notNewlineStar",
+            "value": "[^\\n]*"
+          }
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.find.{leading}.short",
+      "operation": "find",
+      "patterns": [
+        "{leading}error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.log.short"
+      ],
+      "axes": {
+        "leading": [
+          {
+            "id": "dotStar",
+            "value": ".*"
+          },
+          {
+            "id": "dotPlus",
+            "value": ".+"
+          },
+          {
+            "id": "notNewlineStar",
+            "value": "[^\\n]*"
+          }
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.findAllCount.{leading}.every",
+      "operation": "findAllCount",
+      "patterns": [
+        "{leading}error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.log.every"
+      ],
+      "axes": {
+        "leading": [
+          {
+            "id": "dotStar",
+            "value": ".*"
+          },
+          {
+            "id": "dotPlus",
+            "value": ".+"
+          },
+          {
+            "id": "notNewlineStar",
+            "value": "[^\\n]*"
+          }
+        ]
+      },
+      "resultConsumption": "integer",
+      "expected": {
+        "type": "integer",
+        "value": 8192
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.findAllCount.{leading}.every100",
+      "operation": "findAllCount",
+      "patterns": [
+        "{leading}error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.log.every100"
+      ],
+      "axes": {
+        "leading": [
+          {
+            "id": "dotStar",
+            "value": ".*"
+          },
+          {
+            "id": "dotPlus",
+            "value": ".+"
+          },
+          {
+            "id": "notNewlineStar",
+            "value": "[^\\n]*"
+          }
+        ]
+      },
+      "resultConsumption": "integer",
+      "expected": {
+        "type": "integer",
+        "value": 82
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "LeadingWildcardBenchmark.longLine.{layout}.{size}",
+      "operation": "find",
+      "patterns": [
+        ".*error: \\w+"
+      ],
+      "inputs": [
+        "leadingWildcard.{layout}.{size}"
+      ],
+      "axes": {
+        "layout": [
+          "singleLine",
+          "shortLines"
+        ],
+        "size": [
+          384,
+          768
+        ]
+      },
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     },
     {
