@@ -68,6 +68,34 @@ class BitStateWindowTest {
   }
 
   @Test
+  void greedyUnicodeLoopsRetainDeferredCapturesAndRespectWindowEdges() {
+    Prog prog = Pattern.compile("([é😀]*)(😀b|b)").prog();
+    String text = "é😀😀b";
+    for (InputScanner input : scanners(text)) {
+      BitState bs = window(prog, input, 2);
+      assertThat(bs.doSearchWindow(0, 0, true, null)).isNull();
+      assertThat(bs.windowExceeded()).isTrue();
+      bs =
+          BitState.getOrCreate(
+              bs, prog, input, 0, input.length(), 2 * prog.numCaptures(), false, true);
+      int[] expected =
+          Nfa.search(
+              prog,
+              input,
+              0,
+              input.length(),
+              input.length(),
+              0,
+              Nfa.Anchor.ANCHORED,
+              Nfa.MatchKind.FULL_MATCH,
+              prog.numCaptures(),
+              null);
+      assertThat(bs.doSearch(0, input.length(), true)).isEqualTo(expected);
+      assertThat(bs.windowExceeded()).isFalse();
+    }
+  }
+
+  @Test
   void reusedWindowClearsAbortedSearchState() {
     Prog prog = Pattern.compile("a+|a").prog();
     BitState bs = window(prog, new StringInputScanner("a".repeat(1000)), 4);

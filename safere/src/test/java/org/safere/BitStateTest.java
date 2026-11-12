@@ -30,6 +30,23 @@ class BitStateTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void greedyRuneLoopsPreserveExitPriorityAndCaptureRollback() {
+    for (String body : List.of("a", "[a-z]", "[a-z0-9_]", "[é😀]", "(?i:a)")) {
+      for (String suffix : List.of("(a|ab)", "(ab|a)", "(a?)b", "b")) {
+        for (String quantifier : List.of("*", "+", "*?")) {
+          String regex = "(" + body + quantifier + ")" + suffix;
+          for (String input : List.of("", "a", "aab", "aaaab", "aaaac", "é😀b", "AAAAab")) {
+            assertConsistentAnchored(regex, input, false, false);
+            assertConsistentAnchored(regex, input, true, false);
+            assertConsistentAnchored(regex, input, true, true);
+            assertConsistentUnanchored(regex, input);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void fusionMetadataIsSharedWhenInputGrowthRequiresANewWorkspace() {
     String regex = "(?:(a)b(c)|a(b)d|)+";
     Prog prog = Pattern.compile(regex).prog();
