@@ -21,6 +21,26 @@ import org.junit.jupiter.api.Test;
 class ResolvedBenchmarkPlanTest {
 
   @Test
+  void nullableRepeatedFindExcludesRustNativeIteration() throws IOException {
+    Path source =
+        Files.exists(Path.of("benchmark-data.json"))
+            ? Path.of("benchmark-data.json")
+            : Path.of("safere-benchmarks", "benchmark-data.json");
+    JsonObject plan =
+        ResolvedBenchmarkPlan.create(
+            PatternProfiles.normalizeInline(
+                JsonParser.parseString(Files.readString(source)).getAsJsonObject()));
+    String workload = "RepeatedClassFindBenchmark.lines.1024@";
+    JsonObject rust = entry(plan, workload + "rust_regex");
+    assertThat(rust.get("status").getAsString()).isEqualTo("excluded");
+    assertThat(rust.getAsJsonObject("exclusion").get("reason").getAsString())
+        .contains("empty match", "nonempty match");
+    for (String engine : List.of("safere-string", "safere-utf8", "re2_cpp")) {
+      assertThat(entry(plan, workload + engine).get("status").getAsString()).isEqualTo("runnable");
+    }
+  }
+
+  @Test
   void ffmMatcherOperationsPreserveConversionTimingAndUnsupportedExclusions() throws IOException {
     Path source =
         Files.exists(Path.of("benchmark-data.json"))

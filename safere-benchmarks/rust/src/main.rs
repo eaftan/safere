@@ -278,6 +278,7 @@ fn execute(prepared: &Prepared) -> Value {
             black_box(compile(&patterns[0]));
             json!(true)
         }
+        "compileAndFind" => json!(compile(&patterns[0]).is_match(text)),
         "matches" => json!(prepared.full_regex.as_ref().unwrap().is_match(text)),
         "find" => json!(regex.unwrap().is_match(text)),
         "utf8CaptureBounds" => json!(capture_bounds(
@@ -646,6 +647,33 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compile_and_find_uses_the_declared_pattern_and_input() {
+        for (text, expected) in [("prefix needle", true), ("absent", false)] {
+            let prepared = Prepared {
+                entry: json!({}),
+                operation: "compileAndFind".into(),
+                patterns: vec!["needle".into()],
+                // A different precompiled pattern detects accidentally timing only matching.
+                regexes: vec![compile("unused")],
+                full_regex: None,
+                inputs: vec![text.into()],
+                groups: vec![],
+                group: 0,
+                include_end: false,
+                replacement: String::new(),
+                limit: 0,
+            };
+            assert_eq!(execute(&prepared), json!(expected));
+        }
+    }
+
+    #[test]
+    fn native_iteration_suppresses_empty_matches_after_nonempty_matches() {
+        let regex = compile("[^\\n]*");
+        assert_eq!(regex.find_iter("a\nb").count(), 2);
+    }
 
     #[test]
     fn full_match_is_not_weakened_by_multiline_mode() {

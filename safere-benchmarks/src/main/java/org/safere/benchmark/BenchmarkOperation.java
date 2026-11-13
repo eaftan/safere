@@ -320,6 +320,7 @@ enum BenchmarkOperation {
   }
 
   private static int tokenize(RegexEngineVariant.MatchCursor matcher, int length, String mode) {
+    mode = mode == null ? "" : mode;
     boolean independent = mode.startsWith("independent");
     if (independent) {
       matcher.reset();
