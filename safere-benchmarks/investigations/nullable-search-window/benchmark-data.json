@@ -1,0 +1,354 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "short",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaaaaaaaaaab",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "hint",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "cap",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "b",
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "priority",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabz",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "unicode",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααb",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "miss",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "fallback",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "tiny",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "aaaaaaaab",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 16
+      },
+      "shared": true
+    },
+    {
+      "id": "lazyCaptures",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    },
+    {
+      "id": "greedyCaptures",
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaz",
+        "value": "q",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": 100000
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "NullableWindowBenchmark.short",
+      "operation": "find",
+      "patterns": [
+        "(a?)*b"
+      ],
+      "inputs": [
+        "short"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.hint",
+      "operation": "find",
+      "patterns": [
+        "(a?)*b"
+      ],
+      "inputs": [
+        "hint"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.cap",
+      "operation": "find",
+      "patterns": [
+        "(a?)*b"
+      ],
+      "inputs": [
+        "cap"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.priority",
+      "operation": "find",
+      "patterns": [
+        "([ab]?)*z|b"
+      ],
+      "inputs": [
+        "priority"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.unicode",
+      "operation": "find",
+      "patterns": [
+        "(α?)*b"
+      ],
+      "inputs": [
+        "unicode"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.miss",
+      "operation": "find",
+      "patterns": [
+        "(a?)*b"
+      ],
+      "inputs": [
+        "miss"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.fallback",
+      "operation": "find",
+      "patterns": [
+        "a+b"
+      ],
+      "inputs": [
+        "fallback"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.tiny",
+      "operation": "find",
+      "patterns": [
+        "(a?)*b"
+      ],
+      "inputs": [
+        "tiny"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "NullableWindowBenchmark.lazyCaptures",
+      "operation": "replaceAll",
+      "patterns": [
+        "x(.*?)z"
+      ],
+      "inputs": [
+        "lazyCaptures"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "<$1>"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "NullableWindowBenchmark.greedyCaptures",
+      "operation": "replaceAll",
+      "patterns": [
+        "x(.*)z"
+      ],
+      "inputs": [
+        "greedyCaptures"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "<$1>"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    }
+  ]
+}

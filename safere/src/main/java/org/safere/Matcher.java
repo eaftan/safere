@@ -414,7 +414,7 @@ public final class Matcher implements MatchResult {
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
 
-  // Retry after increasingly many eligible searches when fixed windows keep failing. The capped
+  // Retry after increasingly many eligible searches when bounded windows keep failing. The capped
   // delay allows recovery after a long-match prefix without paying for a window on every match.
   private static final int MAX_CONSECUTIVE_WINDOW_FAILURES = 2;
   private static final int INITIAL_WINDOW_RETRY_DELAY = 8;
@@ -2314,7 +2314,8 @@ public final class Matcher implements MatchResult {
             false,
             nsubmatch,
             false,
-            this.groups);
+            this.groups,
+            fwdResult != null && fwdResult.matched() ? fwdResult.pos() : -1);
     if (result == null) {
       return applyFailedMatchResult();
     }
@@ -2866,7 +2867,6 @@ public final class Matcher implements MatchResult {
         reuseGroups);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private int[] searchWithBitStateOrNfa(
       Prog prog,
       InputScanner text,
@@ -2879,11 +2879,41 @@ public final class Matcher implements MatchResult {
       int nsubmatch,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
+    return searchWithBitStateOrNfa(
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        anchored,
+        longest,
+        endMatch,
+        nsubmatch,
+        preserveOuterEmptyContext,
+        reuseGroups,
+        -1);
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private int[] searchWithBitStateOrNfa(
+      Prog prog,
+      InputScanner text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch,
+      boolean preserveOuterEmptyContext,
+      int[] reuseGroups,
+      int matchEndHint) {
     // Use BitState on a bounded search range. Nullable-loop patterns on long inputs can try one
-    // fixed window before the NFA: their progress checks prevent authoritative DFA bounds even
+    // bounded window before the NFA: their progress checks prevent authoritative DFA bounds even
     // when the selected match is short. If any preferred path reaches the window edge, or the work
-    // budget is exceeded, restart once with the NFA and the original bounds. The extra work per
-    // attempt is bounded by max(4096, MAX_WORK_PER_SLOT * prog.size() * (window size + 2)) + 1.
+    // budget is exceeded, restart once with the NFA and the original bounds. A forward DFA end
+    // hint may enlarge the window up to maxBitStateLen; the bitmap and work budgets stay bounded
+    // independently of the total input length. There is no sequence of growing-window retries.
     // Two consecutive failures start an exponentially increasing, capped retry delay. Count only
     // eligible searches; a successful window or a reset/pattern/region change clears the delay.
     int maxBitStateLen = BitState.maxTextSize(prog);
@@ -2922,8 +2952,16 @@ public final class Matcher implements MatchResult {
         cachedBitState = Pattern.borrowBitState(threadCache());
         bitStateBorrowed = true;
       }
-      // One fixed-size attempt per search. Never retry with successively larger windows.
-      int bitStateEnd = speculate ? startPos + BitState.SPECULATIVE_WINDOW_SIZE : endPos;
+      // One bounded attempt per search. Never retry with successively larger windows.
+      int windowSize = BitState.SPECULATIVE_WINDOW_SIZE;
+      if (matchEndHint > startPos && matchEndHint - startPos <= maxBitStateLen) {
+        // A DFA end is only a sizing hint: nullable progress can change the preferred match.
+        // Enlarge only when the hint fits the ordinary bitmap limit. Otherwise retain the small
+        // window, rather than paying for a cap-sized attempt before the possible NFA fallback.
+        // The speculative engine still rejects any preferred path reaching its consumption edge.
+        windowSize = Math.max(windowSize, matchEndHint - startPos);
+      }
+      int bitStateEnd = speculate ? startPos + windowSize : endPos;
       BitState bs =
           BitState.getOrCreate(
               cachedBitState, prog, text, startPos, bitStateEnd, ncap, longest, endMatchEffective);

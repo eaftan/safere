@@ -403,18 +403,21 @@ final class Prog {
     final LoopEntry[] loopEntries;
     final Inst[] captureProgressChecks;
     final Inst[] greedyRunes;
+    final LazyRuneLoop[] lazyRuneLoops;
 
     BitStateAnalysis(
         boolean[] epsilonCycleAlts,
         CaptureRune[] captureRunes,
         LoopEntry[] loopEntries,
         Inst[] captureProgressChecks,
-        Inst[] greedyRunes) {
+        Inst[] greedyRunes,
+        LazyRuneLoop[] lazyRuneLoops) {
       this.epsilonCycleAlts = epsilonCycleAlts;
       this.captureRunes = captureRunes;
       this.loopEntries = loopEntries;
       this.captureProgressChecks = captureProgressChecks;
       this.greedyRunes = greedyRunes;
+      this.lazyRuneLoops = lazyRuneLoops;
     }
   }
 
@@ -469,6 +472,44 @@ final class Prog {
     return runes;
   }
 
+  /** Returns simple lazy character loops with a literal exit, or null if none exist. */
+  LazyRuneLoop[] lazyRuneLoops() {
+    return bitStateAnalysis().lazyRuneLoops;
+  }
+
+  private LazyRuneLoop[] computeLazyRuneLoops(boolean[] reachable) {
+    LazyRuneLoop[] loops = null;
+    for (int i = 0; i < size(); i++) {
+      Inst alt = inst(i);
+      if (!reachable[i] || alt.op != InstOp.ALT) {
+        continue;
+      }
+      Inst rune = inst(alt.out1);
+      if ((rune.op != InstOp.CHAR_RANGE && rune.op != InstOp.CHAR_CLASS) || rune.out != i) {
+        continue;
+      }
+      int exit = alt.out;
+      int cost = 1; // The failing literal itself.
+      for (int steps = 0; steps < size(); steps++) {
+        Inst next = inst(exit);
+        if (next.op == InstOp.CAPTURE || next.op == InstOp.NOP) {
+          // Capture writes would be undone after the failed exit; charge their restores too.
+          cost += next.op == InstOp.CAPTURE ? 2 : 1;
+          exit = next.out;
+          continue;
+        }
+        if (next.op == InstOp.CHAR_RANGE && next.lo == next.hi && next.lo < 128 && !next.foldCase) {
+          if (loops == null) {
+            loops = new LazyRuneLoop[size()];
+          }
+          loops[i] = new LazyRuneLoop(rune, next.lo, cost);
+        }
+        break;
+      }
+    }
+    return loops;
+  }
+
   private BitStateAnalysis bitStateAnalysis() {
     BitStateAnalysis result = bitStateAnalysis;
     if (result == null) {
@@ -480,7 +521,8 @@ final class Prog {
               captures,
               computeLoopEntries(reachable, captures),
               computeCaptureProgressChecks(reachable),
-              computeGreedyRunes(reachable));
+              computeGreedyRunes(reachable),
+              computeLazyRuneLoops(reachable));
       bitStateAnalysis = result;
     }
     return result;
