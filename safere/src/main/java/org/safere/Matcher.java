@@ -1996,6 +1996,9 @@ public final class Matcher implements MatchResult {
       return applyFailedMatchResult();
     }
 
+    // A deferred existence result already selected this safe search lower bound. Reuse it
+    // rather than repeating prefix acceleration when exact bounds are requested.
+    boolean selectingDeferredFind = deferredFind;
     // Reset deferred-capture state; DFA sandwich path may set it to false.
     clearDeferredCaptureState();
 
@@ -2054,8 +2057,8 @@ public final class Matcher implements MatchResult {
     // check to [effectiveStart, length].
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
-    boolean startPositionPreselected = false;
-    if (options.startAcceleration() && !prog.anchorStart()) {
+    boolean startPositionPreselected = selectingDeferredFind;
+    if (!selectingDeferredFind && options.startAcceleration() && !prog.anchorStart()) {
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         Utf8StartAccelerator accelerator = parentPattern.utf8StartAccelerator();
         if (accelerator != null && startAccelerationAllowed(searchFrom, accelerator.policy())) {
@@ -2351,6 +2354,9 @@ public final class Matcher implements MatchResult {
     if (!regionActive
         && !prog.anchorStart()
         && prog.numLoopRegs() == 0
+        // The native DFA activates guarded-gap narrowing after failed candidates. A separate
+        // scalar probe would repeat that failed prefix without the existing acceleration.
+        && !parentPattern.hasInnerLiteralSearch()
         && parentPattern.matchDescriptor().minMatchLength() <= EARLY_EXISTENCE_WINDOW
         && scanner.length() - effectiveStart > 2 * EARLY_EXISTENCE_WINDOW
         && options.lazyCaptureExtraction()

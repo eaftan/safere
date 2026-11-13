@@ -2106,6 +2106,10 @@ public final class Pattern implements Serializable {
     return innerLiteralSearch == null || !forwardDfaSupported ? rejectPrefilter : null;
   }
 
+  boolean hasInnerLiteralSearch() {
+    return innerLiteralSearch != null;
+  }
+
   /**
    * UTF-8 {@code find()} counterpart to {@link #findRejectPrefilter()}: also omits {@link
    * RejectPrefilter.DisjointLiterals} when UTF-8 start acceleration already covers the search.
