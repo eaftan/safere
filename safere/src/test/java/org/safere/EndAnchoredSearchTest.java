@@ -198,6 +198,67 @@ class EndAnchoredSearchTest {
     }
   }
 
+  @Test
+  void longEndAnchoredCandidatesPreserveExactBoundsAndDeferredCaptures() {
+    for (String regex :
+        List.of(
+            "(marker)(.*)$",
+            "(marker)([a-z]*)\\z",
+            "(marker)(.*?)$",
+            "(?:marker|mark)(.*)$",
+            "\\b(marker)(.*)$",
+            "(?s:(marker)(.*))$",
+            "(marker)((a?)*)$")) {
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().dfa(false).build(),
+              EnginePathOptions.builder().bitState(false).build(),
+              EnginePathOptions.builder().reverseDfa(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (String body : List.of("x".repeat(65_536), "r".repeat(65_536), "é😀".repeat(16_384))) {
+          for (String tail : List.of("", "\n", "\r\n", "\nx", "\u0085", "\u2028", "\u2029")) {
+            String input = "!marker" + body + tail;
+            Utf8Input utf8 = Utf8Input.validated(input.getBytes(UTF_8));
+            boolean expected = jdk.matcher(input).find();
+            assertThat(pattern.asPredicate().test(input))
+                .as("predicate /%s/", regex)
+                .isEqualTo(expected);
+            assertThat(pattern.find(utf8)).as("existence /%s/", regex).isEqualTo(expected);
+            assertFindSequence(pattern, jdk, input, utf8);
+            assertThat(pattern.matcher(input).replaceAll("<$1>"))
+                .isEqualTo(jdk.matcher(input).replaceAll("<$1>"));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void reverseAcceptanceRequiresContextFreePathsAndOneEndPosition() {
+    for (String regex :
+        List.of("marker.*$", "(marker)(.*?)\\z", "(?:mark|marker).*\\z", "marker[^!]*\\z")) {
+      Pattern pattern = Pattern.compile(regex);
+      StringInputScanner scanner = new StringInputScanner("!marker" + "x".repeat(65_536));
+      assertThat(pattern.endAnchoredSearchStart(scanner, 0, true, null, false)).isEqualTo(1);
+      assertThat(pattern.endAnchoredStartHasExactEnd(scanner)).as(regex).isTrue();
+    }
+    for (String regex :
+        List.of("\\bmarker.*$", "marker\\b.*$", "marker.*\\b$", "(marker)(a?)*x*$")) {
+      Pattern pattern = Pattern.compile(regex);
+      StringInputScanner scanner = new StringInputScanner("!marker" + "x".repeat(65_536));
+      pattern.endAnchoredSearchStart(scanner, 0, true, null, false);
+      assertThat(pattern.endAnchoredStartHasExactEnd(scanner)).as(regex).isFalse();
+    }
+    Pattern dollar = Pattern.compile("(?s:marker.*)$");
+    for (String tail : List.of("\n", "\r\n", "\u0085", "\u2028")) {
+      StringInputScanner scanner = new StringInputScanner("marker" + "x".repeat(65_536) + tail);
+      assertThat(dollar.endAnchoredSearchStart(scanner, 0, true, null, false)).isZero();
+      assertThat(dollar.endAnchoredStartHasExactEnd(scanner)).as(tail).isFalse();
+    }
+  }
+
   private static void assertFindSequence(
       Pattern pattern, java.util.regex.Pattern jdkPattern, String input, Utf8Input utf8) {
     Matcher matcher = pattern.matcher(input);

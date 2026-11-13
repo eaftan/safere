@@ -534,6 +534,27 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void longEndAnchoredBooleanCandidateUsesProvenReverseBounds() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("marker.*$");
+
+    assertThat(pattern.find(input("marker" + "x".repeat(65_536)))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .contains(
+                      new StrategyParticipation(
+                          MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION));
+            });
+  }
+
+  @Test
   void literalPrefixCandidateReportsAccelerationAndVerification() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("é[ab]+c");

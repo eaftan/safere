@@ -1968,6 +1968,26 @@ public final class Matcher implements MatchResult {
 
   private boolean verifyEndAnchoredStart(InputScanner scanner, int start) {
     Prog prog = parentPattern.prog();
+    // Long candidates can use a proved fixed end or forward DFA verification before paying
+    // for NFA threads. Small suffixes retain BitState; inner captures remain deferred.
+    if (scanner.length() - start > BitState.maxTextSize(prog)
+        && canUseForwardDfa()
+        && parentPattern.dfaGroupZeroReliable()) {
+      if (parentPattern.endAnchoredStartHasExactEnd(scanner)) {
+        diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+        diagnosticBoundary(MatchStrategy.DFA);
+        return applyDeferredMatchResult(start, scanner.length(), prog.numCaptures(), true, false);
+      }
+      diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+      Dfa.SearchResult result = searchForwardDfa(dfa(false), scanner, start, true, false);
+      if (result != null) {
+        if (!result.matched()) {
+          return false;
+        }
+        diagnosticBoundary(MatchStrategy.DFA);
+        return applyDeferredMatchResult(start, result.pos(), prog.numCaptures(), true, false);
+      }
+    }
     int[] exact =
         searchWithBitStateOrNfa(
             prog, scanner, start, start, scanner.length(), true, false, false, 1);
