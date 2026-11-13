@@ -81,7 +81,12 @@ class LiteralAlternationWorkTest {
         "The UTF-8 literal search is off when the vector Teddy scan is available");
     // "ab " starts two of the literals often enough for the UTF-8 literal search to run.
     for (String regex :
-        new String[] {"apple|banana|cherry", "blossom|sparkling|gardens", "ab|cherry|abc"}) {
+        new String[] {
+          "apple|banana|cherry",
+          "blossom|sparkling|gardens",
+          "ab|cherry|abc",
+          "north|south|east|west|upper|lower"
+        }) {
       Pattern pattern = Pattern.compile(regex);
       String filler = regex.startsWith("ab|") ? "aa bb " : "ab bc ";
       long shorter = utf8Work(pattern, filler.repeat(5_000), false);
@@ -94,6 +99,33 @@ class LiteralAlternationWorkTest {
         long early = utf8Work(pattern, prefix + filler.repeat(Math.max(8_000, offset * 2)), true);
         long late = utf8Work(pattern, prefix + filler.repeat(200_000), true);
         assertThat(late).as("%s at %s", regex, offset).isLessThanOrEqualTo(early * 2);
+      }
+    }
+  }
+
+  @Test
+  void manyInitialsKeepSparseAndDenseSearchesLinearAndLocal() {
+    Pattern pattern = Pattern.compile("north|south|east|west|upper|lower|front|back");
+    for (String filler : new String[] {"x", "n s e w u l f b ", "日本語😀"}) {
+      String shorter = filler.repeat(2_000);
+      String longer = filler.repeat(8_000);
+      long shortMiss =
+          WorkCounter.countForTesting(() -> assertThat(pattern.matcher(shorter).find()).isFalse());
+      long longMiss =
+          WorkCounter.countForTesting(() -> assertThat(pattern.matcher(longer).find()).isFalse());
+      assertThat(shortMiss).isPositive();
+      assertThat(longMiss).as(filler).isLessThanOrEqualTo(shortMiss * 6);
+      assertThat(utf8Work(pattern, longer, false))
+          .as(filler)
+          .isLessThanOrEqualTo(utf8Work(pattern, shorter, false) * 6);
+      for (int offset : new int[] {255, 256, 1_024, 4_096}) {
+        String prefix = filler.repeat(offset) + "back";
+        assertThat(work(pattern, prefix + filler.repeat(100_000)))
+            .as("%s at %s", filler, offset)
+            .isLessThanOrEqualTo(work(pattern, prefix + filler.repeat(8_000)) * 2);
+        assertThat(utf8Work(pattern, prefix + filler.repeat(100_000), true))
+            .as("%s at %s", filler, offset)
+            .isLessThanOrEqualTo(utf8Work(pattern, prefix + filler.repeat(8_000), true) * 2);
       }
     }
   }

@@ -175,10 +175,11 @@ final class StringInputScanner implements InputScanner {
   /**
    * Returns the first index at or after {@code start} of any of {@code chars}, or {@code -1}.
    *
-   * <p>{@code chars} holds the one to three members of a {@link CharClassScanInfo.SmallSet}. None
-   * is a surrogate, so a code-unit search finds exactly the code points in the set. This is the
-   * small-set search for repeated {@code find()} calls on the {@code String} path: the scanner and
-   * the start accelerator both use it, so both keep the work bound below.
+   * <p>{@code chars} holds up to three members of a {@link CharClassScanInfo.SmallSet}, or up to
+   * eight ASCII literal initials for {@link LiteralAlternation}. None is a surrogate, so a
+   * code-unit search finds exactly the code points in the set. This is the small-set search for
+   * repeated {@code find()} calls on the {@code String} path: the scanner and the start accelerator
+   * both use it, so both keep the work bound below.
    */
   static int indexOfSmallSet(String text, char[] chars, int start) {
     int length = text.length();
@@ -224,7 +225,7 @@ final class StringInputScanner implements InputScanner {
     // scan a full-sized window for an absent member. Reset to 64 on each call and double after
     // misses, up to the cap. Failed windows are disjoint; the final window is at most the distance
     // already scanned in this call plus 64. Thus overrun past a match is bounded by distance
-    // advanced plus 64, giving at most k * (2n + 64m) work for k <= 3 members and m consuming
+    // advanced plus 64, giving at most k * (2n + 64m) work for k <= 8 members and m consuming
     // matches across n input units. Since m <= n, repeated find() work stays linear.
     int windowLength = SMALL_SET_INITIAL_SEARCH_WINDOW;
     while (position < length) {
