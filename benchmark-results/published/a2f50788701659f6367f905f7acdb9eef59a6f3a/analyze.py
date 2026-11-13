@@ -67,8 +67,10 @@ candidates = [
 rows = []
 for title, key in candidates:
     assert key in data, key
+    runnable = next(e for e in manifest['executionPlan']['entries']
+                    if e['workloadId'] == key and e['status'] == 'runnable')
     rows.append(dict(title=title, workload=key, operation=workloads[key]['operation'],
-                     patterns=workloads[key].get('patterns'), times_ns=data[key]))
+                     patterns=runnable['patterns'], times_ns=data[key]))
 (ROOT / 'opportunities.json').write_text(json.dumps(rows, indent=2) + '\n')
 print((ROOT / 'comparison-tables.md').read_text())
 for r in rows:

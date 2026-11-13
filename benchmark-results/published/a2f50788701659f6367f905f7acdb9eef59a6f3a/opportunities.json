@@ -87,7 +87,9 @@
     "title": "UTF-8 literal scanning",
     "workload": "Utf8MatchingBenchmark.literalScan.longWord",
     "operation": "find",
-    "patterns": null,
+    "patterns": [
+      "coolfunctionname"
+    ],
     "times_ns": {
       "safere_utf8": 6334.834,
       "re2_cpp": 5454.722,

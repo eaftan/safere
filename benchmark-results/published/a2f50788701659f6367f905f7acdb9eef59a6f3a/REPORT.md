@@ -35,6 +35,8 @@ Across the same real-world rows, UTF-8/String is 1.215 for search and 1.577 for 
 
 ## Optimization opportunities
 
+[Issue #1185](https://github.com/safere/safere/issues/1185) tracks this backlog and the suggested initial sprint scope.
+
 The following shortlist groups measurements into investigation areas. Ordering considers absolute cost, ratio and related workload evidence; it is not a mathematically weighted ranking. Times are per operation from standard measurements. A dash means no measurement exists for that representation. Exact row identities and patterns are in [opportunities.json](opportunities.json).
 
 | Area and representative row | String | UTF-8 | RE2 | Rust |
