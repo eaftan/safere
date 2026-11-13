@@ -1,0 +1,31 @@
+=== Materializing shared benchmark inputs ===
+Materialized 755 benchmark inputs in /home/eaftan/safere-benchmarks-20261111/safere-benchmarks/target/benchmark-corpus
+=== Building Rust regex benchmarks ===
+   Compiling safere-regex-benchmark v0.1.0 (/home/eaftan/safere-benchmarks-20261111/safere-benchmarks/rust)
+    Finished `release` profile [optimized] target(s) in 1.15s
+=== Running Rust regex timing benchmarks ===
+{"benchmark":"LeadingWildcardBenchmark.find.dotStar.end","engine":"rust_regex","error":4.796,"score":1312.437,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotStar.early","engine":"rust_regex","error":0.008,"score":1.79,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotStar.failing","engine":"rust_regex","error":2.215,"score":1313.816,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotPlus.end","engine":"rust_regex","error":5.259,"score":1312.379,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotPlus.early","engine":"rust_regex","error":0.006,"score":1.794,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotPlus.failing","engine":"rust_regex","error":2.579,"score":1313.623,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.notNewlineStar.end","engine":"rust_regex","error":5.845,"score":1311.434,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.notNewlineStar.early","engine":"rust_regex","error":0.002,"score":1.793,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.notNewlineStar.failing","engine":"rust_regex","error":3.577,"score":1314.427,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotStar.none","engine":"rust_regex","error":4.515,"score":1312.223,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotPlus.none","engine":"rust_regex","error":6.651,"score":1312.972,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.notNewlineStar.none","engine":"rust_regex","error":5.84,"score":1311.406,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotStar.short","engine":"rust_regex","error":0.876,"score":194.727,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.dotPlus.short","engine":"rust_regex","error":0.329,"score":195.169,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.find.notNewlineStar.short","engine":"rust_regex","error":0.825,"score":195.872,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.dotStar.every","engine":"rust_regex","error":3.099,"score":1524.189,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.dotPlus.every","engine":"rust_regex","error":5.422,"score":1518.757,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.notNewlineStar.every","engine":"rust_regex","error":8.628,"score":1508.121,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.dotStar.every100","engine":"rust_regex","error":3.667,"score":1316.547,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.dotPlus.every100","engine":"rust_regex","error":8.647,"score":1312.52,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.findAllCount.notNewlineStar.every100","engine":"rust_regex","error":8.169,"score":1315.011,"unit":"us/op"}
+{"benchmark":"LeadingWildcardBenchmark.longLine.singleLine.384","engine":"rust_regex","error":2.304,"score":516.55,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.longLine.singleLine.768","engine":"rust_regex","error":2.561,"score":996.062,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.longLine.shortLines.384","engine":"rust_regex","error":1.221,"score":515.788,"unit":"ns/op"}
+{"benchmark":"LeadingWildcardBenchmark.longLine.shortLines.768","engine":"rust_regex","error":1.874,"score":995.582,"unit":"ns/op"}

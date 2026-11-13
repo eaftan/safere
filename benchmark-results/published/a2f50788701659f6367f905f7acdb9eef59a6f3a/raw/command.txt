@@ -1,0 +1,1 @@
+./collect-optimization-benchmarks.sh /home/eaftan/safere-benchmarks-20261111/benchmark-results/optimization-20261111

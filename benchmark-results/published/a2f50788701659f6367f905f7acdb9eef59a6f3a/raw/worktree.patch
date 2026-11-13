@@ -1,0 +1,32 @@
+diff --git a/run-java-benchmarks.sh b/run-java-benchmarks.sh
+index c0a11afe..6af58a3c 100755
+--- a/run-java-benchmarks.sh
++++ b/run-java-benchmarks.sh
+@@ -259,6 +259,9 @@ java -cp "$BENCHMARK_JAR" org.safere.benchmark.BenchmarkInputMaterializer \
+ 
+ # Keep provider selection identical in launcher and measurement forks.
+ BASE_JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
++if [ -n "${SAFERE_BENCHMARK_VARIANTS:-}" ]; then
++  BASE_JVM_ARGS="$BASE_JVM_ARGS -Dsafere.benchmark.variants=$SAFERE_BENCHMARK_VARIANTS"
++fi
+ select_scan_provider() {
+   local provider="$1"
+   JVM_ARGS="$BASE_JVM_ARGS -Dsafere.benchmark.scanProvider=$provider"
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+index d8e94a88..bf730af3 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+@@ -131,6 +131,13 @@ final class BenchmarkCollectionPlan {
+ 
+   private List<Runner> allRunners() {
+     List<Runner> runners = unfilteredRunners();
++    String variants = System.getProperty("safere.benchmark.variants");
++    if (variants != null) {
++      Set<String> selected = Set.of(variants.split(","));
++      runners =
++          filterRunners(
++              runners, id -> selected.contains(id.substring(id.lastIndexOf('@') + 1)), false);
++    }
+     return scanProvider == null
+         ? runners
+         : filterRunners(runners, id -> matchesScanProvider(id, scanProvider), false);

@@ -21,3 +21,10 @@ safere-benchmarks/investigations/*/results/**/cohorts/*/overlay.patch -diff
 safere-benchmarks/investigations/*/policies/*.patch whitespace=-blank-at-eol,-blank-at-eof
 safere-benchmarks/investigations/*/results/**/*.patch whitespace=-blank-at-eol
 safere-benchmarks/investigations/*/results/**/profile-summary.txt whitespace=-blank-at-eof
+
+# Standalone investigation archives retain raw output and profiler recordings verbatim.
+benchmark-results/published/**/raw/** -text -diff
+benchmark-results/published/**/*.jfr -text -diff
+benchmark-results/published/**/resolved-manifest.json -diff
+benchmark-results/published/**/aggregates.json -diff
+benchmark-results/published/**/opportunities.json -diff

@@ -1,0 +1,47 @@
+[0.323s][info][jfr,startup] Started recording 1. The result will be written to:
+[0.323s][info][jfr,startup] 
+[0.323s][info][jfr,startup] /home/eaftan/safere-benchmarks-20261111/benchmark-results/optimization-20261111/profile-replace.jfr
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-benchmarks-20261111/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -XX:StartFlightRecording=duration=35s,filename=/home/eaftan/safere-benchmarks-20261111/benchmark-results/optimization-20261111/profile-replace.jfr,settings=profile -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-20261111/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 1 iterations, 2 s each
+# Measurement: 1 iterations, 30 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RealWorldRegexBenchmark.runBenchmark.customProtocolLinkReplace.falseCandidates.100000@safere-utf8)
+
+# Run progress: 0.00% complete, ETA 00:00:32
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 7684751.234 ns/op
+Iteration   1: 7358231.626 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  7358231.626 ns/op
+
+
+# Run complete. Total time: 00:00:32
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                                                                                (crossEngineTrial)  Mode  Cnt        Score   Error  Units
+CrossEngineBenchmark.run  RealWorldRegexBenchmark.runBenchmark.customProtocolLinkReplace.falseCandidates.100000@safere-utf8  avgt       7358231.626          ns/op
