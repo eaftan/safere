@@ -121,6 +121,7 @@ final class Dfa {
     final int flags;
     final boolean isHighestPriorityMatch;
     final StateAccelerator accelerator;
+    final boolean acceptsAnyRemainingPrefix;
     // Only forward unanchored starts may use start-position acceleration.
     boolean isStartState;
 
@@ -139,13 +140,15 @@ final class Dfa {
         int[] wordBoundaryMatchIds,
         int numClasses,
         boolean isHighestPriorityMatch,
-        StateAccelerator accelerator) {
+        StateAccelerator accelerator,
+        boolean acceptsAnyRemainingPrefix) {
       this.id = id;
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
       this.isHighestPriorityMatch = isHighestPriorityMatch;
       this.accelerator = accelerator;
+      this.acceptsAnyRemainingPrefix = acceptsAnyRemainingPrefix;
       this.next = new State[numClasses];
     }
 
@@ -464,7 +467,7 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
-    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false, null);
+    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false, null, false);
     this.nextStateId = 1;
     this.transitions = new int[1024];
     this.offsetToState = new State[1024];
@@ -920,7 +923,8 @@ final class Dfa {
             wordBoundaryMatchIds,
             numClasses,
             isHighestPriorityMatch,
-            accelerator);
+            accelerator,
+            acceptsAnyRemainingPrefix(insts, flags));
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
@@ -1115,6 +1119,38 @@ final class Dfa {
     }
     addTransition(s, cls, ns);
     return ns;
+  }
+
+  /**
+   * Proves an accepting reverse state loops to itself for every code point. With no assertions or
+   * progress registers, state identity is independent of skipped input and position. Thus every
+   * remaining prefix is accepted, including the empty prefix. This is a language proof; it says
+   * nothing about captures or the priority between different terminal endpoints.
+   */
+  private boolean acceptsAnyRemainingPrefix(int[] insts, int flags) {
+    if (!prog.reversed()
+        || !longest
+        || (flags & FLAG_MATCH) == 0
+        || prog.hasEmptyWidth()
+        || prog.hasGraphemeSemantics()
+        || prog.numLoopRegs() != 0) {
+      return false;
+    }
+    int[] seeds = new int[insts.length];
+    for (int index = 0; index + 1 < boundaries.length; index++) {
+      int codePoint = boundaries[index];
+      int count = 0;
+      for (int id : insts) {
+        Inst instruction = prog.inst(id);
+        if (instMatches(instruction, codePoint)) {
+          seeds[count++] = instruction.out;
+        }
+      }
+      if (count == 0 || !Arrays.equals(insts, expand(seeds, count, 0))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private StateAccelerator analyzeStateAcceleration(
@@ -2456,10 +2492,11 @@ final class Dfa {
   }
 
   /**
-   * Reverse search with a speculative input-unit limit. A live frontier at the cutoff is
-   * inconclusive, even if it contains a match: an earlier start may exist outside the window. The
-   * cutoff never substitutes for {@code startLimit} in assertion context. Decoding may finish one
-   * code point across the cutoff, and assertions retain their normal adjacent context.
+   * Reverse search with a speculative input-unit limit. Unless the state proves it accepts every
+   * remaining prefix, a live frontier at the cutoff is inconclusive even if it contains a match: an
+   * earlier start may exist outside the window. The cutoff never substitutes for {@code startLimit}
+   * in assertion context. Decoding may finish one code point across the cutoff, and assertions
+   * retain their normal adjacent context.
    */
   SearchResult doSearchReverse(
       InputScanner text,
@@ -2509,8 +2546,19 @@ final class Dfa {
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
+    // Keep eligibility invariant across the scan so context-sensitive programs can retain a loop
+    // with no per-character universal-state check.
+    boolean skipUniversalPrefix =
+        longest
+            && !prog.hasEmptyWidth()
+            && !hasGraphemeSemantics
+            && prog.numLoopRegs() == 0
+            && text.isCodePointBoundary(startLimit);
     // Fast path: scan backward through ASCII characters
     while (pos > scanLimit) {
+      if (skipUniversalPrefix && s.acceptsAnyRemainingPrefix) {
+        return completeSearch(new SearchResult(true, startLimit, ambiguous), pos);
+      }
       if (pos <= posDepThreshold) {
         int limit = scanLimit;
         int sId = s.id * numClasses;
@@ -2532,6 +2580,9 @@ final class Dfa {
             nsId = -nsId;
             State ns = offsetToState[nsId];
             if (ns.isMatch()) {
+              if (skipUniversalPrefix && ns.acceptsAnyRemainingPrefix) {
+                return completeSearch(new SearchResult(true, startLimit, ambiguous), pos - 1);
+              }
               int flags = ns.flags;
               if ((flags & FLAG_MATCH_BEFORE) != 0) {
                 if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
@@ -2631,6 +2682,9 @@ final class Dfa {
 
     // General reverse loop
     while (pos >= startLimit) {
+      if (skipUniversalPrefix && s.acceptsAnyRemainingPrefix) {
+        return completeSearch(new SearchResult(true, startLimit, ambiguous), pos);
+      }
       if (pos <= scanLimit && pos > startLimit) {
         return completeSearch(new SearchResult(matched, matchStart, ambiguous, true), pos);
       }

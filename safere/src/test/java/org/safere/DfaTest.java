@@ -32,6 +32,29 @@ class DfaTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void acceptingUniversalReverseStatesProveStartsBeyondTheProbeWindow() {
+    for (String regex :
+        List.of("(?s:.*)END\\z", "[\\s\\S]*[A-Z]{3}\\z", "(?s:.*)(?:END|STOP)\\z")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (String prefix : List.of("x".repeat(20_000), "é😀".repeat(10_000))) {
+        String input = prefix + "END";
+        for (InputScanner scanner :
+            List.of(new StringInputScanner(input), new Utf8InputScanner(input.getBytes(UTF_8)))) {
+          Dfa reverse = pattern.reverseDfa();
+          for (int pass = 0; pass < 2; pass++) {
+            Dfa.SearchResult result =
+                reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, 64);
+            assertThat(result).as(regex).isNotNull();
+            assertThat(result.matched()).as(regex).isTrue();
+            assertThat(result.pos()).as(regex).isZero();
+            assertThat(result.scanLimitReached()).as(regex).isFalse();
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void unpairedSurrogateWordTransitionsRemainCacheableInEveryScanDirection() {
     Pattern pattern = Pattern.compile("(?U)\\b");
     for (String unit : List.of("\uD800", "\uDC00")) {
@@ -813,7 +836,7 @@ class DfaTest {
     String text = "x".repeat(10_000) + "abc";
     for (InputScanner scanner :
         List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
-      Dfa reverse = Pattern.compile("(?s:.*)abc$").reverseDfa();
+      Dfa reverse = Pattern.compile("[a-z]*abc$").reverseDfa();
       for (int pass = 0; pass < 2; pass++) {
         Dfa.SearchResult probe =
             reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, 64);

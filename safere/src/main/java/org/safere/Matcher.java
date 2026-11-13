@@ -102,6 +102,9 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
+  // A short terminal match is cheaper to verify with the exact engine than with a new DFA search.
+  private static final int MIN_DFA_END_VERIFICATION_UNITS = 64;
+
   /**
    * Maximum input length for adapting match operations to observed inner-capture demand. On small
    * inputs BitState can produce the boolean result and all capture bounds in one bounded pass;
@@ -1968,6 +1971,35 @@ public final class Matcher implements MatchResult {
 
   private boolean verifyEndAnchoredStart(InputScanner scanner, int start) {
     Prog prog = parentPattern.prog();
+    // An assertion-free, register-free reverse program recognizes the exact reversed language.
+    // Its unambiguous leftmost start plus the sole terminal endpoint fixes group zero, independent
+    // of alternation and quantifier priority. Inner captures still use the exact engine on demand.
+    if (!prog.hasEmptyWidth()
+        && !prog.hasGraphemeSemantics()
+        && prog.numLoopRegs() == 0
+        && (!prog.dollarAnchorEnd()
+            || scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), scanner.length())
+                < 0)) {
+      diagnosticBoundary(MatchStrategy.DFA);
+      return applyDeferredMatchResult(start, scanner.length(), prog.numCaptures(), true, false);
+    }
+    // When the end anchor has only the text end to satisfy it, an anchored forward DFA
+    // verification establishes both group-zero bounds. The reverse probe already established
+    // the leftmost start. A trailing line terminator gives $ and \Z another possible endpoint,
+    // whose priority needs the exact engine.
+    if (scanner.length() - start >= MIN_DFA_END_VERIFICATION_UNITS
+        && parentPattern.dfaGroupZeroReliable()
+        && parentPattern.forwardDfaSupported()
+        && (!prog.dollarAnchorEnd()
+            || scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), scanner.length())
+                < 0)) {
+      diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+      Dfa.SearchResult result = searchForwardDfa(dfa(false), scanner, start, true, false);
+      if (result != null && result.matched() && result.pos() == scanner.length()) {
+        diagnosticBoundary(MatchStrategy.DFA);
+        return applyDeferredMatchResult(start, result.pos(), prog.numCaptures(), true, false);
+      }
+    }
     int[] exact =
         searchWithBitStateOrNfa(
             prog, scanner, start, start, scanner.length(), true, false, false, 1);

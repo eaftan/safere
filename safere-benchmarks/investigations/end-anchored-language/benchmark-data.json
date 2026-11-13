@@ -1,0 +1,602 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "ascii.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x",
+        "suffix": "END",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "unicode.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "\u00e9\ud83d\ude00",
+        "suffix": "END",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "newline.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x",
+        "suffix": "END\r\n",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "absent.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x",
+        "suffix": "XXX",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "boundary.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "x ",
+        "suffix": "END",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "nonword.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": ".",
+        "suffix": "END",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "searchScaling.random.{size}",
+      "axes": {
+        "size": [
+          64,
+          256,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789 \n",
+        "length": "{size}",
+        "seed": 42
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.success.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "searchScaling.random.{size}",
+        "suffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "EndLanguage.greedy.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)END$"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.class.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)[A-Z]{3}\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.alternation.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)(?:END|STOP)\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.unicode.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)END\\z"
+      ],
+      "inputs": [
+        "unicode.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.newline.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)END$"
+      ],
+      "inputs": [
+        "newline.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.absent.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)END\\z"
+      ],
+      "inputs": [
+        "absent.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.restricted.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "[a-z]*END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.assertion.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)\\bEND\\z"
+      ],
+      "inputs": [
+        "boundary.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.unanchored.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)END"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.bounds.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(?s:.*)END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.captures.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        "(?s:(.*))(END)\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.utf8matcher.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "findAllCount",
+      "patterns": [
+        "(?s:.*)END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.assertionSuccess.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)\\bEND\\z"
+      ],
+      "inputs": [
+        "nonword.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.suffix.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.compileGreedy.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "compileAndFind",
+      "patterns": [
+        "(?s:.*)END$"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.compileRestricted.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-z]*END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "EndLanguage.compileSuffix.{size}",
+      "axes": {
+        "size": [
+          64,
+          4096,
+          1048576
+        ]
+      },
+      "operation": "compileAndFind",
+      "patterns": [
+        "END\\z"
+      ],
+      "inputs": [
+        "ascii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredGreedySuccess.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.success.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    }
+  ]
+}

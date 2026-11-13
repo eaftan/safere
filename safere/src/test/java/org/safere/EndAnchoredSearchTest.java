@@ -16,6 +16,63 @@ import org.junit.jupiter.api.Test;
 class EndAnchoredSearchTest {
 
   @Test
+  void reverseLanguageProofPreservesBoundsCapturesAndSearchSequences() {
+    for (String regex :
+        List.of(
+            "(?s:.*)END\\z",
+            "(?s:.*?)END\\z",
+            "[\\s\\S]*[A-Z]{3}\\z",
+            "(?s:.*)(?:END|STOP)\\z",
+            "(?s:.*)(?:|END)\\z",
+            "(?s:(.*))(E(?:N|X)D)\\z",
+            "[^;]*END\\z",
+            "[\\x00-\\x7f]*END\\z",
+            "(?s:.*)\\bEND\\z",
+            "(?s:.*)END$")) {
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().reverseDfa(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (String prefix : List.of("x; ".repeat(1_000), "é😀 ".repeat(1_000))) {
+          for (String tail : List.of("END", "STOP", "END\r\n", "END!", "")) {
+            String input = prefix + tail;
+            assertThat(pattern.asPredicate().test(input)).isEqualTo(jdk.matcher(input).find());
+            assertFindSequence(pattern, jdk, input, Utf8Input.trusted(input.getBytes(UTF_8)));
+            assertThat(pattern.matcher(input).replaceAll("<$0>"))
+                .as("replace /%s/", regex)
+                .isEqualTo(jdk.matcher(input).replaceAll("<$0>"));
+            String surrounded = "[" + input + "]";
+            Matcher matcher = pattern.matcher(surrounded).region(1, surrounded.length() - 1);
+            java.util.regex.Matcher expected =
+                jdk.matcher(surrounded).region(1, surrounded.length() - 1);
+            assertThat(matcher.find()).as("region /%s/", regex).isEqualTo(expected.find());
+            if (matcher.hasMatch()) {
+              assertThat(matcher.start()).isEqualTo(expected.start());
+              assertThat(matcher.end()).isEqualTo(expected.end());
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void endAnchoredUniversalPrefixHonorsExplicitLowSurrogateStarts() {
+    String input = "x".repeat(2_000) + "😀END";
+    for (String regex : List.of("(?s:.*)END\\z", "(?s:(.*))END$")) {
+      Pattern pattern = Pattern.compile(regex);
+      Matcher actual = pattern.matcher(input);
+      java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(input);
+      assertThat(actual.find(2_001)).isEqualTo(expected.find(2_001));
+      assertThat(actual.start()).isEqualTo(expected.start());
+      assertThat(actual.end()).isEqualTo(expected.end());
+      assertThat(actual.group()).isEqualTo(expected.group());
+    }
+  }
+
+  @Test
   void anchoredOnePassTerminalFiltersPreserveLineEndingsAndRegions() {
     for (String regex :
         List.of(
@@ -147,6 +204,19 @@ class EndAnchoredSearchTest {
             assertFindSequence(pattern, jdkPattern, input, utf8);
           }
         }
+      }
+    }
+  }
+
+  @Test
+  void longEndAnchoredSearchPreservesGreedyBoundsAndTrailingTerminatorPriority() {
+    for (String regex :
+        List.of("(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$", "(?s:(.*))ABCDEFGHIJKLMNOPQRSTUVWXYZ$")) {
+      Pattern pattern = Pattern.compile(regex);
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+      for (String terminator : List.of("", "\n", "\r\n")) {
+        String input = "é😀".repeat(10_000) + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + terminator;
+        assertFindSequence(pattern, jdkPattern, input, Utf8Input.trusted(input.getBytes(UTF_8)));
       }
     }
   }

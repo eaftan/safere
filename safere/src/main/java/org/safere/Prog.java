@@ -48,6 +48,7 @@ final class Prog {
   private boolean hasGraphemeClusterInstruction;
   private boolean hasWordBoundary;
   private boolean hasTextAnchor;
+  private boolean hasEmptyWidth;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -85,6 +86,7 @@ final class Prog {
     this.hasGraphemeClusterInstruction = other.hasGraphemeClusterInstruction;
     this.hasWordBoundary = other.hasWordBoundary;
     this.hasTextAnchor = other.hasTextAnchor;
+    this.hasEmptyWidth = other.hasEmptyWidth;
   }
 
   /** Returns the instruction at the given index. Must be called after {@link #freeze()}. */
@@ -138,8 +140,10 @@ final class Prog {
     hasGraphemeClusterInstruction = computeHasGraphemeClusterInstruction();
     hasWordBoundary = computeHasWordBoundary();
     hasTextAnchor = computeHasTextAnchor();
+    hasEmptyWidth = false;
     lineStartUnixLines = true;
     for (Inst inst : instArray) {
+      hasEmptyWidth |= inst.opCode == InstOp.OP_EMPTY_WIDTH;
       if (inst.op == InstOp.EMPTY_WIDTH && (inst.arg & EmptyOp.BEGIN_LINE) != 0) {
         lineStartUnixLines = false;
         break;
@@ -270,6 +274,11 @@ final class Prog {
    */
   public boolean hasWordBoundary() {
     return hasWordBoundary;
+  }
+
+  /** Returns whether the program contains an assertion, excluding stripped outer anchors. */
+  boolean hasEmptyWidth() {
+    return hasEmptyWidth;
   }
 
   boolean hasTextAnchor() {
