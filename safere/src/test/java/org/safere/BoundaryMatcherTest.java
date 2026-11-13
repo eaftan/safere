@@ -532,9 +532,33 @@ class BoundaryMatcherTest {
     }
 
     @Test
-    @EnabledForJreRange(min = JRE.JAVA_22)
+    @DisabledForCrosscheck(
+        "Pins bundled Unicode 17 graphemes rather than the runtime Unicode version")
     @DisplayName("chained \\X find() preserves leftmost starts inside Indic conjunct clusters")
     void chainedGraphemeClustersPreserveLeftmostStartsInsideIndicConjuncts() {
+      // Unicode 18 changes GB9c; the JDK 28 oracle therefore selects a different start (#1196).
+      for (String input : List.of("\u0915\u094D\u200D\u0915", "\u0995\u09CD\u200D\u0995")) {
+        for (String regex : List.of("\\X\\X", "(?:\\X)(?:\\X)", "(?:\\X){2}", "\\X{1}\\X")) {
+          Matcher matcher = Pattern.compile(regex).matcher(input);
+          assertThat(matcher.matches()).as("/%s/ on %s", regex, input).isFalse();
+          assertThat(matcher.lookingAt()).as("/%s/ on %s", regex, input).isFalse();
+          assertThat(matcher.find()).as("/%s/ on %s", regex, input).isTrue();
+          assertThat(new int[] {matcher.start(), matcher.end()}).containsExactly(1, 4);
+          assertThat(matcher.find()).isFalse();
+        }
+        Matcher captured = Pattern.compile("(\\X)(\\X)").matcher(input);
+        assertThat(captured.find()).isTrue();
+        assertThat(new int[] {captured.start(), captured.end()}).containsExactly(1, 4);
+        assertThat(new int[] {captured.start(1), captured.end(1)}).containsExactly(1, 3);
+        assertThat(new int[] {captured.start(2), captured.end(2)}).containsExactly(3, 4);
+        assertThat(captured.find()).isFalse();
+      }
+    }
+
+    @Test
+    @EnabledForJreRange(min = JRE.JAVA_22, max = JRE.JAVA_27)
+    @DisplayName("chained \\X agrees with JDKs using the compatible Indic-conjunct rule")
+    void chainedGraphemeClustersAgreeWithCompatibleJdk() {
       String devanagariConjunct = "\u0915\u094D\u200D\u0915";
       assertTraceSameAsJdk("\\X\\X", devanagariConjunct, 0, devanagariConjunct.length());
       assertTraceSameAsJdk("(?:\\X)(?:\\X)", devanagariConjunct, 0, devanagariConjunct.length());
