@@ -14,11 +14,70 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Work bounds for leading expansions over a class that excludes only a few code points. */
 @DisabledForCrosscheck("WorkCounter is an internal SafeRE API")
 @Tag("work-counter")
 class LeadingLineExpansionWorkTest {
+
+  @ParameterizedTest
+  @ValueSource(strings = {".*X![0-9]", ".*?X![0-9]", "[^;]*X![0-9]", "(.*)X![0-9]"})
+  void tinyUtf8ExistenceDoesNotAddScanningToNativeVerification(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    for (boolean expected : new boolean[] {false, true}) {
+      byte[] bytes = (expected ? "X!7" : "X!-7").getBytes(UTF_8);
+      long nativeWork =
+          WorkCounter.countWithForwardDfaStepsForTesting(
+              () -> {
+                Dfa.SearchResult result =
+                    pattern
+                        .forwardFirstMatchDfa()
+                        .doSearch(new Utf8InputScanner(bytes), 0, false, false, true);
+                assertThat(result).isNotNull();
+                assertThat(result.matched()).isEqualTo(expected);
+              });
+      for (boolean diagnostics : new boolean[] {false, true}) {
+        long work =
+            WorkCounter.countWithForwardDfaStepsForTesting(
+                () -> {
+                  boolean found =
+                      diagnostics
+                          ? pattern.findWithDiagnostics(new Utf8InputScanner(bytes))
+                          : pattern.find(Utf8Input.trusted(bytes));
+                  assertThat(found).isEqualTo(expected);
+                });
+        assertThat(work)
+            .as("%s expected=%s diagnostics=%s", regex, expected, diagnostics)
+            .isLessThanOrEqualTo(nativeWork);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {".*error: \\w+", ".*?error: \\w+", "[^;]*error: \\w+", "(.*)error: \\w+"})
+  void utf8ExistenceDoesNotTraverseTheLeadingRunInTheDfa(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    String suffix = " error: disk";
+    for (int repetitions : new int[] {64, 512}) {
+      byte[] bytes = ("abcdefghijklmnopqrstuvwxyz".repeat(repetitions) + suffix).getBytes(UTF_8);
+      for (boolean diagnostics : new boolean[] {false, true}) {
+        long steps =
+            WorkCounter.countForwardDfaStepsForTesting(
+                () -> {
+                  boolean found =
+                      diagnostics
+                          ? pattern.findWithDiagnostics(new Utf8InputScanner(bytes))
+                          : pattern.find(Utf8Input.trusted(bytes));
+                  assertThat(found).isTrue();
+                });
+        // Only the literal and its tail need DFA verification for an existence-only search.
+        assertThat(steps)
+            .as("%s diagnostics=%s", regex, diagnostics)
+            .isLessThan(4L * suffix.length());
+      }
+    }
+  }
 
   @Test
   void matchOnEveryLineKeepsDfaStartStateFastForward() {

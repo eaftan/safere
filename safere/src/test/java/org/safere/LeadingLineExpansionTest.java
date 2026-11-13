@@ -68,6 +68,64 @@ class LeadingLineExpansionTest {
           """);
 
   @Test
+  void utf8ExistenceAgreesWithJdkAcrossLeadingRepeatConstraints() {
+    List<String> regexes =
+        List.of(
+            ".*error: \\w+",
+            ".*?error: \\w+",
+            "(.*)(error): (\\w+)",
+            "[^;]*error: \\w+",
+            "[^😀]*error: \\w+",
+            ".{0,3}error: \\w+",
+            ".+error: \\w+",
+            ".{1,3}error: \\w+",
+            "^.*error: \\w+",
+            "\\A.*error: \\w+",
+            "\\b.*error: \\w+",
+            ".*\\berror: \\w+",
+            ".*error: \\w+$",
+            ".*[ab]{2}error: \\w+",
+            "(?i).*ERROR: \\w+",
+            ".*error\\X");
+    List<String> inputs =
+        List.of(
+            "",
+            "error: disk",
+            "no marker",
+            "error: -",
+            "error: -\nerror: disk",
+            "error: -\r\nnext error: disk",
+            "error: -;next error: disk",
+            "é😀error: -\u0085中 error: disk",
+            "error: -\u2028error: -\u2029error: disk",
+            "aaerror: disk",
+            "erroré\u0301");
+    for (String regex : regexes) {
+      for (int flags : new int[] {0, Pattern.UNIX_LINES, Pattern.MULTILINE}) {
+        Pattern pattern = Pattern.compile(regex, flags);
+        java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex, flags);
+        for (String tail : inputs) {
+          for (String prefix : List.of("", PAD, PAD + "\n")) {
+            String input = prefix + tail;
+            boolean expected = jdk.matcher(input).find();
+            // A nonzero byte window must retain assertion context relative to the window.
+            byte[] padded = ("before" + input + "after").getBytes(UTF_8);
+            int length = input.getBytes(UTF_8).length;
+            for (Utf8Input utf8 :
+                List.of(
+                    Utf8Input.trusted(input.getBytes(UTF_8)),
+                    Utf8Input.trusted(padded, 6, length))) {
+              assertThat(pattern.find(utf8))
+                  .as("/%s/ flags=%s on %s", regex, flags, input)
+                  .isEqualTo(expected);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void findAgreesWithJdk() {
     for (int flags : new int[] {0, Pattern.UNIX_LINES, Pattern.MULTILINE}) {
       for (String regex : REGEXES) {

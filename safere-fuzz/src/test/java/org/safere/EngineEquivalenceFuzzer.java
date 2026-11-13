@@ -87,6 +87,26 @@ public final class EngineEquivalenceFuzzer {
     if (data.consumeBoolean()) {
       checkWideLeadingGraphemeExpansion(data);
     }
+    if (data.consumeBoolean()) {
+      checkWideLeadingExistence(data);
+    }
+  }
+
+  private static void checkWideLeadingExistence(FuzzedDataProvider data) {
+    String leading =
+        data.pickValue(List.of(".*", ".*?", "[^;]*", "[^😀]*", ".+", ".{0,3}", "^.*", "\\b.*"));
+    String literal = data.pickValue(List.of("error", "stop", "marker"));
+    String tail = data.pickValue(List.of(": \\w+", ": \\d+", ": [a-z]+\\b", ": \\w+$"));
+    String separator = data.pickValue(List.of("\n", "\r\n", "\u0085", "\u2028", ";", "😀"));
+    String padding = "abcdefghijklmnopqrstuvwxyz".repeat(data.consumeInt(0, 32));
+    String rejected = literal + ": -" + separator;
+    String input =
+        padding
+            + rejected.repeat(data.consumeInt(0, 8))
+            + literal
+            + ": "
+            + data.pickValue(List.of("disk", "42", "é", "-"));
+    check(leading + literal + tail, input, 0);
   }
 
   private static void checkWideLeadingGraphemeExpansion(FuzzedDataProvider data) {
@@ -107,12 +127,19 @@ public final class EngineEquivalenceFuzzer {
     List<String> expected = trace(Pattern.compile(regex, 0, PATHS.getLast()), input, start);
     List<String> expectedUtf8 =
         validScalars(input) ? utf8Trace(Pattern.compile(regex, 0, PATHS.getLast()), input) : null;
+    Utf8Input utf8Input =
+        expectedUtf8 == null ? null : Utf8Input.validated(input.getBytes(StandardCharsets.UTF_8));
+    boolean expectedUtf8Find =
+        utf8Input != null && Pattern.compile(regex, 0, PATHS.getLast()).matcher(utf8Input).find();
     for (EnginePathOptions path : PATHS) {
       Pattern pattern = Pattern.compile(regex, 0, path);
       assertThat(trace(pattern, input, start))
           .as("%s on %s at %s via %s", regex, escaped(input), start, path)
           .isEqualTo(expected);
       if (expectedUtf8 != null) {
+        assertThat(pattern.find(utf8Input))
+            .as("UTF-8 existence /%s/ on %s via %s", regex, escaped(input), path)
+            .isEqualTo(expectedUtf8Find);
         List<String> utf8 = utf8Trace(pattern, input);
         assertThat(utf8)
             .as("UTF-8 %s on %s via %s", regex, escaped(input), path)
