@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "early",
+      "recipe": {
+        "kind": "literal",
+        "text": "azxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz"
+      }
+    },
+    {
+      "id": "late",
+      "recipe": {
+        "kind": "literal",
+        "text": "axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz"
+      }
+    },
+    {
+      "id": "miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "id": "tiny",
+      "recipe": {
+        "kind": "literal",
+        "text": "az"
+      }
+    },
+    {
+      "id": "unicode",
+      "recipe": {
+        "kind": "literal",
+        "text": "a\u00e9\ud83d\ude00z\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00\u00e9\ud83d\ude00z"
+      }
+    },
+    {
+      "id": "angle",
+      "recipe": {
+        "kind": "literal",
+        "text": "setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> setting<value> "
+      }
+    },
+    {
+      "id": "newline",
+      "recipe": {
+        "kind": "literal",
+        "text": "az\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxz"
+      }
+    },
+    {
+      "id": "dense",
+      "recipe": {
+        "kind": "literal",
+        "text": "xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx "
+      }
+    },
+    {
+      "id": "longMinimum",
+      "recipe": {
+        "kind": "literal",
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                "
+      }
+    }
+  ],
+  "workloads": [
+    {
+      "id": "BooleanExistence.early.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "early"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.early.findAllLengthSum",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "early"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4099
+      }
+    },
+    {
+      "id": "BooleanExistence.early.findGroupPresent",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "early"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.early.replaceAll",
+      "operation": "replaceAll",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "early"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "!"
+      },
+      "expected": {
+        "type": "string",
+        "value": "!"
+      }
+    },
+    {
+      "id": "BooleanExistence.late.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "late"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.miss.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "miss"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "BooleanExistence.tiny.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "tiny"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.unicode.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "unicode"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.angle.find",
+      "operation": "find",
+      "patterns": [
+        "([\\S]+)\\b<(.+)>"
+      ],
+      "inputs": [
+        "angle"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.angle.findAllLengthSum",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "([\\S]+)\\b<(.+)>"
+      ],
+      "inputs": [
+        "angle"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3839
+      }
+    },
+    {
+      "id": "BooleanExistence.angle.findGroupPresent",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "([\\S]+)\\b<(.+)>"
+      ],
+      "inputs": [
+        "angle"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.angle.replaceAll",
+      "operation": "replaceAll",
+      "patterns": [
+        "([\\S]+)\\b<(.+)>"
+      ],
+      "inputs": [
+        "angle"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "!"
+      },
+      "expected": {
+        "type": "string",
+        "value": "! "
+      }
+    },
+    {
+      "id": "BooleanExistence.newline.find",
+      "operation": "find",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "newline"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "BooleanExistence.dense.findAllLengthSum",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(x+)y?"
+      ],
+      "inputs": [
+        "dense"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 2048
+      }
+    },
+    {
+      "id": "BooleanExistence.late.findAllLengthSum",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(a.*z)"
+      ],
+      "inputs": [
+        "late"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4098
+      }
+    },
+    {
+      "id": "BooleanExistence.longMinimum.find",
+      "operation": "find",
+      "patterns": [
+        "([a-z]{300})#[0-9]{300}"
+      ],
+      "inputs": [
+        "longMinimum"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    }
+  ]
+}

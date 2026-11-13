@@ -63,6 +63,15 @@ leak their writes into that result. Compiler transformations involving nested,
 nullable, lazy, or bounded repetitions need capture-aware tests, including a
 suffix that forces the engine to abandon a path.
 
+An existence-only DFA probe can stop at any accepting state without selecting a
+preferred match. Existence and prioritized DFAs keep separate state caches so
+acceptance metadata cannot change prioritized results. A matcher may defer exact selection only for a bounded initial
+probe window, preserving the original search cursor and assertion context. An
+access requiring bounds (including continuation after `find()`) selects the
+match once through the ordinary exact pipeline. The probe stops no later than
+the selected match's end. An inconclusive bounded probe uses the normal
+selection pipeline once; its repeated prefix has a fixed maximum length. Provisional witness endpoints must never become public bounds.
+
 Deferred extraction may fill unresolved captures for an already selected match.
 It must preserve match identity and use the same input, pattern, region, bounds,
 and priority as the original search. Public `group`, replacement, and snapshot

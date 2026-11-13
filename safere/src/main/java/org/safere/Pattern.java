@@ -232,6 +232,7 @@ public final class Pattern implements Serializable {
     BitState bitState;
     Nfa nfa;
     Dfa forwardFirstMatchDfa;
+    Dfa forwardExistenceDfa;
     Dfa forwardLongestMatchDfa;
     Dfa reverseDfa;
   }
@@ -755,8 +756,13 @@ public final class Pattern implements Serializable {
     // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
     // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
     Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+        forwardExistenceDfa()
+            .searchExists(
+                scanner,
+                searchStart,
+                prog.anchorStart(),
+                startPositionPreselected,
+                AdaptiveBackoff.NEUTRAL);
     if (result != null) {
       return result.matched();
     }
@@ -864,8 +870,13 @@ public final class Pattern implements Serializable {
     diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
     diagnostics.incrementForwardDfaSearchCount();
     Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+        forwardExistenceDfa()
+            .searchExists(
+                scanner,
+                searchStart,
+                prog.anchorStart(),
+                startPositionPreselected,
+                AdaptiveBackoff.NEUTRAL);
     if (result != null) {
       diagnostics.boundary(MatchStrategy.DFA);
       return result.matched();
@@ -1405,8 +1416,13 @@ public final class Pattern implements Serializable {
     // The forward DFA checks a stripped end anchor itself, as the matcher's DFA pass relies on, so
     // end-anchored programs that the reverse probe could not settle avoid the NFA here too.
     Dfa.SearchResult result =
-        forwardFirstMatchDfa()
-            .doSearch(scanner, searchStart, prog.anchorStart(), false, startPositionPreselected);
+        forwardExistenceDfa()
+            .searchExists(
+                scanner,
+                searchStart,
+                prog.anchorStart(),
+                startPositionPreselected,
+                AdaptiveBackoff.NEUTRAL);
     if (result != null) {
       return result.matched();
     }
@@ -1682,6 +1698,28 @@ public final class Pattern implements Serializable {
 
   private static boolean supportsForwardDfa(Prog p) {
     return p != null && !p.hasGraphemeSemantics() && p.numLoopRegs() == 0;
+  }
+
+  Dfa forwardExistenceDfa() {
+    return forwardExistenceDfa(getOrCreateThreadCache());
+  }
+
+  Dfa forwardExistenceDfa(ThreadCache cache) {
+    Dfa dfa = cache.forwardExistenceDfa;
+    if (dfa == null) {
+      dfa =
+          new Dfa(
+              flatDfaProg(),
+              MAX_DFA_STATES,
+              forwardDfaSetup(),
+              false,
+              dfaStartAcceleration() ? utf8StartAccelerator : null,
+              dfaStartAcceleration() ? stringStartAccelerator : null,
+              innerLiteralSearch,
+              true);
+      cache.forwardExistenceDfa = dfa;
+    }
+    return dfa;
   }
 
   Dfa forwardFirstMatchDfa() {

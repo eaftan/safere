@@ -195,6 +195,7 @@ final class Dfa {
   private final Prog prog;
   private final int maxStates;
   private final boolean longest;
+  private final boolean anyMatch;
   private final boolean hasGraphemeSemantics;
 
   /** Whether consuming transitions can depend on the absolute input position. */
@@ -429,6 +430,27 @@ final class Dfa {
       Utf8StartAccelerator utf8StartAccelerator,
       StringStartAccelerator stringStartAccelerator,
       InnerLiteralSearch innerLiteralSearch) {
+    this(
+        prog,
+        maxStates,
+        setup,
+        longest,
+        utf8StartAccelerator,
+        stringStartAccelerator,
+        innerLiteralSearch,
+        false);
+  }
+
+  Dfa(
+      Prog prog,
+      int maxStates,
+      Setup setup,
+      boolean longest,
+      Utf8StartAccelerator utf8StartAccelerator,
+      StringStartAccelerator stringStartAccelerator,
+      InnerLiteralSearch innerLiteralSearch,
+      boolean anyMatch) {
+    this.anyMatch = anyMatch;
     this.prog = prog;
     this.maxStates = maxStates;
     this.longest = longest;
@@ -910,7 +932,8 @@ final class Dfa {
       return null;
     }
     boolean isHighestPriorityMatch =
-        insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
+        (anyMatch && (flags & FLAG_MATCH) != 0)
+            || (insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH);
     StateAccelerator accelerator = analyzeStateAcceleration(insts, flags, isHighestPriorityMatch);
     s =
         new State(
@@ -1947,6 +1970,147 @@ final class Dfa {
    */
   SearchResult doSearch(InputScanner text, int startPos, boolean anchored, boolean longest) {
     return doSearchInternal(text, startPos, anchored, longest, false, AdaptiveBackoff.NEUTRAL);
+  }
+
+  /** Returns an accepting witness, without selecting prioritized match bounds. */
+  SearchResult searchExists(
+      InputScanner text, int startPos, boolean anchored, boolean preselected, long backoff) {
+    if (!anyMatch) {
+      throw new IllegalStateException("existence search requires an existence DFA");
+    }
+    return doSearchInternal(text, startPos, anchored, false, preselected, backoff);
+  }
+
+  /** Probes a bounded prefix against full assertion context; exhaustion is inconclusive. */
+  SearchResult searchWithEarlyExistence(
+      InputScanner text, int startPos, long backoff, int endLimit) {
+    if (!anyMatch) {
+      throw new IllegalStateException("existence search requires an existence DFA");
+    }
+    // Keep the bounded probe separate so ordinary searches retain their established hot loops.
+    // No start/state accelerator is needed for this fixed window; every transition uses the full
+    // scanner, including lookaround context for assertions. The limit never becomes an EOF.
+    graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    beginSearch(startPos);
+    innerProbeState = INNER_PROBE_DISABLED;
+    pendingFailureTransitionIndex = -1;
+    int pos = startPos;
+    int length = text.length();
+    int limit = Math.min(length, endLimit);
+    boolean needEndMatch = prog.anchorEnd();
+    int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineStart(text) : length;
+    int threshold = positionDependentThreshold(text);
+    State state = startStateOrReset(text, startPos, false, false);
+    if (state == null) {
+      return completeForwardSearch(null, pos, backoff);
+    }
+    if (state.isMatch() && isRequiredEndMatch(pos, needEndMatch, length, trailingTermStart)) {
+      return completeForwardSearch(new SearchResult(true, pos), pos, backoff);
+    }
+    if (state == deadState) {
+      return completeForwardSearch(
+          new SearchResult(false, -1, false, limit < length), pos, backoff);
+    }
+    while (pos <= limit) {
+      // Reuse the flat cached-transition representation for ASCII without adding mode checks
+      // to the ordinary search loop. Misses and context-sensitive steps use the scalar path.
+      int[] cachedTransitions = transitions;
+      State[] cachedStates = offsetToState;
+      int offset = state.id * numClasses;
+      while (pos < limit) {
+        int ch = text.asciiAt(pos);
+        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, threshold)) {
+          break;
+        }
+        int nextOffset = cachedTransitions[offset + asciiClassMap[ch]];
+        if (nextOffset == 0) {
+          break;
+        }
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.recordForwardDfaStep();
+        }
+        if (nextOffset < 0) {
+          nextOffset = -nextOffset;
+          State next = cachedStates[nextOffset];
+          if (next == deadState) {
+            return completeForwardSearch(
+                new SearchResult(false, -1, false, limit < length), pos, backoff);
+          }
+          if (next.isMatch()) {
+            boolean before =
+                (next.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+            int end = before ? pos : pos + 1;
+            if (isRequiredEndMatch(end, needEndMatch, length, trailingTermStart)) {
+              return completeForwardSearch(new SearchResult(true, end), pos, backoff);
+            }
+          }
+        }
+        offset = nextOffset;
+        pos++;
+      }
+      state = cachedStates[offset];
+      if (pos == limit && limit < length) {
+        return completeForwardSearch(new SearchResult(false, -1, false, true), pos, backoff);
+      }
+      int cp;
+      int nextPos;
+      int cls;
+      if (pos < length) {
+        int single = text.singleUnitCodePointAt(pos);
+        if (single >= 0) {
+          cp = single;
+          nextPos = pos + 1;
+          cls = single < asciiClassMap.length ? asciiClassMap[single] : classOf(single);
+        } else {
+          long decoded = text.decodeForward(pos);
+          cp = InputScanner.codePoint(decoded);
+          nextPos = InputScanner.position(decoded);
+          cls = classOf(cp);
+        }
+        if (nextPos > limit) {
+          return completeForwardSearch(new SearchResult(false, -1, false, true), pos, backoff);
+        }
+      } else {
+        cp = -1;
+        nextPos = length + 1;
+        cls = numClasses - 1;
+      }
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+        WorkCounter.recordForwardDfaStep();
+      }
+      int destination = Math.min(nextPos, length);
+      State next;
+      if ((hasSurrogateWordContext(cp) && !text.isCodePointBoundary(pos))
+          || transitionDependsOnPosition(cp, destination, threshold)) {
+        next = computeNextOrReset(state, cp, text, destination, pos);
+      } else {
+        next = state.next[cls];
+        if (next == null) {
+          next = transitionOrReset(state, cls, cp, text, destination, pos);
+        }
+      }
+      if (next == null) {
+        return completeForwardSearch(null, pos, backoff);
+      }
+      state = next;
+      if (state == deadState) {
+        break;
+      }
+      if (state.isMatch()) {
+        boolean before =
+            (state.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        int end = before ? pos : destination;
+        if (isRequiredEndMatch(end, needEndMatch, length, trailingTermStart)) {
+          return completeForwardSearch(new SearchResult(true, end), pos, backoff);
+        }
+      }
+      if (pos == length) {
+        break;
+      }
+      pos = nextPos;
+    }
+    return completeForwardSearch(new SearchResult(false, -1, false, limit < length), pos, backoff);
   }
 
   private SearchResult doSearchInternal(
@@ -2991,6 +3155,9 @@ final class Dfa {
   private boolean canStopAtFirstMatch(State s, InputScanner text, int pos, boolean needEndMatch) {
     if (!needEndMatch) {
       return s.isHighestPriorityMatch;
+    }
+    if (anyMatch) {
+      return true;
     }
     int cp = codePointAt(text, pos);
     for (int id : s.insts) {
