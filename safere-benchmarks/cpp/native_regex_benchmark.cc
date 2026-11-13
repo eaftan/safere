@@ -510,6 +510,10 @@ json execute_workload(
         std::make_unique<RE2>(entry.at("patterns").at(0).get<std::string>());
     return compiled->ok();
   }
+  if (operation == "compileAndFind") {
+    RE2 compiled(entry.at("patterns").at(0).get<std::string>());
+    return compiled.Match(text, 0, text.size(), RE2::UNANCHORED, nullptr, 0);
+  }
   if (operation == "matches") {
     return regex.Match(
         text, 0, text.size(), RE2::ANCHOR_BOTH, nullptr, 0);
@@ -801,6 +805,17 @@ int main(int argc, char* argv[]) {
             boundary_regexes, {" a"}) != 2) {
       fprintf(stderr, "%s self-test counted a skipped empty match twice\n", kEngineId);
       return 1;
+    }
+    for (const auto& text : {std::string("prefix needle"), std::string("absent")}) {
+      bool expected = text == "prefix needle";
+      if (execute_workload(
+              {{"operation", "compileAndFind"},
+               {"patterns", {"needle"}},
+               {"arguments", json::object()}},
+              boundary_regexes, {text}) != expected) {
+        fprintf(stderr, "%s self-test failed compile-and-find\n", kEngineId);
+        return 1;
+      }
     }
     std::string replaced = "aaa-bb a-b";
 #ifdef SAFERE_PCRE2_JIT

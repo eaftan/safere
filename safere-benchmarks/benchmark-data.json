@@ -21176,7 +21176,15 @@
       "expected": {
         "type": "integer",
         "value": 2049
-      }
+      },
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "rust_regex"
+          ],
+          "reason": "Rust's native iterator suppresses an empty match immediately after a nonempty match; this workload expects Java's repeated-find sequence"
+        }
+      ]
     },
     {
       "id": "LeadingWildcardBenchmark.find.{leading}.{shape}",
