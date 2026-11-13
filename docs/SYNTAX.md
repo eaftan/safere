@@ -20,7 +20,7 @@ SafeRE supports most of the syntax from `java.util.regex`:
 | Alternation | `a\|b` |
 | Grouping | `(...)`, `(?:...)` |
 | Named captures | `(?<name>...)` |
-| Anchors and boundaries | `^`, `$`, `\A`, `\Z`, `\z`, `\b`, `\B`, `\b{g}` |
+| Anchors and boundaries | `^`, `$`, `\A`, `\Z`, `\z`, `\G`, `\b`, `\B`, `\b{g}` |
 | Line breaks and graphemes | `\R`, `\X` |
 | Flags | `(?i)`, `(?m)`, `(?s)`, `(?x)`, `(?u)`, `(?d)`, `(?U)` |
 
@@ -34,7 +34,6 @@ because their semantics are outside its supported engine model:
 - **Possessive quantifiers over consuming operands** (`a*+`, `a++`, `a?+`)
 - **Atomic groups** (`(?>...)`)
 - **Byte matching** (`\C`)
-- **Previous-match boundary** (`\G`)
 
 Possessive modifiers over statically zero-width operands can be normalized;
 see the [compatibility policy](../INTENTIONAL_DIVERGENCES.md#unsupported-backtracking-features)

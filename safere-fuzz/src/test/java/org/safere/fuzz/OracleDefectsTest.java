@@ -58,6 +58,19 @@ final class OracleDefectsTest {
   }
 
   @Test
+  void failedOptionalPrefixCanaryRequiresReviewWhenJdkIsFixed() {
+    var jdk = java.util.regex.Pattern.compile("[+-]?[0-9]+").matcher("1+");
+    assertThat(jdk.find()).isTrue();
+    assertThat(jdk.end()).isEqualTo(1);
+    assertThat(jdk.find()).isFalse();
+    jdk.usePattern(java.util.regex.Pattern.compile("\\G"));
+    assertThat(jdk.find()).isTrue();
+    assertThat(jdk.start())
+        .as("SafeRE #1164 changed: review the failed-search oracle-domain restriction")
+        .isEqualTo(2);
+  }
+
+  @Test
   void stateSequencesCoverSurrogatesRegionsAndReplacement() {
     for (String regex : new String[] {".|", "a*", "(?:a|b)+", ".", "[^a]"}) {
       for (String input : new String[] {"", "a", "é中", "\udb7d\udf02A", "\ud800x\udc00"}) {

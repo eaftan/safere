@@ -80,6 +80,9 @@ enum RegexpOp {
   /** Matches empty string at beginning of text ({@code \A}). */
   BEGIN_TEXT,
 
+  /** Matches the fixed end of the previous match ({@code \G}). */
+  PREVIOUS_MATCH_END,
+
   /** Matches empty string at end of text ({@code \z}). */
   END_TEXT,
 

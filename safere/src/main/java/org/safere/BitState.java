@@ -372,6 +372,12 @@ final class BitState {
   private int visitedLo;
 
   private int visitedHi;
+  private int previousMatchEnd;
+
+  void setPreviousMatchEnd(int position) {
+    previousMatchEnd = position;
+  }
+
   private int deadLo;
   private int deadHi;
 
@@ -449,6 +455,7 @@ final class BitState {
     this.prog = prog;
     this.instructions = prog.frozenInstructions();
     this.text = text;
+    this.previousMatchEnd = startPos;
     this.textLen = text.length();
     this.basePos = startPos;
     this.endPos = endPos;
@@ -755,6 +762,13 @@ final class BitState {
             }
           }
 
+          case InstOp.OP_PREVIOUS_MATCH_END -> {
+            if (pos == previousMatchEnd && shouldVisit(ip.out, pos)) {
+              id = ip.out;
+              continue;
+            }
+          }
+
           case InstOp.OP_EMPTY_WIDTH -> {
             int curFlags = Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext);
             if ((ip.arg & ~curFlags) == 0) {
@@ -962,6 +976,7 @@ final class BitState {
   private void reset(
       InputScanner text, int startPos, int endPos, int ncap, boolean longest, boolean endMatch) {
     this.text = text;
+    this.previousMatchEnd = startPos;
     this.textLen = text.length();
     this.basePos = startPos;
     this.endPos = endPos;

@@ -38,6 +38,7 @@ final class RegexLexer {
     BEGIN,
     END_TEXT,
     FINAL_END,
+    PREVIOUS_MATCH_END,
     LINEBREAK,
     GRAPHEME,
     GRAPHEME_BOUNDARY,
@@ -359,12 +360,16 @@ final class RegexLexer {
         }
       }
       case 'A', 'z', 'Z', 'G' -> {
-        if (inClass || (flags & ParseFlags.PERL_X) == 0 || c == 'G') {
-          throw error(
-              c == 'G' ? "\\G (end of previous match) is not supported" : "invalid escape sequence",
-              out.start);
+        if (inClass || (flags & ParseFlags.PERL_X) == 0) {
+          throw error("invalid escape sequence", out.start);
         }
-        out.kind = c == 'A' ? Kind.BEGIN : c == 'z' ? Kind.END_TEXT : Kind.FINAL_END;
+        out.kind =
+            switch (c) {
+              case 'A' -> Kind.BEGIN;
+              case 'z' -> Kind.END_TEXT;
+              case 'G' -> Kind.PREVIOUS_MATCH_END;
+              default -> Kind.FINAL_END;
+            };
       }
       case 'R', 'X' -> {
         if (inClass) throw error("invalid escape sequence", out.start);

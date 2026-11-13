@@ -4738,6 +4738,54 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "previousMatch.ascii.128",
+      "recipe": {
+        "kind": "repeat",
+        "value": "abc,",
+        "count": 128
+      }
+    },
+    {
+      "id": "previousMatch.multibyte.128",
+      "recipe": {
+        "kind": "repeat",
+        "value": "éαβ,",
+        "count": 128
+      }
+    },
+    {
+      "id": "previousMatch.gap.128",
+      "recipe": {
+        "kind": "appendInput",
+        "input": "previousMatch.ascii.128",
+        "suffix": "!abc,abc,"
+      }
+    },
+    {
+      "id": "previousMatch.ascii.1024",
+      "recipe": {
+        "kind": "repeat",
+        "value": "abc,",
+        "count": 1024
+      }
+    },
+    {
+      "id": "previousMatch.multibyte.1024",
+      "recipe": {
+        "kind": "repeat",
+        "value": "éαβ,",
+        "count": 1024
+      }
+    },
+    {
+      "id": "previousMatch.gap.1024",
+      "recipe": {
+        "kind": "appendInput",
+        "input": "previousMatch.ascii.1024",
+        "suffix": "!abc,abc,"
+      }
     }
   ],
   "workloads": [
@@ -21402,6 +21450,492 @@
         "timingUnit": "nanoseconds",
         "constraints": [
           "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.ascii.count.128",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.ascii.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 128
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.ascii.captures.128",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.ascii.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 384
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.multibyte.count.128",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([éαβ]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.multibyte.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 128
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.multibyte.captures.128",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([éαβ]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.multibyte.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 384
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.gap.count.128",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.gap.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 128
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.gap.captures.128",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.gap.128"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 384
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.ascii.count.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.ascii.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1024
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.ascii.captures.1024",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.ascii.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3072
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.multibyte.count.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([éαβ]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.multibyte.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1024
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.multibyte.captures.1024",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([éαβ]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.multibyte.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3072
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.gap.count.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.gap.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 1024
+      }
+    },
+    {
+      "id": "PreviousMatchBoundaryBenchmark.gap.captures.1024",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        {
+          "java": "\\G([a-z]+),?",
+          "alternates": {
+            "re2": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "rust-regex": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            },
+            "dotnet": {
+              "unsupported": true,
+              "reason": "This engine does not support the previous-match boundary assertion"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "previousMatch.gap.1024"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3072
+      },
+      "arguments": {
+        "groups": [
+          1
         ]
       }
     }

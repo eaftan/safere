@@ -159,7 +159,7 @@ class BoundaryMatcherTest {
   }
 
   // ---------------------------------------------------------------------------
-  // \G — end of previous match (not supported)
+  // \G — end of previous match
   // ---------------------------------------------------------------------------
 
   @Nested
@@ -167,19 +167,22 @@ class BoundaryMatcherTest {
   class BackslashG {
 
     @Test
-    @DisplayName("\\G is rejected with a descriptive error")
-    void rejected() {
-      assertThatThrownBy(() -> Pattern.compile("\\G\\w+"))
-          .isInstanceOf(PatternSyntaxException.class)
-          .hasMessageContaining("\\G");
+    @DisplayName("\\G continues at the previous match end")
+    void continuesAtPreviousMatchEnd() {
+      Matcher matcher = Pattern.compile("\\G\\w+").matcher("one two");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.group()).isEqualTo("one");
+      assertThat(matcher.find()).isFalse();
     }
 
     @Test
-    @DisplayName("\\G alone is rejected")
-    void rejectedAlone() {
-      assertThatThrownBy(() -> Pattern.compile("\\G"))
-          .isInstanceOf(PatternSyntaxException.class)
-          .hasMessageContaining("\\G");
+    @DisplayName("\\G alone matches the initial boundary")
+    void aloneMatchesInitialBoundary() {
+      Matcher matcher = Pattern.compile("\\G").matcher("abc");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.find()).isFalse();
     }
 
     @Test

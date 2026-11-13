@@ -656,6 +656,15 @@ final class Compiler extends Walker<Compiler.Frag> {
     return new Frag(id, PatchList.EMPTY, false);
   }
 
+  private Frag previousMatchEnd() {
+    int id = allocInst();
+    if (id < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(id).initPreviousMatchEnd(0);
+    return new Frag(id, PatchList.mk(id << 1), true);
+  }
+
   private Frag emptyWidth(int emptyFlags) {
     int id = allocInst();
     if (id < 0) {
@@ -832,6 +841,8 @@ final class Compiler extends Walker<Compiler.Frag> {
               (re.flags & ParseFlags.UNIX_LINES) != 0
                   ? (reversed ? EmptyOp.UNIX_BEGIN_LINE : EmptyOp.UNIX_END_LINE)
                   : (reversed ? EmptyOp.BEGIN_LINE : EmptyOp.END_LINE));
+
+      case PREVIOUS_MATCH_END -> previousMatchEnd();
 
       case BEGIN_TEXT -> emptyWidth(reversed ? EmptyOp.END_TEXT : EmptyOp.BEGIN_TEXT);
 

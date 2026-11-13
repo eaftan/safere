@@ -29,6 +29,16 @@ public final class FindSequenceFuzzer {
           new SearchStartContext("x", "x", "x", "\\B", List.of("b", "c", "α")),
           new SearchStartContext("\\n", "\n", "\n", "(?m:^)", List.of("b", "c", "α")));
 
+  private static final List<FailedSearchContext> FAILED_SEARCH_CONTEXTS =
+      List.of(
+          new FailedSearchContext("a?b", "b", "a"),
+          new FailedSearchContext("(?:a|)b", "b", "a"),
+          new FailedSearchContext("[+-]?[0-9]+", "1", "+"),
+          new FailedSearchContext("(?:[+-]|)[0-9]+", "1", "+"),
+          new FailedSearchContext("[é😀]?b", "b", "😀"),
+          new FailedSearchContext("(?:[é😀]|)b", "b", "😀"),
+          new FailedSearchContext("(?:ab)?c", "c", "ab"));
+
   @Test
   void deferredAssertionAlternativesPreserveSearchStartMatches() {
     for (SearchStartContext context : SEARCH_START_CONTEXTS) {
@@ -266,6 +276,133 @@ public final class FindSequenceFuzzer {
     }
   }
 
+  @Test
+  void previousMatchBoundariesComposeWithTokensAndMatcherState() {
+    for (String regex :
+        List.of("\\G", "\\G([a-z]+),?", "\\Ga|b", "a*\\G", "(\\G(a?))*", "\\G|b", "\\G?+a")) {
+      for (String input : List.of("", "ab,aa,!tail", "ba!ba", "é😀,ab")) {
+        var compiled = FuzzSupport.compileOrSkip(regex, 0);
+        var matcher = compiled.matcher(input);
+        for (int attempt = 0; attempt < 8; attempt++) {
+          matcher.find();
+        }
+        matcher.reset();
+        matcher.lookingAt();
+        matcher.matches();
+        matcher.find();
+        matcher.reset();
+        matcher.region(input.length() / 2, input.length());
+        matcher.find();
+      }
+    }
+  }
+
+  @Test
+  void replacementFastPathsRetainPreviousMatchBoundary() {
+    for (String regex : List.of("a", "[a]+", "(a)", "a|b", "a*", "[a-z]*")) {
+      assertReplacementBoundary(regex, "aba!", "X");
+    }
+  }
+
+  private static void assertReplacementBoundary(String regex, String input, String replacement) {
+    var safe = org.safere.Pattern.compile(regex).matcher(input);
+    var jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    assertThat(safe.replaceAll(replacement)).isEqualTo(jdk.replaceAll(replacement));
+    safe.usePattern(org.safere.Pattern.compile("\\G!"));
+    jdk.usePattern(java.util.regex.Pattern.compile("\\G!"));
+    for (int attempt = 0; attempt < 3; attempt++) {
+      boolean matched = jdk.find();
+      assertThat(safe.find())
+          .as("replaceAll;usePattern;find /%s/ on %s", regex, input)
+          .isEqualTo(matched);
+      if (matched) {
+        assertThat(safe.start()).isEqualTo(jdk.start());
+        assertThat(safe.end()).isEqualTo(jdk.end());
+      }
+    }
+  }
+
+  @Test
+  void failedPartialSearchesRetainSuccessfulBoundary() {
+    for (FailedSearchContext context : FAILED_SEARCH_CONTEXTS) {
+      for (String padding : List.of("", "!", "é😀 ")) {
+        for (boolean region : List.of(false, true)) {
+          assertFailedSearchBoundary(context, padding, 3, region);
+        }
+      }
+    }
+  }
+
+  private record FailedSearchContext(String regex, String token, String partial) {}
+
+  private static void assertFailedSearchBoundary(
+      FailedSearchContext context, String padding, int repeats, boolean region) {
+    String input = padding + context.token() + context.partial().repeat(repeats);
+    var safe = org.safere.Pattern.compile(context.regex()).matcher(input);
+    var jdk = java.util.regex.Pattern.compile(context.regex()).matcher(input);
+    if (region) {
+      safe.region(padding.length(), input.length());
+      jdk.region(padding.length(), input.length());
+    }
+    int previousEnd = padding.length() + context.token().length();
+    assertThat(safe.find()).isTrue();
+    assertThat(jdk.find()).isTrue();
+    assertThat(safe.end()).isEqualTo(previousEnd);
+    assertThat(jdk.end()).isEqualTo(previousEnd);
+    assertThat(safe.find()).isFalse();
+    assertThat(jdk.find()).isFalse();
+    // The successful end, not the end of an operand in the failed attempt, is the model oracle.
+    safe.usePattern(
+        org.safere.Pattern.compile("\\G" + java.util.regex.Pattern.quote(context.partial())));
+    assertThat(safe.find()).as("/%s/ on %s", context.regex(), input).isTrue();
+    assertThat(safe.start()).isEqualTo(previousEnd);
+    assertThat(safe.end()).isEqualTo(previousEnd + context.partial().length());
+  }
+
+  @Test
+  void nullablePreviousMatchLoopsRetainFinalEmptyCaptures() {
+    for (String token : List.of("a", "é", "😀", "ab")) {
+      for (String quantifier : List.of("*", "+", "{1,3}")) {
+        for (boolean transparent : List.of(false, true)) {
+          assertNullableBoundaryCaptures(token, "é😀", 3, quantifier, transparent);
+        }
+      }
+    }
+  }
+
+  private static void assertNullableBoundaryCaptures(
+      String token, String padding, int depth, String quantifier, boolean transparent) {
+    String literal = java.util.regex.Pattern.quote(token);
+    String regex = "(?:" + literal + ")?\\G";
+    for (int level = 0; level < depth; level++) {
+      regex = "(" + regex + ")" + quantifier;
+    }
+    String input = padding + token + "!";
+    int start = padding.length();
+    int end = start + token.length();
+    var safe =
+        org.safere.Pattern.compile(literal)
+            .matcher(input)
+            .region(start, end)
+            .useTransparentBounds(transparent);
+    var jdk =
+        java.util.regex.Pattern.compile(literal)
+            .matcher(input)
+            .region(start, end)
+            .useTransparentBounds(transparent);
+    assertThat(safe.find()).isTrue();
+    assertThat(jdk.find()).isTrue();
+    safe.usePattern(org.safere.Pattern.compile(regex));
+    jdk.usePattern(java.util.regex.Pattern.compile(regex));
+    assertThat(safe.lookingAt()).isTrue();
+    assertThat(jdk.lookingAt()).isTrue();
+    for (int group = 0; group <= jdk.groupCount(); group++) {
+      assertThat(safe.start(group)).as("/%s/ group %s", regex, group).isEqualTo(jdk.start(group));
+      assertThat(safe.end(group)).isEqualTo(jdk.end(group));
+      assertThat(safe.group(group)).isEqualTo(jdk.group(group));
+    }
+  }
+
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);
@@ -278,7 +415,8 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 18)) {
+    boolean previousMatchGrammar = false;
+    switch (data.consumeInt(0, 22)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -458,6 +596,47 @@ public final class FindSequenceFuzzer {
             "z".repeat(data.consumeInt(0, 32)));
         return;
       }
+      case 19 -> {
+        previousMatchGrammar = true;
+        String atom = data.pickValue(List.of("a", "[a-z]", ".", "[éα😀]"));
+        String quantified = atom + data.pickValue(List.of("", "?", "+", "*", "{0,2}", "+?"));
+        String assertion = data.pickValue(List.of("\\G", "(\\G)", "(?:\\G){2}", "\\G?+"));
+        regex =
+            data.pickValue(
+                List.of(
+                    assertion + "(" + quantified + "),?",
+                    "(" + quantified + ")" + assertion,
+                    "(?:" + assertion + quantified + "|b)",
+                    "(?:" + assertion + quantified + ")*"));
+        flags = FuzzSupport.consumeFlags(data);
+        input =
+            data.pickValue(List.of("ab,", "é😀,", "aa!", "bα,")).repeat(data.consumeInt(0, 32))
+                + data.consumeString(16);
+      }
+      case 20 -> {
+        assertReplacementBoundary(
+            data.pickValue(List.of("a", "[a]+", "(a)", "a|b", "a*", "[a-z]*")),
+            data.pickValue(List.of("ab", "a!", "ba")).repeat(data.consumeInt(0, 64)) + "!",
+            data.pickValue(List.of("X", "", "replacement")));
+        return;
+      }
+      case 21 -> {
+        assertFailedSearchBoundary(
+            data.pickValue(FAILED_SEARCH_CONTEXTS),
+            data.pickValue(List.of("", "!", "é😀 ")),
+            data.consumeInt(1, 32),
+            data.consumeBoolean());
+        return;
+      }
+      case 22 -> {
+        assertNullableBoundaryCaptures(
+            data.pickValue(List.of("a", "é", "😀", "ab")),
+            data.pickValue(List.of("", "z", "é😀")),
+            data.consumeInt(1, 4),
+            data.pickValue(List.of("*", "+", "{1,3}")),
+            data.consumeBoolean());
+        return;
+      }
       default -> throw new AssertionError();
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
@@ -491,7 +670,8 @@ public final class FindSequenceFuzzer {
     boolean canReadGroups = false;
     int steps = data.consumeInt(1, 32);
     for (int i = 0; i < steps; i++) {
-      switch (data.consumeInt(0, 10)) {
+      int action = data.consumeInt(0, 10);
+      switch (action) {
         case 0 -> canReadGroups = matcher.matches();
         case 1 -> canReadGroups = matcher.lookingAt();
         case 2 -> canReadGroups = matcher.find();
@@ -528,6 +708,12 @@ public final class FindSequenceFuzzer {
         }
         case 10 -> matcher.hasMatch();
         default -> throw new AssertionError();
+      }
+      if (previousMatchGrammar && action <= 3 && !canReadGroups) {
+        // Failed optional operands can corrupt the JDK's saved end (#1164). Compare the
+        // whole failure, then reset the generated differential domain before its next operation.
+        // Independent model sequences retain failures and assert the SafeRE boundary.
+        matcher.reset();
       }
     }
   }

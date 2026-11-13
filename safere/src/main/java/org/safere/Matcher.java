@@ -125,6 +125,8 @@ public final class Matcher implements MatchResult {
   private int searchFrom;
   // Retained across failed attempts; unlike searchFrom, excludes empty-match advancement.
   private int previousMatchEnd;
+  // Fixed for the whole attempt, including narrowed searches and capture extraction.
+  private int operationPreviousMatchEnd;
   private int appendPos;
   private boolean transparentBounds;
   private boolean anchoringBounds = true;
@@ -615,6 +617,7 @@ public final class Matcher implements MatchResult {
     resetWindowBackoff();
     searchFrom = 0;
     previousMatchEnd = 0;
+    operationPreviousMatchEnd = 0;
     startBackoff = AdaptiveBackoff.NEUTRAL;
   }
 
@@ -622,6 +625,7 @@ public final class Matcher implements MatchResult {
     resetWindowBackoff();
     searchFrom = regionStart;
     previousMatchEnd = regionStart;
+    operationPreviousMatchEnd = regionStart;
     startBackoff = AdaptiveBackoff.NEUTRAL;
   }
 
@@ -636,6 +640,7 @@ public final class Matcher implements MatchResult {
 
   private void prepareAnchoredAttempt() {
     rememberPreviousMatchEnd();
+    operationPreviousMatchEnd = previousMatchEnd;
     clearDeferredCaptureState();
     findExhaustedAfterTerminalEmptyMatch = false;
     // An anchored failure invalidates the result, but does not reset find's continuation.
@@ -1560,6 +1565,7 @@ public final class Matcher implements MatchResult {
   private boolean findImpl() {
     modCount++;
     rememberPreviousMatchEnd();
+    operationPreviousMatchEnd = previousMatchEnd;
     if (findExhaustedAfterTerminalEmptyMatch) {
       applyFailedMatchResult();
       return false;
@@ -1638,7 +1644,10 @@ public final class Matcher implements MatchResult {
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return prog != null && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return prog != null
+        && !prog.hasGraphemeSemantics()
+        && !prog.hasPreviousMatchEnd()
+        && prog.numLoopRegs() == 0;
   }
 
   private boolean canUseForwardDfa() {
@@ -1681,6 +1690,7 @@ public final class Matcher implements MatchResult {
     modCount++;
     reset();
     searchFrom = start;
+    operationPreviousMatchEnd = start;
     return findWithContinuation(previousMatchEnd);
   }
 
@@ -2299,6 +2309,7 @@ public final class Matcher implements MatchResult {
             && !replacementNeedsCaptures
             && !parentPattern.innerCapturesObserved()
             && !prog.hasGraphemeSemantics()
+            && !prog.hasPreviousMatchEnd()
             && options.lazyCaptureExtraction()
             && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
     int nsubmatch = lazyFallbackCaptures ? 1 : prog.numCaptures();
@@ -2927,6 +2938,7 @@ public final class Matcher implements MatchResult {
       BitState bs =
           BitState.getOrCreate(
               cachedBitState, prog, text, startPos, bitStateEnd, ncap, longest, endMatchEffective);
+      bs.setPreviousMatchEnd(previousMatchEndOnInput(text));
       int[] destBuf =
           reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : bitStateResult;
       if (destBuf == null || destBuf.length < ncap) {
@@ -3013,6 +3025,11 @@ public final class Matcher implements MatchResult {
     return result;
   }
 
+  private int previousMatchEndOnInput(InputScanner scanner) {
+    // Region views use local coordinates; full-context engines retain input coordinates.
+    return operationPreviousMatchEnd - (scanner == cachedRegionScanner ? regionStart : 0);
+  }
+
   private int[] searchNfa(
       Prog prog,
       InputScanner scanner,
@@ -3075,7 +3092,8 @@ public final class Matcher implements MatchResult {
             anchorEndPos,
             emptyAnchorStartPos,
             emptyAnchorEndPos,
-            graphemeContextFor(prog, scanner));
+            graphemeContextFor(prog, scanner),
+            previousMatchEndOnInput(scanner));
 
     releaseEnginesOwnedByOtherThread();
     if (cachedNfa == null && !nfaBorrowed) {
@@ -3494,6 +3512,7 @@ public final class Matcher implements MatchResult {
     sb.append(text, matchEnd, text.length());
     appendPos = matchEnd;
     if (replaceAll) {
+      previousMatchEnd = matchEnd;
       applyFailedMatchResult();
       if (matchStart == matchEnd) {
         searchFrom = matchEnd < regionEnd ? matchEnd + 1 : regionEnd + 1;
@@ -3651,8 +3670,9 @@ public final class Matcher implements MatchResult {
       this.appendPos = firstMatchEnd;
     } else {
       applyFailedMatchResult();
+      previousMatchEnd = builderAppendPos;
       this.appendPos = textLen;
-      this.searchFrom = textLen;
+      this.searchFrom = builderAppendPos;
     }
     diagnosticBoundary(MatchStrategy.DFA);
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
@@ -3971,7 +3991,8 @@ public final class Matcher implements MatchResult {
           resolveCaptures();
         }
       } else {
-        this.searchFrom = regionEnd;
+        previousMatchEnd = matchEnd;
+        this.searchFrom = matchEnd;
         applyFailedMatchResult();
       }
       if (accumulator != null) {
@@ -4091,7 +4112,8 @@ public final class Matcher implements MatchResult {
             firstMatchStart, firstMatchEnd, parentPattern.prog().numCaptures(), true, false);
       }
     } else {
-      this.searchFrom = regionEnd;
+      previousMatchEnd = appendPosition;
+      this.searchFrom = appendPosition;
       applyFailedMatchResult();
     }
 
@@ -4223,7 +4245,8 @@ public final class Matcher implements MatchResult {
     if (limit == 1) {
       applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
     } else {
-      searchFrom = regionEnd;
+      previousMatchEnd = appendPos;
+      searchFrom = appendPos;
       applyFailedMatchResult();
     }
 
@@ -4290,6 +4313,7 @@ public final class Matcher implements MatchResult {
     result.append(replacement);
 
     appendPos = textLen;
+    previousMatchEnd = textLen;
     searchFrom = regionEnd + 1;
     applyFailedMatchResult();
     findExhaustedAfterTerminalEmptyMatch = true;
@@ -5000,6 +5024,19 @@ public final class Matcher implements MatchResult {
   }
 
   int findSplitPositions(int limit, SplitBuffer buffer) {
+    if (parentPattern.prog().hasPreviousMatchEnd()) {
+      // Splitting must retain the previous match boundary between delimiter searches.
+      while (find()) {
+        if (limit > 0 && buffer.size / 2 >= limit - 1) {
+          break;
+        }
+        if (buffer.size == 0 && groups[0] == 0 && groups[1] == 0) {
+          continue;
+        }
+        buffer.add(groups[0], groups[1]);
+      }
+      return buffer.size / 2;
+    }
     // The first search reuses this end-anchored probe instead of repeating it.
     int firstEndAnchoredStart = END_ANCHORED_START_UNKNOWN;
     if (!parentPattern.prog().anchorStart()) {

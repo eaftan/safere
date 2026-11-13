@@ -1957,16 +1957,9 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("\\\\G end of previous match (should reject)")
+    @DisplayName("\\\\G end of previous match")
     void endPreviousMatch() {
-      // \G requires state from previous matches; SafeRE should reject.
-      // But JDK accepts it.
-      assertThatNoException()
-          .as("JDK should accept \\G")
-          .isThrownBy(() -> java.util.regex.Pattern.compile("\\G"));
-      assertThatThrownBy(() -> Pattern.compile("\\G"))
-          .as("SafeRE should reject \\G")
-          .isInstanceOf(PatternSyntaxException.class);
+      assertMatchesSame("\\Gabc", "abc");
     }
   }
 

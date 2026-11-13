@@ -54,10 +54,7 @@ final class FuzzSupportTest {
         Arguments.of("a+ #comment\n +", Pattern.COMMENTS),
         Arguments.of("(?x)a+ #comment\n +", 0),
         Arguments.of("(?x:a+ #comment\n +)", 0),
-        Arguments.of("(?>a+)", 0),
-        Arguments.of("\\G", 0),
-        Arguments.of("\\G\\w+", 0),
-        Arguments.of("a+\\GGGG", Pattern.COMMENTS | Pattern.CASE_INSENSITIVE | Pattern.UNIX_LINES));
+        Arguments.of("(?>a+)", 0));
   }
 
   @ParameterizedTest
