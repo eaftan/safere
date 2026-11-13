@@ -1,0 +1,868 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "colonMiss.32",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "note: open: ",
+        "length": 32
+      },
+      "shared": true
+    },
+    {
+      "id": "colonLate.32",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: open: ",
+        "suffix": "req:done",
+        "length": 40
+      },
+      "shared": true
+    },
+    {
+      "id": "colonMiss.1024",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "note: open: ",
+        "length": 1024
+      },
+      "shared": true
+    },
+    {
+      "id": "colonLate.1024",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: open: ",
+        "suffix": "req:done",
+        "length": 1032
+      },
+      "shared": true
+    },
+    {
+      "id": "colonMiss.32768",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "note: open: ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "colonLate.32768",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: open: ",
+        "suffix": "req:done",
+        "length": 32776
+      },
+      "shared": true
+    },
+    {
+      "id": "colonEarly",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "req:done ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "denseLeading",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "r:r:r:r:r: ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "sparseSeparator",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "rare words remain",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "denseCandidates",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "req:done ",
+        "length": 4096
+      },
+      "shared": true
+    },
+    {
+      "id": "captureLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: open: ",
+        "suffix": "requisition:done",
+        "length": 32784
+      },
+      "shared": true
+    },
+    {
+      "id": "replaceLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: open: ",
+        "suffix": "req:done",
+        "length": 32776
+      },
+      "shared": true
+    },
+    {
+      "id": "unicodeLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "🦊備考: naïve: ",
+        "suffix": "req:done",
+        "length": 16392
+      },
+      "shared": true
+    },
+    {
+      "id": "equalsLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "timeout=1 retries=2 ",
+        "suffix": "FIXED=123",
+        "length": 32777
+      },
+      "shared": true
+    },
+    {
+      "id": "bangMiss",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "note! state! ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "bangLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note! state! ",
+        "suffix": "ticket!done",
+        "length": 32779
+      },
+      "shared": true
+    },
+    {
+      "id": "twoInitials",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "key=val setting=ok ",
+        "suffix": "beta=done",
+        "length": 32777
+      },
+      "shared": true
+    },
+    {
+      "id": "wideInitials",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "---:---:---: ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "transMiss",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: state: retries: ",
+        "suffix": "",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "transLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "note: state: retries: ",
+        "suffix": "trans:done",
+        "length": 32778
+      },
+      "shared": true
+    },
+    {
+      "id": "configLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "cache=1 retries=2 ",
+        "suffix": "config=done",
+        "length": 32779
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "FixedOffsetFilter.colonMiss.32",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonMiss.32"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonLate.32",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonLate.32"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonMiss.1024",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonMiss.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonLate.1024",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonLate.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonMiss.32768",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonMiss.32768"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonLate.32768",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonLate.32768"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.colonEarly",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "colonEarly"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.denseLeading",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "denseLeading"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.sparseSeparator",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "sparseSeparator"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.denseCandidates",
+      "operation": "findAllCount",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "denseCandidates"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 455
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.captureLate",
+      "operation": "findGroup",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "captureLate"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Capture text is exposed by the String adapter; the UTF-8 control consumes capture participation.",
+      "requirements": [],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "string",
+        "value": "done"
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.replaceLate",
+      "operation": "replaceAllLengthSum",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "replaceLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "[$1]"
+      },
+      "expected": {
+        "type": "integer",
+        "value": 32774
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.unicodeLate",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "unicodeLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.equalsLate",
+      "operation": "find",
+      "patterns": [
+        "\\b(?:BUG|FIXED)=\\s*(\\d+,?)+"
+      ],
+      "inputs": [
+        "equalsLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.bangMiss",
+      "operation": "find",
+      "patterns": [
+        "(?:ticket|task)!(\\w*)"
+      ],
+      "inputs": [
+        "bangMiss"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.bangLate",
+      "operation": "find",
+      "patterns": [
+        "(?:ticket|task)!(\\w*)"
+      ],
+      "inputs": [
+        "bangLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.twoInitials",
+      "operation": "find",
+      "patterns": [
+        "(?:alpha|beta)=(\\w*)"
+      ],
+      "inputs": [
+        "twoInitials"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.wideInitials",
+      "operation": "find",
+      "patterns": [
+        "(?:[a-z]{3}|[a-z]{10}):(\\w*)"
+      ],
+      "inputs": [
+        "wideInitials"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.transMiss",
+      "operation": "find",
+      "patterns": [
+        "(?:transaction|trans):(\\S*)"
+      ],
+      "inputs": [
+        "transMiss"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.transLate",
+      "operation": "find",
+      "patterns": [
+        "(?:transaction|trans):(\\S*)"
+      ],
+      "inputs": [
+        "transLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.configLate",
+      "operation": "find",
+      "patterns": [
+        "(?:configuration|config)=(\\w*)"
+      ],
+      "inputs": [
+        "configLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.compile",
+      "operation": "compile",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Controls separator density, leading-candidate density, input size and consumer cost in the fixed-offset filter.",
+      "requirements": [],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "nanoseconds",
+        "constraints": []
+      }
+    },
+    {
+      "id": "FixedOffsetFilter.captureBoundsLate",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "captureLate"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Consumes group participation to force capture resolution in both representations.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    }
+  ]
+}

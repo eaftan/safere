@@ -41,7 +41,7 @@ sealed interface StringStartAccelerator {
       case MultiAnchorDescriptor.StartPlan.CharClass cc ->
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
-          FixedOffset.create(fo.fol(), fo.leadingClass());
+          FixedOffset.create(fo.fol(), fo.leadingClass(), fo.leadingLiteral());
       case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
           new FixedOffsetClass(CharClass.create(fc.scanInfo()), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
@@ -256,10 +256,13 @@ sealed interface StringStartAccelerator {
       CharClassScanInfo firstCharClass,
       int anchorOffset,
       char anchor,
-      int singleAsciiChar)
+      int singleAsciiChar,
+      Literal leadingLiteral,
+      boolean plainMultiOffset)
       implements StringStartAccelerator {
 
-    static FixedOffset create(FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass) {
+    static FixedOffset create(
+        FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass, String leadingLiteral) {
       String literal = fixedOffset.literal();
       int anchorOffset = StringLiteralSearch.anchorOffset(literal);
       return new FixedOffset(
@@ -267,7 +270,12 @@ sealed interface StringStartAccelerator {
           firstCharClass,
           anchorOffset,
           StringLiteralSearch.anchorAt(literal, anchorOffset),
-          StringLiteralSearch.singleAsciiChar(literal));
+          StringLiteralSearch.singleAsciiChar(literal),
+          leadingLiteral != null ? Literal.create(leadingLiteral) : null,
+          firstCharClass != null
+              && fixedOffset.discreteOffsets() != null
+              && fixedOffset.discreteOffsets().length > 1
+              && !firstCharClass.isSelective());
     }
 
     @Override
@@ -276,8 +284,29 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(CharSequence text, int fromIndex, boolean unixLines) {
+      if (plainMultiOffset) {
+        int minOffset = fixedOffset.minOffset();
+        return minOffset > text.length() - fromIndex
+            ? -1
+            : findUnfilteredMultiOffsetCandidate(
+                text,
+                fixedOffset,
+                firstCharClass,
+                anchorOffset,
+                anchor,
+                singleAsciiChar,
+                fromIndex + minOffset,
+                fromIndex);
+      }
       return nextFixedOffsetCandidate(
-          text, fixedOffset, firstCharClass, anchorOffset, anchor, singleAsciiChar, fromIndex);
+          text,
+          fixedOffset,
+          firstCharClass,
+          anchorOffset,
+          anchor,
+          singleAsciiChar,
+          leadingLiteral,
+          fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
@@ -287,6 +316,7 @@ sealed interface StringStartAccelerator {
         int anchorOffset,
         char anchor,
         int singleAsciiChar,
+        Literal leadingLiteral,
         int fromIndex) {
       int minOffset = fixedOffsetLiteral.minOffset();
       if (minOffset > text.length() - fromIndex) {
@@ -294,6 +324,7 @@ sealed interface StringStartAccelerator {
       }
       int literalFrom = fromIndex + minOffset;
       int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      int cheapRejections = 0;
 
       while (literalFrom <= text.length()) {
         int literalStart =
@@ -332,6 +363,22 @@ sealed interface StringStartAccelerator {
               return resolved;
             }
             literalFrom = literalStart + 1;
+            if (++cheapRejections == AcceleratorPolicy.FIXED_OFFSET_LITERAL_CHEAP_REJECTIONS
+                && text.length() - literalFrom
+                    >= AcceleratorPolicy.FIXED_OFFSET_LITERAL_MIN_REMAINING
+                && (leadingLiteral != null
+                    || firstCharClass instanceof CharClassScanInfo.AsciiSmallSet)) {
+              return findFilteredMultiOffsetCandidate(
+                  text,
+                  fixedOffsetLiteral,
+                  firstCharClass,
+                  anchorOffset,
+                  anchor,
+                  singleAsciiChar,
+                  leadingLiteral,
+                  literalFrom,
+                  fromIndex);
+            }
             continue;
           } else if (fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
             int candidateStart =
@@ -347,6 +394,101 @@ sealed interface StringStartAccelerator {
         return Math.max(
             fromIndex,
             retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex));
+      }
+      return -1;
+    }
+
+    /** Alternates monotonic scans, abandoning the leading filter after an unprofitable skip. */
+    private static int findFilteredMultiOffsetCandidate(
+        CharSequence text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo firstCharClass,
+        int anchorOffset,
+        char anchor,
+        int singleAsciiChar,
+        Literal leadingLiteral,
+        int literalFrom,
+        int fromIndex) {
+      int minOffset = fixedOffsetLiteral.minOffset();
+      int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      int nextLeading = -1;
+      while (literalFrom <= text.length()) {
+        // A later hit cannot imply a start below this floor, even across widely spaced offsets.
+        int leadingFrom = Math.max(fromIndex, literalFrom - fixedOffsetLiteral.maxOffset());
+        if (nextLeading < leadingFrom) {
+          nextLeading =
+              leadingLiteral != null
+                  ? findNextCandidate(leadingLiteral, text, leadingFrom, false)
+                  : indexOfClass(text, firstCharClass, leadingFrom);
+        }
+        if (nextLeading < 0 || minOffset > text.length() - nextLeading) {
+          return -1;
+        }
+        int nextLiteralFrom = Math.max(literalFrom, nextLeading + minOffset);
+        if (nextLiteralFrom - literalFrom < AcceleratorPolicy.LITERAL.minProfitableSkip()) {
+          return findUnfilteredMultiOffsetCandidate(
+              text,
+              fixedOffsetLiteral,
+              firstCharClass,
+              anchorOffset,
+              anchor,
+              singleAsciiChar,
+              nextLiteralFrom,
+              fromIndex);
+        }
+        literalFrom = nextLiteralFrom;
+        int hit =
+            indexOfPlanned(
+                text,
+                fixedOffsetLiteral.literal(),
+                anchorOffset,
+                anchor,
+                singleAsciiChar,
+                literalFrom);
+        if (hit < 0) {
+          return -1;
+        }
+        int resolved =
+            resolveMultiOffsetStart(
+                text, fixedOffsetLiteral, discreteOffsets, firstCharClass, hit, fromIndex);
+        if (resolved >= 0) {
+          return resolved;
+        }
+        literalFrom = hit + 1;
+      }
+      return -1;
+    }
+
+    /** Continues from the established floor after an unprofitable leading probe. */
+    private static int findUnfilteredMultiOffsetCandidate(
+        CharSequence text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo firstCharClass,
+        int anchorOffset,
+        char anchor,
+        int singleAsciiChar,
+        int literalFrom,
+        int fromIndex) {
+      int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      while (literalFrom <= text.length()) {
+        int hit =
+            indexOfPlanned(
+                text,
+                fixedOffsetLiteral.literal(),
+                anchorOffset,
+                anchor,
+                singleAsciiChar,
+                literalFrom);
+        if (hit < 0) {
+          return -1;
+        }
+        int resolved =
+            resolveMultiOffsetStart(
+                text, fixedOffsetLiteral, discreteOffsets, firstCharClass, hit, fromIndex);
+        if (resolved >= 0) {
+          return resolved;
+        }
+        literalFrom = hit + 1;
       }
       return -1;
     }
@@ -372,6 +514,9 @@ sealed interface StringStartAccelerator {
         int literalStart,
         int fromIndex) {
       for (int i = discreteOffsets.length - 1; i >= 0; i--) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         int start = literalStart - discreteOffsets[i];
         if (start >= fromIndex
             && start < text.length()
