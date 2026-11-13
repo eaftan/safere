@@ -24,9 +24,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Canary tests for SafeRE Unicode tables and the running JDK's {@link Character} implementation.
- * SafeRE-owned Unicode property tables are allowed to be ahead of the runtime JDK, but the runtime
- * JDK's known category/script names should still be present. The case-fold and binary property
- * checks detect table drift that may need an intentional Unicode data update.
+ * SafeRE-owned Unicode property tables can differ from the runtime JDK's Unicode version. Coverage
+ * canaries include older JDK repertoires; equality canaries require the same repertoire. A newer
+ * runtime must not implicitly require an upgrade of the deliberately pinned Unicode data.
  *
  * <p>See <a href="https://github.com/safere/safere/issues/107">#107</a>.
  */
@@ -63,6 +63,9 @@ class UnicodeJdkConsistencyTest {
   @Test
   @DisplayName("Every JDK UnicodeScript is present in UNICODE_GROUPS")
   void allScriptsPresent() {
+    assumeTrue(
+        runtimeJdkUnicodeIsCoveredByGeneratedTables(),
+        "Runtime JDK has Unicode assignments beyond the bundled tables");
     Map<String, int[][]> groups = UnicodeTables.UNICODE_GROUPS;
     for (Character.UnicodeScript script : Character.UnicodeScript.values()) {
       if (script == Character.UnicodeScript.UNKNOWN) {
@@ -138,6 +141,9 @@ class UnicodeJdkConsistencyTest {
   @Test
   @DisplayName("CASE_FOLD covers all JDK symmetric case pairs")
   void caseFoldCoversAllJdkPairs() {
+    assumeTrue(
+        runtimeJdkUnicodeIsCoveredByGeneratedTables(),
+        "Runtime JDK has Unicode assignments beyond the bundled tables");
     // Scan all code points and find "clean" symmetric pairs where toLower and toUpper
     // are inverses: toLower(cp) != cp AND toUpper(toLower(cp)) == cp. This means
     // cp is uppercase and its lowercase form round-trips cleanly back to cp.
@@ -377,6 +383,14 @@ class UnicodeJdkConsistencyTest {
   // --- Helpers ---
 
   private static boolean runtimeJdkUnicodeMatchesGeneratedTables() {
+    return runtimeJdkUnicodeIsCompatibleWithGeneratedTables(false);
+  }
+
+  private static boolean runtimeJdkUnicodeIsCoveredByGeneratedTables() {
+    return runtimeJdkUnicodeIsCompatibleWithGeneratedTables(true);
+  }
+
+  private static boolean runtimeJdkUnicodeIsCompatibleWithGeneratedTables(boolean allowOlderJdk) {
     int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));
     int rangeIndex = 0;
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
@@ -384,7 +398,8 @@ class UnicodeJdkConsistencyTest {
         rangeIndex++;
       }
       boolean inTable = rangeIndex < assigned.length && assigned[rangeIndex][0] <= cp;
-      if (Character.isDefined(cp) != inTable) {
+      boolean runtimeAssigned = Character.isDefined(cp);
+      if (runtimeAssigned != inTable && (!allowOlderJdk || runtimeAssigned)) {
         return false;
       }
     }

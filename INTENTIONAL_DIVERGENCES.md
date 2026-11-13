@@ -510,9 +510,12 @@ same data as `\p{L}`, `\p{IsLowercase}`, and the other Unicode properties.
 A pattern therefore matches the same strings on every JDK, and a `java*` class
 can't disagree with the equivalent Unicode property in the same pattern.
 
-On JDK 26 and newer, whose Unicode version matches the bundled tables, the
-classes match `Character` exactly; `UnicodeJdkConsistencyTest` checks all of
-them over every code point. On older JDKs, they can disagree with `Character`
+When the runtime Unicode version matches the bundled tables, as on JDK 26
+and 27, the classes match `Character` exactly; `UnicodeJdkConsistencyTest`
+checks all of them over every code point. JDK 28 EA uses Unicode 18, so it
+can also disagree until a coordinated data upgrade; see
+[#1196](https://github.com/safere/safere/issues/1196).
+On older JDKs, they can disagree with `Character`
 about code points assigned since that JDK's Unicode version, and about a few
 property changes, such as U+0295 LATIN LETTER PHARYNGEAL VOICED FRICATIVE,
 which Unicode 17.0 no longer treats as lowercase.
