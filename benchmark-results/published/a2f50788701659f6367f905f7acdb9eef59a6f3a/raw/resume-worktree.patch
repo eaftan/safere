@@ -1,0 +1,102 @@
+diff --git a/run-java-benchmarks.sh b/run-java-benchmarks.sh
+index c0a11afe..6af58a3c 100755
+--- a/run-java-benchmarks.sh
++++ b/run-java-benchmarks.sh
+@@ -259,6 +259,9 @@ java -cp "$BENCHMARK_JAR" org.safere.benchmark.BenchmarkInputMaterializer \
+ 
+ # Keep provider selection identical in launcher and measurement forks.
+ BASE_JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
++if [ -n "${SAFERE_BENCHMARK_VARIANTS:-}" ]; then
++  BASE_JVM_ARGS="$BASE_JVM_ARGS -Dsafere.benchmark.variants=$SAFERE_BENCHMARK_VARIANTS"
++fi
+ select_scan_provider() {
+   local provider="$1"
+   JVM_ARGS="$BASE_JVM_ARGS -Dsafere.benchmark.scanProvider=$provider"
+diff --git a/run-rust-benchmarks.sh b/run-rust-benchmarks.sh
+index 1a3c4f27..0a9f9dbb 100755
+--- a/run-rust-benchmarks.sh
++++ b/run-rust-benchmarks.sh
+@@ -26,6 +26,10 @@ cargo build --release --locked --manifest-path "$RUST_DIR/Cargo.toml"
+ echo "=== Running Rust regex timing benchmarks ==="
+ "$RUST_DIR/target/release/safere-regex-benchmark" --manifest "$MANIFEST_FILE" "$@"
+ 
++if [ "${SAFERE_BENCHMARK_TIMING_ONLY:-false}" = true ]; then
++  exit 0
++fi
++
+ echo "=== Building Rust regex memory benchmarks ==="
+ cargo build --release --locked --features memory-tracking \
+   --manifest-path "$RUST_DIR/Cargo.toml"
+diff --git a/safere-benchmarks/cpp/native_regex_benchmark.cc b/safere-benchmarks/cpp/native_regex_benchmark.cc
+index b5828f68..50d0ac6e 100644
+--- a/safere-benchmarks/cpp/native_regex_benchmark.cc
++++ b/safere-benchmarks/cpp/native_regex_benchmark.cc
+@@ -30,6 +30,7 @@
+ #include <string_view>
+ #include <sys/wait.h>
+ #include <unordered_map>
++#include <unordered_set>
+ #include <utility>
+ #include <vector>
+ #include <unistd.h>
+@@ -510,6 +511,10 @@ json execute_workload(
+         std::make_unique<RE2>(entry.at("patterns").at(0).get<std::string>());
+     return compiled->ok();
+   }
++  if (operation == "compileAndFind") {
++    RE2 compiled(entry.at("patterns").at(0).get<std::string>());
++    return compiled.Match(text, 0, text.size(), RE2::UNANCHORED, nullptr, 0);
++  }
+   if (operation == "matches") {
+     return regex.Match(
+         text, 0, text.size(), RE2::ANCHOR_BOTH, nullptr, 0);
+@@ -639,9 +644,19 @@ json execute_workload(
+ void run_execution_plan(
+     const std::vector<std::string>& filters, bool smoke, bool list,
+     bool list_exclusions) {
++  std::unordered_set<std::string> completed;
++  if (const char* path = std::getenv("SAFERE_BENCHMARK_COMPLETED")) {
++    std::ifstream input(path);
++    if (!input) {
++      fprintf(stderr, "ERROR: cannot open completed trial list: %s\n", path);
++      exit(1);
++    }
++    for (std::string line; std::getline(input, line);) completed.insert(line);
++  }
+   for (const auto& entry : benchmark_execution_plan.at("entries")) {
+     if (entry.at("engineId") != kEngineId) continue;
+     std::string id = entry.at("workloadId");
++    if (completed.count(id)) continue;
+     if (!matches_filter(id, filters)) continue;
+     std::string status = entry.at("status");
+     if (status == "excluded") {
+diff --git a/safere-benchmarks/rust/src/main.rs b/safere-benchmarks/rust/src/main.rs
+index 2eacb6a7..d59b3218 100644
+--- a/safere-benchmarks/rust/src/main.rs
++++ b/safere-benchmarks/rust/src/main.rs
+@@ -278,6 +278,7 @@ fn execute(prepared: &Prepared) -> Value {
+             black_box(compile(&patterns[0]));
+             json!(true)
+         }
++        "compileAndFind" => json!(compile(&patterns[0]).is_match(text)),
+         "matches" => json!(prepared.full_regex.as_ref().unwrap().is_match(text)),
+         "find" => json!(regex.unwrap().is_match(text)),
+         "utf8CaptureBounds" => json!(capture_bounds(
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+index d8e94a88..bf730af3 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+@@ -131,6 +131,13 @@ final class BenchmarkCollectionPlan {
+ 
+   private List<Runner> allRunners() {
+     List<Runner> runners = unfilteredRunners();
++    String variants = System.getProperty("safere.benchmark.variants");
++    if (variants != null) {
++      Set<String> selected = Set.of(variants.split(","));
++      runners =
++          filterRunners(
++              runners, id -> selected.contains(id.substring(id.lastIndexOf('@') + 1)), false);
++    }
+     return scanProvider == null
+         ? runners
+         : filterRunners(runners, id -> matchesScanProvider(id, scanProvider), false);

@@ -1,0 +1,138 @@
+[
+  {
+    "title": "String end-anchored greedy search",
+    "workload": "SearchScalingBenchmark.endAnchoredGreedySuccess.1048576",
+    "operation": "find",
+    "patterns": [
+      "(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+    ],
+    "times_ns": {
+      "safere": 41311250.0,
+      "safere_utf8": 356.0,
+      "re2_cpp": 117.0,
+      "rust": 68.0
+    }
+  },
+  {
+    "title": "End-anchored early literal search",
+    "workload": "SearchScalingBenchmark.endAnchoredEarlyLiteralDot.1048576",
+    "operation": "find",
+    "patterns": [
+      "needle.*$"
+    ],
+    "times_ns": {
+      "safere": 43612770.0,
+      "safere_utf8": 43690149.0,
+      "re2_cpp": 1092654.0,
+      "rust": 1314085.0
+    }
+  },
+  {
+    "title": "Field-path Boolean search",
+    "workload": "RealWorldRegexBenchmark.runBenchmark.mapFieldPath.match.100000",
+    "operation": "find",
+    "patterns": [
+      "([\\S]+)\\b\\[(.+)\\]"
+    ],
+    "times_ns": {
+      "safere": 334364.146,
+      "safere_utf8": 160139.616,
+      "re2_cpp": 115.697,
+      "rust": 68.023
+    }
+  },
+  {
+    "title": "Protocol-link replacement",
+    "workload": "RealWorldRegexBenchmark.runBenchmark.customProtocolLinkReplace.falseCandidates.100000",
+    "operation": "replaceAll",
+    "patterns": [
+      "\\[(.*?)]\\(customProtocol://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+    ],
+    "times_ns": {
+      "safere": 7208213.719,
+      "safere_utf8": 7271323.059,
+      "re2_cpp": 271729.155,
+      "rust": 277584.519
+    }
+  },
+  {
+    "title": "Multi-literal alternation",
+    "workload": "SearchScalingBenchmark.multiLiteral6Success.1048576",
+    "operation": "find",
+    "patterns": [
+      "ALPHA|BETA|GAMMA|DELTA|EPSILON|WXYZ"
+    ],
+    "times_ns": {
+      "safere": 598173.147,
+      "safere_utf8": 1908138.513,
+      "re2_cpp": 1097414.961,
+      "rust": 76002.721
+    }
+  },
+  {
+    "title": "Fixed-offset candidate filtering",
+    "workload": "FixedOffsetAccelerationBenchmark.findMultiOffsetColonNoise",
+    "operation": "find",
+    "patterns": [
+      "(?:requisition|req):(\\S*)"
+    ],
+    "times_ns": {
+      "safere": 14781.022,
+      "safere_utf8": 14468.242,
+      "re2_cpp": 3085.932,
+      "rust": 589.039
+    }
+  },
+  {
+    "title": "UTF-8 literal scanning",
+    "workload": "Utf8MatchingBenchmark.literalScan.longWord",
+    "operation": "find",
+    "patterns": null,
+    "times_ns": {
+      "safere_utf8": 6334.834,
+      "re2_cpp": 5454.722,
+      "rust": 805.655
+    }
+  },
+  {
+    "title": "UTF-8 small ASCII class scanning",
+    "workload": "SmallAsciiClassBenchmark.triple.mixedLate.1048576",
+    "operation": "find",
+    "patterns": [
+      "[XZ_]"
+    ],
+    "times_ns": {
+      "safere": 117663.914,
+      "safere_utf8": 280020.065,
+      "re2_cpp": 2462607.671,
+      "rust": 43929.729
+    }
+  },
+  {
+    "title": "Capture fallback for Boolean searches",
+    "workload": "CaptureFallbackBenchmark.boolean.1024",
+    "operation": "find",
+    "patterns": [
+      "(a?)*y"
+    ],
+    "times_ns": {
+      "safere": 27262.881,
+      "safere_utf8": 26263.655,
+      "re2_cpp": 1148.192,
+      "rust": 2830.126
+    }
+  },
+  {
+    "title": "First-compile initialization",
+    "workload": "UnicodeFirstCompileBenchmark.firstCompile.word.0",
+    "operation": "compile",
+    "patterns": [
+      "\\w+"
+    ],
+    "times_ns": {
+      "safere": 51039000.0,
+      "re2_cpp": 18000.0,
+      "rust": 42000.0
+    }
+  }
+]
