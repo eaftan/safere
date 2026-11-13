@@ -1,0 +1,868 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "randomMiss.64",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 64,
+        "seed": 719
+      },
+      "shared": true
+    },
+    {
+      "id": "randomMiss.512",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 512,
+        "seed": 719
+      },
+      "shared": true
+    },
+    {
+      "id": "randomMiss.32768",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 32768,
+        "seed": 719
+      },
+      "shared": true
+    },
+    {
+      "id": "randomMiss.1048576",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 1048576,
+        "seed": 719
+      },
+      "shared": true
+    },
+    {
+      "id": "early.16",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "catapult",
+        "unit": "z",
+        "suffix": "",
+        "length": 16
+      },
+      "shared": true
+    },
+    {
+      "id": "late.16",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "z",
+        "suffix": "catapult",
+        "length": 16
+      },
+      "shared": true
+    },
+    {
+      "id": "early.512",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "catapult",
+        "unit": "z",
+        "suffix": "",
+        "length": 512
+      },
+      "shared": true
+    },
+    {
+      "id": "late.512",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "z",
+        "suffix": "catapult",
+        "length": 512
+      },
+      "shared": true
+    },
+    {
+      "id": "early.32768",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "catapult",
+        "unit": "z",
+        "suffix": "",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "late.32768",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "z",
+        "suffix": "catapult",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "denseEnds",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "cxxxxxx tcatapulx",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "fallbackMiss",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "fallbackLate",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "aaaaabaaaaa",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "unicodeLate",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "\u00e9\u65e5\u672c\ud83d\ude00",
+        "suffix": "catapult",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "unicodeMiss",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u65e5\u672cx\ud83d\ude00",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "unicodeHit",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "\u65e5\u672cx\ud83d\ude00",
+        "suffix": "\u65e5\u672c\u8a9e",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "prefixLate",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "z",
+        "suffix": "catapult123",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "captureLate",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "z",
+        "suffix": "catapult123",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "repeatedDense",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "catapult xyz ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "repeatedSparse",
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "catapult",
+        "nonMatch": "x",
+        "nonMatchRepeats": 1024,
+        "delimiterAlphabet": "x",
+        "seed": 73,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "replaceSparse",
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "catapult",
+        "nonMatch": "x",
+        "nonMatchRepeats": 1024,
+        "delimiterAlphabet": "x",
+        "seed": 73,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "singleByte",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "longLiteral",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32768
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "Utf8LiteralScan.randomMiss.64",
+      "operation": "find",
+      "patterns": [
+        "transactionrecord"
+      ],
+      "inputs": [
+        "randomMiss.64"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.randomMiss.512",
+      "operation": "find",
+      "patterns": [
+        "transactionrecord"
+      ],
+      "inputs": [
+        "randomMiss.512"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.randomMiss.32768",
+      "operation": "find",
+      "patterns": [
+        "transactionrecord"
+      ],
+      "inputs": [
+        "randomMiss.32768"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.randomMiss.1048576",
+      "operation": "find",
+      "patterns": [
+        "transactionrecord"
+      ],
+      "inputs": [
+        "randomMiss.1048576"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.early.16",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "early.16"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.late.16",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "late.16"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.early.512",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "early.512"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.late.512",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "late.512"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.early.32768",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "early.32768"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.late.32768",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "late.32768"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.denseEnds",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "denseEnds"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.fallbackMiss",
+      "operation": "find",
+      "patterns": [
+        "aaaaabaaaaa"
+      ],
+      "inputs": [
+        "fallbackMiss"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.fallbackLate",
+      "operation": "find",
+      "patterns": [
+        "aaaaabaaaaa"
+      ],
+      "inputs": [
+        "fallbackLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.unicodeLate",
+      "operation": "find",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "unicodeLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.unicodeMiss",
+      "operation": "find",
+      "patterns": [
+        "\u65e5\u672c\u8a9e"
+      ],
+      "inputs": [
+        "unicodeMiss"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.unicodeHit",
+      "operation": "find",
+      "patterns": [
+        "\u65e5\u672c\u8a9e"
+      ],
+      "inputs": [
+        "unicodeHit"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.prefixLate",
+      "operation": "find",
+      "patterns": [
+        "catapult[0-9]+"
+      ],
+      "inputs": [
+        "prefixLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.captureLate",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "(catapult)([0-9]+)"
+      ],
+      "inputs": [
+        "captureLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          0,
+          1,
+          2
+        ],
+        "expectedBounds": [
+          32757,
+          32768,
+          32757,
+          32765,
+          32765,
+          32768
+        ]
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.repeatedDense",
+      "operation": "findAllCount",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "repeatedDense"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.repeatedSparse",
+      "operation": "findAllCount",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "repeatedSparse"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.replaceSparse",
+      "operation": "replaceAll",
+      "patterns": [
+        "catapult"
+      ],
+      "inputs": [
+        "replaceSparse"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "replaced"
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.singleByte",
+      "operation": "find",
+      "patterns": [
+        "Z"
+      ],
+      "inputs": [
+        "singleByte"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    },
+    {
+      "id": "Utf8LiteralScan.longLiteral",
+      "operation": "find",
+      "patterns": [
+        "abcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeabcdeZ"
+      ],
+      "inputs": [
+        "longLiteral"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "inputRepresentationReason": "Exercises the default UTF-8 literal scanner on pre-existing bytes."
+    }
+  ]
+}

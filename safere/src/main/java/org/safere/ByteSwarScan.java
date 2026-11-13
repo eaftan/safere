@@ -15,6 +15,7 @@ import static org.safere.Swar.BYTE_HIGH_BITS;
 import static org.safere.Swar.BYTE_ONES;
 
 import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 
 /** Shared 64-bit SWAR kernels for scanning bounded 1-byte sequences. */
 abstract class ByteSwarScan {
@@ -30,6 +31,8 @@ abstract class ByteSwarScan {
   static final int FILTER_LENGTH_FACTOR = 40;
 
   private static final VarHandle LONG_VIEW = byteArrayViewVarHandle(long[].class, nativeOrder());
+
+  private static final boolean LITTLE_ENDIAN = nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   final byte[] bytes;
   final int offset;
@@ -505,59 +508,96 @@ abstract class ByteSwarScan {
    */
   static int indexOfFiltered(byte[] bytes, int offset, int length, byte[] literal, int start) {
     int last = literal.length - 1;
+    int lastStart = lastMatchStart(length, literal.length);
     long repeatedFirst = (literal[0] & 0xFFL) * BYTE_ONES;
     long repeatedLast = (literal[last] & 0xFFL) * BYTE_ONES;
-    int wordEnd = lastLoadStart(length, last, Long.BYTES);
     long work = 0;
     long workLimit = WorkLimit.forRemaining(length - start);
+    int position = start;
+    while (position <= lastStart) {
+      long candidates =
+          literalCandidates(bytes, offset, length, last, repeatedFirst, repeatedLast, position);
+      if (candidates < 0) {
+        return -1;
+      }
+      int wordPosition = (int) candidates;
+      int mask = (int) (candidates >>> Integer.SIZE);
+      int candidateCount = Integer.bitCount(mask);
+      do {
+        int candidate = wordPosition + Integer.numberOfTrailingZeros(mask);
+        if (matchesAt(bytes, offset, literal, candidate)) {
+          return candidate;
+        }
+        mask &= mask - 1;
+      } while (mask != 0);
+      // Account once per candidate word, leaving both the scan and verification loops free of
+      // bookkeeping. At most one word of verification can overshoot the linear work budget.
+      work = WorkLimit.addCandidateWork(work, candidateCount, literal.length);
+      if (WorkLimit.isExhausted(work, workLimit)) {
+        return -2;
+      }
+      if (lastStart - wordPosition < Long.BYTES) {
+        return -1;
+      }
+      position = wordPosition + Long.BYTES;
+    }
+    return -1;
+  }
+
+  /**
+   * Finds a candidate word without verification or budget bookkeeping in the scan loop. The low 32
+   * bits hold its start; the high 32 bits hold an eight-bit candidate bitmap in address order.
+   * Returning all candidates lets the caller resume after the word, so scans never overlap. Returns
+   * {@code -1} when no candidate remains. No packed result can have its sign bit set.
+   */
+  private static long literalCandidates(
+      byte[] bytes,
+      int offset,
+      int length,
+      int last,
+      long repeatedFirst,
+      long repeatedLast,
+      int start) {
+    int wordEnd = lastLoadStart(length, last, Long.BYTES);
     int position = start;
     while (position <= wordEnd) {
       long firstDifference = (long) LONG_VIEW.get(bytes, offset + position) ^ repeatedFirst;
       long lastDifference = (long) LONG_VIEW.get(bytes, offset + position + last) ^ repeatedLast;
-      long candidates =
-          (firstDifference - BYTE_ONES)
-              & ~firstDifference
-              & (lastDifference - BYTE_ONES)
-              & ~lastDifference
-              & BYTE_HIGH_BITS;
+      long difference = firstDifference | lastDifference;
+      long candidates = (difference - BYTE_ONES) & ~difference & BYTE_HIGH_BITS;
       if (candidates != 0) {
-        // Scanning the eight positions in address order keeps this independent of byte order and
-        // returns the leftmost match within the word.
-        int candidateCount = 0;
-        for (int index = 0; index < Long.BYTES; index++) {
-          int candidate = position + index;
-          if (bytes[offset + candidate] == literal[0]) {
-            if (matchesAt(bytes, offset, literal, candidate)) {
-              return candidate;
-            }
-            candidateCount++;
-          }
+        // Borrow propagation can set extra bits, but never hides a real candidate. The caller
+        // verifies the entire literal, including its endpoint bytes.
+        if (!LITTLE_ENDIAN) {
+          candidates = Long.reverseBytes(candidates);
         }
-        work = WorkLimit.addCandidateWork(work, candidateCount, literal.length);
+        return (Long.compress(candidates, BYTE_HIGH_BITS) << Integer.SIZE) | position;
       }
       position += Long.BYTES;
-      work++;
-      if (WorkLimit.isExhausted(work, workLimit)) {
-        return -2;
-      }
     }
-    return scalarTail(bytes, offset, length, literal, position);
+    return literalCandidateTail(bytes, offset, length, last, repeatedFirst, repeatedLast, position);
   }
 
-  /**
-   * Scans the trailing bytes that the word loop could not cover (fewer than {@link Long#BYTES} plus
-   * the literal length). Kept out of {@link #indexOfFiltered} so the hot word loop stays within
-   * C2's inlining budget; merging this loop into it measurably deoptimizes the SWAR loop.
-   */
-  private static int scalarTail(
-      byte[] bytes, int offset, int length, byte[] literal, int position) {
-    while (position <= lastMatchStart(length, literal.length)) {
-      if (matchesAt(bytes, offset, literal, position)) {
-        return position;
+  private static long literalCandidateTail(
+      byte[] bytes,
+      int offset,
+      int length,
+      int last,
+      long repeatedFirst,
+      long repeatedLast,
+      int position) {
+    // All lanes of a broadcast hold the same byte, independent of native byte order.
+    byte firstByte = (byte) repeatedFirst;
+    byte lastByte = (byte) repeatedLast;
+    int count = length - last - position;
+    long mask = 0;
+    for (int index = 0; index < count; index++) {
+      if (bytes[offset + position + index] == firstByte
+          && bytes[offset + position + index + last] == lastByte) {
+        mask |= 1L << index;
       }
-      position++;
     }
-    return -1;
+    return mask == 0 ? -1 : (mask << Integer.SIZE) | position;
   }
 
   static boolean matchesAt(byte[] bytes, int offset, byte[] literal, int position) {
