@@ -1,0 +1,4 @@
+interface:
+  display_name: "Optimize SafeRE Workload"
+  short_description: "Profile, optimize, review, and measure regressions"
+  default_prompt: "Use $optimize-workload to optimize this SafeRE issue or workload, compare approaches, run the review/fix loop, and measure regression risks."
