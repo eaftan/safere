@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/tools/machine-lock.sh"
 DEFAULT_EXTERNAL_REPO="$SCRIPT_DIR/../safere-openjdk-regex-benchmarks"
 EXTERNAL_REPO="${SAFERE_OPENJDK_REGEX_BENCHMARKS_REPO:-$DEFAULT_EXTERNAL_REPO}"
 MODE="standard"

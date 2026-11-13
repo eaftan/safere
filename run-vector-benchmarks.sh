@@ -7,6 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/tools/machine-lock.sh"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-vector-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 MODE="standard"

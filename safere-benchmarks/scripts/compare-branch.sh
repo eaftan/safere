@@ -23,6 +23,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$REPO_ROOT/tools/machine-lock.sh"
 
 cd "$REPO_ROOT"
 
@@ -117,6 +118,7 @@ if [ "$BASELINE_RUNNER" != "$CURRENT_RUNNER" ]; then
 fi
 if ! git diff --quiet "$BASELINE_COMMIT" "$CURRENT_COMMIT" -- \
   pom.xml safere-benchmarks materialize-benchmark-inputs.sh run-java-benchmarks.sh \
+  tools/machine-run tools/machine-lock.sh \
   ':(exclude)safere-benchmarks/scripts/compare-benchmarks.py' \
   ':(exclude)safere-benchmarks/scripts/compare-branch.sh' \
   ':(exclude)safere-benchmarks/scripts/test_compare_benchmarks.py'; then

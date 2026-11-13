@@ -93,11 +93,16 @@ def test_pair_failure_restores_branch_and_has_no_success_marker(pair):
   assert git(pair.worktree,'symbolic-ref','--short','HEAD')=='codex/review/test'
 
 
-@pytest.mark.parametrize('kind', ['dirty','harness','branch','ref','inside'])
+@pytest.mark.parametrize('kind', ['dirty','harness','machine-run','machine-lock','branch','ref','inside'])
 def test_pair_rejects_unsafe_or_incomparable_inputs_before_switching(pair, kind):
   if kind=='dirty': (pair.worktree/'untracked').write_text('keep')
   elif kind=='harness':
     (pair.worktree/'run-java-benchmarks.sh').write_text('#!/bin/sh\nexit 0\n');git(pair.worktree,'commit','-qam','changed harness');pair.experiment=git(pair.worktree,'rev-parse','HEAD')
+  elif kind in ('machine-run', 'machine-lock'):
+    helper = pair.worktree/'tools'/('machine-run' if kind=='machine-run' else 'machine-lock.sh')
+    helper.parent.mkdir()
+    helper.write_text('changed reservation helper\n')
+    git(pair.worktree,'add',str(helper));git(pair.worktree,'commit','-qm','changed helper');pair.experiment=git(pair.worktree,'rev-parse','HEAD')
   elif kind=='branch': git(pair.worktree,'branch','-m','ordinary-review')
   elif kind=='ref': pair.baseline='main'
   else: pair.log=pair.worktree/'results.log'

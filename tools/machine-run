@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
+# See LICENSE file in the project root for details.
+
+"""Run a foreground workload with exclusive access to the local machine."""
+
+import argparse
+import datetime
+import fcntl
+import json
+import os
+import shlex
+import signal
+import stat
+import sys
+
+
+CONTEXT_ENV = "SAFERE_MACHINE_RUN_CONTEXT"
+LOCK_ENV = "SAFERE_MACHINE_LOCK_FILE"
+DEFAULT_LOCK = "/tmp/safere-machine-heavy.lock"
+
+
+def describe_owner(lock):
+    try:
+        lock.seek(0)
+        owner = json.load(lock)
+        return (f"{owner['label']} (pid {owner['pid']}, started {owner['started']}, "
+                f"cwd {owner['cwd']})")
+    except (ValueError, KeyError):
+        return "owner details unavailable"
+
+
+def signal_workload(pid, signum):
+    try:
+        os.killpg(pid, signum)
+    except ProcessLookupError:
+        # The child may not have called setsid() yet.
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            pass
+
+
+def run(lock, command, label):
+    child = None
+    starting = False
+    cancelled = None
+
+    def interrupt(signum, frame):
+        nonlocal cancelled
+        if signum == signal.SIGALRM:
+            if child is not None:
+                signal_workload(child, signal.SIGKILL)
+            return
+        cancelled = signum
+        if child is not None:
+            signal_workload(child, signum)
+            signal.alarm(5)
+        elif not starting:
+            raise SystemExit(128 + signum)
+
+    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGALRM):
+        signal.signal(signum, interrupt)
+
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"machine-run: waiting for {label}; held by {describe_owner(lock)}",
+              file=sys.stderr, flush=True)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+
+    owner = {
+        "label": label,
+        "pid": os.getpid(),
+        "started": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "cwd": os.getcwd(),
+        "command": command,
+    }
+    lock.seek(0)
+    lock.truncate()
+    json.dump(owner, lock)
+    lock.flush()
+    print(f"machine-run: running {label} (pid {os.getpid()})", file=sys.stderr, flush=True)
+
+    starting = True
+    child_pid = os.fork()
+    if child_pid == 0:
+        try:
+            for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGALRM):
+                signal.signal(signum, signal.SIG_DFL)
+            os.setsid()
+            # Retain the lock if the supervisor is killed while its command is alive.
+            os.set_inheritable(lock.fileno(), True)
+            identity = os.fstat(lock.fileno())
+            env = dict(os.environ)
+            env[CONTEXT_ENV] = f"{identity.st_dev}:{identity.st_ino}:{os.getpgrp()}"
+            os.execvpe(command[0], command, env)
+        except OSError as error:
+            print(f"machine-run: {error}", file=sys.stderr, flush=True)
+            os._exit(127 if isinstance(error, FileNotFoundError) else 126)
+
+    child = child_pid
+    starting = False
+    if cancelled is not None:
+        signal_workload(child, cancelled)
+        signal.alarm(5)
+    try:
+        _, status = os.waitpid(child, 0)
+    finally:
+        signal.alarm(0)
+        # Foreground jobs must not leave background workers behind when they exit.
+        # This also catches grandchildren whose parent exited on cancellation.
+        try:
+            os.killpg(child, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    result = os.waitstatus_to_exitcode(status)
+    result = result if result >= 0 else 128 - result
+    if cancelled is not None:
+        result = 128 + cancelled
+    print(f"machine-run: finished {label} (exit {result})", file=sys.stderr, flush=True)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--label", help="Short description for waiting agents and --status")
+    parser.add_argument("--status", action="store_true", help="Show the current lock owner")
+    parser.add_argument("--check", action="store_true",
+                        help="Exit 0 inside this reservation, or 1 outside (for shell runners)")
+    parser.add_argument("command", nargs=argparse.REMAINDER, help="-- COMMAND [ARG ...]")
+    args = parser.parse_args()
+    command = args.command
+    if command[:1] == ["--"]:
+        command = command[1:]
+    if sum((args.status, args.check, bool(command))) != 1:
+        parser.error("supply --status, --check, or -- COMMAND [ARG ...]")
+
+    path = os.environ.get(LOCK_ENV, DEFAULT_LOCK)
+    if not os.path.isabs(path):
+        parser.error(f"{LOCK_ENV} must be an absolute path")
+    # A fixed path, independent of cwd/TMPDIR, coordinates separate worktrees.
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    with os.fdopen(fd, "r+", encoding="utf-8") as lock:
+        identity = os.fstat(lock.fileno())
+        if not stat.S_ISREG(identity.st_mode):
+            parser.error(f"lock path must be a regular file: {path}")
+        context = f"{identity.st_dev}:{identity.st_ino}:{os.getpgrp()}"
+        nested = os.environ.get(CONTEXT_ENV) == context
+        if args.check:
+            return 0 if nested else 1
+        if args.status:
+            if nested:
+                print(f"machine-run: running {describe_owner(lock)}")
+            else:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    print("machine-run: idle")
+                except BlockingIOError:
+                    print(f"machine-run: running {describe_owner(lock)}")
+            return 0
+        if nested:
+            # Context is scoped to this lock inode AND the workload's process group.
+            # Python subprocesses may close inherited descriptors, so don't rely on
+            # an inherited FD or a global boolean to recognize nested reservations.
+            lock.close()
+            os.execvp(command[0], command)
+        return run(lock, command, args.label or shlex.join(command))
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except OSError as error:
+        print(f"machine-run: {error}", file=sys.stderr)
+        sys.exit(127 if isinstance(error, FileNotFoundError) else 126)
