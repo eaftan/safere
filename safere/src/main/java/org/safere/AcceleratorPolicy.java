@@ -68,6 +68,12 @@ record AcceleratorPolicy(
    */
   static final int FIXED_OFFSET_CLASS_CHEAP_REJECTIONS = 4;
 
+  /** Rejected multi-offset literal hits before consulting a small ASCII leading class. */
+  static final int FIXED_OFFSET_LITERAL_CHEAP_REJECTIONS = 4;
+
+  /** Minimum remaining window over which an alternate multi-offset filter can repay setup. */
+  static final int FIXED_OFFSET_LITERAL_MIN_REMAINING = 256;
+
   /**
    * Candidate stride below which a candidate counts as a strike.
    *

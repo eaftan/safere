@@ -211,6 +211,21 @@ final class MultiAnchorCompiler {
         prefix != null && RarityOracle.isPoisonousAnchor(prefix, prefixFoldCase);
     boolean folPoisonous = fol != null && RarityOracle.isPoisonousAnchor(fol.literal(), false);
 
+    // Keep an exact common prefix as an alternate filter when multi-offset interior hits
+    // prove dense at runtime. This does not change the primary anchor's static selection.
+    String leadingLiteral = null;
+    if (fol != null
+        && fol.discreteOffsets() != null
+        && fol.discreteOffsets().length > 1
+        && start.charClassPrefix() != null
+        && start.charClassPrefix().isSelective()) {
+      if (prefix != null && prefix.length() > 1 && !prefixFoldCase && Ascii.isAscii(prefix)) {
+        leadingLiteral = prefix;
+      } else if (prefix == null) {
+        leadingLiteral = commonLeadingLiteral(metadataAst);
+      }
+    }
+
     // When a fixed-offset literal is available and not poisonous:
     //  (a) If the leading prefix is poisonous (e.g. single space or high-frequency letter),
     //      suppress it and prioritize the non-poisonous fixed-offset literal.
@@ -228,7 +243,8 @@ final class MultiAnchorCompiler {
         return new MultiAnchorDescriptor.StartPlan.FixedOffset(
             new Pattern.FixedOffsetLiteral(
                 fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
-            start.charClassPrefix());
+            start.charClassPrefix(),
+            leadingLiteral);
       }
       int prefixScore = RarityOracle.literalSelectivityScore(prefix, prefixFoldCase);
       int folScore = RarityOracle.literalSelectivityScore(fol.literal());
@@ -236,7 +252,8 @@ final class MultiAnchorCompiler {
         return new MultiAnchorDescriptor.StartPlan.FixedOffset(
             new Pattern.FixedOffsetLiteral(
                 fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
-            start.charClassPrefix());
+            start.charClassPrefix(),
+            leadingLiteral);
       }
     }
 
@@ -2117,6 +2134,25 @@ final class MultiAnchorCompiler {
       case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_LINE, BEGIN_TEXT -> true;
       default -> false;
     };
+  }
+
+  /** Finds a common exact ASCII prefix without rewriting the capture-bearing AST. */
+  private static String commonLeadingLiteral(Regexp re) {
+    String[] literals = extractLiteralAlternation(firstPrefixCandidate(re));
+    if (literals == null) {
+      return null;
+    }
+    String first = literals[0];
+    int length = first.length();
+    for (int i = 1; i < literals.length && length > 1; i++) {
+      length = Math.min(length, literals[i].length());
+      int common = 0;
+      while (common < length && first.charAt(common) == literals[i].charAt(common)) {
+        common++;
+      }
+      length = common;
+    }
+    return length > 1 ? first.substring(0, length) : null;
   }
 
   private static String[] extractLiteralAlternation(Regexp re) {

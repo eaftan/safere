@@ -43,8 +43,7 @@ sealed interface Utf8StartAccelerator {
               : Literal.create(lit.prefix());
       case MultiAnchorDescriptor.StartPlan.CharClass cc ->
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : new CharClass(cc.scanInfo());
-      case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
-          new FixedOffset(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.FixedOffset fo -> FixedOffset.create(fo);
       case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
           new FixedOffsetClass(fc.scanInfo(), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml -> {
@@ -425,8 +424,37 @@ sealed interface Utf8StartAccelerator {
     }
   }
 
-  record FixedOffset(FixedOffsetLiteral fixedOffset, CharClassScanInfo charClassPrefix)
+  record FixedOffset(
+      FixedOffsetLiteral fixedOffset,
+      CharClassScanInfo charClassPrefix,
+      Literal leadingLiteral,
+      boolean plainMultiOffset)
       implements Utf8StartAccelerator {
+
+    static FixedOffset create(MultiAnchorDescriptor.StartPlan.FixedOffset plan) {
+      Literal leading = null;
+      if (plan.leadingLiteral() != null) {
+        String prefix = plan.leadingLiteral();
+        byte[] utf8 = prefix.getBytes(StandardCharsets.UTF_8);
+        // Dense interior hits have already defeated the primary filter. Search any rare prefix
+        // byte, including an endpoint, with the existing budgeted scan and linear fallback.
+        // Short tails use KMP; an alternate filter needs no retained Horspool shift table.
+        leading =
+            new Literal(
+                utf8,
+                Pattern.literalFailure(utf8),
+                null,
+                RarityOracle.rarestAsciiOffset(prefix, prefix.length()));
+      }
+      return new FixedOffset(
+          plan.fol(),
+          plan.leadingClass(),
+          leading,
+          plan.leadingClass() != null
+              && plan.fol().discreteOffsets() != null
+              && plan.fol().discreteOffsets().length > 1
+              && !plan.leadingClass().isSelective());
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -434,16 +462,26 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      return nextFixedOffsetCandidate(scanner, fixedOffset, charClassPrefix, fromIndex);
+      if (plainMultiOffset) {
+        int minOffset = fixedOffset.minOffset();
+        return minOffset > scanner.length() - fromIndex
+            ? -1
+            : findUnfilteredMultiOffsetCandidate(
+                scanner, fixedOffset, charClassPrefix, fromIndex + minOffset, fromIndex);
+      }
+      return nextFixedOffsetCandidate(
+          scanner, fixedOffset, charClassPrefix, leadingLiteral, fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
         Utf8InputScanner scanner,
         FixedOffsetLiteral fixedOffsetLiteral,
         CharClassScanInfo charClassPrefix,
+        Literal leadingLiteral,
         int searchFrom) {
       int literalFrom = searchFrom + fixedOffsetLiteral.minOffset();
       int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      int cheapRejections = 0;
       while (literalFrom <= scanner.length()) {
         int literalStart =
             scanner.indexOf(
@@ -479,6 +517,19 @@ sealed interface Utf8StartAccelerator {
               return resolved;
             }
             literalFrom = literalStart + 1;
+            if (++cheapRejections == AcceleratorPolicy.FIXED_OFFSET_LITERAL_CHEAP_REJECTIONS
+                && scanner.length() - literalFrom
+                    >= AcceleratorPolicy.FIXED_OFFSET_LITERAL_MIN_REMAINING
+                && (leadingLiteral != null
+                    || charClassPrefix instanceof CharClassScanInfo.AsciiSmallSet)) {
+              return findFilteredMultiOffsetCandidate(
+                  scanner,
+                  fixedOffsetLiteral,
+                  charClassPrefix,
+                  leadingLiteral,
+                  literalFrom,
+                  searchFrom);
+            }
             continue;
           } else if (fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
             int candidateStart =
@@ -493,6 +544,84 @@ sealed interface Utf8StartAccelerator {
         }
         return Math.max(
             searchFrom, scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset()));
+      }
+      return -1;
+    }
+
+    /** Alternates monotonic scans, abandoning the leading filter after an unprofitable skip. */
+    private static int findFilteredMultiOffsetCandidate(
+        Utf8InputScanner scanner,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo charClassPrefix,
+        Literal leadingLiteral,
+        int literalFrom,
+        int searchFrom) {
+      int minOffset = fixedOffsetLiteral.minOffset();
+      int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      int nextLeading = -1;
+      while (literalFrom <= scanner.length()) {
+        // A later hit cannot imply a start below this floor, even across widely spaced offsets.
+        int leadingFrom = Math.max(searchFrom, literalFrom - fixedOffsetLiteral.maxOffset());
+        if (nextLeading < leadingFrom) {
+          nextLeading =
+              leadingLiteral != null
+                  ? leadingLiteral.findCandidate(scanner, leadingFrom)
+                  : scanner.indexOfCharClass(charClassPrefix, leadingFrom);
+        }
+        if (nextLeading < 0 || minOffset > scanner.length() - nextLeading) {
+          return -1;
+        }
+        int nextLiteralFrom = Math.max(literalFrom, nextLeading + minOffset);
+        if (nextLiteralFrom - literalFrom < AcceleratorPolicy.LITERAL.minProfitableSkip()) {
+          return findUnfilteredMultiOffsetCandidate(
+              scanner, fixedOffsetLiteral, charClassPrefix, nextLiteralFrom, searchFrom);
+        }
+        literalFrom = nextLiteralFrom;
+        int hit =
+            scanner.indexOf(
+                fixedOffsetLiteral.utf8(),
+                fixedOffsetLiteral.failure(),
+                fixedOffsetLiteral.shifts(),
+                literalFrom);
+        if (hit < 0) {
+          return -1;
+        }
+        int resolved =
+            resolveMultiOffsetStart(
+                scanner, fixedOffsetLiteral, discreteOffsets, charClassPrefix, hit, searchFrom);
+        if (resolved >= 0) {
+          return resolved;
+        }
+        literalFrom = hit + 1;
+      }
+      return -1;
+    }
+
+    /** Continues from the established floor after an unprofitable leading probe. */
+    private static int findUnfilteredMultiOffsetCandidate(
+        Utf8InputScanner scanner,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo charClassPrefix,
+        int literalFrom,
+        int searchFrom) {
+      int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+      while (literalFrom <= scanner.length()) {
+        int hit =
+            scanner.indexOf(
+                fixedOffsetLiteral.utf8(),
+                fixedOffsetLiteral.failure(),
+                fixedOffsetLiteral.shifts(),
+                literalFrom);
+        if (hit < 0) {
+          return -1;
+        }
+        int resolved =
+            resolveMultiOffsetStart(
+                scanner, fixedOffsetLiteral, discreteOffsets, charClassPrefix, hit, searchFrom);
+        if (resolved >= 0) {
+          return resolved;
+        }
+        literalFrom = hit + 1;
       }
       return -1;
     }
@@ -520,6 +649,9 @@ sealed interface Utf8StartAccelerator {
         int literalStart,
         int searchFrom) {
       for (int i = discreteOffsets.length - 1; i >= 0; i--) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         int start = literalStart - discreteOffsets[i];
         if (start >= searchFrom
             && start < scanner.length()

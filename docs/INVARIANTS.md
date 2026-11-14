@@ -29,6 +29,17 @@ search quadratic. The one exception is a check that runs only from the start of
 the input, such as the small-set reject prefilter, because it makes at most one
 pass per member per search sequence.
 
+A multi-offset literal filter may alternate an interior-literal scan with an exact
+common-prefix or small ASCII leading-class scan. After rejecting an interior hit
+at `h`, a later hit cannot imply a start before `h + 1 - maxOffset`. Search the
+leading filter from that floor, and resume interior scanning no earlier than the
+next leading candidate plus `minOffset`. Both scan floors advance monotonically;
+a cached leading candidate avoids rescanning it while it remains above the floor.
+Statically unselective leading classes use the plain multi-offset loop. Short
+tails retain the original filter. A leading scan that skips too little is
+disabled for the remainder of the call. This filter supplies a lower bound, never
+a preferred match or capture result.
+
 ## Captures survive compilation
 
 Two patterns recognizing the same language can have different captures.
