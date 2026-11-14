@@ -25,7 +25,7 @@ class UnicodeTablesTest {
   @Test
   void generatedCategories_includeUnassignedCategory() {
     assertThat(UnicodeGeneratedTables.CATEGORIES).containsKey("Cn");
-    assertThat(UnicodeTables.UNICODE_GROUPS).containsKey("Cn");
+    assertThat(UnicodeTables.unicodeGroups()).containsKey("Cn");
   }
 
   @Test
@@ -210,41 +210,41 @@ class UnicodeTablesTest {
   void unicodeGroups_hasAllExpectedEntries() {
     // 7 major categories + subcategories + all JDK scripts (minus UNKNOWN).
     // The exact count depends on the JDK's Unicode version, so we check minimum bounds.
-    assertThat(UnicodeTables.UNICODE_GROUPS.size())
+    assertThat(UnicodeTables.unicodeGroups().size())
         .as("UNICODE_GROUPS should have categories + scripts")
         .isGreaterThanOrEqualTo(199); // RE2's original count; JDK 25 has more
   }
 
   @Test
   void unicodeGroups_containsMajorScripts() {
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Arabic")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Latin")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Greek")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Han")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Cyrillic")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Hiragana")).isNotNull();
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Katakana")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Arabic")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Latin")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Greek")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Han")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Cyrillic")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Hiragana")).isNotNull();
+    assertThat(UnicodeTables.unicodeGroups().get("Katakana")).isNotNull();
   }
 
   @Test
   void unicodeGroups_containsGeneralCategories() {
     // Major categories
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("L")).isNotNull(); // Letter
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("N")).isNotNull(); // Number
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("P")).isNotNull(); // Punctuation
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("S")).isNotNull(); // Symbol
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Z")).isNotNull(); // Separator
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("C")).isNotNull(); // Other
+    assertThat(UnicodeTables.unicodeGroups().get("L")).isNotNull(); // Letter
+    assertThat(UnicodeTables.unicodeGroups().get("N")).isNotNull(); // Number
+    assertThat(UnicodeTables.unicodeGroups().get("P")).isNotNull(); // Punctuation
+    assertThat(UnicodeTables.unicodeGroups().get("S")).isNotNull(); // Symbol
+    assertThat(UnicodeTables.unicodeGroups().get("Z")).isNotNull(); // Separator
+    assertThat(UnicodeTables.unicodeGroups().get("C")).isNotNull(); // Other
 
     // Subcategories
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Lu")).isNotNull(); // Uppercase Letter
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Ll")).isNotNull(); // Lowercase Letter
-    assertThat(UnicodeTables.UNICODE_GROUPS.get("Nd")).isNotNull(); // Decimal Digit
+    assertThat(UnicodeTables.unicodeGroups().get("Lu")).isNotNull(); // Uppercase Letter
+    assertThat(UnicodeTables.unicodeGroups().get("Ll")).isNotNull(); // Lowercase Letter
+    assertThat(UnicodeTables.unicodeGroups().get("Nd")).isNotNull(); // Decimal Digit
   }
 
   @Test
   void unicodeGroups_latinContainsAsciiLetters() {
-    int[][] latin = UnicodeTables.UNICODE_GROUPS.get("Latin");
+    int[][] latin = UnicodeTables.unicodeGroups().get("Latin");
     assertThat(latin).isNotNull();
     assertThat(containsCodePoint(latin, 'A')).isTrue();
     assertThat(containsCodePoint(latin, 'Z')).isTrue();
@@ -254,7 +254,7 @@ class UnicodeTablesTest {
 
   @Test
   void unicodeGroups_rangesAreValid() {
-    for (var entry : UnicodeTables.UNICODE_GROUPS.entrySet()) {
+    for (var entry : UnicodeTables.unicodeGroups().entrySet()) {
       for (int[] range : entry.getValue()) {
         assertThat(range.length)
             .withFailMessage("Range in " + entry.getKey() + " should have {lo, hi}")

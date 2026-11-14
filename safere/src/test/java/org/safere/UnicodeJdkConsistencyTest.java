@@ -54,7 +54,7 @@ class UnicodeJdkConsistencyTest {
     };
     String[] majorCategories = {"L", "M", "N", "P", "S", "Z", "C"};
 
-    Map<String, int[][]> groups = UnicodeTables.UNICODE_GROUPS;
+    Map<String, int[][]> groups = UnicodeTables.unicodeGroups();
     for (String cat : subcategories) {
       assertThat(groups.get(cat)).as("Subcategory %s", cat).isNotNull();
     }
@@ -74,7 +74,7 @@ class UnicodeJdkConsistencyTest {
     scripts.remove(UScript.UNKNOWN);
     for (int script : scripts) {
       String name = UScript.getName(script);
-      assertThat(UnicodeTables.UNICODE_GROUPS)
+      assertThat(UnicodeTables.unicodeGroups())
           .as("Pinned Unicode script %s", name)
           .containsKey(name);
     }
@@ -83,7 +83,7 @@ class UnicodeJdkConsistencyTest {
   @Test
   @DisplayName("Runtime-generated categories match Character.getType() for all code points")
   void categoriesMatchCharacterGetType() {
-    Map<String, int[][]> groups = UnicodeTables.UNICODE_GROUPS;
+    Map<String, int[][]> groups = UnicodeTables.unicodeGroups();
 
     // Spot-check a representative sample of code points across categories.
     record Sample(int cp, String expectedCategory) {}

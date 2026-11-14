@@ -20,7 +20,7 @@ final class UnicodeProperties {
 
   private static final class ScriptOrCategoryNormalizedHolder {
     static final Map<String, String> NORMALIZED_KEYS =
-        buildNormalizedKeys(UnicodeTables.UNICODE_GROUPS);
+        buildNormalizedKeys(UnicodeTables.unicodeGroups());
   }
 
   private static final class ScriptNormalizedHolder {
@@ -149,18 +149,18 @@ final class UnicodeProperties {
   }
 
   /**
-   * Case-insensitive lookup of a script or category name in {@link UnicodeTables#UNICODE_GROUPS}.
+   * Case-insensitive lookup of a script or category name in {@link UnicodeTables#unicodeGroups()}.
    * Spaces and hyphens are normalized to underscores.
    *
    * @return the range table, or {@code null} if not found
    */
   static int[][] lookupScriptOrCategory(String name) {
-    int[][] table = UnicodeTables.UNICODE_GROUPS.get(name);
+    int[][] table = UnicodeTables.unicodeGroups().get(name);
     if (table != null) {
       return table;
     }
     String canonicalKey = ScriptOrCategoryNormalizedHolder.NORMALIZED_KEYS.get(normalize(name));
-    return canonicalKey == null ? null : UnicodeTables.UNICODE_GROUPS.get(canonicalKey);
+    return canonicalKey == null ? null : UnicodeTables.unicodeGroups().get(canonicalKey);
   }
 
   /**

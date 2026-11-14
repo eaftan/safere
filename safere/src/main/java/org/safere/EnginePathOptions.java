@@ -28,7 +28,12 @@ record EnginePathOptions(
     boolean lazyCaptureExtraction) {
 
   private static final EnginePathOptions ALL_ENABLED = builder().build();
-  private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
+
+  // Production compilation needs only ALL_ENABLED, not the forced-path test metadata or its
+  // method-reference linkage. Class initialization publishes the shared index on first demand.
+  private static final class AccessorsHolder {
+    static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
+  }
 
   static EnginePathOptions allEnabled() {
     return ALL_ENABLED;
@@ -39,7 +44,7 @@ record EnginePathOptions(
   }
 
   static Map<EnginePath, OptionAccessor> accessors() {
-    return ACCESSORS;
+    return AccessorsHolder.ACCESSORS;
   }
 
   private static Map<EnginePath, OptionAccessor> buildAccessors() {

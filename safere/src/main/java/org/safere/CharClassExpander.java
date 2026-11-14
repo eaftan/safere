@@ -186,9 +186,9 @@ final class CharClassExpander {
   }
 
   private static void addCasedLetterCategoryClosure(CharClassBuilder ccb) {
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Lu"));
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Ll"));
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Lt"));
+    ccb.addTable(UnicodeTables.unicodeGroups().get("Lu"));
+    ccb.addTable(UnicodeTables.unicodeGroups().get("Ll"));
+    ccb.addTable(UnicodeTables.unicodeGroups().get("Lt"));
   }
 
   private static CaseFoldPolicy posixPropertyCaseFoldPolicy(

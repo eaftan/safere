@@ -10,7 +10,6 @@ package org.safere;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
 import java.lang.ref.SoftReference;
 import java.nio.charset.StandardCharsets;
@@ -63,14 +62,12 @@ public final class Pattern implements Serializable {
   // at least this many units remain. On a shorter tail the DFA's check costs less than the call.
   static final int MIN_REJECT_AFTER_START_REMAINING = 64;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
-  private static final MethodType DIAGNOSTICS_TYPE =
-      MethodType.methodType(SafeReMatchDiagnostics.class);
-  private static final MutableCallSite DIAGNOSTICS_SITE = new MutableCallSite(DIAGNOSTICS_TYPE);
+  // Start with the actual target: a type-only site builds a throwing method-handle adapter
+  // during cold initialization, even though the target is replaced before it can be invoked.
+  private static final MutableCallSite DIAGNOSTICS_SITE =
+      new MutableCallSite(
+          MethodHandles.constant(SafeReMatchDiagnostics.class, SafeReMatchDiagnostics.NONE));
   private static final MethodHandle DIAGNOSTICS_INVOKER = DIAGNOSTICS_SITE.dynamicInvoker();
-
-  static {
-    setDiagnosticsTarget(SafeReMatchDiagnostics.NONE);
-  }
 
   /**
    * Enables Unix lines mode. In this mode, only {@code '\n'} is recognized as a line terminator.

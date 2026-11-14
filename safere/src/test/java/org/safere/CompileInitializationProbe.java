@@ -8,9 +8,9 @@ package org.safere;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-/** Compiles one pattern in a fresh JVM for the Unicode index initialization test. */
-public final class UnicodeCaseIndexInitializationProbe {
-  private UnicodeCaseIndexInitializationProbe() {}
+/** Compiles one pattern in a fresh JVM for compiler initialization tests. */
+public final class CompileInitializationProbe {
+  private CompileInitializationProbe() {}
 
   /** Compiles the Base64-encoded UTF-8 pattern supplied as the first command-line argument. */
   public static void main(String[] args) {

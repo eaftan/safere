@@ -16,11 +16,52 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@DisabledForCrosscheck("checks SafeRE's internal Unicode index initialization")
-class UnicodeCaseIndexInitializationTest {
+@DisabledForCrosscheck("checks SafeRE's compiler initialization")
+class CompileInitializationTest {
   private static final String INDEX_NAME = "org/safere/UnicodeCaseFolding$UnicodeCaseClosureIndex";
   // Generated crosscheck tests copy this disabled test without its SafeRE-only probe class.
-  private static final String PROBE_CLASS_NAME = "org.safere.UnicodeCaseIndexInitializationProbe";
+  private static final String PROBE_CLASS_NAME = "org.safere.CompileInitializationProbe";
+
+  @ParameterizedTest
+  @ValueSource(strings = {"hello", "\\w+", "\\p{L}+", "(foo|bar)+"})
+  void ordinaryCompilationDoesNotInitializeForcedEngineMetadata(String regex)
+      throws IOException, InterruptedException, URISyntaxException {
+    assertThat(runFreshProcess(regex))
+        .as("forced-engine metadata initialization for %s", regex)
+        .doesNotContain("Initializing 'org/safere/EnginePath'");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "\\w+",
+        "\\W+",
+        "\\d+",
+        "\\D+",
+        "\\s+",
+        "\\S+",
+        "\\h+",
+        "\\v+",
+        "(?i)\\w+",
+        "\\p{ASCII}+",
+        "\\p{Lower}+",
+        "(?iu)[h-j]+"
+      })
+  void builtInClassesAndCaseFoldingDoNotInitializeGeneratedUnicodeProperties(String regex)
+      throws IOException, InterruptedException, URISyntaxException {
+    assertThat(runFreshProcess(regex))
+        .as("Unicode table initialization for %s", regex)
+        .doesNotContain("Initializing 'org/safere/UnicodeGeneratedTables'");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\\p{L}+", "\\p{script=Latin}+", "(?U)\\w+", "\\p{IsEmoji}+"})
+  void unicodeClassesStillInitializeGeneratedUnicodeTables(String regex)
+      throws IOException, InterruptedException, URISyntaxException {
+    assertThat(runFreshProcess(regex))
+        .as("Unicode table initialization for %s", regex)
+        .contains("Initializing 'org/safere/UnicodeGeneratedTables'");
+  }
 
   @ParameterizedTest
   @ValueSource(
@@ -68,7 +109,7 @@ class UnicodeCaseIndexInitializationTest {
         Path.of(Pattern.class.getProtectionDomain().getCodeSource().getLocation().toURI())
             + pathSeparator
             + Path.of(
-                UnicodeCaseIndexInitializationTest.class
+                CompileInitializationTest.class
                     .getProtectionDomain()
                     .getCodeSource()
                     .getLocation()
