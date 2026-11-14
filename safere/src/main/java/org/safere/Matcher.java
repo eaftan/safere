@@ -452,8 +452,9 @@ public final class Matcher implements MatchResult {
 
   // Existence is proved, but the prioritized match has not yet been selected.
   private boolean deferredFind;
-  // A matcher that has needed exact selection keeps using the ordinary pipeline, including
-  // across reset(). This records bounds demand without implying inner-capture demand.
+  // Bounds demand disables both bounded probes and nullable-loop existence deferral, including
+  // across reset(). In particular, repeating unrestricted witnesses at short preferred matches
+  // could rescan overlapping suffixes. This latch does not imply inner-capture demand.
   private boolean findBoundsObserved;
 
   // Bound the extra work when a Boolean-only search is subsequently asked for exact bounds.
@@ -2301,6 +2302,21 @@ public final class Matcher implements MatchResult {
     }
 
     if (fwdResult != null && fwdResult.matched() && prog.numLoopRegs() > 0) {
+      if (!regionActive
+          && !findBoundsObserved
+          && !replacementNeedsCaptures
+          && !parentPattern.innerCapturesObserved()
+          && options.lazyCaptureExtraction()) {
+        // Removing unnecessary empty iterations preserves existence, including assertions,
+        // but does not select the same prioritized path. Retain the original lower bound and
+        // full input end; the witness endpoint must not constrain exact selection later.
+        diagnosticBoundary(MatchStrategy.DFA);
+        applyDeferredMatchResult(
+            effectiveStart, scanner.length(), prog.numCaptures(), false, false);
+        capturesResolved = false;
+        deferredFind = true;
+        return true;
+      }
       diagnosticDecision(
           MatchStrategy.DFA,
           StrategyDisposition.BYPASSED,
@@ -4700,9 +4716,9 @@ public final class Matcher implements MatchResult {
 
   private void resolveDeferredFind() {
     if (deferredFind) {
-      // The short existence probe establishes no bounds. Select the exact prioritized match
-      // through the original pipeline once; never replay a search at individual candidates.
-      // Probes stop no later than the selected match's end and are bounded by a fixed window.
+      // Neither an early probe nor an unguarded nullable-loop witness selects preferred bounds.
+      // Use the original pipeline once with the full input and original assertion context.
+      // The latch prevents another existence-only pass, including after reset().
       int savedSearchFrom = searchFrom;
       searchFrom = deferredMatchStart;
       findBoundsObserved = true;

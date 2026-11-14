@@ -651,11 +651,12 @@ public final class Pattern implements Serializable {
    * #asPredicate()}) can answer for this pattern.
    *
    * <p>Those paths use cheap checks followed by the forward first-match DFA or an end-anchored
-   * reverse search, with exact NFA verification and fallback. Patterns with grapheme semantics or
-   * loop registers use a matcher instead, so they get its full strategy sequence.
+   * reverse search, with exact NFA verification and fallback. Progress guards affect selection, not
+   * existence, so the flattened DFA may answer even when the original program has loop registers.
+   * Programs unsupported by the forward DFA retain the matcher's strategy sequence.
    */
   private boolean canFindWithoutMatcher() {
-    return enginePathOptions.dfa() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return forwardDfaSupported;
   }
 
   boolean findWithDiagnostics(Utf8InputScanner scanner) {

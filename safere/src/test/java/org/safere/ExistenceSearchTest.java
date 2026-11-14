@@ -228,4 +228,35 @@ class ExistenceSearchTest {
           .isEqualTo(input.length());
     }
   }
+
+  @Test
+  void deferredSelectionSupportsBothProgramKindsAcrossPatternChanges() {
+    for (boolean utf8 : List.of(false, true)) {
+      for (boolean nullableFirst : List.of(false, true)) {
+        String greedyInput = "az" + "x".repeat(1024) + "z";
+        String nullableInput = "a".repeat(1024) + "y";
+        String[] regexes =
+            nullableFirst ? new String[] {"(a?)*y", "(a.*z)"} : new String[] {"(a.*z)", "(a?)*y"};
+        String input = greedyInput + nullableInput;
+        Pattern pattern = Pattern.compile(regexes[0]);
+        Matcher matcher =
+            utf8
+                ? new Matcher(pattern, new Utf8InputScanner(input.getBytes(UTF_8)))
+                : pattern.matcher(input);
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.capturesResolved()).isFalse();
+        // Changing patterns consumes the original deferred result with its original program.
+        matcher.usePattern(Pattern.compile(regexes[1]));
+        assertThat(input.substring(matcher.start(), matcher.end()))
+            .isEqualTo(nullableFirst ? nullableInput : greedyInput);
+        matcher.reset();
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(nullableFirst ? 0 : greedyInput.length());
+        assertThat(matcher.end()).isEqualTo(nullableFirst ? greedyInput.length() : input.length());
+        assertThat(input.substring(matcher.start(1), matcher.end(1)))
+            .isEqualTo(nullableFirst ? greedyInput : "");
+        assertThat(matcher.find()).isFalse();
+      }
+    }
+  }
 }
