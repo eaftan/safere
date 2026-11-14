@@ -401,6 +401,53 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void filteredLiteralSearchAgreesWithByteOracleAcrossViewsAndStarts() {
+    Random random = new Random(0xB17_5CA9L);
+    for (int trial = 0; trial < 4_000; trial++) {
+      int length = random.nextInt(1024);
+      int offset = random.nextInt(16);
+      byte[] storage = new byte[offset + length + 16];
+      byte[] needle = new byte[2 + random.nextInt(64)];
+      random.nextBytes(storage);
+      random.nextBytes(needle);
+      if (length >= needle.length && random.nextBoolean()) {
+        int match = random.nextInt(length - needle.length + 1);
+        System.arraycopy(needle, 0, storage, offset + match, needle.length);
+      }
+      int start = random.nextInt(length + 1);
+      byte[] view = Arrays.copyOfRange(storage, offset, offset + length);
+      int expected = naiveIndexOf(view, needle, start);
+      int filtered = ByteSwarScan.indexOfFiltered(storage, offset, length, needle, start);
+      assertThat(filtered).as("trial %s", trial).isIn(expected, -2);
+      assertThat(
+              new Utf8InputScanner(storage, offset, length)
+                  .indexOf(needle, literalFailure(needle), literalShifts(needle), start))
+          .as("fallback trial %s", trial)
+          .isEqualTo(expected);
+    }
+  }
+
+  @Test
+  void filteredLiteralSearchVerifiesBorrowBitsAndSelectsLeftmostMatch() {
+    byte[] needle = {'a', 'b', 'a'};
+    // XOR with 'a' turns '`' into 1. Adjacent zero/one bytes can propagate a borrow
+    // through the filter mask; that must neither produce a match nor hide a later match.
+    for (int offset = 0; offset < 16; offset++) {
+      for (int position = 0; position < 40; position++) {
+        byte[] storage = new byte[offset + 64 + 16];
+        Arrays.fill(storage, (byte) '`');
+        storage[offset] = 'a';
+        storage[offset + 2] = 'a';
+        System.arraycopy(needle, 0, storage, offset + position + 3, needle.length);
+        System.arraycopy(needle, 0, storage, offset + 48, needle.length);
+        assertThat(ByteSwarScan.indexOfFiltered(storage, offset, 64, needle, 0))
+            .as("offset %s, position %s", offset, position)
+            .isEqualTo(position + 3);
+      }
+    }
+  }
+
+  @Test
   void tailLiteralSearchAgreesWithStringIndexOf() {
     // Short and long texts, so the candidate filter runs below the skip loop's threshold too, and
     // a tiny alphabet so the work budget can run out and fall back to the linear-time scan.
