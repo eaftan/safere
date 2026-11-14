@@ -778,7 +778,14 @@ final class UnicodeTables {
   // Unicode script and category groups generated from the maintainer JDK. See UnicodeGroups for
   // details.
 
-  public static final Map<String, int[][]> UNICODE_GROUPS = UnicodeGroups.groups();
+  private static final class UnicodeGroupsHolder {
+    static final Map<String, int[][]> GROUPS = UnicodeGroups.groups();
+  }
+
+  /** Returns the shared Unicode groups without loading them for ASCII-only classes. */
+  public static Map<String, int[][]> unicodeGroups() {
+    return UnicodeGroupsHolder.GROUPS;
+  }
 
   // ---------------------------------------------------------------------------
   // Unicode Perl character classes (for UNICODE_CHARACTER_CLASS flag)
@@ -793,7 +800,7 @@ final class UnicodeTables {
    * UNICODE_CHARACTER_CLASS to {@code \p{IsDigit}} which is the Nd general category.
    */
   public static int[][] unicodeDigit() {
-    return UNICODE_GROUPS.get("Nd");
+    return unicodeGroups().get("Nd");
   }
 
   /**
@@ -830,10 +837,10 @@ final class UnicodeTables {
     static final int[][] UNICODE_WORD =
         mergeRangeTables(
             UnicodeProperties.lookupBinaryProperty("Alphabetic"),
-            UNICODE_GROUPS.get("M"),
-            UNICODE_GROUPS.get("Nd"),
-            UNICODE_GROUPS.get("Nl"),
-            UNICODE_GROUPS.get("Pc"),
+            unicodeGroups().get("M"),
+            unicodeGroups().get("Nd"),
+            unicodeGroups().get("Nl"),
+            unicodeGroups().get("Pc"),
             JOIN_CONTROL);
 
     static final Map<String, int[][]> UNICODE_PERL_GROUPS =
