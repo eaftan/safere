@@ -18,7 +18,7 @@ from repo_assist.maintenance import SHA, git, write_json
 MANIFEST_PREFIX = "=== Requested Trials: "
 TRIAL_PARAMETERS = ("crossEngineScalingTrial", "crossEngineTrial", "crossEngineNoForkTrial", "crossEngineColdStartTrial", "specializedTrial")
 COMPLETE = "=== Benchmark Comparison Results ==="
-GUARDED = ("pom.xml", ":(glob)**/pom.xml", ".mvn", "safere-benchmarks", "materialize-benchmark-inputs.sh", "run-java-benchmarks.sh")
+GUARDED = ("pom.xml", ":(glob)**/pom.xml", ".mvn", "safere-benchmarks", "materialize-benchmark-inputs.sh", "run-java-benchmarks.sh", "tools/machine-run", "tools/machine-lock.sh")
 
 
 def load_parser(repository):

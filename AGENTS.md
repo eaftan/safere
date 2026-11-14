@@ -107,13 +107,13 @@ found bugs and recheck the external failure before proceeding.
 
 ```bash
 # Focused library tests (replace MatcherTest with the affected class)
-mvn -pl safere -Dtest=MatcherTest test -q
+./tools/machine-run --label "MatcherTest" -- mvn -pl safere -Dtest=MatcherTest test -q
 
 # Full library suite, when warranted
-mvn -pl safere test -q
+./tools/machine-run --label "library tests" -- mvn -pl safere test -q
 
 # Build/install this project for dependent modules or external validation
-mvn install -DskipTests -q
+./tools/machine-run --label "install" -- mvn install -DskipTests -q
 ```
 
 - Run best-effort focused validation before creating or updating a PR. Select
@@ -126,9 +126,19 @@ mvn install -DskipTests -q
 - For changed tests, run the relevant tests. For changed fuzz coverage, run the
   affected targets in regression mode. For public API compatibility changes,
   select affected generated crosschecks when practical; see [Testing](docs/TESTING.md).
-- Run Maven builds/tests sequentially within one checkout: compilation can
-  replace class files in use by another run. Use separate worktrees/build
-  outputs when concurrent independent builds are needed.
+- **Reserve the machine for heavy work.** Run tests, all Maven commands, native
+  builds, profiling, fuzzing, and other CPU/memory-intensive commands through
+  `./tools/machine-run --label "description" -- COMMAND ...`. Benchmark runners,
+  collection/comparison tools, the benchmark input materializer, and the fuzz
+  runner reserve it automatically. All sessions and worktrees use the same
+  machine lock; separate worktrees do not permit concurrent heavy workloads.
+- Start investigation, editing, and review immediately; acquire the reservation
+  only for executing heavy commands. Wait for queued commands through the tool's
+  running-session mechanism, without launching duplicate jobs or using fixed
+  delays. Never start another heavy command outside the runner while waiting.
+  Run `./tools/machine-run --status` to see the current owner. See
+  [exclusive machine access](docs/DEVELOPMENT.md#exclusive-machine-access)
+  for nesting, cancellation, and before/after reservations.
 - Once relevant checks pass, rerun or expand them only for new changes,
   failures, or unresolved concerns. Distinguish an environment failure from a
   code failure and do not describe an incomplete check as passed.

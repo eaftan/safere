@@ -92,27 +92,31 @@ rewritten in Java:
 
 ## Running Tests
 
+Reserve exclusive machine access for tests, including tests in other worktrees.
+The runner waits for the current workload to finish; see
+[exclusive machine access](DEVELOPMENT.md#exclusive-machine-access).
+
 ```bash
 # Run all tests
-mvn test -pl safere
+./tools/machine-run -- mvn test -pl safere
 
 # Run a specific test class
-mvn test -pl safere -Dtest=ParserTest
+./tools/machine-run -- mvn test -pl safere -Dtest=ParserTest
 
 # Run tests with coverage report (JaCoCo)
-mvn verify -pl safere -Pcoverage
+./tools/machine-run -- mvn verify -pl safere -Pcoverage
 
 # Run crosscheck module tests
-mvn test -pl safere-crosscheck -am
+./tools/machine-run -- mvn test -pl safere-crosscheck -am
 
 # Run SafeRE tests and generated public API tests through the crosscheck facade
-mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
+./tools/machine-run -- mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
 
 # Run generated public API tests only, after safere and the parent POM are installed locally
-mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
+./tools/machine-run -- mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
 
 # Run Jazzer fuzz targets in regression mode
-mvn test -pl safere-fuzz -am
+./tools/machine-run -- mvn test -pl safere-fuzz -am
 ```
 
 Coverage reports are generated at

@@ -21,6 +21,7 @@ class FuzzRunnerTest(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+        shutil.copytree(SCRIPTS.parents[1] / 'tools', self.root / 'tools')
         self.scripts = self.root / 'safere-fuzz/scripts'
         self.scripts.mkdir(parents=True)
         for name in ('run-fuzz-test.sh', 'targets.py', 'report-fuzz-result.py'):
@@ -76,6 +77,7 @@ sys.exit(case.get('exit', 0))
         cases = {'ExampleFuzzer#first': first, 'ExampleFuzzer#second': second or {}}
         env = dict(os.environ, PATH=str(self.bin), FAKE_CASES=json.dumps(cases),
                    GITHUB_STEP_SUMMARY=str(self.summary))
+        env['SAFERE_MACHINE_LOCK_FILE'] = str(self.root / 'machine.lock')
         result = subprocess.run(
             [str(self.bin / 'bash'), str(self.scripts / 'run-fuzz-test.sh'),
              '--suite', 'broad', '--max-duration', '1s', '--keep-going', '3'],

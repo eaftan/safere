@@ -42,9 +42,17 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 Arguments after the mode flag are passed directly to JMH as benchmark regex
 filters.
 
-**Run benchmarks sequentially.** Concurrent workloads compete for CPU, cache,
-and memory bandwidth, invalidating comparisons. Use the declarative collection
-plan to select generic runners and trials:
+**Reserve the machine for measurement.** Benchmark runners and collection tools
+automatically acquire a shared machine lock before builds and measurements.
+Tests, builds, profiling, fuzzing, and other heavy commands must use
+`./tools/machine-run --label "description" -- COMMAND ...` so they cannot overlap
+benchmarks across sessions or worktrees. Run `./tools/machine-run --status` to
+inspect the owner. See [exclusive machine access](../docs/DEVELOPMENT.md#exclusive-machine-access)
+for cancellation and keeping baseline/candidate measurements in one reservation.
+The lock is cooperative; unrelated commands can still disturb measurements.
+
+Concurrent workloads compete for CPU, cache, and memory bandwidth, invalidating
+comparisons. Use the declarative collection plan to select generic runners and trials:
 
 ```bash
 ./run-java-benchmarks.sh --declared

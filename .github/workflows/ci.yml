@@ -357,8 +357,11 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Test benchmark result processing
-        run: python -m unittest safere-benchmarks/scripts/test_compare_benchmarks.py
+      - name: Test machine reservations
+        run: ./tools/machine-run -- python -m unittest discover -s tools
+
+      - name: Test benchmark tools
+        run: ./tools/machine-run -- python -m unittest discover -s safere-benchmarks/scripts
 
   benchmark-smoke-test-java:
     needs: [changes, prepare-maven-cache]

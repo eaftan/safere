@@ -22,6 +22,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/tools/machine-lock.sh"
 DEFAULT_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID"
 MODE="standard"
@@ -106,6 +107,8 @@ fi
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi
+
+safere_reserve_machine
 
 mkdir -p "$OUTPUT_DIR"
 

@@ -23,22 +23,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$REPO_ROOT/tools/machine-lock.sh"
 
 cd "$REPO_ROOT"
 
 ORIGINAL_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
-TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/compare_benchmarks_XXXXXX")"
-COMPARE_PY="$TMP_DIR/compare-benchmarks.py"
-cp "$SCRIPT_DIR/compare-benchmarks.py" "$COMPARE_PY"
-
-cleanup() {
-  rm -rf "$TMP_DIR"
-  current_head="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || git rev-parse HEAD)"
-  if [ "$current_head" != "$ORIGINAL_BRANCH" ]; then
-    git checkout -q "$ORIGINAL_BRANCH" || true
-  fi
-}
-trap cleanup EXIT
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "Error: compare-branch.sh requires a clean working tree" >&2
@@ -117,6 +106,7 @@ if [ "$BASELINE_RUNNER" != "$CURRENT_RUNNER" ]; then
 fi
 if ! git diff --quiet "$BASELINE_COMMIT" "$CURRENT_COMMIT" -- \
   pom.xml safere-benchmarks materialize-benchmark-inputs.sh run-java-benchmarks.sh \
+  tools/machine-run tools/machine-lock.sh \
   ':(exclude)safere-benchmarks/scripts/compare-benchmarks.py' \
   ':(exclude)safere-benchmarks/scripts/compare-branch.sh' \
   ':(exclude)safere-benchmarks/scripts/test_compare_benchmarks.py'; then
@@ -124,6 +114,21 @@ if ! git diff --quiet "$BASELINE_COMMIT" "$CURRENT_COMMIT" -- \
   echo "Refusing to attribute harness changes to library performance." >&2
   exit 1
 fi
+
+safere_reserve_machine
+
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/compare_benchmarks_XXXXXX")"
+COMPARE_PY="$TMP_DIR/compare-benchmarks.py"
+cp "$SCRIPT_DIR/compare-benchmarks.py" "$COMPARE_PY"
+
+cleanup() {
+  rm -rf "$TMP_DIR"
+  current_head="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || git rev-parse HEAD)"
+  if [ "$current_head" != "$ORIGINAL_BRANCH" ]; then
+    git checkout -q "$ORIGINAL_BRANCH" || true
+  fi
+}
+trap cleanup EXIT
 
 VECTOR_JVM_ARGS="--add-modules=jdk.incubator.vector --add-opens=java.base/java.lang=ALL-UNNAMED -Dorg.safere.experimental.vectorScanProvider=vector"
 
