@@ -19,6 +19,8 @@ class LiteralAlternationTest {
           "foo|barfoo",
           "ab|bcd",
           "red|green|blue|yellow|orange|purple",
+          "north|south|east|west|upper|lower|front|back",
+          "@root|3value|abc|north|south|west",
           "ab|abc",
           "abc|ab",
           "ab|cherry|abc",
@@ -146,7 +148,8 @@ class LiteralAlternationTest {
             "ab|cherry|abc",
             "abc|cherry|ab",
             "ab|durian|cherry|elderberry|fig|abc",
-            "abc|durian|cherry|elderberry|fig|ab")) {
+            "abc|durian|cherry|elderberry|fig|ab",
+            "abc|north|south|east|west|upper|lower|ab")) {
       Pattern pattern = Pattern.compile(regex);
       assertThat(pattern.preparedMatchRunner(false))
           .isInstanceOf(Matcher.LiteralAlternationPreparedRunner.class);

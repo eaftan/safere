@@ -33,7 +33,11 @@ class LiteralAlternationUtf8Test {
           "ab|bcd",
           "ab|cherry|abc",
           "abc|cherry|ab",
-          "red|green|blue|yellow|orange|purple");
+          "red|green|blue|yellow|orange|purple",
+          "ALPHA|BETA|GAMMA|DELTA|EPSILON|WXYZ",
+          "north|south|east|west|upper|lower",
+          "north|south|east|west|upper|lower|front|back",
+          "@root|3value|abc|north|south|west");
 
   // Dense fillers switch the UTF-8 search to per-literal scans; sparse ones keep the first-byte
   // hops.
@@ -87,7 +91,13 @@ class LiteralAlternationUtf8Test {
   @Test
   void windowBoundariesPreserveLeftmostMatchAndAlternativePriority() {
     for (String regex :
-        List.of("ab|cherry|abc", "abc|cherry|ab", "abc|bcd|cde", "cherry|banana|apple")) {
+        List.of(
+            "ab|cherry|abc",
+            "abc|cherry|ab",
+            "abc|bcd|cde",
+            "cherry|banana|apple",
+            "ab|north|south|east|west|abc",
+            "abc|north|south|east|west|ab")) {
       Pattern pattern = Pattern.compile(regex);
       for (int boundary : new int[] {1_024, 3_072, 4_096, 5_120, 7_168, 15_360, 31_744}) {
         for (int delta = -14; delta <= 2; delta++) {
@@ -103,6 +113,26 @@ class LiteralAlternationUtf8Test {
           assertThat(utf8Finds(pattern, text))
               .as("/%s/ boundary %s%+d", regex, boundary, delta)
               .isEqualTo(jdkFinds(regex, text));
+        }
+      }
+    }
+  }
+
+  @Test
+  void sparseManyInitialsPreservePriorityAndByteOffsetsAcrossBoundaries() {
+    for (String regex :
+        List.of(
+            "ab|north|south|east|west|abc",
+            "abc|north|south|east|west|ab",
+            "north|south|east|west|upper|lower|front|back")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (String padding : List.of("z", "é", "😀")) {
+        for (int repeat : new int[] {255, 256, 257, 511, 512, 1_024}) {
+          String text = padding.repeat(repeat) + "abc lower back north" + padding.repeat(2_048);
+          assertThat(utf8Finds(pattern, text))
+              .as("/%s/ %s x %s", regex, padding, repeat)
+              .isEqualTo(jdkFinds(regex, text));
+          assertThat(pattern.find(Utf8Input.validated(text.getBytes(UTF_8)))).isTrue();
         }
       }
     }
@@ -142,24 +172,41 @@ class LiteralAlternationUtf8Test {
   }
 
   @Test
-  void sparseFirstBytesUseTheLiteralSearchAndManyFirstBytesKeepTheFallback() {
+  void defaultProviderUsesLiteralSearchForManyFirstBytes() {
     Pattern.setDiagnostics(recorder);
     for (String[] regexAndText :
         new String[][] {
           {"APPLE|BANANA|CHERRY", "the quick brown fox ".repeat(64) + "CHERRY"},
           {"apple|banana|cherry", "日本語のテキスト".repeat(64) + "cherry"},
-          {"red|green|blue|yellow|orange|purple", "rgbyop ".repeat(64) + "purple"},
+          {"red|green|blue|yellow|orange|purple", "日本語".repeat(128) + "purple"},
         }) {
       Pattern pattern = Pattern.compile(regexAndText[0]);
       operations.clear();
       assertThat(pattern.matcher(Utf8Input.validated(regexAndText[1].getBytes(UTF_8))).find())
           .isTrue();
-      // Six first bytes are too many for a first-byte scan, so the existing DFA path runs.
-      boolean literalSearch =
-          !regexAndText[0].startsWith("red") && !VectorScanProviders.vectorProviderAvailable();
+      boolean literalSearch = !VectorScanProviders.vectorProviderAvailable();
       assertThat(operations.getLast().boundaryStrategy() == MatchStrategy.LITERAL_ALTERNATION)
           .as(regexAndText[0])
           .isEqualTo(literalSearch);
+    }
+  }
+
+  @Test
+  void manyInitialsKeepTheFallbackForTinyDenseAndWideRangeInputs() {
+    Pattern.setDiagnostics(recorder);
+    for (String[] regexAndText :
+        new String[][] {
+          {"red|green|blue|yellow|orange|purple", "purple"},
+          {"red|green|blue|yellow|orange|purple", "rgbyop ".repeat(64) + "purple"},
+          {"@root|3value|abc|north|south|west", "x".repeat(512) + "west"}
+        }) {
+      operations.clear();
+      Pattern pattern = Pattern.compile(regexAndText[0]);
+      assertThat(pattern.matcher(Utf8Input.validated(regexAndText[1].getBytes(UTF_8))).find())
+          .isTrue();
+      assertThat(operations.getLast().boundaryStrategy())
+          .as(regexAndText[0])
+          .isNotEqualTo(MatchStrategy.LITERAL_ALTERNATION);
     }
   }
 
@@ -198,7 +245,12 @@ class LiteralAlternationUtf8Test {
   @Test
   void malformedTrustedInputAgreesWithFallback() {
     byte[] garbage = {(byte) 0x80, 'a', (byte) 0xED, (byte) 0xA0, (byte) 0x80, (byte) 0xC3, 'b'};
-    for (String regex : List.of("apple|banana|cherry", "ab|cherry|abc", "abc|cherry|ab")) {
+    for (String regex :
+        List.of(
+            "apple|banana|cherry",
+            "ab|cherry|abc",
+            "abc|cherry|ab",
+            "abc|north|south|east|west|ab")) {
       Pattern pattern = Pattern.compile(regex);
       Pattern fallback = Pattern.compile(regex, 0, NO_LITERAL_FAST_PATHS);
       for (String literal : List.of("", "apple", "abc", "cherry")) {

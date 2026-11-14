@@ -1,0 +1,920 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    }
+  },
+  "inputs": [
+    {
+      "id": "directions.ascii.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "lower",
+        "unit": "no events were reported. ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.ascii.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "no events were reported. ",
+        "suffix": "lower",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.ascii.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "no events were reported. ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.unicode.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "lower",
+        "unit": "日本語 é ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.unicode.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "日本語 é ",
+        "suffix": "lower",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.unicode.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "日本語 é ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.dense.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "lower",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.dense.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "lower",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "directions.dense.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.ascii.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "purple",
+        "unit": "no events were reported. ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.ascii.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "no events were reported. ",
+        "suffix": "purple",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.ascii.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "no events were reported. ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.unicode.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "purple",
+        "unit": "日本語 é ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.unicode.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "日本語 é ",
+        "suffix": "purple",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.unicode.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "日本語 é ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.dense.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "purple",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.dense.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "purple",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "colors.dense.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "n s e w u l r g b y o p ",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "wide.late.8192",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "x",
+        "suffix": "west",
+        "length": 8192
+      }
+    },
+    {
+      "id": "wide.miss.8192",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "x",
+        "suffix": "",
+        "length": 8192
+      }
+    }
+  ],
+  "workloads": [
+    {
+      "id": "MultiLiteralSearch.directions.ascii.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.ascii.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.ascii.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.ascii.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.ascii.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.ascii.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.unicode.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.unicode.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.unicode.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.unicode.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.unicode.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.unicode.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.dense.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.dense.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.dense.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.dense.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.directions.dense.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputs": [
+        "directions.dense.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.ascii.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.ascii.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.ascii.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.ascii.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.ascii.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.ascii.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.unicode.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.unicode.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.unicode.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.unicode.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.unicode.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.unicode.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.dense.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.dense.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.dense.late.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.dense.late.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.colors.dense.miss.{size}",
+      "axes": {
+        "size": [
+          16,
+          8192,
+          262144
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "red|green|blue|yellow|orange|purple"
+      ],
+      "inputs": [
+        "colors.dense.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.wide.late.8192",
+      "operation": "find",
+      "patterns": [
+        "@root|3value|abc|north|south|west"
+      ],
+      "inputs": [
+        "wide.late.8192"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.wide.miss.8192",
+      "operation": "find",
+      "patterns": [
+        "@root|3value|abc|north|south|west"
+      ],
+      "inputs": [
+        "wide.miss.8192"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "MultiLiteralSearch.compile",
+      "operation": "compile",
+      "patterns": [
+        "north|south|east|west|upper|lower"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no input encoding.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    }
+  ]
+}
