@@ -21,6 +21,19 @@ import org.junit.jupiter.api.Test;
 class ProgTest {
 
   @Test
+  void greedyRuneMetadataRequiresAnImmediatePreferredConsumingCycle() {
+    for (String regex : List.of("a+", "[a-z]*b", "[é😀]+")) {
+      Prog prog = Pattern.compile(regex).prog();
+      Inst[] runes = prog.greedyRunes();
+      assertThat(runes).as(regex).isNotNull();
+      assertThat(prog.greedyRunes()).isSameAs(runes);
+    }
+    for (String regex : List.of("a+?", "(a)+", "(a?)*", "abc")) {
+      assertThat(Pattern.compile(regex).prog().greedyRunes()).as(regex).isNull();
+    }
+  }
+
+  @Test
   void bitStateAnalysisIsSharedRegardlessOfFirstRequestedMetadata() {
     for (boolean fusionFirst : new boolean[] {false, true}) {
       Prog prog = Pattern.compile("(a)b(c)").prog();

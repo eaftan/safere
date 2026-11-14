@@ -402,16 +402,19 @@ final class Prog {
     final CaptureRune[] captureRunes;
     final LoopEntry[] loopEntries;
     final Inst[] captureProgressChecks;
+    final Inst[] greedyRunes;
 
     BitStateAnalysis(
         boolean[] epsilonCycleAlts,
         CaptureRune[] captureRunes,
         LoopEntry[] loopEntries,
-        Inst[] captureProgressChecks) {
+        Inst[] captureProgressChecks,
+        Inst[] greedyRunes) {
       this.epsilonCycleAlts = epsilonCycleAlts;
       this.captureRunes = captureRunes;
       this.loopEntries = loopEntries;
       this.captureProgressChecks = captureProgressChecks;
+      this.greedyRunes = greedyRunes;
     }
   }
 
@@ -443,6 +446,29 @@ final class Prog {
     return bitStateAnalysis().captureProgressChecks;
   }
 
+  /** Returns consuming bodies of simple greedy loops, or null when none exist. */
+  Inst[] greedyRunes() {
+    return bitStateAnalysis().greedyRunes;
+  }
+
+  private Inst[] computeGreedyRunes(boolean[] reachable) {
+    Inst[] runes = null;
+    for (int i = 0; i < size(); i++) {
+      Inst alt = inst(i);
+      if (reachable[i] && (alt.opCode == InstOp.OP_ALT || alt.opCode == InstOp.OP_ALT_MATCH)) {
+        Inst rune = inst(alt.out);
+        if ((rune.opCode == InstOp.OP_CHAR_RANGE || rune.opCode == InstOp.OP_CHAR_CLASS)
+            && rune.out == i) {
+          if (runes == null) {
+            runes = new Inst[size()];
+          }
+          runes[i] = rune;
+        }
+      }
+    }
+    return runes;
+  }
+
   private BitStateAnalysis bitStateAnalysis() {
     BitStateAnalysis result = bitStateAnalysis;
     if (result == null) {
@@ -453,7 +479,8 @@ final class Prog {
               computeEpsilonCycleAlts(reachable),
               captures,
               computeLoopEntries(reachable, captures),
-              computeCaptureProgressChecks(reachable));
+              computeCaptureProgressChecks(reachable),
+              computeGreedyRunes(reachable));
       bitStateAnalysis = result;
     }
     return result;
