@@ -141,6 +141,9 @@ class BitStateWindowTest {
             "(a*)(b?)",
             "a\\b|a\\B",
             "(.)*?b",
+            "([a-z]*)(.*?)(b)",
+            "([a-z]*?)([a-z]*)(b)",
+            "([é😀]*)(.*?)(b)",
             "(😀|a)*",
             "[^()]*\\([^()]*\\)",
             "((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)");
@@ -335,7 +338,7 @@ class BitStateWindowTest {
 
   @Test
   void failedRetriesBecomeLessFrequentButStillRecoverAfterSustainedFailures() {
-    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern pattern = unhintedPattern(PROTOCOL_LINK_REGEX);
     String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
     String shortMatch = "[α😀](customProtocol://<doc_1>) ";
     String text = longMatch.repeat(2000) + shortMatch.repeat(3000);
@@ -415,7 +418,7 @@ class BitStateWindowTest {
 
   @Test
   void resetRegionAndPatternChangesClearRetryDelayForBothInputRepresentations() {
-    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern pattern = unhintedPattern(PROTOCOL_LINK_REGEX);
     String text = ("[" + "a".repeat(400) + "](customProtocol://<doc_1>) ").repeat(100);
     SafeReMatchDiagnostics previous = Pattern.diagnostics();
     List<OperationDiagnostics> operations = new ArrayList<>();
@@ -431,7 +434,7 @@ class BitStateWindowTest {
           switch (change) {
             case "reset" -> matcher.reset();
             case "region" -> matcher.region(0, text.length());
-            case "pattern" -> matcher.usePattern(Pattern.compile(PROTOCOL_LINK_REGEX + "|Z"));
+            case "pattern" -> matcher.usePattern(unhintedPattern(PROTOCOL_LINK_REGEX + "|Z"));
             default -> throw new AssertionError(change);
           }
           operations.clear();
@@ -447,7 +450,7 @@ class BitStateWindowTest {
 
   @Test
   void repeatedWindowFailuresBackOffUntilResetForBothInputRepresentations() {
-    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern pattern = unhintedPattern(PROTOCOL_LINK_REGEX);
     String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
     String text = longMatch.repeat(100);
     SafeReMatchDiagnostics previous = Pattern.diagnostics();
@@ -480,7 +483,7 @@ class BitStateWindowTest {
 
   @Test
   void successfulWindowBreaksConsecutiveFailureStreak() {
-    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern pattern = unhintedPattern(PROTOCOL_LINK_REGEX);
     String longMatch = "[" + "a".repeat(400) + "](customProtocol://<doc_1>) ";
     String text = longMatch + "[aa](customProtocol://<doc_1>) " + longMatch.repeat(100);
     SafeReMatchDiagnostics previous = Pattern.diagnostics();
@@ -505,7 +508,7 @@ class BitStateWindowTest {
 
   @Test
   void changingPatternOrInputClearsSpeculativeBackoff() {
-    Pattern pattern = Pattern.compile(PROTOCOL_LINK_REGEX);
+    Pattern pattern = unhintedPattern(PROTOCOL_LINK_REGEX);
     String longText = ("[" + "a".repeat(400) + "](customProtocol://<doc_1>) ").repeat(100);
     String shortText = "[aa](customProtocol://<doc_1>) " + "x".repeat(40_000);
     Matcher matcher = pattern.matcher(longText);
@@ -522,12 +525,75 @@ class BitStateWindowTest {
       assertThat(matcher.find()).isTrue();
       assertThat(matcher.find()).isTrue();
       operations.clear();
-      matcher.usePattern(Pattern.compile(PROTOCOL_LINK_REGEX + "|Z"));
+      matcher.usePattern(unhintedPattern(PROTOCOL_LINK_REGEX + "|Z"));
       assertThat(matcher.find()).isTrue();
       assertThat(operations.getFirst().strategyDecisions()).contains(windowFailure());
     } finally {
       Pattern.setDiagnostics(previous);
     }
+  }
+
+  @Test
+  void dfaEndHintLetsExactWindowsReachBeyondTheDefaultSize() {
+    SafeReMatchDiagnostics previous = Pattern.diagnostics();
+    List<OperationDiagnostics> operations = new ArrayList<>();
+    Pattern.setDiagnostics(recordOperations(operations));
+    try {
+      for (String atom : List.of("a", "α", "😀")) {
+        String regex = "(" + atom + "?)*b";
+        String text = atom.repeat(400) + "b" + "q".repeat(40_000);
+        Pattern pattern = Pattern.compile(regex);
+        Pattern exact =
+            Pattern.compile(regex, 0, EnginePathOptions.builder().bitState(false).build());
+        List<Matcher> actual = matchers(pattern, text);
+        List<Matcher> expected = matchers(exact, text);
+        for (int i = 0; i < actual.size(); i++) {
+          operations.clear();
+          assertThat(actual.get(i).find()).isTrue();
+          assertThat(operations.getFirst().boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+          assertThat(expected.get(i).find()).isTrue();
+          assertThat(actual.get(i).start()).isEqualTo(expected.get(i).start());
+          assertThat(actual.get(i).end()).isEqualTo(expected.get(i).end());
+        }
+      }
+    } finally {
+      Pattern.setDiagnostics(previous);
+    }
+  }
+
+  @Test
+  void hintedWindowsPreservePriorityCapturesAndReplacement() {
+    for (String regex : List.of("(a?)*b", "(a?|ab)*b", "([ab]?)*z|b", "((a?)*b)+", "(a?)*b\\B")) {
+      Pattern pattern = Pattern.compile(regex);
+      Pattern exact =
+          Pattern.compile(regex, 0, EnginePathOptions.builder().bitState(false).build());
+      for (int length : List.of(255, 256, 257, 400, 30_000)) {
+        String text = "a".repeat(length) + "bz " + "q".repeat(40_000);
+        List<Matcher> actual = matchers(pattern, text);
+        List<Matcher> expected = matchers(exact, text);
+        for (int i = 0; i < actual.size(); i++) {
+          Matcher matcher = actual.get(i);
+          Matcher oracle = expected.get(i);
+          while (oracle.find()) {
+            assertThat(matcher.find()).as("%s, length=%s", regex, length).isTrue();
+            for (int group = 0; group <= matcher.groupCount(); group++) {
+              assertThat(matcher.start(group)).isEqualTo(oracle.start(group));
+              assertThat(matcher.end(group)).isEqualTo(oracle.end(group));
+            }
+          }
+          assertThat(matcher.find()).isFalse();
+        }
+        assertThat(pattern.matcher(text).replaceAll("<$1>"))
+            .isEqualTo(exact.matcher(text).replaceAll("<$1>"));
+        assertThat(pattern.matcher(text).replaceAll("X"))
+            .isEqualTo(exact.matcher(text).replaceAll("X"));
+      }
+    }
+  }
+
+  private static Pattern unhintedPattern(String regex) {
+    // Keep retry/backoff coverage for searches that have no usable DFA end hint.
+    return Pattern.compile(regex, 0, EnginePathOptions.builder().dfa(false).build());
   }
 
   private static SafeReMatchDiagnostics recordOperations(List<OperationDiagnostics> operations) {

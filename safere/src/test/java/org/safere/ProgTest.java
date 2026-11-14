@@ -21,6 +21,33 @@ import org.junit.jupiter.api.Test;
 class ProgTest {
 
   @Test
+  void greedyAndLazyLoopMetadataCoexistRegardlessOfFirstAccess() {
+    for (boolean greedyFirst : List.of(false, true)) {
+      Prog prog = Pattern.compile("([a-z]*)(.*?)(z)").prog();
+      if (greedyFirst) {
+        assertThat(prog.greedyRunes()).isNotEmpty();
+      } else {
+        assertThat(prog.lazyRuneLoops()).isNotEmpty();
+      }
+      Inst[] greedy = prog.greedyRunes();
+      LazyRuneLoop[] lazy = prog.lazyRuneLoops();
+      assertThat(greedy).isNotEmpty();
+      assertThat(lazy).isNotEmpty();
+      for (int id = 0; id < prog.size(); id++) {
+        if (greedy[id] != null) {
+          assertThat(lazy[id]).isNull();
+        }
+      }
+      assertThat(prog.greedyRunes()).isSameAs(greedy);
+      assertThat(prog.lazyRuneLoops()).isSameAs(lazy);
+      Prog copy = new Prog(prog);
+      copy.freeze();
+      assertThat(copy.greedyRunes()).isNotSameAs(greedy).isNotEmpty();
+      assertThat(copy.lazyRuneLoops()).isNotSameAs(lazy).isNotEmpty();
+    }
+  }
+
+  @Test
   void greedyRuneMetadataRequiresAnImmediatePreferredConsumingCycle() {
     for (String regex : List.of("a+", "[a-z]*b", "[é😀]+")) {
       Prog prog = Pattern.compile(regex).prog();

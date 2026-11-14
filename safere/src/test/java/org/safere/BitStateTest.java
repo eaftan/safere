@@ -47,6 +47,81 @@ class BitStateTest {
   }
 
   @Test
+  void lazyCharacterLoopsPreserveCapturesAcrossFailedExitsAndStarts() {
+    for (String regex :
+        List.of(
+            "(.*?)z",
+            "(.*?)(z)",
+            "x([ab]*?)z",
+            "(a*?)b",
+            "((.*?)z)+",
+            "(?i:a*?)b",
+            "(.*?)\\bz",
+            "([a-z]*)(.*?)(z)",
+            "([a-z]*?)([a-z]*)(z)",
+            "(?:([a-z]*)(.*?)(z)|([a-z]*?)([a-z]*)(x))",
+            "(a.*?)z|x(.*?)z")) {
+      Prog prog = Pattern.compile(regex).prog();
+      for (String input :
+          List.of(
+              "",
+              "z",
+              "aaab",
+              "xabzqz",
+              "aazabz",
+              "AAAb",
+              "aaaa\nz",
+              "é😀az",
+              "zz",
+              "x" + "a".repeat(100) + "z",
+              "a".repeat(100))) {
+        for (InputScanner scanner :
+            List.of(new StringInputScanner(input), new Utf8InputScanner(input.getBytes(UTF_8)))) {
+          for (boolean anchored : List.of(false, true)) {
+            for (Nfa.MatchKind kind : Nfa.MatchKind.values()) {
+              int[] expected =
+                  Nfa.search(
+                      prog,
+                      scanner,
+                      0,
+                      scanner.length(),
+                      scanner.length(),
+                      0,
+                      anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED,
+                      kind,
+                      prog.numCaptures(),
+                      null);
+              BitState engine =
+                  BitState.getOrCreate(
+                      null,
+                      prog,
+                      scanner,
+                      0,
+                      scanner.length(),
+                      2 * prog.numCaptures(),
+                      kind != Nfa.MatchKind.FIRST_MATCH,
+                      kind == Nfa.MatchKind.FULL_MATCH);
+              int[] actual =
+                  engine.doSearch(
+                      0, scanner.length(), anchored || kind == Nfa.MatchKind.FULL_MATCH);
+              if (engine.budgetExceeded()) {
+                // Overlapping greedy/lazy loops can exhaust this bounded engine in longest mode.
+                // The caller must use NFA; no partial capture vector may escape.
+                assertThat(actual).isNull();
+              } else {
+                assertCapturesEqual(regex, input, actual, expected);
+              }
+            }
+          }
+        }
+      }
+    }
+    Prog prog = Pattern.compile("(.*?)z").prog();
+    assertThat(prog.lazyRuneLoops()).isNotEmpty();
+    assertThat(prog.lazyRuneLoops()).isSameAs(prog.lazyRuneLoops());
+  }
+
+  @Test
   void fusionMetadataIsSharedWhenInputGrowthRequiresANewWorkspace() {
     String regex = "(?:(a)b(c)|a(b)d|)+";
     Prog prog = Pattern.compile(regex).prog();

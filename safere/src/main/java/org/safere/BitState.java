@@ -27,7 +27,7 @@ import java.util.Arrays;
  */
 final class BitState {
 
-  /** Maximum speculative consumption window, independent of total input length. */
+  /** Default speculative consumption window when no later DFA end hint is available. */
   static final int SPECULATIVE_WINDOW_SIZE = 256;
 
   /** Maximum bitmap size in bits. Limits the product of prog size × text length. */
@@ -404,6 +404,8 @@ final class BitState {
   /** Loop entry/check continuations, optionally including one adjacent capture write. */
   private final LoopEntry[] loopEntries;
 
+  private final LazyRuneLoop[] lazyRuneLoops;
+
   /** Progress checks immediately following captures, or null when none exist. */
   private final Inst[] captureProgressChecks;
 
@@ -477,6 +479,7 @@ final class BitState {
     }
     this.captureRunes = prog.captureRunes();
     this.loopEntries = prog.loopEntries();
+    this.lazyRuneLoops = prog.lazyRuneLoops();
     this.captureProgressChecks = prog.captureProgressChecks();
     this.greedyRunes = prog.greedyRunes();
 
@@ -676,6 +679,16 @@ final class BitState {
                 return false;
               }
               break;
+            }
+            LazyRuneLoop loop = lazyRuneLoops == null ? null : lazyRuneLoops[id];
+            if (loop != null) {
+              pos = skipFailedLazyExits(loop, id, pos);
+              if (pos < 0) {
+                if (budgetExceeded) {
+                  return false;
+                }
+                break;
+              }
             }
             // Push second alternative first (it will be tried if first fails).
             if (shouldVisit(ip.out1, pos)) {
@@ -943,6 +956,38 @@ final class BitState {
       }
       pos = nextPos;
     }
+  }
+
+  /** Skips only exits that necessarily fail before any assertion or branch can be reached. */
+  private int skipFailedLazyExits(LazyRuneLoop loop, int id, int pos) {
+    Inst rune = loop.rune();
+    while (pos < endPos) {
+      int cp = text.asciiAt(pos);
+      if (cp < 0
+          || cp == loop.exitChar()
+          || !(rune.opCode == InstOp.OP_CHAR_RANGE
+              ? rune.matchesChar(cp)
+              : rune.matchesCharClass(cp))) {
+        break;
+      }
+      // The exit's captures have no surviving writes. Consume exactly one ASCII scalar with
+      // no change to captures or progress registers, charging the failed exit and body rune.
+      int steps = loop.exitSteps() + 1;
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record(steps);
+      }
+      stepCount += steps;
+      if (stepCount > nextStepThreshold && !onStepThresholdExceeded()) {
+        return -1;
+      }
+      pos++;
+      // Keep cross-start pruning and logical ALT charges identical to the interpreter. At the
+      // window edge resume ordinary dispatch, which retains speculative bailout semantics.
+      if (!shouldVisit(id, pos) || !stepWithinBudget()) {
+        return -1;
+      }
+    }
+    return pos;
   }
 
   /** Executes one progress check, returning a continuation or -1 when none is eligible. */
