@@ -863,6 +863,12 @@ class DiagnosticsTest {
                       new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
             });
 
+    Matcher booleanMatcher = pattern.matcher("aaaaX");
+    assertThat(booleanMatcher.find()).isTrue();
+    assertThat(operationsFor(pattern).getLast().boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+    assertThat(booleanMatcher.group(1)).isEqualTo("a");
+
+    // After capture demand, an already-required exact search still records its fallback reason.
     assertThat(pattern.matcher("aaaaX").find()).isTrue();
     assertThat(operationsFor(pattern).getLast())
         .satisfies(

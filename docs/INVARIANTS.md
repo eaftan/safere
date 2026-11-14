@@ -58,6 +58,14 @@ are already unguarded paths, so the languages coincide. This proof permits
 `matches()` to publish the fixed whole-region bounds, but says nothing about
 which prioritized prefix, search result, or capture vector wins.
 
+Boolean searches may use this existence proof without choosing nullable-loop
+bounds. A matcher retains the original search lower bound and full assertion
+context until bounds, captures, or continuation require guarded selection. After
+that demand it never defers another unrestricted existence search, including
+across resets: a witness can lie beyond the preferred match, so repeating such
+passes for every short match would rescan overlapping suffixes. At most one
+additional linear pass precedes ordinary exact selection on that matcher.
+
 Capture results belong to the selected prioritized path. Losing paths must not
 leak their writes into that result. Compiler transformations involving nested,
 nullable, lazy, or bounded repetitions need capture-aware tests, including a
