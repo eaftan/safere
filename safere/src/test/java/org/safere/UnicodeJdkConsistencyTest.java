@@ -9,10 +9,14 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.lang.UProperty;
+import com.ibm.icu.lang.UScript;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
+import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -23,18 +27,17 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Canary tests for SafeRE Unicode tables and the running JDK's {@link Character} implementation.
- * SafeRE-owned Unicode property tables are allowed to be ahead of the runtime JDK, but the runtime
- * JDK's known category/script names should still be present. The case-fold and binary property
- * checks detect table drift that may need an intentional Unicode data update.
+ * Canary tests for SafeRE Unicode tables against pinned ICU4J data and the running JDK's {@link
+ * Character} implementation. Version-sensitive JDK comparisons require a matching Unicode
+ * repertoire; pinned ICU4J checks preserve script and case-fold coverage on every runtime JDK.
  *
  * <p>See <a href="https://github.com/safere/safere/issues/107">#107</a>.
  */
-@DisplayName("Unicode JDK consistency canary tests")
+@DisplayName("Unicode table consistency canary tests")
 @DisabledForCrosscheck("Unicode table canary uses package-private SafeRE internals")
 class UnicodeJdkConsistencyTest {
 
-  // --- Runtime JDK category and script coverage ---
+  // --- General category and pinned Unicode script coverage ---
 
   @Test
   @DisplayName("Every JDK general category is present in UNICODE_GROUPS")
@@ -61,26 +64,19 @@ class UnicodeJdkConsistencyTest {
   }
 
   @Test
-  @DisplayName("Every JDK UnicodeScript is present in UNICODE_GROUPS")
-  void allScriptsPresent() {
-    Map<String, int[][]> groups = UnicodeTables.UNICODE_GROUPS;
-    for (Character.UnicodeScript script : Character.UnicodeScript.values()) {
-      if (script == Character.UnicodeScript.UNKNOWN) {
-        continue;
-      }
-      // The generated tables should include every script known to the runtime JDK.
-      String name = script.name();
-      boolean found =
-          groups.entrySet().stream()
-              .anyMatch(
-                  e -> {
-                    try {
-                      return Character.UnicodeScript.forName(e.getKey()) == script;
-                    } catch (IllegalArgumentException ex) {
-                      return false;
-                    }
-                  });
-      assertThat(found).as("Script %s should be in UNICODE_GROUPS", name).isTrue();
+  @DisplayName("Every script in the pinned Unicode version is present in UNICODE_GROUPS")
+  void allPinnedUnicodeScriptsPresent() {
+    assertPinnedUnicodeVersion();
+    Set<Integer> scripts = new HashSet<>();
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      scripts.add(UScript.getScript(cp));
+    }
+    scripts.remove(UScript.UNKNOWN);
+    for (int script : scripts) {
+      String name = UScript.getName(script);
+      assertThat(UnicodeTables.UNICODE_GROUPS)
+          .as("Pinned Unicode script %s", name)
+          .containsKey(name);
     }
   }
 
@@ -136,8 +132,9 @@ class UnicodeJdkConsistencyTest {
   // --- Case folding canary ---
 
   @Test
-  @DisplayName("CASE_FOLD covers all JDK symmetric case pairs")
-  void caseFoldCoversAllJdkPairs() {
+  @DisplayName("CASE_FOLD covers all symmetric case pairs in the pinned Unicode version")
+  void caseFoldCoversAllPinnedUnicodePairs() {
+    assertPinnedUnicodeVersion();
     // Scan all code points and find "clean" symmetric pairs where toLower and toUpper
     // are inverses: toLower(cp) != cp AND toUpper(toLower(cp)) == cp. This means
     // cp is uppercase and its lowercase form round-trips cleanly back to cp.
@@ -148,8 +145,8 @@ class UnicodeJdkConsistencyTest {
     List<String> missing = new ArrayList<>();
 
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
-      int lower = Character.toLowerCase(cp);
-      if (lower != cp && Character.toUpperCase(lower) == cp) {
+      int lower = UCharacter.toLowerCase(cp);
+      if (lower != cp && UCharacter.toUpperCase(lower) == cp) {
         // cp is uppercase, lower is its lowercase, and the mapping is symmetric.
         if (!inFoldOrbit(cp, lower)) {
           missing.add(
@@ -159,57 +156,19 @@ class UnicodeJdkConsistencyTest {
       }
     }
 
-    assertThat(missing)
-        .as(
-            "CASE_FOLD should cover all JDK symmetric case pairs. If this fails, the static"
-                + " CASE_FOLD table needs updating for a new Unicode version.")
-        .isEmpty();
+    assertThat(missing).as("CASE_FOLD should cover pinned Unicode symmetric case pairs").isEmpty();
   }
 
   // --- Unicode White_Space canary ---
 
   @Test
-  @DisplayName("unicodeSpace() matches JDK's \\p{IsWhite_Space}")
-  void unicodeSpaceMatchesJdk() {
-    // Build the set of code points that SafeRE considers whitespace.
-    int[][] safereRanges = UnicodeTables.unicodeSpace();
-    TreeSet<Integer> safereSet = new TreeSet<>();
-    for (int[] range : safereRanges) {
-      for (int cp = range[0]; cp <= range[1]; cp++) {
-        safereSet.add(cp);
-      }
-    }
-
-    // Build the set from JDK's regex.
-    java.util.regex.Pattern jdkWhiteSpace = java.util.regex.Pattern.compile("\\p{IsWhite_Space}");
-    TreeSet<Integer> jdkSet = new TreeSet<>();
-    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
-      if (jdkWhiteSpace.matcher(new String(Character.toChars(cp))).matches()) {
-        jdkSet.add(cp);
-      }
-    }
-
-    List<String> inSafereNotJdk = new ArrayList<>();
-    for (int cp : safereSet) {
-      if (!jdkSet.contains(cp)) {
-        inSafereNotJdk.add(String.format("U+%04X", cp));
-      }
-    }
-    List<String> inJdkNotSafere = new ArrayList<>();
-    for (int cp : jdkSet) {
-      if (!safereSet.contains(cp)) {
-        inJdkNotSafere.add(String.format("U+%04X", cp));
-      }
-    }
-
-    assertThat(inSafereNotJdk)
-        .as("Code points in SafeRE unicodeSpace but not JDK White_Space")
-        .isEmpty();
-    assertThat(inJdkNotSafere)
-        .as(
-            "Code points in JDK White_Space but not SafeRE unicodeSpace. "
-                + "If this fails, the generated White_Space table needs updating.")
-        .isEmpty();
+  @DisplayName("unicodeSpace() matches pinned Unicode White_Space")
+  void unicodeSpaceMatchesPinnedUnicode() {
+    assertPinnedUnicodeVersion();
+    assertTableMatches(
+        "White_Space",
+        UnicodeTables.unicodeSpace(),
+        cp -> UCharacter.hasBinaryProperty(cp, UProperty.WHITE_SPACE));
   }
 
   // --- Generated binary property canaries ---
@@ -218,38 +177,30 @@ class UnicodeJdkConsistencyTest {
   @MethodSource("binaryPropertyNames")
   @EnabledForJreRange(min = JRE.JAVA_26)
   void binaryPropertiesMatchJdkExceptUnicodeHexDigit(String name) {
-    boolean icuProperty = name.equals("Extended_Pictographic") || name.equals("White_Space");
-    if (!name.equals("Hex_Digit") && !icuProperty) {
-      // JDK-derived property tables match the runtime JDK when both JDKs use the same Unicode
-      // repertoire.
+    int[][] ranges = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get(name));
+    if (name.equals("Extended_Pictographic") || name.equals("White_Space")) {
+      assertPinnedUnicodeVersion();
+      int property = UCharacter.getPropertyEnum(name);
+      assertTableMatches(name, ranges, cp -> UCharacter.hasBinaryProperty(cp, property));
+      return;
+    }
+    if (!name.equals("Hex_Digit")) {
+      // JDK-derived property tables are compatibility-checked only when the runtime JDK
+      // and generator JDK use the same Unicode repertoire.
       assumeTrue(
           runtimeJdkUnicodeMatchesGeneratedTables(),
           "Runtime JDK Unicode repertoire differs from the generator JDK");
     }
-    int[][] ranges = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get(name));
-    int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));
     java.util.regex.Matcher jdk =
         java.util.regex.Pattern.compile("\\p{Is" + name + "}").matcher("");
     List<String> differences = new ArrayList<>();
     List<String> jdkHexDifferences = new ArrayList<>();
     int rangeIndex = 0;
-    int assignedIndex = 0;
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
       while (rangeIndex < ranges.length && ranges[rangeIndex][1] < cp) {
         rangeIndex++;
       }
       boolean inTable = rangeIndex < ranges.length && ranges[rangeIndex][0] <= cp;
-      while (assignedIndex < assigned.length && assigned[assignedIndex][1] < cp) {
-        assignedIndex++;
-      }
-      boolean inGeneratedAssigned =
-          assignedIndex < assigned.length && assigned[assignedIndex][0] <= cp;
-      if (icuProperty && (!Character.isDefined(cp) || !inGeneratedAssigned)) {
-        // ICU4J-backed properties (UNICODE_DATA_VERSION) may be ahead of or behind the runtime
-        // JDK on code points that were unassigned in the older Unicode version (for example,
-        // reserved Extended_Pictographic ranges reassigned to non-pictographic characters).
-        continue;
-      }
       boolean jdkMatches = jdk.reset(Character.toString(cp)).matches();
       boolean expected = jdkMatches;
       if (name.equals("Hex_Digit")) {
@@ -375,6 +326,12 @@ class UnicodeJdkConsistencyTest {
   }
 
   // --- Helpers ---
+
+  private static void assertPinnedUnicodeVersion() {
+    assertThat(UCharacter.getUnicodeVersion().toString())
+        .as("ICU4J oracle must match the bundled Unicode data")
+        .isEqualTo(UnicodeGeneratedTables.UNICODE_DATA_VERSION + ".0");
+  }
 
   private static boolean runtimeJdkUnicodeMatchesGeneratedTables() {
     int[][] assigned = requireNonNull(UnicodeGeneratedTables.BINARY_PROPERTIES.get("Assigned"));

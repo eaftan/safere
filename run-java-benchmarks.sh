@@ -55,6 +55,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/tools/machine-lock.sh"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 BENCHMARK_DATA_DIR="$SCRIPT_DIR/safere-benchmarks"
@@ -207,6 +208,8 @@ if [ "$DECLARED" = true ]; then
     esac
   done
 fi
+
+safere_reserve_machine
 
 if [ "$MODE" = "first-compile" ]; then
   JMH_OPTS="$FIRST_COMPILE_OPTS"

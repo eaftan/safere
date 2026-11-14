@@ -13,6 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$REPO_ROOT/tools/machine-lock.sh"
 SUITE="oss-fuzz"
 MAX_DURATION="30m"
 KEEP_GOING="10"
@@ -107,6 +108,8 @@ for test_name in "${TESTS[@]}"; do
   done <<< "$resolved"
 done
 TESTS=("${RESOLVED_TESTS[@]}")
+
+safere_reserve_machine
 
 echo "=== Fuzz run configuration ==="
 echo "max_duration: $MAX_DURATION"

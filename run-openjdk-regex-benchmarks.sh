@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/tools/machine-lock.sh"
 DEFAULT_EXTERNAL_REPO="$SCRIPT_DIR/../safere-openjdk-regex-benchmarks"
 EXTERNAL_REPO="${SAFERE_OPENJDK_REGEX_BENCHMARKS_REPO:-$DEFAULT_EXTERNAL_REPO}"
 MODE="standard"
@@ -90,6 +91,8 @@ fi
 if [[ ${#BENCHMARKS[@]} -eq 0 ]]; then
   BENCHMARKS=('org.safere.bench.openjdk.*')
 fi
+
+safere_reserve_machine
 
 SAFERE_VERSION="$(
   mvn help:evaluate \

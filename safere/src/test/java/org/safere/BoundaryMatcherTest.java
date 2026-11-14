@@ -9,14 +9,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ibm.icu.text.BreakIterator;
+import com.ibm.icu.util.ULocale;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledForJreRange;
-import org.junit.jupiter.api.condition.JRE;
 
 /**
  * Tests for boundary matcher constructs: {@code \b}, {@code \B}, {@code \A}, {@code \z}, {@code
@@ -532,21 +532,74 @@ class BoundaryMatcherTest {
     }
 
     @Test
-    @EnabledForJreRange(min = JRE.JAVA_22)
+    @DisabledForCrosscheck("Grapheme expectations use pinned ICU4J, independently of JDK Unicode")
     @DisplayName("chained \\X find() preserves leftmost starts inside Indic conjunct clusters")
     void chainedGraphemeClustersPreserveLeftmostStartsInsideIndicConjuncts() {
-      String devanagariConjunct = "\u0915\u094D\u200D\u0915";
-      assertTraceSameAsJdk("\\X\\X", devanagariConjunct, 0, devanagariConjunct.length());
-      assertTraceSameAsJdk("(?:\\X)(?:\\X)", devanagariConjunct, 0, devanagariConjunct.length());
-      assertTraceSameAsJdk("(?:\\X){2}", devanagariConjunct, 0, devanagariConjunct.length());
-      assertTraceSameAsJdk("\\X{1}\\X", devanagariConjunct, 0, devanagariConjunct.length());
-      assertCapturedFindTraceSameAsJdk(
-          "(\\X)(\\X)", devanagariConjunct, 0, devanagariConjunct.length());
+      BreakIterator oracle = BreakIterator.getCharacterInstance(ULocale.ROOT);
+      for (String conjunct : List.of("\u0915\u094D\u200D\u0915", "\u0995\u09CD\u200D\u0995")) {
+        for (String input : List.of(conjunct, conjunct.repeat(2), "a" + conjunct + "b")) {
+          GraphemePair initial = icuGraphemePair(oracle, input, 0);
+          List<GraphemePair> expectedFinds = new ArrayList<>();
+          for (int start = 0; start < input.length(); ) {
+            GraphemePair pair = icuGraphemePair(oracle, input, start);
+            if (pair == null) {
+              start = input.offsetByCodePoints(start, 1);
+            } else {
+              expectedFinds.add(pair);
+              start = pair.end();
+            }
+          }
+          for (String regex :
+              List.of("\\X\\X", "(?:\\X)(?:\\X)", "(?:\\X){2}", "\\X{1}\\X", "(\\X)(\\X)")) {
+            Matcher matcher = Pattern.compile(regex).matcher(input);
+            assertThat(matcher.matches())
+                .as("matches() /%s/ on %s", regex, input)
+                .isEqualTo(initial != null && initial.end() == input.length());
+            assertThat(matcher.reset().lookingAt())
+                .as("lookingAt() /%s/ on %s", regex, input)
+                .isEqualTo(initial != null);
+            matcher.reset();
+            for (GraphemePair pair : expectedFinds) {
+              assertThat(matcher.find()).as("find() /%s/ on %s", regex, input).isTrue();
+              assertThat(new int[] {matcher.start(), matcher.end()})
+                  .containsExactly(pair.start(), pair.end());
+              assertThat(matcher.group()).isEqualTo(input.substring(pair.start(), pair.end()));
+              if (matcher.groupCount() == 2) {
+                assertThat(new int[] {matcher.start(1), matcher.end(1)})
+                    .containsExactly(pair.start(), pair.firstEnd());
+                assertThat(new int[] {matcher.start(2), matcher.end(2)})
+                    .containsExactly(pair.firstEnd(), pair.end());
+                assertThat(matcher.group(1))
+                    .isEqualTo(input.substring(pair.start(), pair.firstEnd()));
+                assertThat(matcher.group(2))
+                    .isEqualTo(input.substring(pair.firstEnd(), pair.end()));
+              }
+            }
+            assertThat(matcher.find()).as("find() exhausted /%s/ on %s", regex, input).isFalse();
+          }
+        }
+      }
+    }
 
-      String bengaliConjunct = "\u0995\u09CD\u200D\u0995";
-      assertTraceSameAsJdk("\\X\\X", bengaliConjunct, 0, bengaliConjunct.length());
-      assertTraceSameAsJdk("(?:\\X){2}", bengaliConjunct, 0, bengaliConjunct.length());
-      assertCapturedFindTraceSameAsJdk("(\\X)(\\X)", bengaliConjunct, 0, bengaliConjunct.length());
+    private record GraphemePair(int start, int firstEnd, int end) {}
+
+    private static GraphemePair icuGraphemePair(BreakIterator oracle, String input, int start) {
+      // Each \X segments from its own consuming start. Segment each suffix independently,
+      // including find() retries inside the original cluster, rather than reusing whole-input
+      // boundaries. These test inputs are small and fixed.
+      oracle.setText(input.substring(start));
+      oracle.first();
+      int firstEnd = oracle.next();
+      if (firstEnd == BreakIterator.DONE) {
+        return null;
+      }
+      // The next \X also begins a fresh segmentation context.
+      oracle.setText(input.substring(start + firstEnd));
+      oracle.first();
+      int secondLength = oracle.next();
+      return secondLength == BreakIterator.DONE
+          ? null
+          : new GraphemePair(start, start + firstEnd, start + firstEnd + secondLength);
     }
 
     @Test

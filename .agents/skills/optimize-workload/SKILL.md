@@ -9,6 +9,12 @@ Deliver a measured implementation improvement with preserved correctness and an 
 regression risks. Accept an issue number/URL or a textual workload description. Reading an issue
 as input does not authorize posting to it, closing it, or publishing code.
 
+The goal is general library optimization; benchmarks identify bottlenecks and measure improvements.
+Do not game workloads by recognizing benchmark patterns, inputs or harness details, hard-coding
+answers, or changing the measured work to inflate gains. Specialized fast paths must follow general
+semantic or structural properties and benefit a meaningful class of workloads. Demonstrate that
+benefit on representative variations beyond the motivating example.
+
 ## Establish the target and baseline
 
 - Read the repository's contributor instructions, performance guidance and
