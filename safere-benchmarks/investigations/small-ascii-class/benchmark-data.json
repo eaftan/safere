@@ -1,0 +1,710 @@
+{
+  "schemaVersion": 2,
+  "configuration": {},
+  "inputs": [
+    {
+      "id": "classScan.asciiLate.{size}",
+      "axes": {
+        "size": [
+          16,
+          63,
+          64,
+          65,
+          127,
+          128,
+          129,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "_",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.asciiMiss.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.nearMiss.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "Y[\\]^",
+        "suffix": "X",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.otherTriple.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "e",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.wideTriple.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "z",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.early.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "Z",
+        "unit": "a",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.dense.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "Z",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.repeated.{size}",
+      "axes": {
+        "size": [
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00Z",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.replace.{size}",
+      "axes": {
+        "size": [
+          4096
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00abcdefghZ",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.capture.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "Z",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.following.{size}",
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "Xfail_Ztail",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.asciiNonMembers",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "HHHHHHHHPPPPPPPP",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.wideAsciiMiss",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.wideAsciiLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "a",
+        "suffix": "z",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.prefixedUnicode",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "a",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "Z",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.mixedAsciiMiss",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00a",
+        "suffix": "",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.unicodeThenAsciiMiss",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00",
+        "unit": "a",
+        "suffix": "",
+        "length": 262144
+      },
+      "shared": true
+    },
+    {
+      "id": "classScan.unicodeThenAsciiLate",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00\u00e9\u4e2d\ud83d\ude00",
+        "unit": "a",
+        "suffix": "Z",
+        "length": 262144
+      },
+      "shared": true
+    }
+  ],
+  "workloads": [
+    {
+      "id": "AsciiClassScan.asciiLate.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.asciiLate.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          63,
+          64,
+          65,
+          127,
+          128,
+          129,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.asciiMiss.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.asciiMiss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.nearMiss.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.nearMiss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.otherTriple.{size}",
+      "operation": "find",
+      "patterns": [
+        "[ace]"
+      ],
+      "inputs": [
+        "classScan.otherTriple.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.wideTriple.{size}",
+      "operation": "find",
+      "patterns": [
+        "[!Az]"
+      ],
+      "inputs": [
+        "classScan.wideTriple.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.early.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.dense.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.dense.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.repeated.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.repeated.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.replace.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.replace.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          4096
+        ]
+      },
+      "arguments": {
+        "replacement": "!"
+      }
+    },
+    {
+      "id": "AsciiClassScan.capture.{size}",
+      "operation": "find",
+      "patterns": [
+        "([XZ_])"
+      ],
+      "inputs": [
+        "classScan.capture.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.following.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]tail"
+      ],
+      "inputs": [
+        "classScan.following.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          16,
+          4096,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.asciiNonMembers",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.asciiNonMembers"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.capturePresent.262144",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "([XZ_])"
+      ],
+      "inputs": [
+        "classScan.capture.262144"
+      ],
+      "arguments": {
+        "group": 1
+      },
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.wideAsciiMiss",
+      "operation": "find",
+      "patterns": [
+        "[!Az]"
+      ],
+      "inputs": [
+        "classScan.wideAsciiMiss"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.wideAsciiLate",
+      "operation": "find",
+      "patterns": [
+        "[!Az]"
+      ],
+      "inputs": [
+        "classScan.wideAsciiLate"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.prefixedUnicode",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.prefixedUnicode"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.mixedAsciiMiss",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.mixedAsciiMiss"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.unicodeThenAsciiMiss",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.unicodeThenAsciiMiss"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "AsciiClassScan.unicodeThenAsciiLate",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "classScan.unicodeThenAsciiLate"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    }
+  ]
+}

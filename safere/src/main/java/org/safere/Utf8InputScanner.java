@@ -212,6 +212,27 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
     }
     ScanAudit.record(ScanKind.TRIPLE, ScanDirection.FORWARD, window, ScanPath.SWAR);
+    if (start < scanLen) {
+      byte value = bytes[offset + start];
+      if (value == b0 || value == b1 || value == b2) {
+        return start;
+      }
+    }
+    int difference = (b0 ^ b1) & 0xFF;
+    if (Integer.bitCount(difference) == 1) {
+      return ByteSwarScan.indexOfByteTripleWithPair(
+          bytes, offset, scanLen, b0, b1, b2, start, difference);
+    }
+    difference = (b0 ^ b2) & 0xFF;
+    if (Integer.bitCount(difference) == 1) {
+      return ByteSwarScan.indexOfByteTripleWithPair(
+          bytes, offset, scanLen, b0, b2, b1, start, difference);
+    }
+    difference = (b1 ^ b2) & 0xFF;
+    if (Integer.bitCount(difference) == 1) {
+      return ByteSwarScan.indexOfByteTripleWithPair(
+          bytes, offset, scanLen, b1, b2, b0, start, difference);
+    }
     return ByteSwarScan.indexOfByteTriple(bytes, offset, scanLen, b0, b1, b2, start);
   }
 
@@ -396,6 +417,11 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       case 6 -> {
         if (useSpecializedAsciiTriple(ranges, scanLen - start)) {
+          if (scanLen - start >= 128
+              && bytes[offset + start] < 0
+              && VectorScanProviders.providerForPolicy(ScanKind.TRIPLE, scanLen - start) == null) {
+            start = ByteSwarScan.skipNonAsciiBlocks(bytes, offset, scanLen, start);
+          }
           return scanByteTriple(
               scanLen, (byte) ranges[0], (byte) ranges[2], (byte) ranges[4], start);
         }
