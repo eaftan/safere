@@ -500,7 +500,8 @@ code points on JDK 26 or newer, using Unicode ranges as the `Hex_Digit` oracle.
 
 ## Java Character Classes and the Unicode Version
 
-Issue reference: [#1144](https://github.com/safere/safere/issues/1144).
+Issue references: [#1144](https://github.com/safere/safere/issues/1144),
+[#1196](https://github.com/safere/safere/issues/1196).
 
 `java.util.regex` defines the `\p{java...}` classes, such as
 `\p{javaLowerCase}` and `\p{javaJavaIdentifierStart}`, as equivalent to the
@@ -510,12 +511,24 @@ same data as `\p{L}`, `\p{IsLowercase}`, and the other Unicode properties.
 A pattern therefore matches the same strings on every JDK, and a `java*` class
 can't disagree with the equivalent Unicode property in the same pattern.
 
-On JDK 26 and newer, whose Unicode version matches the bundled tables, the
-classes match `Character` exactly; `UnicodeJdkConsistencyTest` checks all of
-them over every code point. On older JDKs, they can disagree with `Character`
-about code points assigned since that JDK's Unicode version, and about a few
-property changes, such as U+0295 LATIN LETTER PHARYNGEAL VOICED FRICATIVE,
-which Unicode 17.0 no longer treats as lowercase.
+On JDKs whose Unicode version matches the bundled tables, the classes match
+`Character` exactly; `UnicodeJdkConsistencyTest` checks all of them over every
+code point when the assigned repertoire agrees. On other JDKs, they can disagree
+with `Character` about newly assigned code points and property changes, such as
+U+0295 LATIN LETTER PHARYNGEAL VOICED FRICATIVE, which Unicode 17.0 no longer
+treats as lowercase.
+
+JDK 28 EA introduces Unicode 18 scripts, case pairs, and a GB9c grapheme-rule
+change. These do not change SafeRE's pinned Unicode 17 behavior. For example,
+`\X\X` on `क्‍क` finds UTF-16 bounds `[1, 4)` in SafeRE and `[2, 4)` in
+that JDK. `BoundaryMatcherTest` derives expected bounds and captures from the
+pinned ICU4J character break iterator on every runtime. Script and symmetric
+case-pair canaries also use pinned ICU4J data on every runtime.
+
+A Unicode 18 migration requires upgrading ICU4J, generated tables, grapheme
+fixtures, and the generator JDK together, as described in the
+[Unicode generator guide](safere-unicode/README.md). Updating test oracles for
+JDK 28 does not perform that migration.
 
 ## Unicode Case-Insensitive Range Closure
 
