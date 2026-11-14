@@ -32,6 +32,113 @@ class DfaTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void cachedReverseMatchesPreserveBoundsAcrossProbeLimits() {
+    for (String regex : List.of("[a-z]*END\\z", "\\A[a-z]*END\\z", "(?:[a-z]*?|[a-z]+)END\\z")) {
+      for (String text : List.of("a".repeat(1024) + "END", "a ".repeat(512) + "END")) {
+        java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(text);
+        boolean found = expected.find();
+        for (boolean utf8 : List.of(false, true)) {
+          Pattern pattern = Pattern.compile(regex);
+          InputScanner scanner =
+              utf8 ? new Utf8InputScanner(text.getBytes(UTF_8)) : new StringInputScanner(text);
+          Dfa reverse = pattern.reverseDfa();
+          for (boolean longest : List.of(false, true)) {
+            Dfa.SearchResult full =
+                reverse.doSearchReverse(scanner, scanner.length(), 0, true, longest);
+            assertThat(full).isNotNull();
+            assertThat(full.matched()).as(regex).isEqualTo(found);
+            if (found) {
+              if (longest || pattern.prog().anchorStart()) {
+                assertThat(full.pos()).as(regex).isEqualTo(expected.start());
+              } else {
+                assertThat(
+                        java.util.regex.Pattern.compile(regex)
+                            .matcher(text)
+                            .region(full.pos(), text.length())
+                            .useAnchoringBounds(false)
+                            .matches())
+                    .as(regex)
+                    .isTrue();
+              }
+            }
+            for (int pass = 0; pass < 2; pass++) {
+              for (int limit : List.of(0, 1, 3, 8, 64, 1024, Integer.MAX_VALUE)) {
+                Dfa.SearchResult probe =
+                    reverse.doSearchReverse(scanner, scanner.length(), 0, true, longest, limit);
+                assertThat(probe).isNotNull();
+                if (!probe.scanLimitReached()) {
+                  assertThat(probe).as("%s limit=%s", regex, limit).isEqualTo(full);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void reusedStateIdsDoNotInheritUniversalPrefixProofs() throws ReflectiveOperationException {
+    for (boolean utf8 : List.of(false, true)) {
+      Pattern pattern = Pattern.compile("(?s:.*)(?:A|BCDEFGHIJ)\\z");
+      String shortSuffix = "x".repeat(1024) + "A";
+      InputScanner first =
+          utf8
+              ? new Utf8InputScanner(shortSuffix.getBytes(UTF_8))
+              : new StringInputScanner(shortSuffix);
+      Dfa reverse = pattern.reverseDfa();
+      Dfa.SearchResult accepted =
+          reverse.doSearchReverse(first, first.length(), 0, true, true, 256);
+      assertThat(accepted).isNotNull();
+      assertThat(accepted.matched()).isTrue();
+      assertThat(accepted.scanLimitReached()).isFalse();
+
+      var reset = Dfa.class.getDeclaredMethod("resetCache", int.class);
+      reset.setAccessible(true);
+      assertThat((boolean) reset.invoke(reverse, first.length() - 256)).isTrue();
+
+      String longSuffix = "x".repeat(1024) + "BCDEFGHIJ";
+      InputScanner second =
+          utf8
+              ? new Utf8InputScanner(longSuffix.getBytes(UTF_8))
+              : new StringInputScanner(longSuffix);
+      for (int limit = 1; limit <= 3; limit++) {
+        Dfa.SearchResult partial =
+            reverse.doSearchReverse(second, second.length(), 0, true, true, limit);
+        assertThat(partial).isNotNull();
+        assertThat(partial.matched()).isFalse();
+        assertThat(partial.scanLimitReached()).isTrue();
+      }
+    }
+  }
+
+  @Test
+  void universalReverseAcceptanceWinsAtProbeBoundaries() {
+    for (String suffix : List.of("", "END", "終点😀")) {
+      Pattern pattern = Pattern.compile("(?s:.*)" + suffix + "\\z");
+      String text = "xé😀".repeat(1024) + suffix;
+      for (InputScanner scanner :
+          List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+        Dfa reverse = pattern.reverseDfa();
+        Dfa.SearchResult full = reverse.doSearchReverse(scanner, scanner.length(), 0, true, true);
+        for (int pass = 0; pass < 2; pass++) {
+          for (int limit = 0; limit <= 16; limit++) {
+            Dfa.SearchResult probe =
+                reverse.doSearchReverse(scanner, scanner.length(), 0, true, true, limit);
+            assertThat(probe).isNotNull();
+            if (limit == 16) {
+              assertThat(probe.scanLimitReached()).as("suffix=%s", suffix).isFalse();
+            }
+            if (!probe.scanLimitReached()) {
+              assertThat(probe).as("suffix=%s limit=%s", suffix, limit).isEqualTo(full);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void acceptingUniversalReverseStatesProveStartsBeyondTheProbeWindow() {
     for (String regex :
         List.of("(?s:.*)END\\z", "[\\s\\S]*[A-Z]{3}\\z", "(?s:.*)(?:END|STOP)\\z")) {

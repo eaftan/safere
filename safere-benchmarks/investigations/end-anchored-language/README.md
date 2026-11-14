@@ -21,6 +21,16 @@ require more than a Boolean. The UTF-8 matcher case uses `findAllCount` to retai
 the matcher API and its complete search sequence. Fresh compilation plus search
 controls measure per-pattern state-analysis setup costs.
 
+`EndVerification` adds word-boundary assertions so the cached bounds proof cannot
+apply. Its inputs have a 512-unit nonword prefix followed by a candidate of
+32, 64, 512, 4096, or 32768 units. The declared size includes the prefix; inputs
+below the reverse-first cutoff cover the ordinary search path. The explicit
+`short32` and `short64` controls put those candidate sizes at the end of a
+4096-unit input so reverse-first verification applies. These cases compare
+forward verification with BitState at different candidate lengths;
+the compile-and-find cases also include fresh-pattern setup. Use the nanosecond
+`CrossEngineBenchmark.run` entry point for these controls.
+
 Use identical definitions on the baseline and candidate. Run measurements
 sequentially with the default scan provider; use `--long` for confirmation.
 Keep raw measurements and profiles local.

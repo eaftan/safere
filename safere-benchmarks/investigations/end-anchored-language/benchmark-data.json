@@ -138,6 +138,43 @@
         "suffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       },
       "shared": true
+    },
+    {
+      "id": "verification.{size}",
+      "axes": {
+        "size": [
+          544,
+          576,
+          1024,
+          4608,
+          33280
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!marker",
+        "unit": "a",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "verification.short32",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "!",
+        "suffix": "markeraaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "length": 4096
+      }
+    },
+    {
+      "id": "verification.short64",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "!",
+        "suffix": "markeraaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "length": 4096
+      }
     }
   ],
   "workloads": [
@@ -596,6 +633,162 @@
         "constraints": [
           "prematerializedInput"
         ]
+      }
+    },
+    {
+      "id": "EndVerification.wordBoundary.{size}",
+      "axes": {
+        "size": [
+          544,
+          576,
+          1024,
+          4608,
+          33280
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "\\bmarker[a-z]*\\z"
+      ],
+      "inputs": [
+        "verification.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "EndVerification.endBoundary.{size}",
+      "axes": {
+        "size": [
+          544,
+          576,
+          1024,
+          4608,
+          33280
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "marker[a-z]*\\b\\z"
+      ],
+      "inputs": [
+        "verification.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "EndVerification.compileWordBoundary.{size}",
+      "axes": {
+        "size": [
+          576,
+          4608
+        ]
+      },
+      "operation": "compileAndFind",
+      "patterns": [
+        "\\bmarker[a-z]*\\z"
+      ],
+      "inputs": [
+        "verification.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "EndVerification.wordBoundary.short32",
+      "operation": "find",
+      "patterns": [
+        "\\bmarker[a-z]*\\z"
+      ],
+      "inputs": [
+        "verification.short32"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "EndVerification.wordBoundary.short64",
+      "operation": "find",
+      "patterns": [
+        "\\bmarker[a-z]*\\z"
+      ],
+      "inputs": [
+        "verification.short64"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "EndVerification.compileWordBoundary.short64",
+      "operation": "compileAndFind",
+      "patterns": [
+        "\\bmarker[a-z]*\\z"
+      ],
+      "inputs": [
+        "verification.short64"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
       }
     }
   ]

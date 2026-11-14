@@ -44,6 +44,10 @@ final class Dfa {
     }
   }
 
+  /** Cursor and accumulated match information from a cached reverse scan. */
+  private record CachedReverseScan(
+      int pos, int stateOffset, int matchStart, boolean ambiguous, boolean prefixProved) {}
+
   /** Result of a multi-match DFA search. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
@@ -88,6 +92,9 @@ final class Dfa {
    */
   private static final int FLAG_MATCH_BEFORE_SHADOWED = 1 << 20;
 
+  /** Derived proof metadata; excluded from semantic state-cache keys. */
+  private static final int FLAG_UNIVERSAL_PREFIX = 1 << 21;
+
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -121,7 +128,6 @@ final class Dfa {
     final int flags;
     final boolean isHighestPriorityMatch;
     final StateAccelerator accelerator;
-    final boolean acceptsAnyRemainingPrefix;
     // Only forward unanchored starts may use start-position acceleration.
     boolean isStartState;
 
@@ -140,15 +146,13 @@ final class Dfa {
         int[] wordBoundaryMatchIds,
         int numClasses,
         boolean isHighestPriorityMatch,
-        StateAccelerator accelerator,
-        boolean acceptsAnyRemainingPrefix) {
+        StateAccelerator accelerator) {
       this.id = id;
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
       this.isHighestPriorityMatch = isHighestPriorityMatch;
       this.accelerator = accelerator;
-      this.acceptsAnyRemainingPrefix = acceptsAnyRemainingPrefix;
       this.next = new State[numClasses];
     }
 
@@ -360,6 +364,10 @@ final class Dfa {
   private State[] offsetToState;
   private boolean[] isAcceleratedStateOffset;
   private boolean hasStateAccelerators;
+
+  /** Whether this cache generation contains any universal-prefix proof. */
+  private boolean hasUniversalPrefixStates;
+
   private int nextStateId;
 
   private final Utf8StartAccelerator utf8StartAccelerator;
@@ -467,7 +475,7 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
-    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false, null, false);
+    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false, null);
     this.nextStateId = 1;
     this.transitions = new int[1024];
     this.offsetToState = new State[1024];
@@ -901,6 +909,8 @@ final class Dfa {
    * budget is exceeded.
    */
   private State getOrCreate(int[] insts, int flags, int[] wordBoundaryMatchIds) {
+    // Recreated states may carry derived metadata from a previous cache generation.
+    flags &= ~FLAG_UNIVERSAL_PREFIX;
     if (insts.length == 0 && (flags & FLAG_MATCH) == 0) {
       return deadState;
     }
@@ -915,6 +925,10 @@ final class Dfa {
     boolean isHighestPriorityMatch =
         insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
     StateAccelerator accelerator = analyzeStateAcceleration(insts, flags, isHighestPriorityMatch);
+    if (acceptsAnyRemainingPrefix(insts, flags)) {
+      flags |= FLAG_UNIVERSAL_PREFIX;
+      hasUniversalPrefixStates = true;
+    }
     s =
         new State(
             nextStateId++,
@@ -923,8 +937,7 @@ final class Dfa {
             wordBoundaryMatchIds,
             numClasses,
             isHighestPriorityMatch,
-            accelerator,
-            acceptsAnyRemainingPrefix(insts, flags));
+            accelerator);
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
@@ -955,6 +968,103 @@ final class Dfa {
   private <T> T completeSearch(T result, int pos) {
     recordSearchProgress(pos);
     return result;
+  }
+
+  /** Returns the cursor position in the high word and cached state offset in the low word. */
+  private long scanCachedReverseAscii(
+      InputScanner text,
+      int pos,
+      int limit,
+      int stateOffset,
+      int posDepThreshold,
+      int maxInputUnits) {
+    int[] transitions = this.transitions;
+    int[] asciiClassMap = this.asciiClassMap;
+    while (pos > limit) {
+      int ch = text.asciiAt(pos - 1);
+      if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
+        break;
+      }
+      int next = transitions[stateOffset + asciiClassMap[ch]];
+      // Unknown, dead, and accepting transitions go through ordinary state handling.
+      if (next <= 0) {
+        break;
+      }
+      if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+        WorkCounter.record();
+      }
+      stateOffset = next;
+      pos--;
+    }
+    return ((long) pos << 32) | (stateOffset & 0xffffffffL);
+  }
+
+  /**
+   * Continues a cached scan that needs the earliest or anchored start. The limit is at least
+   * startLimit, so every consumed ASCII transition stays inside the search bounds.
+   */
+  private CachedReverseScan scanCachedReverseMatches(
+      InputScanner text,
+      int pos,
+      int limit,
+      int stateOffset,
+      int posDepThreshold,
+      int maxInputUnits,
+      int startLimit,
+      boolean longest,
+      int matchStart,
+      boolean ambiguous) {
+    int[] transitions = this.transitions;
+    State[] offsetToState = this.offsetToState;
+    int[] asciiClassMap = this.asciiClassMap;
+    boolean needEndMatch = prog.anchorEnd();
+    // No states can be created inside this cached loop. A cache with no proofs needs no
+    // per-transition proof check, even when it contains many accepting states.
+    boolean prefixProofs =
+        longest && hasUniversalPrefixStates && text.isCodePointBoundary(startLimit);
+    while (pos > limit) {
+      if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
+        WorkCounter.record();
+      }
+      int ch = text.asciiAt(pos - 1);
+      if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
+        break;
+      }
+      int next = transitions[stateOffset + asciiClassMap[ch]];
+      if (next == 0) {
+        break;
+      }
+      if (next < 0) {
+        next = -next;
+        State state = offsetToState[next];
+        if (state.isMatch()) {
+          int flags = state.flags;
+          // A self-transition cannot acquire a proof that was false when this state was entered.
+          if (prefixProofs && next != stateOffset && (flags & FLAG_UNIVERSAL_PREFIX) != 0) {
+            return new CachedReverseScan(pos - 1, next, startLimit, ambiguous, true);
+          }
+          boolean beforeOnly =
+              (flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+          // In longest mode the after-consume position wins when both positions accept. In
+          // anchored mode only startLimit is eligible, so the same choice preserves its bounds.
+          int candidate = beforeOnly ? pos : pos - 1;
+          if (!needEndMatch || candidate == startLimit) {
+            matchStart = matchStart >= 0 ? Math.min(matchStart, candidate) : candidate;
+            ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+          }
+        }
+      }
+      stateOffset = next;
+      pos--;
+    }
+    return new CachedReverseScan(pos, stateOffset, matchStart, ambiguous, false);
+  }
+
+  private static boolean canSkipRemainingPrefix(
+      State state, InputScanner text, int startLimit, boolean longest) {
+    return longest
+        && (state.flags & FLAG_UNIVERSAL_PREFIX) != 0
+        && text.isCodePointBoundary(startLimit);
   }
 
   /** Completes a forward search, publishing its final start-acceleration backoff state. */
@@ -1031,6 +1141,7 @@ final class Dfa {
       Arrays.fill(fastStartStates, null);
     }
     cache.clear();
+    hasUniversalPrefixStates = false;
     hasStateAccelerators = false;
     nextStateId = 1;
     addStateToFlatArrays(deadState);
@@ -1122,10 +1233,9 @@ final class Dfa {
   }
 
   /**
-   * Proves an accepting reverse state loops to itself for every code point. With no assertions or
-   * progress registers, state identity is independent of skipped input and position. Thus every
-   * remaining prefix is accepted, including the empty prefix. This is a language proof; it says
-   * nothing about captures or the priority between different terminal endpoints.
+   * Proves an accepting reverse frontier loops to itself for every code-point class. Assertions,
+   * graphemes, and progress registers exclude the proof. It establishes language recognition,
+   * independently of capture selection or priority between terminal endpoints.
    */
   private boolean acceptsAnyRemainingPrefix(int[] insts, int flags) {
     if (!prog.reversed()
@@ -2492,11 +2602,10 @@ final class Dfa {
   }
 
   /**
-   * Reverse search with a speculative input-unit limit. Unless the state proves it accepts every
-   * remaining prefix, a live frontier at the cutoff is inconclusive even if it contains a match: an
-   * earlier start may exist outside the window. The cutoff never substitutes for {@code startLimit}
-   * in assertion context. Decoding may finish one code point across the cutoff, and assertions
-   * retain their normal adjacent context.
+   * Reverse search with a speculative input-unit limit. A live frontier at the cutoff is
+   * inconclusive, even if it contains a match: an earlier start may exist outside the window. The
+   * cutoff never substitutes for {@code startLimit} in assertion context. Decoding may finish one
+   * code point across the cutoff, and assertions retain their normal adjacent context.
    */
   SearchResult doSearchReverse(
       InputScanner text,
@@ -2530,6 +2639,9 @@ final class Dfa {
 
     // Check if start state is already a match (e.g., empty pattern).
     if (s.isMatch()) {
+      if (canSkipRemainingPrefix(s, text, startLimit, longest)) {
+        return completeSearch(new SearchResult(true, startLimit, ambiguous), pos);
+      }
       if (!needEndMatch || endPos == startLimit) {
         matched = true;
         matchStart = endPos;
@@ -2543,78 +2655,39 @@ final class Dfa {
       return completeSearch(new SearchResult(matched, matchStart), pos);
     }
 
-    int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
-    // Keep eligibility invariant across the scan so context-sensitive programs can retain a loop
-    // with no per-character universal-state check.
-    boolean skipUniversalPrefix =
-        longest
-            && !prog.hasEmptyWidth()
-            && !hasGraphemeSemantics
-            && prog.numLoopRegs() == 0
-            && text.isCodePointBoundary(startLimit);
     // Fast path: scan backward through ASCII characters
     while (pos > scanLimit) {
-      if (skipUniversalPrefix && s.acceptsAnyRemainingPrefix) {
-        return completeSearch(new SearchResult(true, startLimit, ambiguous), pos);
-      }
       if (pos <= posDepThreshold) {
-        int limit = scanLimit;
-        int sId = s.id * numClasses;
-        while (pos > limit) {
-          // Probe work includes cached transitions; keep ordinary-search counter behavior stable.
-          if (WorkCounterConfig.ENABLED && maxInputUnits != Integer.MAX_VALUE) {
-            WorkCounter.record();
+        if ((longest || needEndMatch) && s.isMatch()) {
+          CachedReverseScan cursor =
+              scanCachedReverseMatches(
+                  text,
+                  pos,
+                  scanLimit,
+                  s.id * numClasses,
+                  posDepThreshold,
+                  maxInputUnits,
+                  startLimit,
+                  longest,
+                  matchStart,
+                  ambiguous);
+          pos = cursor.pos();
+          matchStart = cursor.matchStart();
+          matched = matchStart >= 0;
+          ambiguous = cursor.ambiguous();
+          if (cursor.prefixProved()) {
+            return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
           }
-          int ch = text.asciiAt(pos - 1);
-          if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
-            break;
-          }
-          int cls = asciiClassMap[ch];
-          int nsId = transitions[sId + cls];
-          if (nsId == 0) {
-            break;
-          }
-          if (nsId < 0) {
-            nsId = -nsId;
-            State ns = offsetToState[nsId];
-            if (ns.isMatch()) {
-              if (skipUniversalPrefix && ns.acceptsAnyRemainingPrefix) {
-                return completeSearch(new SearchResult(true, startLimit, ambiguous), pos - 1);
-              }
-              int flags = ns.flags;
-              if ((flags & FLAG_MATCH_BEFORE) != 0) {
-                if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
-                  boolean alreadyMatched = matched;
-                  matched = true;
-                  matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
-                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
-                  if (!longest && !needEndMatch) {
-                    return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
-                  }
-                }
-              }
-              boolean hasOnlyBeforeMatch =
-                  (flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-              int prevPos = pos - 1;
-              if (!hasOnlyBeforeMatch) {
-                if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
-                  boolean alreadyMatched = matched;
-                  matched = true;
-                  matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
-                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
-                  if (!longest && !needEndMatch) {
-                    return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
-                  }
-                }
-              }
-            }
-          }
-          sId = nsId;
-          pos--;
+          s = offsetToState[cursor.stateOffset()];
+        } else {
+          long cursor =
+              scanCachedReverseAscii(
+                  text, pos, scanLimit, s.id * numClasses, posDepThreshold, maxInputUnits);
+          pos = (int) (cursor >>> 32);
+          s = offsetToState[(int) cursor];
         }
-        s = offsetToState[sId];
       }
 
       if (pos <= scanLimit) {
@@ -2639,7 +2712,6 @@ final class Dfa {
         if (ns == null) {
           return completeSearch(null, pos); // budget exceeded
         }
-        transitions = this.transitions;
         offsetToState = this.offsetToState;
       }
       s = ns;
@@ -2672,6 +2744,9 @@ final class Dfa {
             }
           }
         }
+        if (canSkipRemainingPrefix(s, text, startLimit, longest)) {
+          return completeSearch(new SearchResult(true, startLimit, ambiguous), pos - 1);
+        }
       }
       pos--;
     }
@@ -2682,9 +2757,6 @@ final class Dfa {
 
     // General reverse loop
     while (pos >= startLimit) {
-      if (skipUniversalPrefix && s.acceptsAnyRemainingPrefix) {
-        return completeSearch(new SearchResult(true, startLimit, ambiguous), pos);
-      }
       if (pos <= scanLimit && pos > startLimit) {
         return completeSearch(new SearchResult(matched, matchStart, ambiguous, true), pos);
       }
@@ -2783,6 +2855,10 @@ final class Dfa {
               return completeSearch(new SearchResult(true, matchStart, ambiguous), pos);
             }
           }
+        }
+        if (canSkipRemainingPrefix(s, text, startLimit, longest)) {
+          return completeSearch(
+              new SearchResult(true, startLimit, ambiguous), Math.max(prevPos, startLimit));
         }
       }
 
