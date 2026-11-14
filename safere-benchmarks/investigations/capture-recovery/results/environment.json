@@ -1,0 +1,8 @@
+{
+  "jdk": "openjdk 26.0.2 2026-07-21\nOpenJDK Runtime Environment (build 26.0.2+10-55)\nOpenJDK 64-Bit Server VM (build 26.0.2+10-55, mixed mode, sharing)\n",
+  "maven": "Apache Maven 3.9.14 (996c630dbc656c76214ce58821dcc58be960875b)\nMaven home: /home/eaftan/mvns/apache-maven-3.9.14\nJava version: 26.0.2, vendor: Oracle Corporation, runtime: /home/eaftan/jdks/jdk-26.0.2\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"6.6.87.2-microsoft-standard-wsl2\", arch: \"amd64\", family: \"unix\"\n",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz",
+  "baseline": "4ead777e87f9209c2d9dc06fb958a23bd01349be\n2026-11-11T04:40:44+00:00\n",
+  "branch": "issue-1075-capture-followups"
+}

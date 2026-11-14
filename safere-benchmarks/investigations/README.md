@@ -55,3 +55,6 @@ promoted.
 
 - [Capture-demand producer policy](capture-demand-policy/README.md): controlled
   capture consumption, matcher ownership, and producer selection (#1075).
+
+- [Capture recovery and anchored eligibility](capture-recovery/README.md): focused replay
+  optimization and the anchored capture-demand cutoff (#1075).

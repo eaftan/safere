@@ -4738,6 +4738,58 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "captureRecovery.stack.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary prose ordi\n    at com.example.Service.run(Service.java:42)\n"
+      }
+    },
+    {
+      "id": "captureRecovery.scheme.hit",
+      "recipe": {
+        "kind": "literal",
+        "text": "[this link](customScheme://<id_1>)"
+      }
+    },
+    {
+      "id": "captureRecovery.scheme.miss",
+      "recipe": {
+        "kind": "literal",
+        "text": "ordinary prose ordinary prose ordinary prose ordinary prose ordinary proseCheck [this link](customScheme://<id_1>(bad(nested)))\n"
+      }
+    },
+    {
+      "id": "captureRecovery.stack.anchored.{size}",
+      "axes": {
+        "size": [
+          511,
+          512,
+          513
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": " ",
+        "suffix": " at com.example.Service.run(Service.java:42)",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "captureRecovery.stack.primer",
+      "recipe": {
+        "kind": "literal",
+        "text": " at com.example.Service.run(Service.java:42)"
+      }
+    },
+    {
+      "id": "captureRecovery.stack.unicode",
+      "recipe": {
+        "kind": "literal",
+        "text": " at com.example.Service.run(S\u00e9rvice\ud83d\ude00.java:42)"
+      }
     }
   ],
   "workloads": [
@@ -21403,6 +21455,254 @@
         "constraints": [
           "prematerializedInput"
         ]
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.stack.text",
+      "operation": "findGroup",
+      "patterns": [
+        {
+          "java": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?m)^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "(?m)^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "captureRecovery.stack.hit"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "string",
+        "value": "com.example.Service"
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.stack.mixed",
+      "operation": "findSampledGroup",
+      "patterns": [
+        {
+          "java": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?m)^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "(?m)^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "captureRecovery.stack.hit",
+        "captureRecovery.stack.primer"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 1,
+        "count": 4
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.scheme.rejection",
+      "operation": "findSampledGroup",
+      "patterns": [
+        "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "captureRecovery.scheme.miss",
+        "captureRecovery.scheme.hit"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "mode": "capture",
+        "group": 2,
+        "count": 1
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "lifecycle": {
+        "matcher": "retained",
+        "steps": [
+          {
+            "kind": "reset"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.stack.anchoredFind.{size}",
+      "operation": "findGroup",
+      "patterns": [
+        {
+          "java": "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "captureRecovery.stack.anchored.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "expected": {
+        "type": "string",
+        "value": "com.example.Service"
+      },
+      "axes": {
+        "size": [
+          511,
+          512,
+          513
+        ]
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.stack.matches.{size}",
+      "operation": "captureGroups",
+      "patterns": [
+        {
+          "java": "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "captureRecovery.stack.anchored.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          1
+        ]
+      },
+      "expected": {
+        "type": "string",
+        "value": "com.example.Service"
+      },
+      "axes": {
+        "size": [
+          511,
+          512,
+          513
+        ]
+      }
+    },
+    {
+      "id": "CaptureRecoveryBenchmark.stack.unicodeText",
+      "operation": "findGroup",
+      "patterns": [
+        {
+          "java": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?m)^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "(?m)^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "captureRecovery.stack.unicode"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 3
+      },
+      "expected": {
+        "type": "string",
+        "value": "S\u00e9rvice\ud83d\ude00.java"
       }
     }
   ]

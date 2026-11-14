@@ -299,11 +299,10 @@ class CrossEngineBenchmarkPlanTest {
             BenchmarkOperation.REPLACE_FIRST,
             BenchmarkOperation.REPLACE_ALL,
             BenchmarkOperation.REPLACE_ALL_LENGTH_SUM,
-            BenchmarkOperation.MANUAL_REPLACE_ALL)
-        .doesNotContain(
+            BenchmarkOperation.MANUAL_REPLACE_ALL,
             BenchmarkOperation.CAPTURE_GROUPS,
-            BenchmarkOperation.FIND_GROUP,
-            BenchmarkOperation.SPLIT_LENGTH_SUM);
+            BenchmarkOperation.FIND_GROUP)
+        .doesNotContain(BenchmarkOperation.SPLIT_LENGTH_SUM);
   }
 
   @Test
@@ -337,10 +336,11 @@ class CrossEngineBenchmarkPlanTest {
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
 
     assertThat(plan.resolve("RegexBenchmark.literalMatch@safere-utf8")).isNotNull();
-    assertThatThrownBy(() -> plan.resolve("HttpBenchmark.httpExtract@safere-utf8"))
+    assertThat(plan.resolve("HttpBenchmark.httpExtract@safere-utf8")).isNotNull();
+    assertThatThrownBy(() -> plan.resolve("Issue481ScalingBenchmark.splitWords.128@safere-utf8"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported cross-engine combination")
-        .hasMessageContaining("captureText");
+        .hasMessageContaining("split");
     assertThatThrownBy(() -> plan.resolve("missing.workload@safere-string"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Unknown cross-engine workload ID: missing.workload");
@@ -722,6 +722,14 @@ class CrossEngineBenchmarkPlanTest {
             "RegexBenchmark.literalMatch@safere-utf8",
             "ApplicationBenchmark.uuidValidation@safere-utf8",
             "HttpBenchmark.httpFull@safere-utf8",
+            "HttpBenchmark.httpExtract@safere-utf8",
+            "ApplicationBenchmark.stackTraceExtract@safere-utf8",
+            "CaptureScalingBenchmark.capture1@safere-utf8",
+            "CaptureRecoveryBenchmark.stack.text@safere-utf8",
+            "CaptureRecoveryBenchmark.stack.mixed@safere-utf8",
+            "CaptureRecoveryBenchmark.scheme.rejection@safere-utf8",
+            "CaptureRecoveryBenchmark.stack.matches.512@safere-utf8",
+            "CaptureRecoveryBenchmark.stack.anchoredFind.513@safere-utf8",
             "MatcherApiBenchmark.lookingAt@safere-utf8",
             "MatcherApiBenchmark.regionFind@safere-utf8",
             "MatcherApiBenchmark.resetAndFind@safere-utf8",
@@ -795,8 +803,7 @@ class CrossEngineBenchmarkPlanTest {
   void utf8ReplacementAdapterExpandsLiteralNumberedAndNamedTemplates() {
     RegexEngineVariant variant = RegexEngineVariant.SAFERE_UTF8;
     RegexEngineVariant.RegexInput input =
-        new RegexEngineVariant.Utf8RegexInput(
-            org.safere.Utf8Input.trusted("alpha=one&beta=two".getBytes(StandardCharsets.UTF_8)));
+        RegexEngineVariant.utf8Input("alpha=one&beta=two".getBytes(StandardCharsets.UTF_8));
 
     try (RegexEngineVariant.CompiledRegex literal = variant.compile("&");
         RegexEngineVariant.CompiledRegex numbered = variant.compile("([a-z]+)=([a-z]+)");

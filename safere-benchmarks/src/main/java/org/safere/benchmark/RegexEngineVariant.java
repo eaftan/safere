@@ -120,6 +120,7 @@ enum RegexEngineVariant {
           EngineCapability.MATCHES,
           EngineCapability.LOOKING_AT,
           EngineCapability.GROUP_PARTICIPATION,
+          EngineCapability.GROUP_TEXT,
           EngineCapability.REPLACE,
           EngineCapability.APPEND_REPLACEMENT,
           EngineCapability.MATCHER_RESET,
@@ -155,6 +156,20 @@ enum RegexEngineVariant {
             @Override
             public boolean lookingAt() {
               return matcher.lookingAt();
+            }
+
+            @Override
+            public String group(int group) {
+              int start = matcher.start(group);
+              if (start < 0) {
+                return null;
+              }
+              Utf8RegexInput source = (Utf8RegexInput) input;
+              return new String(
+                  source.bytes,
+                  source.offset + start,
+                  matcher.end(group) - start,
+                  StandardCharsets.UTF_8);
             }
 
             @Override
@@ -621,7 +636,7 @@ enum RegexEngineVariant {
     List<RegexInput> inputs = new ArrayList<>(inputKeys.size());
     for (String inputKey : inputKeys) {
       if (inputRepresentation == InputRepresentation.PREEXISTING_UTF8) {
-        inputs.add(new Utf8RegexInput(org.safere.Utf8Input.trusted(data.getInputBytes(inputKey))));
+        inputs.add(utf8Input(data.getInputBytes(inputKey)));
       } else {
         inputs.add(new StringRegexInput(data.getInputString(inputKey)));
       }
@@ -740,7 +755,30 @@ enum RegexEngineVariant {
 
   record StringRegexInput(String value) implements RegexInput {}
 
-  record Utf8RegexInput(org.safere.Utf8Input value) implements RegexInput {}
+  static RegexInput utf8Input(byte[] bytes) {
+    return utf8Input(bytes, 0, bytes.length);
+  }
+
+  static RegexInput utf8Input(byte[] bytes, int offset, int length) {
+    return new Utf8RegexInput(bytes, offset, length);
+  }
+
+  private static final class Utf8RegexInput implements RegexInput {
+    // Borrow immutable fixture storage; keep native view offsets for timed capture decoding.
+    private final byte[] bytes;
+    private final int offset;
+    private final org.safere.Utf8Input value;
+
+    private Utf8RegexInput(byte[] bytes, int offset, int length) {
+      this.bytes = bytes;
+      this.offset = offset;
+      this.value = org.safere.Utf8Input.trusted(bytes, offset, length);
+    }
+
+    org.safere.Utf8Input value() {
+      return value;
+    }
+  }
 
   sealed interface PreparedReplacement permits StringReplacement, Utf8Replacement {}
 

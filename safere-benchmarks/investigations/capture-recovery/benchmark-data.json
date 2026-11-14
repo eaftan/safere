@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "configuration": {
+    "collection": {
+      "allocationWorkloadPrefixes": []
+    },
+    "investigation": {
+      "documentsPerInvocation": 16,
+      "profiles": {
+        "text": {
+          "hitEvery": 1,
+          "readEvery": 1
+        },
+        "mixed": {
+          "hitEvery": 1,
+          "readEvery": 4
+        },
+        "rare": {
+          "hitEvery": 16,
+          "readEvery": 1
+        },
+        "reject": {
+          "hitEvery": 0,
+          "readEvery": 0
+        },
+        "boolean": {
+          "hitEvery": 1,
+          "readEvery": 0
+        }
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "stack.hit.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": " ",
+        "suffix": " at com.example.Service.run(Service.java:42)",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "stack.miss.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": " ",
+        "suffix": " at com.example.Service.run(Service.java:42x)",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "onePass.hit.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": " ",
+        "suffix": " word:42",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "onePass.miss.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": " ",
+        "suffix": " word:xx42",
+        "length": "{size}"
+      }
+    }
+  ],
+  "workloads": [
+    {
+      "id": "CaptureCutoffBenchmark.stack.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        {
+          "java": "^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)",
+              "reason": "Rust regex gives \\d and \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "^[ \\t\\n\\x0B\\f\\r]+at[ \\t\\n\\x0B\\f\\r]+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)",
+              "reason": ".NET gives \\d and \\s Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "stack.hit.{size}",
+        "stack.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "CaptureCutoffBenchmark.onePass.{size}",
+      "axes": {
+        "size": [
+          128,
+          256,
+          511,
+          512,
+          513,
+          1024,
+          2048
+        ]
+      },
+      "operation": "matches",
+      "patterns": [
+        "^\\s*([a-z]+):([0-9]+)"
+      ],
+      "inputs": [
+        "onePass.hit.{size}",
+        "onePass.miss.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    }
+  ]
+}

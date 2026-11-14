@@ -1,0 +1,19 @@
+Capture recovery follow-up: preserved investigation results
+
+Character-loop fusion: full long cohort geometric-mean time ratio 0.966x
+against pinned main 4ead777e87f9209c2d9dc06fb958a23bd01349be. Stack-document extraction takes about
+14-15% less time on String and 15-17% less on UTF-8 in the two long comparisons.
+Tradeoff: UTF-8 scheme extraction/rejection takes about 4% more time.
+
+Cutoff: retain 512 in this change. Early capture production benefits frequent
+extraction but greatly increases rejection cost. The measurements do not select a
+universal replacement size. See README.md for measured profiles and limits.
+
+Ten standing cases added; generic UTF-8 capture-text adapter enabled. Larger cutoff
+protocol stays opt-in. The runtime optimization is proposed in a separate PR.
+
+Full readable writeup: README.md
+Complete recovery scores/errors: recovery-table.md
+Complete cutoff screen/boundaries: cutoff-table.md
+Long cutoff confirmation: cutoff-long-table.md
+Raw output, exact commands/sources, path audits, and checksums are adjacent.

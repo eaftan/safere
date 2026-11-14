@@ -1,0 +1,1092 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "stack.all.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 2332479.756191983,
+            "scoreError" : 34219.96094529077,
+            "scoreConfidence" : [
+                2298259.795246692,
+                2366699.717137274
+            ],
+            "scorePercentiles" : {
+                "0.0" : 2306150.848275862,
+                "50.0" : 2329438.788200585,
+                "90.0" : 2378146.4516730476,
+                "95.0" : 2380638.2114014253,
+                "99.0" : 2380638.2114014253,
+                "99.9" : 2380638.2114014253,
+                "99.99" : 2380638.2114014253,
+                "99.999" : 2380638.2114014253,
+                "99.9999" : 2380638.2114014253,
+                "100.0" : 2380638.2114014253
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    2309378.4331797236,
+                    2306150.848275862,
+                    2380638.2114014253,
+                    2318709.2263279445,
+                    2318469.5578703703
+                ],
+                [
+                    2341263.4742990653,
+                    2355720.614117647,
+                    2335589.6200466203,
+                    2333522.2144522145,
+                    2325355.361948956
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "stack.all.text4.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1667811.5415088867,
+            "scoreError" : 49328.145437146246,
+            "scoreConfidence" : [
+                1618483.3960717404,
+                1717139.686946033
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1642560.4721311475,
+                "50.0" : 1657550.7553760055,
+                "90.0" : 1744687.4600205538,
+                "95.0" : 1750462.4073426574,
+                "99.0" : 1750462.4073426574,
+                "99.9" : 1750462.4073426574,
+                "99.99" : 1750462.4073426574,
+                "99.999" : 1750462.4073426574,
+                "99.9999" : 1750462.4073426574,
+                "100.0" : 1750462.4073426574
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1642791.055737705,
+                    1673022.6978297161,
+                    1750462.4073426574,
+                    1649181.5930807248,
+                    1642560.4721311475
+                ],
+                [
+                    1658052.505785124,
+                    1692712.9341216215,
+                    1657049.0049668874,
+                    1654089.7838283828,
+                    1658192.9602649007
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "stack.none.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 636895.1278897461,
+            "scoreError" : 25672.422062212514,
+            "scoreConfidence" : [
+                611222.7058275336,
+                662567.5499519586
+            ],
+            "scorePercentiles" : {
+                "0.0" : 618923.570191713,
+                "50.0" : 634714.2838636073,
+                "90.0" : 668953.6752101962,
+                "95.0" : 670515.0160857909,
+                "99.0" : 670515.0160857909,
+                "99.9" : 670515.0160857909,
+                "99.99" : 670515.0160857909,
+                "99.999" : 670515.0160857909,
+                "99.9999" : 670515.0160857909,
+                "100.0" : 670515.0160857909
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    629074.5229415462,
+                    624700.6036204745,
+                    622054.5257924177,
+                    618923.570191713,
+                    620462.2372986369
+                ],
+                [
+                    670515.0160857909,
+                    642398.8613607188,
+                    654901.607329843,
+                    645566.2894906512,
+                    640354.0447856686
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "stack.document",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 7060599.439597731,
+            "scoreError" : 195463.6125067999,
+            "scoreConfidence" : [
+                6865135.827090931,
+                7256063.052104532
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6907699.850340136,
+                "50.0" : 7076537.262411348,
+                "90.0" : 7211540.947857142,
+                "95.0" : 7212935.271428571,
+                "99.0" : 7212935.271428571,
+                "99.9" : 7212935.271428571,
+                "99.99" : 7212935.271428571,
+                "99.999" : 7212935.271428571,
+                "99.9999" : 7212935.271428571,
+                "100.0" : 7212935.271428571
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    7190092.785714285,
+                    7198992.035714285,
+                    7123959.524822695,
+                    7029115.0,
+                    7160125.628571428
+                ],
+                [
+                    6924066.358620689,
+                    6931271.589041096,
+                    7212935.271428571,
+                    6907699.850340136,
+                    6927736.351724138
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "scheme.all.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1067499.475131011,
+            "scoreError" : 16541.179747347098,
+            "scoreConfidence" : [
+                1050958.295383664,
+                1084040.6548783581
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1055771.1160337552,
+                "50.0" : 1064359.1875664187,
+                "90.0" : 1086920.08138244,
+                "95.0" : 1087663.6891304348,
+                "99.0" : 1087663.6891304348,
+                "99.9" : 1087663.6891304348,
+                "99.99" : 1087663.6891304348,
+                "99.999" : 1087663.6891304348,
+                "99.9999" : 1087663.6891304348,
+                "100.0" : 1087663.6891304348
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1057248.0291666666,
+                    1057117.6029567055,
+                    1064112.2178533475,
+                    1060539.1398305085,
+                    1087663.6891304348
+                ],
+                [
+                    1071704.5074946466,
+                    1055771.1160337552,
+                    1064606.1572794898,
+                    1080227.6116504855,
+                    1076004.679914071
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "scheme.all.text4.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1040563.1788762467,
+            "scoreError" : 18113.34524962893,
+            "scoreConfidence" : [
+                1022449.8336266178,
+                1058676.5241258757
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1028740.9989722507,
+                "50.0" : 1036318.2210743802,
+                "90.0" : 1064516.6422287272,
+                "95.0" : 1066070.8839190628,
+                "99.0" : 1066070.8839190628,
+                "99.9" : 1066070.8839190628,
+                "99.99" : 1066070.8839190628,
+                "99.999" : 1066070.8839190628,
+                "99.9999" : 1066070.8839190628,
+                "100.0" : 1066070.8839190628
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1049137.4025157234,
+                    1035673.576446281,
+                    1032742.6515463918,
+                    1050528.4670157067,
+                    1036962.8657024794
+                ],
+                [
+                    1029897.8919753087,
+                    1028740.9989722507,
+                    1066070.8839190628,
+                    1030759.3899176954,
+                    1045117.6607515657
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "scheme.none.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 165896.34735679283,
+            "scoreError" : 11672.017238071456,
+            "scoreConfidence" : [
+                154224.33011872138,
+                177568.36459486428
+            ],
+            "scorePercentiles" : {
+                "0.0" : 155417.605561597,
+                "50.0" : 166390.9790226363,
+                "90.0" : 173915.01469876847,
+                "95.0" : 173923.79976303317,
+                "99.0" : 173923.79976303317,
+                "99.9" : 173923.79976303317,
+                "99.99" : 173923.79976303317,
+                "99.999" : 173923.79976303317,
+                "99.9999" : 173923.79976303317,
+                "100.0" : 173923.79976303317
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    159732.32715950822,
+                    155417.605561597,
+                    160483.13233878728,
+                    157098.18451633165,
+                    161034.7638821825
+                ],
+                [
+                    171747.19416309014,
+                    173923.79976303317,
+                    172860.54868015085,
+                    173835.94912038633,
+                    172829.9683828611
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "string",
+            "scenario" : "scheme.rare.rotate.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 245324.13710005637,
+            "scoreError" : 3849.362242963247,
+            "scoreConfidence" : [
+                241474.7748570931,
+                249173.49934301962
+            ],
+            "scorePercentiles" : {
+                "0.0" : 240309.87941388422,
+                "50.0" : 246004.1344682444,
+                "90.0" : 248631.92375586292,
+                "95.0" : 248724.55008699975,
+                "99.0" : 248724.55008699975,
+                "99.9" : 248724.55008699975,
+                "99.99" : 248724.55008699975,
+                "99.999" : 248724.55008699975,
+                "99.9999" : 248724.55008699975,
+                "100.0" : 248724.55008699975
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    243091.138483965,
+                    243269.88135181132,
+                    246071.82484624846,
+                    240309.87941388422,
+                    245936.44409024031
+                ],
+                [
+                    244443.47020029312,
+                    247156.61373178562,
+                    248724.55008699975,
+                    246439.28201970443,
+                    247798.2867756315
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "stack.all.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 2296191.77872902,
+            "scoreError" : 39005.0663574266,
+            "scoreConfidence" : [
+                2257186.7123715933,
+                2335196.845086447
+            ],
+            "scorePercentiles" : {
+                "0.0" : 2257991.5743243243,
+                "50.0" : 2301457.3078256454,
+                "90.0" : 2326018.988749238,
+                "95.0" : 2326365.747099768,
+                "99.0" : 2326365.747099768,
+                "99.9" : 2326365.747099768,
+                "99.99" : 2326365.747099768,
+                "99.999" : 2326365.747099768,
+                "99.9999" : 2326365.747099768,
+                "100.0" : 2326365.747099768
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    2275995.4716553288,
+                    2274738.5704545453,
+                    2257991.5743243243,
+                    2265111.8194130925,
+                    2305823.2119815666
+                ],
+                [
+                    2313891.6766055045,
+                    2322898.16359447,
+                    2326365.747099768,
+                    2322010.1484918795,
+                    2297091.4036697247
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "stack.all.text4.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1602536.348188229,
+            "scoreError" : 16277.82942015077,
+            "scoreConfidence" : [
+                1586258.5187680782,
+                1618814.1776083796
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1589258.2634920634,
+                "50.0" : 1603371.1296,
+                "90.0" : 1620953.6644831158,
+                "95.0" : 1621330.4611650486,
+                "99.0" : 1621330.4611650486,
+                "99.9" : 1621330.4611650486,
+                "99.99" : 1621330.4611650486,
+                "99.999" : 1621330.4611650486,
+                "99.9999" : 1621330.4611650486,
+                "100.0" : 1621330.4611650486
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1603840.1041666667,
+                    1617562.494345719,
+                    1589258.2634920634,
+                    1621330.4611650486,
+                    1603091.4192
+                ],
+                [
+                    1590777.4167987322,
+                    1603650.84,
+                    1593061.6496815286,
+                    1596194.2551834132,
+                    1606596.577849117
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "stack.none.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 600751.3612640043,
+            "scoreError" : 15570.446311497755,
+            "scoreConfidence" : [
+                585180.9149525065,
+                616321.807575502
+            ],
+            "scorePercentiles" : {
+                "0.0" : 583073.8321678322,
+                "50.0" : 601030.688622748,
+                "90.0" : 615449.0057835232,
+                "95.0" : 615756.3889230769,
+                "99.0" : 615756.3889230769,
+                "99.9" : 615756.3889230769,
+                "99.99" : 615756.3889230769,
+                "99.999" : 615756.3889230769,
+                "99.9999" : 615756.3889230769,
+                "100.0" : 615756.3889230769
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    596838.9499105546,
+                    583073.8321678322,
+                    588115.9982363316,
+                    612682.5575275398,
+                    595769.6434523809
+                ],
+                [
+                    602180.7075812274,
+                    607918.7339003645,
+                    599880.6696642686,
+                    615756.3889230769,
+                    605296.131276467
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "stack.document",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 7162582.424062302,
+            "scoreError" : 275842.5689536513,
+            "scoreConfidence" : [
+                6886739.855108651,
+                7438424.993015953
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6904829.268965517,
+                "50.0" : 7203941.457091469,
+                "90.0" : 7467906.038200303,
+                "95.0" : 7487212.186567164,
+                "99.0" : 7487212.186567164,
+                "99.9" : 7487212.186567164,
+                "99.99" : 7487212.186567164,
+                "99.999" : 7487212.186567164,
+                "99.9999" : 7487212.186567164,
+                "100.0" : 7487212.186567164
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    7487212.186567164,
+                    7289639.166666667,
+                    7236634.438848921,
+                    7207849.98561151,
+                    7294150.702898551
+                ],
+                [
+                    7071768.309859155,
+                    7200032.928571428,
+                    6904829.268965517,
+                    6983043.631944444,
+                    6950663.620689655
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "scheme.all.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1061032.8326712619,
+            "scoreError" : 18499.018764569606,
+            "scoreConfidence" : [
+                1042533.8139066922,
+                1079531.8514358315
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1043424.9165797706,
+                "50.0" : 1063007.8280684315,
+                "90.0" : 1079015.0097035295,
+                "95.0" : 1079450.2319309602,
+                "99.0" : 1079450.2319309602,
+                "99.9" : 1079450.2319309602,
+                "99.99" : 1079450.2319309602,
+                "99.999" : 1079450.2319309602,
+                "99.9999" : 1079450.2319309602,
+                "100.0" : 1079450.2319309602
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1043424.9165797706,
+                    1050997.1827731093,
+                    1045568.4989561586,
+                    1054426.9989462593,
+                    1075098.0096566523
+                ],
+                [
+                    1065071.8659574469,
+                    1061088.1917372881,
+                    1079450.2319309602,
+                    1064927.464399575,
+                    1070274.965775401
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "scheme.all.text4.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 1046067.7941789848,
+            "scoreError" : 10087.888175733746,
+            "scoreConfidence" : [
+                1035979.9060032511,
+                1056155.6823547187
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1037334.7476732162,
+                "50.0" : 1046321.2987441113,
+                "90.0" : 1059092.6790245993,
+                "95.0" : 1060041.2689873418,
+                "99.0" : 1060041.2689873418,
+                "99.9" : 1060041.2689873418,
+                "99.99" : 1060041.2689873418,
+                "99.999" : 1060041.2689873418,
+                "99.9999" : 1060041.2689873418,
+                "100.0" : 1060041.2689873418
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    1047844.7979057592,
+                    1044797.7995824635,
+                    1048793.9454926625,
+                    1050555.369359916,
+                    1048130.322513089
+                ],
+                [
+                    1060041.2689873418,
+                    1043485.8355879292,
+                    1037334.7476732162,
+                    1037783.1859504132,
+                    1041910.66873706
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "scheme.none.text.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 177432.61242595746,
+            "scoreError" : 3432.0336504254433,
+            "scoreConfidence" : [
+                174000.57877553202,
+                180864.6460763829
+            ],
+            "scorePercentiles" : {
+                "0.0" : 174498.21523178808,
+                "50.0" : 177109.7328018652,
+                "90.0" : 180977.57913851185,
+                "95.0" : 181007.29762981727,
+                "99.0" : 181007.29762981727,
+                "99.9" : 181007.29762981727,
+                "99.99" : 181007.29762981727,
+                "99.999" : 181007.29762981727,
+                "99.9999" : 181007.29762981727,
+                "100.0" : 181007.29762981727
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    175277.93293643845,
+                    176124.6922400141,
+                    174498.21523178808,
+                    176372.15635466244,
+                    177847.309249068
+                ],
+                [
+                    180710.11271676302,
+                    175413.56577334035,
+                    181007.29762981727,
+                    178738.18828152912,
+                    178336.65384615384
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.safere.benchmark.AdaptiveCaptureBenchmark.run",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/home/eaftan/jdks/jdk-26.0.2/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dre2shim.library.path=/tmp/safere-1075-followups-base/safere-ffm-re2/build",
+            "-Dsafere.benchmark.corpus=/tmp/safere-1075-followups-base/safere-benchmarks/target/investigations/capture-demand-policy/corpus",
+            "-Dsafere.benchmark.scanProvider=default"
+        ],
+        "jdkVersion" : "26.0.2",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "26.0.2+10-55",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "policy" : "main",
+            "representation" : "utf8",
+            "scenario" : "scheme.rare.rotate.ascii.128",
+            "seed" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 260346.2646702541,
+            "scoreError" : 5805.867617429968,
+            "scoreConfidence" : [
+                254540.39705282415,
+                266152.1322876841
+            ],
+            "scorePercentiles" : {
+                "0.0" : 255937.8992069583,
+                "50.0" : 259754.71017273248,
+                "90.0" : 267456.6414629192,
+                "95.0" : 267816.1311563169,
+                "99.0" : 267816.1311563169,
+                "99.9" : 267816.1311563169,
+                "99.99" : 267816.1311563169,
+                "99.999" : 267816.1311563169,
+                "99.9999" : 267816.1311563169,
+                "100.0" : 267816.1311563169
+            },
+            "scoreUnit" : "ns/op",
+            "rawData" : [
+                [
+                    258950.733626715,
+                    255937.8992069583,
+                    257018.0770811922,
+                    257271.9850899743,
+                    257149.37676689797
+                ],
+                [
+                    260558.68671875,
+                    264221.2342223396,
+                    267816.1311563169,
+                    263351.1991581163,
+                    261187.3236752806
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

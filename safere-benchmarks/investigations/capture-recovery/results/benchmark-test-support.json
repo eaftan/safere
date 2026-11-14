@@ -1,0 +1,10 @@
+{
+  "safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkDataSchemaTest.java": "21d25afc06cb3caccb26c967988bf61f503f2a1c7b689101c01273577f976c71",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkInputMaterializerTest.java": "5256cc020ff683da06fdd1fa784d68a2915cc86241c2781e38cfa4e6cc4a932e",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkOperationTest.java": "65f22d7adc59cd75f8f1e24a8b7ed302f6b9118c71549e128c6e3f2ca6d0aad3",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/BenchmarkProviderCheckTest.java": "aa62189ce74f387f2efed00f6597d824691e1543def3307e141a44937944551c",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java": "168631114b776a3553689d2fac86e6e2d61680463c7d05aeb633bfcb33459d21",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/DeclarativeBenchmarkPlanTest.java": "e51364d8f9405c75e7fd2f270dbfb97b5dfc29d89cfc0456ef13c86f9baa148d",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/PatternProfilesTest.java": "a2d885194d821a7627c498c4c05cf426f6a667b36ebd0b7b934e125374eb6355",
+  "safere-benchmarks/src/test/java/org/safere/benchmark/ResolvedBenchmarkPlanTest.java": "aff9162d22528798f36e3de3cb88f555304f50007252b5ec6ce1ecd4d18a70f7"
+}
