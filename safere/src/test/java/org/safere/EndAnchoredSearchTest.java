@@ -16,6 +16,94 @@ import org.junit.jupiter.api.Test;
 class EndAnchoredSearchTest {
 
   @Test
+  void reverseSelectionPreservesShortCandidatesAndContextualCaptures() {
+    for (String regex :
+        List.of(
+            "(marker)([a-z]*)\\z",
+            "\\b(marker)([a-z]*)\\z",
+            "(marker)([a-z]*?)\\b\\z",
+            "(?s:(marker)(.*))$")) {
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().dfa(false).build(),
+              EnginePathOptions.builder().reverseDfa(false).build(),
+              EnginePathOptions.builder().bitState(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (int size : List.of(32, 64, 512, 4096)) {
+          for (String tail : List.of("", "\r\n")) {
+            String text = "!".repeat(2048) + "marker" + "a".repeat(size - 6) + tail;
+            Utf8Input bytes = Utf8Input.trusted(text.getBytes(UTF_8));
+            assertThat(pattern.asPredicate().test(text)).isEqualTo(jdk.matcher(text).find());
+            assertThat(pattern.find(bytes)).isEqualTo(jdk.matcher(text).find());
+            assertFindSequence(pattern, jdk, text, bytes);
+            assertThat(pattern.matcher(text).replaceAll("<$1:$2>"))
+                .isEqualTo(jdk.matcher(text).replaceAll("<$1:$2>"));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void reverseLanguageProofPreservesBoundsCapturesAndSearchSequences() {
+    for (String regex :
+        List.of(
+            "(?s:.*)END\\z",
+            "(?s:.*?)END\\z",
+            "[\\s\\S]*[A-Z]{3}\\z",
+            "(?s:.*)(?:END|STOP)\\z",
+            "(?s:.*)(?:|END)\\z",
+            "(?s:(.*))(E(?:N|X)D)\\z",
+            "[^;]*END\\z",
+            "[\\x00-\\x7f]*END\\z",
+            "(?s:.*)\\bEND\\z",
+            "(?s:.*)END$")) {
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().reverseDfa(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (String prefix : List.of("x; ".repeat(1_000), "é😀 ".repeat(1_000))) {
+          for (String tail : List.of("END", "STOP", "END\r\n", "END!", "")) {
+            String input = prefix + tail;
+            assertThat(pattern.asPredicate().test(input)).isEqualTo(jdk.matcher(input).find());
+            assertFindSequence(pattern, jdk, input, Utf8Input.trusted(input.getBytes(UTF_8)));
+            assertThat(pattern.matcher(input).replaceAll("<$0>"))
+                .as("replace /%s/", regex)
+                .isEqualTo(jdk.matcher(input).replaceAll("<$0>"));
+            String surrounded = "[" + input + "]";
+            Matcher matcher = pattern.matcher(surrounded).region(1, surrounded.length() - 1);
+            java.util.regex.Matcher expected =
+                jdk.matcher(surrounded).region(1, surrounded.length() - 1);
+            assertThat(matcher.find()).as("region /%s/", regex).isEqualTo(expected.find());
+            if (matcher.hasMatch()) {
+              assertThat(matcher.start()).isEqualTo(expected.start());
+              assertThat(matcher.end()).isEqualTo(expected.end());
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void endAnchoredUniversalPrefixHonorsExplicitLowSurrogateStarts() {
+    String input = "x".repeat(2_000) + "😀END";
+    for (String regex : List.of("(?s:.*)END\\z", "(?s:(.*))END$")) {
+      Pattern pattern = Pattern.compile(regex);
+      Matcher actual = pattern.matcher(input);
+      java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(input);
+      assertThat(actual.find(2_001)).isEqualTo(expected.find(2_001));
+      assertThat(actual.start()).isEqualTo(expected.start());
+      assertThat(actual.end()).isEqualTo(expected.end());
+      assertThat(actual.group()).isEqualTo(expected.group());
+    }
+  }
+
+  @Test
   void anchoredOnePassTerminalFiltersPreserveLineEndingsAndRegions() {
     for (String regex :
         List.of(
@@ -152,6 +240,19 @@ class EndAnchoredSearchTest {
   }
 
   @Test
+  void longEndAnchoredSearchPreservesGreedyBoundsAndTrailingTerminatorPriority() {
+    for (String regex :
+        List.of("(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$", "(?s:(.*))ABCDEFGHIJKLMNOPQRSTUVWXYZ$")) {
+      Pattern pattern = Pattern.compile(regex);
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+      for (String terminator : List.of("", "\n", "\r\n")) {
+        String input = "é😀".repeat(10_000) + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + terminator;
+        assertFindSequence(pattern, jdkPattern, input, Utf8Input.trusted(input.getBytes(UTF_8)));
+      }
+    }
+  }
+
+  @Test
   void unboundedEndAnchoredSearchPreservesResultsAcrossProbeBoundaries() {
     for (String regex :
         List.of(
@@ -195,6 +296,67 @@ class EndAnchoredSearchTest {
           }
         }
       }
+    }
+  }
+
+  @Test
+  void longEndAnchoredCandidatesPreserveExactBoundsAndDeferredCaptures() {
+    for (String regex :
+        List.of(
+            "(marker)(.*)$",
+            "(marker)([a-z]*)\\z",
+            "(marker)(.*?)$",
+            "(?:marker|mark)(.*)$",
+            "\\b(marker)(.*)$",
+            "(?s:(marker)(.*))$",
+            "(marker)((a?)*)$")) {
+      java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex);
+      for (EnginePathOptions options :
+          List.of(
+              EnginePathOptions.allEnabled(),
+              EnginePathOptions.builder().dfa(false).build(),
+              EnginePathOptions.builder().bitState(false).build(),
+              EnginePathOptions.builder().reverseDfa(false).build())) {
+        Pattern pattern = Pattern.compile(regex, 0, options);
+        for (String body : List.of("x".repeat(65_536), "r".repeat(65_536), "é😀".repeat(16_384))) {
+          for (String tail : List.of("", "\n", "\r\n", "\nx", "\u0085", "\u2028", "\u2029")) {
+            String input = "!marker" + body + tail;
+            Utf8Input utf8 = Utf8Input.validated(input.getBytes(UTF_8));
+            boolean expected = jdk.matcher(input).find();
+            assertThat(pattern.asPredicate().test(input))
+                .as("predicate /%s/", regex)
+                .isEqualTo(expected);
+            assertThat(pattern.find(utf8)).as("existence /%s/", regex).isEqualTo(expected);
+            assertFindSequence(pattern, jdk, input, utf8);
+            assertThat(pattern.matcher(input).replaceAll("<$1>"))
+                .isEqualTo(jdk.matcher(input).replaceAll("<$1>"));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void reverseAcceptanceRequiresContextFreePathsAndOneEndPosition() {
+    for (String regex :
+        List.of("marker.*$", "(marker)(.*?)\\z", "(?:mark|marker).*\\z", "marker[^!]*\\z")) {
+      Pattern pattern = Pattern.compile(regex);
+      StringInputScanner scanner = new StringInputScanner("!marker" + "x".repeat(65_536));
+      assertThat(pattern.endAnchoredSearchStart(scanner, 0, true, null, false)).isEqualTo(1);
+      assertThat(pattern.endAnchoredStartHasExactEnd(scanner)).as(regex).isTrue();
+    }
+    for (String regex :
+        List.of("\\bmarker.*$", "marker\\b.*$", "marker.*\\b$", "(marker)(a?)*x*$")) {
+      Pattern pattern = Pattern.compile(regex);
+      StringInputScanner scanner = new StringInputScanner("!marker" + "x".repeat(65_536));
+      pattern.endAnchoredSearchStart(scanner, 0, true, null, false);
+      assertThat(pattern.endAnchoredStartHasExactEnd(scanner)).as(regex).isFalse();
+    }
+    Pattern dollar = Pattern.compile("(?s:marker.*)$");
+    for (String tail : List.of("\n", "\r\n", "\u0085", "\u2028")) {
+      StringInputScanner scanner = new StringInputScanner("marker" + "x".repeat(65_536) + tail);
+      assertThat(dollar.endAnchoredSearchStart(scanner, 0, true, null, false)).isZero();
+      assertThat(dollar.endAnchoredStartHasExactEnd(scanner)).as(tail).isFalse();
     }
   }
 

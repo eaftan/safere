@@ -319,18 +319,21 @@ class DiagnosticsTest {
         .flatMap(
             bitState ->
                 Stream.of(
-                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo"),
-                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo\r\n"),
-                    Arguments.of(bitState, "(?:foo|fax)\\z", "x".repeat(1400) + "fax"),
-                    Arguments.of(bitState, "foo[ab]*$", "zzfoo" + "a".repeat(2048))));
+                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo", true),
+                    Arguments.of(bitState, "(?:foo|fax)$", "x".repeat(1400) + "foo\r\n", false),
+                    Arguments.of(bitState, "(?:foo|fax)\\z", "x".repeat(1400) + "fax", true),
+                    Arguments.of(bitState, "foo[ab]*$", "zzfoo" + "a".repeat(2048), true)));
   }
 
   @ParameterizedTest
   @MethodSource("reverseCandidateVerificationCases")
-  void utf8ReverseCandidateReportsItsExactEngine(boolean bitState, String regex, String input) {
+  void utf8ReverseCandidateReportsBoundsProofOrExactVerification(
+      boolean bitState, String regex, String input, boolean provedBounds) {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern =
         Pattern.compile(regex, 0, EnginePathOptions.builder().bitState(bitState).build());
+    MatchStrategy verification =
+        provedBounds ? MatchStrategy.DFA : bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA;
 
     assertThat(pattern.find(Utf8Input.validated(input.getBytes(UTF_8)))).isTrue();
     assertThat(operationsFor(pattern))
@@ -338,13 +341,13 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.reverseDfaSearchCount()).isPositive();
-              assertThat(event.boundaryStrategy())
-                  .isEqualTo(bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA);
+              assertThat(event.boundaryStrategy()).isEqualTo(verification);
               assertThat(event.auxiliaryStrategies())
                   .contains(
-                      new StrategyParticipation(
-                          bitState ? MatchStrategy.BIT_STATE : MatchStrategy.NFA,
-                          StrategyRole.CANDIDATE_VERIFICATION));
+                      new StrategyParticipation(verification, StrategyRole.CANDIDATE_VERIFICATION));
+              if (provedBounds) {
+                assertThat(event.forwardDfaSearchCount()).isZero();
+              }
               if (regex.equals("foo[ab]*$")) {
                 assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
               }

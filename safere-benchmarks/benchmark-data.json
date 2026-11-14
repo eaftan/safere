@@ -1191,6 +1191,66 @@
       "shared": true
     },
     {
+      "id": "stateLoop.denseEscapes.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "needle",
+        "unit": "e",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "stateLoop.mixed.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "needle",
+        "unit": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxé😀",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "stateLoop.nonAscii.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "needle",
+        "unit": "é😀",
+        "suffix": "",
+        "length": "{size}"
+      }
+    },
+    {
+      "id": "stateLoop.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "needle",
+        "unit": "x",
+        "suffix": "\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "length": "{size}"
+      }
+    },
+    {
       "id": "searchScaling.unicodeEnd.{size}",
       "axes": {
         "size": [1024, 10240, 102400, 1048576]
@@ -5760,6 +5820,98 @@
       }
     },
     {
+      "id": "StateLoopBenchmark.denseEscapes.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "stateLoop.denseEscapes.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "StateLoopBenchmark.mixed.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "stateLoop.mixed.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "StateLoopBenchmark.nonAscii.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "stateLoop.nonAscii.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "StateLoopBenchmark.interiorFailure.{size}",
+      "axes": {
+        "size": [
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle.*$"
+      ],
+      "inputs": [
+        "stateLoop.interiorFailure.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "SearchScalingBenchmark.endAnchoredEarlyLiteralDot.{size}",
       "axes": {
         "size": [
@@ -5772,6 +5924,32 @@
       "operation": "find",
       "patterns": [
         "needle.*$"
+      ],
+      "inputs": [
+        "searchScaling.earlyLiteral.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredEarlyLiteralClass.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "operation": "find",
+      "patterns": [
+        "needle[a-z]*\\z"
       ],
       "inputs": [
         "searchScaling.earlyLiteral.{size}"
