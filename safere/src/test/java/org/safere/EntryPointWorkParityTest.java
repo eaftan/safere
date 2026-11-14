@@ -158,6 +158,34 @@ class EntryPointWorkParityTest {
   }
 
   @Test
+  void deferredBoundsReuseTheSelectedStartCandidate() {
+    for (Scenario scenario :
+        List.of(new Scenario("prefix.*suffix", "prefixsuffix"), new Scenario("[ab].*z", "az"))) {
+      String input = "noise " + scenario.tail() + "x".repeat(4096) + scenario.tail();
+      java.util.regex.Matcher expected =
+          java.util.regex.Pattern.compile(scenario.regex()).matcher(input);
+      assertThat(expected.find()).isTrue();
+      for (boolean utf8 : List.of(false, true)) {
+        Pattern pattern = Pattern.compile(scenario.regex());
+        Matcher matcher =
+            utf8
+                ? new Matcher(pattern, new Utf8InputScanner(input.getBytes(UTF_8)))
+                : pattern.matcher(input);
+        assertThat(matcher.find()).isTrue();
+        WorkCounter.StartAccelerationWork selection =
+            WorkCounter.countStartAccelerationForTesting(
+                () -> {
+                  assertThat(matcher.start()).isEqualTo(expected.start());
+                  assertThat(matcher.end()).isEqualTo(expected.end());
+                });
+        assertThat(selection.calls())
+            .as("bounds selection for /%s/ must reuse the candidate", scenario.regex())
+            .isZero();
+      }
+    }
+  }
+
+  @Test
   void guardedGapEntryPointsAvoidScanningDensePrefixCandidates() {
     String regex = "record:[^\\r\\n;]*val=200";
     String noise = "record:x;";

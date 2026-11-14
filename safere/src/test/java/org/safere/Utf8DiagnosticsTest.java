@@ -160,12 +160,12 @@ class Utf8DiagnosticsTest {
     Utf8Input input = input(present ? "prefix " + literal + " suffix" : "unrelated text");
 
     // With diagnostics disabled, lazy DFA creation proves the literal shortcut was bypassed.
-    assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
+    assertThat(pattern.getOrCreateThreadCache().forwardExistenceDfa).isNull();
     assertThat(pattern.find(input)).isEqualTo(present);
     if (literalFastPaths) {
-      assertThat(pattern.cachedForwardFirstMatchDfa()).isNull();
+      assertThat(pattern.getOrCreateThreadCache().forwardExistenceDfa).isNull();
     } else {
-      assertThat(pattern.cachedForwardFirstMatchDfa()).isNotNull();
+      assertThat(pattern.getOrCreateThreadCache().forwardExistenceDfa).isNotNull();
     }
 
     Pattern.setDiagnostics(diagnostics);

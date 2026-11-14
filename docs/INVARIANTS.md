@@ -58,10 +58,32 @@ are already unguarded paths, so the languages coincide. This proof permits
 `matches()` to publish the fixed whole-region bounds, but says nothing about
 which prioritized prefix, search result, or capture vector wins.
 
+Boolean searches may use this existence proof without choosing nullable-loop
+bounds. A matcher retains the original search lower bound and full assertion
+context until bounds, captures, or continuation require guarded selection. After
+that demand it never defers another unrestricted existence search, including
+across resets: a witness can lie beyond the preferred match, so repeating such
+passes for every short match would rescan overlapping suffixes. At most one
+additional linear pass precedes ordinary exact selection on that matcher.
+
 Capture results belong to the selected prioritized path. Losing paths must not
 leak their writes into that result. Compiler transformations involving nested,
 nullable, lazy, or bounded repetitions need capture-aware tests, including a
 suffix that forces the engine to abandon a path.
+
+An existence-only DFA can stop at any accepting state without selecting a
+preferred match. Existence and prioritized DFAs keep separate state caches so
+acceptance metadata cannot change prioritized results. For programs without
+progress registers, a matcher may defer selection after a bounded initial probe.
+The probe stops no later than the selected match's end. An inconclusive probe
+uses the normal selection pipeline once; its repeated prefix has a fixed maximum
+length. For progress-bearing programs, the nullable-loop existence proof above
+permits one additional unrestricted pass before exact selection is consumed.
+Both paths preserve the search lower bound and full assertion context and use
+the same deferred-selection state. An access requiring bounds (including
+continuation after `find()`) selects the match once through the ordinary exact
+pipeline and disables both kinds of deferral for that matcher, including across
+resets. Provisional witness endpoints must never become public bounds.
 
 Deferred extraction may fill unresolved captures for an already selected match.
 It must preserve match identity and use the same input, pattern, region, bounds,
