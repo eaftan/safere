@@ -83,7 +83,7 @@ class SmallAsciiClassSearchTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"[YZ]", "[XZ_]"})
+  @ValueSource(strings = {"[YZ]", "[XZ_]", "([XZ_])"})
   void utf8SearchHonorsMultibyteInputWindowsAndLimits(String regex) {
     String text = "é中😀".repeat(1000) + "_YXZ";
     byte[] storage = ("ZZ" + text + "ZZ").getBytes(UTF_8);
@@ -98,6 +98,10 @@ class SmallAsciiClassSearchTest {
       assertThat(actual.start())
           .isEqualTo(text.substring(0, expected.start()).getBytes(UTF_8).length);
       assertThat(actual.end()).isEqualTo(text.substring(0, expected.end()).getBytes(UTF_8).length);
+      if (actual.groupCount() > 0) {
+        assertThat(actual.start(1)).isEqualTo(actual.start());
+        assertThat(actual.end(1)).isEqualTo(actual.end());
+      }
       assertThat(new String(storage, 2 + actual.start(), actual.end() - actual.start(), UTF_8))
           .isEqualTo(expected.group());
     }

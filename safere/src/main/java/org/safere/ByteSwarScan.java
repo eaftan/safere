@@ -6,6 +6,7 @@
 package org.safere;
 
 import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.util.Objects.requireNonNull;
 import static org.safere.ByteScanBounds.lastLoadStart;
@@ -442,6 +443,57 @@ abstract class ByteSwarScan {
   }
 
   /**
+   * Matches two values that differ in one bit with one masked comparison, then the third value.
+   * Clearing exactly that differing bit admits exactly the two members, not a larger coarse set.
+   */
+  static int indexOfByteTripleWithPair(
+      byte[] bytes,
+      int offset,
+      int length,
+      byte first,
+      byte second,
+      byte third,
+      int start,
+      int difference) {
+    long mask = (~difference & 0xFFL) * BYTE_ONES;
+    long pairTarget = (first & ~difference & 0xFFL) * BYTE_ONES;
+    long thirdTarget = (third & 0xFFL) * BYTE_ONES;
+    int position = start;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long pairDifference = (word & mask) ^ pairTarget;
+      long thirdDifference = word ^ thirdTarget;
+      long matches =
+          (((pairDifference - BYTE_ONES) & ~pairDifference)
+                  | ((thirdDifference - BYTE_ONES) & ~thirdDifference))
+              & BYTE_HIGH_BITS;
+      if (matches != 0) {
+        if (nativeOrder() == LITTLE_ENDIAN) {
+          return position + (Long.numberOfTrailingZeros(matches) >>> 3);
+        }
+        return indexOfByteTripleScalar(
+            bytes, offset, position + Long.BYTES, first, second, third, position);
+      }
+      position += Long.BYTES;
+    }
+    return indexOfByteTripleScalar(bytes, offset, length, first, second, third, position);
+  }
+
+  /** Scalar fallback for big-endian word matches and short tails. */
+  private static int indexOfByteTripleScalar(
+      byte[] bytes, int offset, int length, byte first, byte second, byte third, int position) {
+    while (position < length) {
+      byte value = bytes[offset + position];
+      if (value == first || value == second || value == third) {
+        return position;
+      }
+      position++;
+    }
+    return -1;
+  }
+
+  /**
    * Searches for a byte in the inclusive ASCII range {@code [low, high]}.
    *
    * <p>The word filter compares the common binary prefix of the range endpoints across eight bytes
@@ -735,5 +787,33 @@ abstract class ByteSwarScan {
       }
     }
     return -1;
+  }
+
+  /**
+   * Skips leading non-ASCII blocks when at least 128 bytes remain. Skipped bytes cannot belong to
+   * an ASCII class; resuming exact scanning at the returned position overlaps at most 32 bytes.
+   */
+  static int skipNonAsciiBlocks(byte[] bytes, int offset, int length, int start) {
+    int position = start;
+    int prologueEnd = start + 2 * Long.BYTES;
+    while (position < prologueEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      if ((word & BYTE_HIGH_BITS) != BYTE_HIGH_BITS) {
+        return position;
+      }
+      position += Long.BYTES;
+    }
+    int blockEnd = lastLoadStart(length, 0, 4 * Long.BYTES);
+    while (position <= blockEnd) {
+      long highBits = (long) LONG_VIEW.get(bytes, offset + position);
+      highBits &= (long) LONG_VIEW.get(bytes, offset + position + Long.BYTES);
+      highBits &= (long) LONG_VIEW.get(bytes, offset + position + 2 * Long.BYTES);
+      highBits &= (long) LONG_VIEW.get(bytes, offset + position + 3 * Long.BYTES);
+      if ((highBits & BYTE_HIGH_BITS) != BYTE_HIGH_BITS) {
+        break;
+      }
+      position += 4 * Long.BYTES;
+    }
+    return position;
   }
 }
