@@ -109,6 +109,8 @@ for test_name in "${TESTS[@]}"; do
 done
 TESTS=("${RESOLVED_TESTS[@]}")
 
+safere_reserve_machine
+
 echo "=== Fuzz run configuration ==="
 echo "max_duration: $MAX_DURATION"
 echo "keep_going: $KEEP_GOING"

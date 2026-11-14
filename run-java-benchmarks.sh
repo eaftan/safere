@@ -209,6 +209,8 @@ if [ "$DECLARED" = true ]; then
   done
 fi
 
+safere_reserve_machine
+
 if [ "$MODE" = "first-compile" ]; then
   JMH_OPTS="$FIRST_COMPILE_OPTS"
   NO_FORK_JMH_OPTS="$FIRST_COMPILE_OPTS"

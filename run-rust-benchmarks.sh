@@ -14,6 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/tools/machine-lock.sh"
+safere_reserve_machine
 RUST_DIR="$SCRIPT_DIR/safere-benchmarks/rust"
 MANIFEST_FILE="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus/manifest.json"
 

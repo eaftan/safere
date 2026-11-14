@@ -108,6 +108,8 @@ if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi
 
+safere_reserve_machine
+
 mkdir -p "$OUTPUT_DIR"
 
 log() {

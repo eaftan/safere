@@ -26,6 +26,8 @@ if [ $# -ne 0 ]; then
   exit 2
 fi
 
+safere_reserve_machine
+
 if [ "$BUILD" = true ]; then
   mvn package \
     -pl safere-benchmarks -am \

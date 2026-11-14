@@ -61,7 +61,9 @@ streams, and exit status. Reservation messages go to stderr.
 All root `run-*-benchmarks.sh` scripts, `collect-benchmark-results.sh`,
 `materialize-benchmark-inputs.sh`, the branch comparison and benchmark configuration
 evaluation tools, and `safere-fuzz/scripts/run-fuzz-test.sh` reserve the machine
-automatically, including their build phases. Invoke other commands, including
+automatically, including their build phases.
+Supported help options and lightweight argument validation run before acquiring
+the reservation. Invoke other commands, including
 direct Maven, Java profiling, native builds, and external-project tests, through
 the runner explicitly. This is cooperative coordination: commands that bypass
 the runner can still interfere with measurements.

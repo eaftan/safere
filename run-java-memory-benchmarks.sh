@@ -114,6 +114,8 @@ if [ "$DECLARED" = true ]; then
   done
 fi
 
+safere_reserve_machine
+
 if [ "$MODE" = "smoke" ]; then
   JMH_OPTS="$SMOKE_OPTS"
   echo "=== Smoke-test mode (CI only) ==="

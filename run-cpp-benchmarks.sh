@@ -39,6 +39,8 @@ case "$ENGINE" in
     ;;
 esac
 
+safere_reserve_machine
+
 echo "=== Materializing shared benchmark inputs ==="
 "$SCRIPT_DIR/materialize-benchmark-inputs.sh"
 

@@ -114,6 +114,22 @@ class MachineRunTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "42")
         self.assertEqual(result.stderr.count("machine-run: running"), 1)
 
+    def test_shell_entry_point_survives_changing_directory_before_reserving(self):
+        source = self.directory / "source"
+        destination = self.directory / "destination"
+        source.mkdir()
+        destination.mkdir()
+        helper = ROOT / "tools" / "machine-lock.sh"
+        script = source / "entrypoint.sh"
+        script.write_text(
+            '#!/bin/bash\nset -euo pipefail\n'
+            f'source "{helper}"\ncd "{destination}"\n'
+            'safere_reserve_machine\nprintf "%s\\n" "$PWD" "$@"\nexit 23\n')
+        job = self.start(["/bin/bash", "./entrypoint.sh", "a b", ""], cwd=source)
+        stdout, stderr = job.communicate(timeout=10)
+        self.assertEqual(job.returncode, 23, stderr)
+        self.assertEqual(stdout, f"{destination}\na b\n\n")
+
     def test_context_from_another_process_group_cannot_bypass_the_lock(self):
         code = ("import os; print(os.environ['SAFERE_MACHINE_RUN_CONTEXT'], flush=True); "
                 "import sys; sys.stdin.read()")
@@ -174,7 +190,57 @@ class MachineRunTest(unittest.TestCase):
         self.assertEqual(owner.wait(timeout=10), 143)
         self.assertEqual(self.invoke(["--status"]).stdout.strip(), "machine-run: idle")
 
+    def test_help_and_argument_errors_do_not_wait_for_a_reservation(self):
+        cases = [
+            ("run-java-benchmarks.sh", ["--help"], 0, "Usage:"),
+            ("collect-benchmark-results.sh", ["--help"], 0, "Usage:"),
+            ("run-openjdk-regex-benchmarks.sh", ["--help"], 0, "Usage:"),
+            ("safere-fuzz/scripts/run-fuzz-test.sh", ["--help"], 0, "Usage:"),
+            ("safere-benchmarks/scripts/evaluate-java-benchmark-configs.py",
+             ["--help"], 0, "usage:"),
+            ("run-java-benchmarks.sh", ["--provider", "invalid"], 2, "requires"),
+            ("run-java-benchmarks.sh", ["--declared", "--", "-p", "x=y"],
+             2, "cannot be combined"),
+            ("run-java-memory-benchmarks.sh", ["--provider", "invalid"], 2, "requires"),
+            ("run-vector-benchmarks.sh", ["--provider", "invalid"], 2, "requires"),
+            ("run-cpp-benchmarks.sh", ["--engine", "invalid"], 2, "unknown"),
+            ("materialize-benchmark-inputs.sh", ["--unknown"], 2, "Usage:"),
+            ("collect-benchmark-results.sh", ["--output-dir"], 2, "requires"),
+            ("run-openjdk-regex-benchmarks.sh", ["--repo"], 2, "requires"),
+            ("safere-fuzz/scripts/run-fuzz-test.sh", ["--max-duration"], 2, "requires"),
+            ("safere-benchmarks/scripts/evaluate-java-benchmark-configs.py",
+             ["--repeats", "invalid"], 2, "invalid int"),
+        ]
+        with self.lock_path.open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            for entry, arguments, expected_status, message in cases:
+                with self.subTest(entry=entry, arguments=arguments):
+                    interpreter = sys.executable if entry.endswith(".py") else "/bin/bash"
+                    job = self.start([interpreter, str(ROOT / entry), *arguments], cwd=ROOT)
+                    try:
+                        stdout, stderr = job.communicate(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        job.terminate()
+                        job.communicate(timeout=5)
+                        self.fail("lightweight command waited for the machine reservation")
+                    self.assertEqual(job.returncode, expected_status, stderr)
+                    self.assertIn(message, stdout + stderr)
+                    self.assertNotIn("machine-run: waiting", stderr)
+
     def test_entry_points_wait_before_starting_any_work(self):
+        external = self.directory / "external-suite"
+        external.mkdir()
+        (external / "pom.xml").touch()
+        (external / "LICENSE").touch()
+        bin_dir = self.directory / "bin"
+        bin_dir.mkdir()
+        # Let the comparison's read-only checks pass without changing Git state.
+        git = bin_dir / "git"
+        git.write_text("#!/bin/bash\ncase \"$*\" in\n"
+                       "  'status --porcelain'|'diff --quiet '*) exit 0 ;;\n"
+                       "  *) echo stub-revision ;;\nesac\n")
+        git.chmod(0o755)
+        env = dict(self.env, PATH=str(bin_dir) + os.pathsep + os.environ["PATH"])
         entry_points = [
             "collect-benchmark-results.sh", "materialize-benchmark-inputs.sh",
             "run-java-benchmarks.sh", "run-java-memory-benchmarks.sh",
@@ -190,7 +256,10 @@ class MachineRunTest(unittest.TestCase):
             for entry in entry_points:
                 with self.subTest(entry=entry):
                     interpreter = sys.executable if entry.endswith(".py") else "/bin/bash"
-                    job = self.start([interpreter, str(ROOT / entry)], cwd=ROOT)
+                    arguments = ["--repo", str(external)] if entry == (
+                        "run-openjdk-regex-benchmarks.sh") else []
+                    job = self.start([interpreter, str(ROOT / entry), *arguments],
+                                     cwd=ROOT, env=env)
                     self.assertIn("waiting", self.line(job.stderr))
                     self.assertFalse(select.select([job.stdout], [], [], 0)[0])
                     job.terminate()

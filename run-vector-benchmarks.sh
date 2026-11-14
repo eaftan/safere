@@ -77,6 +77,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+safere_reserve_machine
+
 JAVA_FEATURE="$(java -XshowSettings:properties -version 2>&1 \
   | awk -F= '/java.specification.version/ {gsub(/ /, "", $2); print $2}')"
 if [ "$JAVA_FEATURE" -lt 21 ] || [ "$JAVA_FEATURE" -gt 26 ]; then

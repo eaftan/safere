@@ -92,6 +92,8 @@ if [[ ${#BENCHMARKS[@]} -eq 0 ]]; then
   BENCHMARKS=('org.safere.bench.openjdk.*')
 fi
 
+safere_reserve_machine
+
 SAFERE_VERSION="$(
   mvn help:evaluate \
     -Dexpression=project.version \

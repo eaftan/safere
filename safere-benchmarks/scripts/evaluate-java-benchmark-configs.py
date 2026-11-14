@@ -402,10 +402,6 @@ def summarize(output_dir: Path, configs: list[Config], tasks: list[Task], repeat
 
 
 def main() -> int:
-    runner = str(REPO_ROOT / "tools" / "machine-run")
-    if subprocess.run([runner, "--check"], check=False).returncode != 0:
-        os.execv(runner, [runner, "--label", Path(__file__).name, "--", sys.executable,
-                         str(Path(__file__).resolve()), *sys.argv[1:]])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configs", default="A0,A1,A2,B,C,D,E")
     parser.add_argument("--tasks", default="calibration")
@@ -418,6 +414,10 @@ def main() -> int:
 
     configs = selected_configs(args.configs)
     tasks = selected_tasks(args.tasks)
+    runner = str(REPO_ROOT / "tools" / "machine-run")
+    if subprocess.run([runner, "--check"], check=False).returncode != 0:
+        os.execv(runner, [runner, "--label", Path(__file__).name, "--", sys.executable,
+                         str(Path(__file__).resolve()), *sys.argv[1:]])
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
